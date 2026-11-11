@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.env
+*.env
+.turbo/
+*.log
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/agents/
+.review/
+.pr/
