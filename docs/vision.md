@@ -26,19 +26,20 @@ plus solide, n'a pas d'interface d'exploitation.
 
 ## Périmètre par priorité
 
-| Priorité | Charge |
-|---|---|
-| 1 | Mails |
-| 2 | Contacts |
-| 3 | OneDrive |
-| 4 | SharePoint (bibliothèques de documents) |
-| 5 | Canaux Teams |
-| 6 | Agenda |
-| plus tard | Chats Teams (opt-in), Entra ID |
+| Priorité  | Charge                                  |
+| --------- | --------------------------------------- |
+| 1         | Mails                                   |
+| 2         | Contacts                                |
+| 3         | OneDrive                                |
+| 4         | SharePoint (bibliothèques de documents) |
+| 5         | Canaux Teams                            |
+| 6         | Agenda                                  |
+| plus tard | Chats Teams (opt-in), Entra ID          |
 
 ## MVP (10 décembre 2026)
 
 Une console web, sur une seule machine, qui :
+
 1. liste les tenants, les charges et les instantanés de sauvegarde (via le SDK d'Atlas) ;
 2. permet de **chercher un mail** par expéditeur, objet ou date et de l'**exporter en EML** ;
 3. affiche l'état de la dernière sauvegarde par charge (succès, avertissements, âge) ;
@@ -49,12 +50,12 @@ Hors MVP : restauration vers le tenant, authentification Entra, multi-tenant, r�
 
 ## Rôles
 
-| Rôle | Qui | Responsabilité |
-|---|---|---|
-| Product Manager | humain | vision, priorités, acceptation des livraisons, promotion vers `main` |
-| Product Owner | Claude (session de pilotage) | backlog, issues avec critères d'acceptation, orchestration, bilan hebdomadaire |
-| Développement | agents Claude (conteneurs) | code, tests, documentation, PR vers `develop` |
-| Second avis | Gemini (Antigravity) | recherche, contre-revue, documentation Microsoft |
+| Rôle            | Qui                          | Responsabilité                                                                 |
+| --------------- | ---------------------------- | ------------------------------------------------------------------------------ |
+| Product Manager | humain                       | vision, priorités, acceptation des livraisons, promotion vers `main`           |
+| Product Owner   | Claude (session de pilotage) | backlog, issues avec critères d'acceptation, orchestration, bilan hebdomadaire |
+| Développement   | agents Claude (conteneurs)   | code, tests, documentation, PR vers `develop`                                  |
+| Second avis     | Gemini (Antigravity)         | recherche, contre-revue, documentation Microsoft                               |
 
 ## Mesures de l'expérience « autonomie »
 
