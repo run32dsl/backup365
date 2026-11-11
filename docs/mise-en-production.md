@@ -6,14 +6,14 @@ RSSI, DPO) et à conserver.
 
 ## 1. Cadre et responsabilités
 
-| Point | À renseigner |
-|---|---|
-| Responsable de traitement | l'organisation propriétaire du tenant |
+| Point                      | À renseigner                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| Responsable de traitement  | l'organisation propriétaire du tenant                                                            |
 | Opérateur de la sauvegarde | personne ou équipe, interne ou prestataire (contrat de sous-traitance, art. 28 RGPD, si externe) |
-| Finalité | continuité d'activité et restauration de données supprimées ou corrompues |
-| Base légale | intérêt légitime / obligation de sécurité (art. 32) ; à valider par le DPO |
-| Registre des traitements | entrée créée ou mise à jour |
-| AIPD | nécessaire si sauvegarde des boîtes de tous les salariés : à décider avec le DPO |
+| Finalité                   | continuité d'activité et restauration de données supprimées ou corrompues                        |
+| Base légale                | intérêt légitime / obligation de sécurité (art. 32) ; à valider par le DPO                       |
+| Registre des traitements   | entrée créée ou mise à jour                                                                      |
+| AIPD                       | nécessaire si sauvegarde des boîtes de tous les salariés : à décider avec le DPO                 |
 
 ## 2. Périmètre
 
@@ -62,7 +62,7 @@ l'application Entra, des identifiants, purge du stockage à l'issue de la réten
 ## 8. Validation
 
 | Rôle | Nom | Date | Accord |
-|---|---|---|---|
-| DSI | | | |
-| RSSI | | | |
-| DPO | | | |
+| ---- | --- | ---- | ------ |
+| DSI  |     |      |        |
+| RSSI |     |      |        |
+| DPO  |     |      |        |
