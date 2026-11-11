@@ -1,8 +1,9 @@
 import { createRequire } from 'node:module';
 import { buildApp, REDACTED_PATHS } from './app.js';
+import { parsePort } from './config.js';
 
 const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
-const port = Number(process.env['PORT'] ?? 3000);
+const port = parsePort(process.env['PORT']);
 const host = process.env['HOST'] ?? '127.0.0.1';
 
 const app = buildApp({
