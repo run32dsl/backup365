@@ -12,12 +12,18 @@ describe('GET /api/health', () => {
 
 describe('logger redaction', () => {
   it('never writes authorization or cookie values', async () => {
-    const lines: string[] = [];
-    const stream = { write: (line: string) => void lines.push(line) };
-    const app = buildApp({ version: '1.0.0', logger: { redact: REDACTED_PATHS, stream } });
-    app.log.info({ req: { headers: { authorization: 'Bearer s3cret', cookie: 'sid=s3cret' } } });
-    await app.close();
-    const output = lines.join('');
+    // Le sérialiseur req est neutralisé : seul `redact` protège ici.
+    const leak = async (redact: string[]): Promise<string> => {
+      const lines: string[] = [];
+      const stream = { write: (line: string) => void lines.push(line) };
+      const serializers = { req: (value: unknown) => value } as never;
+      const app = buildApp({ version: '1.0.0', logger: { redact, serializers, stream } });
+      app.log.info({ req: { headers: { authorization: 'Bearer s3cret', cookie: 'sid=s3cret' } } });
+      await app.close();
+      return lines.join('');
+    };
+    expect(await leak([])).toContain('s3cret');
+    const output = await leak(REDACTED_PATHS);
     expect(output).not.toContain('s3cret');
     expect(output).toContain('"level":30');
   });

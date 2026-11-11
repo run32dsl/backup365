@@ -7,3 +7,14 @@ export function parsePort(raw: string | undefined, fallback = 3000): number {
   }
   return port;
 }
+
+const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'];
+
+/** Lit un niveau de journal Pino ; lève une erreur explicite sinon. */
+export function parseLogLevel(raw: string | undefined, fallback = 'info'): string {
+  if (raw === undefined || raw === '') return fallback;
+  if (!LOG_LEVELS.includes(raw)) {
+    throw new Error(`LOG_LEVEL invalide : attendu ${LOG_LEVELS.join(', ')}`);
+  }
+  return raw;
+}

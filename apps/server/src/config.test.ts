@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePort } from './config.js';
+import { parseLogLevel, parsePort } from './config.js';
 
 describe('parsePort', () => {
   it('uses the default when unset or empty', () => {
@@ -12,5 +12,18 @@ describe('parsePort', () => {
   });
   it.each(['abc', '0', '65536', '-1', '80.5'])('rejects %s', (raw) => {
     expect(() => parsePort(raw)).toThrow('PORT invalide');
+  });
+});
+
+describe('parseLogLevel', () => {
+  it('uses the default when unset or empty', () => {
+    expect(parseLogLevel(undefined)).toBe('info');
+    expect(parseLogLevel('')).toBe('info');
+  });
+  it('accepts known levels', () => {
+    expect(parseLogLevel('debug')).toBe('debug');
+  });
+  it.each(['verbose', 'INFO', '3'])('rejects %s', (raw) => {
+    expect(() => parseLogLevel(raw)).toThrow('LOG_LEVEL invalide');
   });
 });
