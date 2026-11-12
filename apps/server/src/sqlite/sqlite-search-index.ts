@@ -140,6 +140,17 @@ export class SqliteSearchIndex implements SearchIndex {
     }
   }
 
+  getMail(mailboxId: string, messageId: string): Promise<IndexedMail | null> {
+    try {
+      const row = this.db
+        .prepare('SELECT * FROM mail_messages WHERE mailbox_id = ? AND message_id = ?')
+        .get(mailboxId, messageId) as MailRow | undefined;
+      return Promise.resolve(row ? toMail(row) : null);
+    } catch (err) {
+      return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+    }
+  }
+
   private runSearch(query: SearchQuery): SearchPage {
     const terms = [
       ...matchTerms(query.q ?? ''),
