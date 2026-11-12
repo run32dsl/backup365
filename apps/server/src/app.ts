@@ -28,7 +28,7 @@ export const SECURITY_HEADERS: Record<string, string> = {
 
 /** Construit l'application Fastify, sans écouter de port. */
 export function buildApp({ version, logger = false, catalog }: AppOptions): FastifyInstance {
-  const app = Fastify({ logger });
+  const app = Fastify({ logger, routerOptions: { maxParamLength: 512 } });
   app.addHook('onSend', (_req, reply, payload, done) => {
     void reply.headers(SECURITY_HEADERS);
     done(null, payload);

@@ -7,7 +7,8 @@ export function registerCatalogRoutes(app: FastifyInstance, catalog: BackupCatal
 
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof CatalogUnavailableError) {
-      app.log.error({ err }, 'catalog unavailable');
+      // Ni cause ni trace : le message du SDK peut contenir un nom de bucket.
+      app.log.error({ errorName: err.name }, 'catalog unavailable');
       return reply.code(503).send(unavailable);
     }
     throw err;

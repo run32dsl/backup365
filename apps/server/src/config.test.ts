@@ -28,6 +28,18 @@ describe('parseStorageConfig', () => {
   it('reads a full configuration with defaults', () => {
     expect(parseStorageConfig(full)).toMatchObject({ bucket: 'b', region: 'eu-west-3' });
   });
+  it('reads the optional endpoint and region', () => {
+    expect(
+      parseStorageConfig({
+        ...full,
+        BACKUP365_S3_ENDPOINT: 'https://s3.example.test',
+        BACKUP365_S3_REGION: 'r1',
+      }),
+    ).toMatchObject({ endpoint: 'https://s3.example.test', region: 'r1' });
+  });
+  it('rejects a configuration with only optional variables', () => {
+    expect(() => parseStorageConfig({ BACKUP365_S3_REGION: 'r1' })).toThrow('incomplète');
+  });
   it('names the missing variables without echoing values', () => {
     const run = (): unknown =>
       parseStorageConfig({ BACKUP365_S3_BUCKET: 'b', BACKUP365_S3_SECRET_ACCESS_KEY: 'topsecret' });

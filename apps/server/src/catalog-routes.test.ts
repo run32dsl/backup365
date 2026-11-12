@@ -66,8 +66,8 @@ describe('catalog routes', () => {
       method: 'GET',
       url: `/api/mailboxes/${'a'.repeat(257)}/snapshots`,
     });
-    // Fastify borne déjà la taille des paramètres de chemin : le routeur refuse (414).
-    expect(res.statusCode).toBe(414);
+    // La limite du routeur (512, app.ts) dépasse celle du schéma (256) : le schéma répond 400.
+    expect(res.statusCode).toBe(400);
   });
 
   it('keeps other errors as 500', async () => {

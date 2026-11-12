@@ -6,7 +6,8 @@ Statut : **proposé** (issue #3)
 
 La console doit lister boîtes et instantanés (vision, principe 3 : moindre privilège, mode
 lecture seule possible). Le SDK expose `listMailboxes`, `listSnapshots`, `getSnapshotDetail`
-et leurs équivalents par charge. Ces lectures portent sur le stockage S3 d'Atlas.
+et leurs équivalents par charge. On suppose, sans l'avoir vérifié (voir « Non vérifié »), que
+ces lectures portent sur le stockage S3 d'Atlas.
 
 ## Décision
 
@@ -20,8 +21,8 @@ et leurs équivalents par charge. Ces lectures portent sur le stockage S3 d'Atla
   `BACKUP365_ENCRYPTION_PASSPHRASE` (obligatoires), `BACKUP365_S3_ENDPOINT`,
   `BACKUP365_S3_REGION` (facultatives). Sans aucune de ces variables, le serveur démarre et
   les routes du catalogue répondent 503.
-- Objectif : **aucun identifiant Graph pour la lecture**. Le catalogue n'est pas instancié avec
-  une configuration Graph.
+- Hypothèse à vérifier : le SDK lit sans identifiant Graph. Le catalogue n'est pas instancié
+  avec une configuration Graph ; si la vérification échoue, cet ADR est amendé.
 - Les tests de contrat (`@backup365/core/testing`) sont rejouables sur tout adaptateur.
 
 ## Limites connues
