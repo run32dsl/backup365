@@ -3,6 +3,13 @@
 Les règles du projet (branches, fusion, sécurité, RGPD) sont dans [CLAUDE.md](CLAUDE.md) et
 priment sur ce document. Décisions d'architecture : [docs/adr/](docs/adr/).
 
+## Code écrit avec l'IA
+
+Une partie du code, des tests et de la documentation est écrite par des agents IA (Claude
+Code). Chaque PR est relue automatiquement, passe la CI et les critères d'acceptation de son
+issue, puis est validée par le mainteneur. Les contributions humaines suivent le même circuit.
+Les agents ne voient jamais de données réelles.
+
 ## Prérequis
 
 Node 22 et pnpm via corepack (`corepack enable`). Uniquement pnpm, jamais npm ni yarn.

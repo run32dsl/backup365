@@ -1,0 +1,19 @@
+name: Question
+description: Une question sur l'installation ou l'usage
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Si les Discussions sont activées, posez plutôt votre question là-bas. Ne collez aucune donnée
+        réelle (tenant, adresses, secrets).
+  - type: textarea
+    id: question
+    attributes:
+      label: Votre question
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Ce que vous avez déjà essayé
