@@ -27,7 +27,7 @@ que l'API, et les secrets du stockage n'existaient qu'en variables d'environneme
 
 ## Conséquences
 
-Installation en quelques commandes, sans Node ni pnpm sur l'hôte. Les images de base sont
-désignées par étiquette ; les épingler par digest (comme MinIO) demande un accès au registre et
-une mise à jour régulière : à décider par le Product Manager. Le serveur porte désormais un
+Installation en quelques commandes, sans Node ni pnpm sur l'hôte. Les images Node et MinIO sont
+épinglées par digest d'index multi-architecture (décision du PO du 2026-11-12, PR #32), sur des
+versions publiées depuis au moins une semaine ; leur mise à jour régulière reste à organiser. Le serveur porte désormais un
 petit service de fichiers statiques à maintenir ; une authentification reste à faire (hors MVP).
