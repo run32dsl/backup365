@@ -28,15 +28,35 @@ function encodeWord(value: string): string {
   const clean = headerValue(value);
   // eslint-disable-next-line no-control-regex
   if (/^[\x00-\x7f]*$/.test(clean)) return clean;
-  return `=?UTF-8?B?${Buffer.from(clean, 'utf8').toString('base64')}?=`;
+  // Mots de 75 caractères au plus (RFC 2047), coupés entre deux caractères, repliés par CRLF + espace.
+  const words: string[] = [];
+  let chunk = '';
+  for (const char of clean) {
+    if (Buffer.byteLength(chunk + char, 'utf8') > 45) {
+      words.push(chunk);
+      chunk = '';
+    }
+    chunk += char;
+  }
+  if (chunk !== '') words.push(chunk);
+  return words.map((w) => `=?UTF-8?B?${Buffer.from(w, 'utf8').toString('base64')}?=`).join('\r\n ');
 }
+
+/** Adresse sans espace ni caractère de syntaxe d'en-tête ; sinon l'entrée est ignorée. */
+const ADDRESS = /^[^\s<>",;()[\]\\]+@[^\s<>",;()[\]\\]+$/;
 
 function address(entry: GraphAddress): string | null {
   const addr = entry.emailAddress?.address;
-  if (typeof addr !== 'string' || addr.trim() === '') return null;
-  const name = typeof entry.emailAddress?.name === 'string' ? entry.emailAddress.name : '';
-  const bare = headerValue(addr).replace(/[<>"]/g, '');
-  return name === '' ? bare : `${encodeWord(name).replace(/["\\]/g, '')} <${bare}>`;
+  if (typeof addr !== 'string' || !ADDRESS.test(addr.trim())) return null;
+  const bare = addr.trim();
+  const name = headerValue(
+    typeof entry.emailAddress?.name === 'string' ? entry.emailAddress.name : '',
+  );
+  if (name === '') return bare;
+  // eslint-disable-next-line no-control-regex
+  const ascii = /^[\x00-\x7f]*$/.test(name);
+  const phrase = ascii ? `"${name.replace(/["\\]/g, '\\$&')}"` : encodeWord(name);
+  return `${phrase} <${bare}>`;
 }
 
 function addressList(value: unknown): string | null {

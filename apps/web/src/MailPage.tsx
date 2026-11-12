@@ -90,7 +90,11 @@ export function MailPage({ mailboxId, messageId }: { mailboxId: string; messageI
           <button type="submit" disabled={!isReasonValid(reason) || exporting === 'busy'}>
             Exporter en EML
           </button>
-          <p>Le motif est inscrit au journal d’audit avec l’export.</p>
+          <p>
+            Le motif est inscrit au journal d’audit avec l’export. Il ne doit pas contenir de
+            contenu de mail. Pour les sauvegardes anciennes (format JSON), le fichier est
+            reconstruit sans les pièces jointes.
+          </p>
           {exporting === 'done' && <p role="status">Export inscrit au journal.</p>}
           {exporting === 'error' && <p role="alert">Export refusé ou indisponible</p>}
         </form>

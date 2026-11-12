@@ -38,7 +38,7 @@ describe('toEml', () => {
     });
     const { headers, body } = parse(eml.bytes);
     expect(headers.get('to')).toBe('bob@example.test');
-    expect(headers.get('cc')).toBe('Carol <carol@example.test>');
+    expect(headers.get('cc')).toBe('"Carol" <carol@example.test>');
     expect(headers.get('date')).toBe('Thu, 01 Jan 2026 10:00:00 GMT');
     expect(headers.get('content-type')).toBe('text/html; charset=utf-8');
     expect(headers.get('mime-version')).toBe('1.0');
@@ -63,6 +63,29 @@ describe('toEml', () => {
     });
     const { headers } = parse(eml.bytes);
     expect(headers.has('bcc')).toBe(false);
+  });
+
+  it('quotes display names, drops invalid addresses and folds long encoded subjects', () => {
+    const eml = toEml({
+      format: 'graph-json',
+      raw: new Uint8Array(),
+      message: {
+        subject: 'é'.repeat(80),
+        from: { emailAddress: { name: 'Dupont, Jean', address: 'jean@example.test' } },
+        toRecipients: [
+          { emailAddress: { address: 'a@example.test, b@example.test' } },
+          { emailAddress: { address: 'c@example.test' } },
+        ],
+        body: { contentType: 'text', content: '' },
+      },
+      attachments: [],
+    });
+    const { headers } = parse(eml.bytes);
+    expect(headers.get('from')).toBe('"Dupont, Jean" <jean@example.test>');
+    expect(headers.get('to')).toBe('c@example.test');
+    const words = (headers.get('subject') ?? '').split(' ');
+    expect(words.length).toBeGreaterThan(1);
+    for (const w of words) expect(w.length).toBeLessThanOrEqual(75);
   });
 
   it('counts the attachments it cannot include', () => {

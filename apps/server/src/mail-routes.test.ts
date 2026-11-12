@@ -209,6 +209,33 @@ describe('POST /api/mails/:mailboxId/:messageId/export', () => {
     expect(t.events).toMatchObject([{ action: 'access.denied', reason: 'content_unavailable' }]);
   });
 
+  it('answers 400 without any body, and 404 / 422 when the content is missing or unusable', async () => {
+    const t = setup();
+    const app = await t.build();
+    const bare = await app.inject({ method: 'POST', url: exportUrl });
+    expect(bare.statusCode).toBe(400);
+    expect(t.events).toEqual([]);
+
+    const missing = setup({ content: { readMessage: () => Promise.resolve(null) } });
+    const res404 = await (
+      await missing.build()
+    ).inject({ method: 'POST', url: exportUrl, payload: { reason: 'Contrôle' } });
+    expect(res404.statusCode).toBe(404);
+    expect(missing.events).toMatchObject([{ reason: 'content_not_found' }]);
+
+    const broken = setup({
+      content: {
+        readMessage: () =>
+          Promise.resolve({ format: 'graph-json', raw: new Uint8Array(), attachments: [] }),
+      },
+    });
+    const res422 = await (
+      await broken.build()
+    ).inject({ method: 'POST', url: exportUrl, payload: { reason: 'Contrôle' } });
+    expect(res422.statusCode).toBe(422);
+    expect(broken.events).toMatchObject([{ reason: 'content_unsupported' }]);
+  });
+
   it('reconstructs the legacy Graph JSON format and flags omitted attachments', async () => {
     const content: MailContentReader = {
       readMessage: () =>
@@ -233,7 +260,7 @@ describe('POST /api/mails/:mailboxId/:messageId/export', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.headers['x-backup365-omitted-attachments']).toBe('1');
-    expect(res.body).toContain('From: Alice <alice@example.test>');
+    expect(res.body).toContain('From: "Alice" <alice@example.test>');
     expect(res.body).toContain('Subject: =?UTF-8?B?');
   });
 });
