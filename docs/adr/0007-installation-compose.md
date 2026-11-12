@@ -20,6 +20,10 @@ que l'API, et les secrets du stockage n'existaient qu'en variables d'environneme
 - `compose.yaml` : console et MinIO facultatif (profil `minio`, aucun port publié). Le port de la
   console n'est publié que sur 127.0.0.1, la console n'ayant pas d'authentification.
 - La CI construit l'image et vérifie qu'elle démarre (`/api/health`, interface servie).
+- Ce que l'image lance est assemblé par `createServer` (`server.ts`), `main.ts` n'ajoutant que
+  l'écoute : le démarrage sans stockage, l'environnement de `compose.yaml` et la copie
+  `VACUUM INTO` sont ainsi testés sans conteneur (`server.test.ts`, `delivery.test.ts`). Ces
+  tests ne remplacent pas le job `image`, seul à construire et démarrer l'image réelle.
 
 ## Conséquences
 
