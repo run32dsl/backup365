@@ -7,7 +7,7 @@ const core = (file: string): string =>
 export default defineConfig({
   resolve: {
     alias: [
-      { find: '@backup365/core/testing', replacement: core('catalog.contract.ts') },
+      { find: '@backup365/core/testing', replacement: core('testing.ts') },
       { find: '@backup365/core', replacement: core('index.ts') },
     ],
   },

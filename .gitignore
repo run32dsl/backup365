@@ -10,3 +10,8 @@ CLAUDE.local.md
 .claude/agents/
 .review/
 .pr/
+# Base de recherche (données personnelles)
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
