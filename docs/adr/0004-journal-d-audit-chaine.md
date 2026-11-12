@@ -48,6 +48,8 @@ MVP derrière un port de `packages/core`, avec PostgreSQL ensuite.
   élément. L'événement sera émis par la route d'export, qui demande d'abord un port de lecture
   de contenu. `item.open` est émis par `GET /api/snapshots/:id` (fiche d'un instantané), seule
   ouverture existante ; la fiche d'un mail attendra le même port de lecture.
+  _Note (ADR 0005, 2026-11-12) : cette limite est levée, `item.export` est désormais émis par
+  `POST /api/mails/:mailboxId/:messageId/export`, et `item.open` par la fiche d'un mail._
 - **Cohérence avec l'ADR 0002** (accepté) : les lectures de métadonnées du catalogue (`GET
 /api/mailboxes` et `GET /api/mailboxes/:id/snapshots`) ne passent pas par le journal d'audit et
   ne dépendent pas de lui (décision du PO) : elles répondent sans journal et ne consignent ni

@@ -1,6 +1,6 @@
 # ADR 0005 : recherche et export EML journalisé
 
-Statut : **proposé** (issue #6)
+Statut : **accepté** le 2026-11-12 par le Product Manager (issue #28) ; proposé à l'issue #6
 
 ## Contexte
 
@@ -20,7 +20,7 @@ l'index (métadonnées), l'ADR 0004 le journal d'audit ; ce dernier note que `it
 - `GET /api/mails/:mailboxId/:messageId` : fiche, consignée `item.open` (ressource `mail`, cible
   `boîte/message`).
 - `POST /api/mails/:mailboxId/:messageId/export`, corps `{ "reason": "…" }` : le **motif est
-  obligatoire** (3 à 500 caractères après suppression des espaces de bord, sans caractère de
+  obligatoire** (3 à 120 caractères après suppression des espaces de bord, sans caractère de
   contrôle), sinon 400 sans lecture ni consignation. L'événement `item.export` (qui : `actor`,
   quoi : `target`, quand : `at`, motif : `reason`) est inscrit **avant** l'envoi du fichier ;
   s'il échoue, rien n'est renvoyé. Sans journal : 503. Échecs (mail inconnu, contenu absent ou
@@ -32,13 +32,19 @@ l'index (métadonnées), l'ADR 0004 le journal d'audit ; ce dernier note que `it
   Ses pièces jointes ne sont pas incluses (le contenu n'est pas lu) : l'en-tête de réponse
   `X-Backup365-Omitted-Attachments` donne leur nombre et le fichier porte
   `X-Backup365-Reconstructed: graph-json`.
+- **Décision du PM (2026-11-12)** : le motif reste un texte libre, **limité** à 120 caractères
+  (le journal le conserve, lui, sans limite, en ajout seul). Le formulaire guide vers un
+  **numéro de ticket de l'outil de ticketing interne** : libellé « Motif de l'export »,
+  exemple `Ticket INC-12345`, et consigne « Indiquez de préférence le numéro du ticket interne.
+  N'y saisissez pas de donnée personnelle (nom, adresse, contenu du mail). »
 - Interface : écrans `#/search` (champ libre, boîte, plage de dates, résultats paginés) et
   `#/mail/<boîte>/<message>` (fiche, motif, bouton « Exporter en EML »).
 
 ## Limites connues
 
 - Le motif est du texte libre conservé tel quel dans un journal qu'on ne peut pas purger : la
-  consigne de ne pas y mettre de contenu de mail est affichée, non vérifiée.
+  consigne de ne pas y mettre de donnée personnelle est affichée, non vérifiée. La durée de
+  conservation du journal est **à fixer dans le registre RGPD**.
 - Rien ne remplit l'index en production (ADR 0003) : tant que l'indexation n'est pas branchée,
   la recherche ne renvoie rien.
 - Routes non authentifiées (`anonymous`, ADR 0002).

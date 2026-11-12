@@ -9,7 +9,7 @@ import { auditEvent, recordDenied } from './audit-events.js';
 import { toEml, EmlError } from './eml.js';
 
 export const MIN_REASON_LENGTH = 3;
-export const MAX_REASON_LENGTH = 500;
+export const MAX_REASON_LENGTH = 120;
 
 interface MailParams {
   mailboxId: string;
