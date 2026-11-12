@@ -18,3 +18,46 @@ export function parseLogLevel(raw: string | undefined, fallback = 'info'): strin
   }
   return raw;
 }
+
+export interface StorageConfig {
+  endpoint?: string;
+  region: string;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  /** Phrase de chiffrement des sauvegardes. Ne doit jamais être journalisée. */
+  encryptionPassphrase: string;
+}
+
+const STORAGE_REQUIRED = [
+  'BACKUP365_S3_BUCKET',
+  'BACKUP365_S3_ACCESS_KEY_ID',
+  'BACKUP365_S3_SECRET_ACCESS_KEY',
+  'BACKUP365_ENCRYPTION_PASSPHRASE',
+] as const;
+
+/**
+ * Lit la configuration du stockage S3 d'Atlas. Renvoie `undefined` si aucune variable n'est
+ * définie (console sans catalogue) ; lève une erreur qui nomme les variables manquantes si la
+ * configuration est partielle. Aucune valeur n'apparaît dans les messages.
+ */
+export function parseStorageConfig(
+  env: Record<string, string | undefined>,
+): StorageConfig | undefined {
+  const given = (name: string): string | undefined => (env[name] ? env[name] : undefined);
+  const names = [...STORAGE_REQUIRED, 'BACKUP365_S3_ENDPOINT', 'BACKUP365_S3_REGION'];
+  if (names.every((name) => !given(name))) return undefined;
+  const missing = STORAGE_REQUIRED.filter((name) => !given(name));
+  if (missing.length > 0) {
+    throw new Error(`Configuration du stockage incomplète : ${missing.join(', ')} manquant(s)`);
+  }
+  const endpoint = given('BACKUP365_S3_ENDPOINT');
+  return {
+    ...(endpoint ? { endpoint } : {}),
+    region: given('BACKUP365_S3_REGION') ?? 'eu-west-3',
+    bucket: given('BACKUP365_S3_BUCKET')!,
+    accessKeyId: given('BACKUP365_S3_ACCESS_KEY_ID')!,
+    secretAccessKey: given('BACKUP365_S3_SECRET_ACCESS_KEY')!,
+    encryptionPassphrase: given('BACKUP365_ENCRYPTION_PASSPHRASE')!,
+  };
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseLogLevel, parsePort } from './config.js';
+import { parseLogLevel, parsePort, parseStorageConfig } from './config.js';
 
 describe('parsePort', () => {
   it('uses the default when unset or empty', () => {
@@ -12,6 +12,27 @@ describe('parsePort', () => {
   });
   it.each(['abc', '0', '65536', '-1', '80.5'])('rejects %s', (raw) => {
     expect(() => parsePort(raw)).toThrow('PORT invalide');
+  });
+});
+
+describe('parseStorageConfig', () => {
+  const full = {
+    BACKUP365_S3_BUCKET: 'b',
+    BACKUP365_S3_ACCESS_KEY_ID: 'id',
+    BACKUP365_S3_SECRET_ACCESS_KEY: 'topsecret',
+    BACKUP365_ENCRYPTION_PASSPHRASE: 'phrase',
+  };
+  it('returns undefined when nothing is set', () => {
+    expect(parseStorageConfig({})).toBeUndefined();
+  });
+  it('reads a full configuration with defaults', () => {
+    expect(parseStorageConfig(full)).toMatchObject({ bucket: 'b', region: 'eu-west-3' });
+  });
+  it('names the missing variables without echoing values', () => {
+    const run = (): unknown =>
+      parseStorageConfig({ BACKUP365_S3_BUCKET: 'b', BACKUP365_S3_SECRET_ACCESS_KEY: 'topsecret' });
+    expect(run).toThrow('BACKUP365_S3_ACCESS_KEY_ID, BACKUP365_ENCRYPTION_PASSPHRASE');
+    expect(run).not.toThrow('topsecret');
   });
 });
 
