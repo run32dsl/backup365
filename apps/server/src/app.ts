@@ -6,6 +6,7 @@ import {
 } from '@backup365/core';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { registerAuditRoutes } from './audit-routes.js';
+import { sendError } from './errors.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
 import { registerSearchRoutes } from './search-routes.js';
 
@@ -62,6 +63,8 @@ export function buildApp({
     void reply.headers(SECURITY_HEADERS);
     done(null, payload);
   });
+  // Aucun message d'erreur interne (moteur SQLite, chemin) ne sort : 500 générique.
+  app.setErrorHandler((err, _req, reply) => sendError(err, reply));
   app.get('/api/health', () => healthResponse(version));
   // Plugin encapsulé : son gestionnaire d'erreurs ne touche pas le reste de l'application.
   void app.register((scope, _opts, done) => {

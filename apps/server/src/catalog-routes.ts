@@ -6,6 +6,13 @@ import {
 } from '@backup365/core';
 import type { FastifyInstance } from 'fastify';
 import { auditEvent, recordDenied } from './audit-events.js';
+import { sendError } from './errors.js';
+
+const RESOURCE_BY_ROUTE: Record<string, string> = {
+  '/api/mailboxes': 'mailboxes',
+  '/api/mailboxes/:id/snapshots': 'snapshots',
+  '/api/snapshots/:id': 'snapshot',
+};
 
 const id = { type: 'string', minLength: 1, maxLength: 256 } as const;
 const workload = { type: 'string', enum: [...WORKLOADS], default: 'mail' } as const;
@@ -28,10 +35,11 @@ export function registerCatalogRoutes(
     if (err instanceof CatalogUnavailableError) {
       // Ni cause ni trace : le message du SDK peut contenir un nom de bucket.
       app.log.error({ errorName: err.name }, 'catalog unavailable');
-      if (audit) await recordDenied(audit, req, 'catalog', 'catalog_unavailable');
+      const resource = RESOURCE_BY_ROUTE[req.routeOptions.url ?? ''] ?? 'catalog';
+      if (audit) await recordDenied(audit, req, resource, 'catalog_unavailable');
       return reply.code(503).send(unavailable);
     }
-    throw err;
+    return sendError(err, reply);
   });
 
   app.get('/api/mailboxes', async (req, reply) => {

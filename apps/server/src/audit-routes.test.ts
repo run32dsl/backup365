@@ -1,5 +1,6 @@
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { buildApp } from './app.js';
@@ -95,6 +96,34 @@ describe('audit verification command', () => {
     expect(await runAuditVerify(broken as never, (l) => lines.push(l))).toBe(1);
     expect(lines[0]).toContain('ALTÉRÉ');
     expect(lines[0]).toContain('2');
+  });
+
+  it('exits 0 then 1 through main on a real file', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'b365-'));
+    const lines: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((m: string) => void lines.push(m));
+    try {
+      const path = join(dir, 'audit.sqlite');
+      const log = SqliteAuditLog.open(path);
+      await log.record({
+        at: '2026-01-01T10:00:00.000Z',
+        actor: 'alice',
+        action: 'list.view',
+        resource: 'mailboxes',
+      });
+      log.close();
+      expect(await auditVerifyMain({ BACKUP365_DATA_DIR: dir })).toBe(0);
+      const db = new DatabaseSync(path);
+      db.exec('DROP TRIGGER audit_log_no_update');
+      db.exec("UPDATE audit_log SET actor = 'mallory'");
+      db.close();
+      expect(await auditVerifyMain({ BACKUP365_DATA_DIR: dir })).toBe(1);
+      expect(lines[0]).toContain('intact');
+      expect(lines[1]).toContain('ALTÉRÉ');
+    } finally {
+      spy.mockRestore();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('exits 2 without creating a database when the journal is missing', async () => {

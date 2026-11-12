@@ -58,8 +58,8 @@ describe('fetchAudit', () => {
       url = u;
       return Promise.resolve(Response.json({ total: 0, limit: 50, offset: 0, items: [] }));
     }) as unknown as typeof fetch;
-    await fetchAudit({ actor: 'alice', from: '', action: 'export' as never, limit: 50 }, fake);
-    expect(url).toBe('/api/audit?actor=alice&action=export&limit=50');
+    await fetchAudit({ actor: 'alice', from: '', action: 'item.export', limit: 50 }, fake);
+    expect(url).toBe('/api/audit?actor=alice&action=item.export&limit=50');
   });
 
   it('rejects on a non-2xx response', async () => {
