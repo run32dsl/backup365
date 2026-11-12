@@ -56,7 +56,8 @@ Graph volontairement faux) quelles lectures fonctionnent sans Graph.
 - Le détail d'un instantané OneDrive relit les instantanés de toutes les boîtes, en séquence et
   avec leurs manifests complets. Il ignore un propriétaire OneDrive sans sauvegarde mail (la
   liste des boîtes vient des manifests Outlook). Acceptable pour un petit parc, à remplacer si
-  le SDK expose un détail ou si le port accepte un `ownerId`.
+  le SDK expose un détail ou si le port accepte un `ownerId`. L'échec de lecture d'une seule boîte
+  fait échouer tout le détail (503), sans reprise partielle : choix assumé, par simplicité.
 - Le script d'installation de `core-js-pure` (dépendance transitive du SDK) est désactivé
   (`allowBuilds` dans `pnpm-workspace.yaml`) ; il n'affiche qu'une bannière.
 

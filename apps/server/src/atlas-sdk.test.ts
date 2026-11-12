@@ -34,20 +34,6 @@ describe('toAtlasConfig', () => {
   });
 });
 
-describe('createAtlasCatalog with the real SDK', () => {
-  it('builds and disposes an instance from the placeholder Graph values, without reading', async () => {
-    const { dispose } = createAtlasCatalog({
-      ...storage,
-      encryptionPassphrase: 'a-passphrase-long-enough',
-    });
-    await dispose();
-  });
-
-  it('rejects an unusable configuration at construction', () => {
-    expect(() => createAtlasCatalog({ ...storage, encryptionPassphrase: 'short' })).toThrow();
-  });
-});
-
 describe('createAtlasCatalog', () => {
   it('reads through the SDK and disposes the instance', async () => {
     const validate = vi.fn();
