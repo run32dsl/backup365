@@ -41,6 +41,7 @@ passe ; les deux premiers secrets sont alors l'identifiant et le mot de passe ra
 | `BACKUP365_S3_REGION`                                                                             | région S3 (`eu-west-3`)                              |
 | `BACKUP365_S3_ACCESS_KEY_ID`, `BACKUP365_S3_SECRET_ACCESS_KEY`, `BACKUP365_ENCRYPTION_PASSPHRASE` | secrets, **fournis par fichier** : variante `…_FILE` |
 | `BACKUP365_STATUS_MAX_AGE_HOURS`, `BACKUP365_STATUS_WORKLOADS`                                    | tableau de bord : seuil d'alerte (26 h), charges     |
+| `BACKUP365_CATALOG_CACHE_MINUTES`                                                                 | cache du recensement des sites SharePoint (60 min)   |
 | `BACKUP365_PORT`, `LOG_LEVEL`                                                                     | port publié sur 127.0.0.1 (3000), journal (`info`)   |
 | `BACKUP365_DATA_DIR`, `BACKUP365_WEB_DIR`                                                         | fixés par l'image (`/data`, `/app/web`)              |
 

@@ -6,8 +6,13 @@ export const DEFAULT_MAX_AGE_HOURS = 26;
 /** `ok` : instantané récent ; `stale` (« ancien ») : au-delà du seuil ; `missing` (« absent ») : aucun instantané. */
 export type BackupState = 'ok' | 'stale' | 'missing';
 
+/** Nature de la source : une boîte aux lettres ou un site SharePoint. */
+export type SourceKind = 'mailbox' | 'site';
+
 export interface StatusRow {
-  mailboxId: string;
+  kind: SourceKind;
+  /** Identifiant de la boîte ou du site. */
+  sourceId: string;
   displayName: string;
   workload: Workload;
   /** Date du dernier instantané (UTC, ISO 8601) ; `null` si absent. */
@@ -44,31 +49,58 @@ export function backupState(
   };
 }
 
-/** Calcule l'état de chaque boîte pour chaque charge suivie, à partir du catalogue (lecture seule). */
+/**
+ * Date du dernier instantané, quel que soit l'ordre (le port promet le plus récent en premier,
+ * on ne s'y fie pas pour une alerte). Les dates illisibles sont écartées : elles ne doivent pas
+ * masquer un instantané valide.
+ */
+function latest(snapshots: readonly { createdAt: string }[]): string | null {
+  return (
+    snapshots
+      .map((s) => s.createdAt)
+      .filter((d) => !Number.isNaN(Date.parse(d)))
+      .sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null
+  );
+}
+
+/**
+ * Calcule l'état de chaque source pour chaque charge suivie, à partir du catalogue (lecture
+ * seule). Les boîtes couvrent les charges autres que `sharepoint` ; les sites sauvegardés
+ * (`listSites`) ne sont lus que si `sharepoint` est suivie.
+ */
 export async function buildStatusReport(
   catalog: BackupCatalog,
   workloads: readonly Workload[],
   maxAgeHours: number,
   now: Date = new Date(),
 ): Promise<StatusReport> {
-  const mailboxes = await catalog.listMailboxes();
   const rows: StatusRow[] = [];
+  const add = (
+    kind: SourceKind,
+    source: { id: string; displayName: string },
+    workload: Workload,
+    snapshots: readonly { createdAt: string }[],
+  ) => {
+    const last = latest(snapshots);
+    rows.push({
+      kind,
+      sourceId: source.id,
+      displayName: source.displayName,
+      workload,
+      lastSnapshotAt: last,
+      ...backupState(last, now, maxAgeHours),
+    });
+  };
+  const mailWorkloads = workloads.filter((w) => w !== 'sharepoint');
+  const mailboxes = mailWorkloads.length > 0 ? await catalog.listMailboxes() : [];
   for (const mailbox of mailboxes) {
-    for (const workload of workloads) {
-      const snapshots = await catalog.listSnapshots(mailbox.id, workload);
-      // Le port promet le plus récent en premier ; on ne s'y fie pas pour une alerte.
-      // Les dates illisibles sont écartées : elles ne doivent pas masquer un instantané valide.
-      const last = snapshots
-        .map((s) => s.createdAt)
-        .filter((d) => !Number.isNaN(Date.parse(d)))
-        .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
-      rows.push({
-        mailboxId: mailbox.id,
-        displayName: mailbox.displayName,
-        workload,
-        lastSnapshotAt: last ?? null,
-        ...backupState(last ?? null, now, maxAgeHours),
-      });
+    for (const workload of mailWorkloads) {
+      add('mailbox', mailbox, workload, await catalog.listSnapshots(mailbox.id, workload));
+    }
+  }
+  if (workloads.includes('sharepoint')) {
+    for (const site of await catalog.listSites()) {
+      add('site', site, 'sharepoint', await catalog.listSiteSnapshots(site.id));
     }
   }
   return {

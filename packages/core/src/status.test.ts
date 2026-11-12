@@ -43,7 +43,7 @@ describe('buildStatusReport', () => {
 
   it('reports one row per mailbox and workload, with the latest snapshot', async () => {
     const report = await buildStatusReport(catalog, ['mail', 'onedrive'], 26, now);
-    expect(report.rows.map((r) => [r.mailboxId, r.workload, r.state, r.ageHours])).toEqual([
+    expect(report.rows.map((r) => [r.sourceId, r.workload, r.state, r.ageHours])).toEqual([
       ['a', 'mail', 'ok', 6],
       ['a', 'onedrive', 'stale', 78],
       ['b', 'mail', 'ok', 4],
@@ -68,6 +68,8 @@ describe('buildStatusReport', () => {
           { id: '3', workload: 'mail', createdAt: '2026-11-12T06:00:00Z' },
         ]),
       getSnapshotDetail: () => Promise.resolve(null),
+      listSites: () => Promise.resolve([]),
+      listSiteSnapshots: () => Promise.resolve([]),
     } as unknown as BackupCatalog;
     const report = await buildStatusReport(messy, ['mail'], 26, now);
     expect(report.rows[0]).toMatchObject({ lastSnapshotAt: '2026-11-12T06:00:00Z', state: 'ok' });
@@ -79,5 +81,30 @@ describe('buildStatusReport', () => {
       alertCount: 0,
       rows: [],
     });
+  });
+
+  it('reports backed-up SharePoint sites when sharepoint is tracked, and only then', async () => {
+    const withSites = new FakeBackupCatalog({
+      mailboxes: [{ id: 'a', displayName: 'Boîte A' }],
+      sites: [
+        { id: 'x,1', displayName: 'Site X' },
+        { id: 'y,2', displayName: 'Site Y' },
+        { id: 'z,3', displayName: 'Site Z' },
+      ],
+      snapshots: {
+        'x,1': [{ id: 'p1', workload: 'sharepoint', createdAt: '2026-11-12T06:00:00Z' }],
+        'y,2': [{ id: 'p2', workload: 'sharepoint', createdAt: '2026-11-01T06:00:00Z' }],
+      },
+    });
+    const report = await buildStatusReport(withSites, ['mail', 'sharepoint'], 26, now);
+    expect(report.rows.map((r) => [r.kind, r.sourceId, r.workload, r.state])).toEqual([
+      ['mailbox', 'a', 'mail', 'missing'],
+      ['site', 'x,1', 'sharepoint', 'ok'],
+      ['site', 'y,2', 'sharepoint', 'stale'],
+      ['site', 'z,3', 'sharepoint', 'missing'],
+    ]);
+    expect(report.alertCount).toBe(3);
+    const without = await buildStatusReport(withSites, ['mail'], 26, now);
+    expect(without.rows.map((r) => r.kind)).toEqual(['mailbox']);
   });
 });

@@ -1,4 +1,4 @@
-import type { BackupState, StatusReport } from '@backup365/core';
+import type { BackupState, SourceKind, StatusReport } from '@backup365/core';
 
 /** État du chargement du tableau de bord. */
 export type StatusState = StatusReport | 'loading' | 'error';
@@ -9,7 +9,9 @@ const STATE_LABELS: Record<BackupState, string> = {
   missing: 'absent',
 };
 
-/** Synthèse puis tableau par boîte et par charge ; l'état est écrit en toutes lettres (pas la couleur seule). */
+const KIND_LABELS: Record<SourceKind, string> = { mailbox: 'boîte', site: 'site SharePoint' };
+
+/** Synthèse puis tableau par boîte ou site et par charge ; l'état est écrit en toutes lettres (pas la couleur seule). */
 export function StatusView({ state }: { state: StatusState }) {
   if (state === 'loading') return <p role="status">Chargement de l’état des sauvegardes…</p>;
   if (state === 'error') return <p role="alert">État des sauvegardes indisponible</p>;
@@ -20,12 +22,13 @@ export function StatusView({ state }: { state: StatusState }) {
         (seuil : {state.maxAgeHours} h)
       </p>
       {state.rows.length === 0 ? (
-        <p>Aucune boîte sauvegardée.</p>
+        <p>Aucune boîte ni site sauvegardé.</p>
       ) : (
         <table>
           <thead>
             <tr>
-              <th>Boîte</th>
+              <th>Source</th>
+              <th>Type</th>
               <th>Charge</th>
               <th>Dernier instantané (UTC)</th>
               <th>Âge (h)</th>
@@ -34,8 +37,9 @@ export function StatusView({ state }: { state: StatusState }) {
           </thead>
           <tbody>
             {state.rows.map((row) => (
-              <tr key={`${row.mailboxId}/${row.workload}`}>
+              <tr key={`${row.kind}/${row.sourceId}/${row.workload}`}>
                 <td>{row.displayName}</td>
+                <td>{KIND_LABELS[row.kind]}</td>
                 <td>{row.workload}</td>
                 <td>{row.lastSnapshotAt ?? '—'}</td>
                 <td>{row.ageHours ?? '—'}</td>

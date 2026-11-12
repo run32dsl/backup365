@@ -12,6 +12,12 @@ export interface Mailbox {
   displayName: string;
 }
 
+/** Site SharePoint sauvegardé. L'identifiant est opaque. */
+export interface Site {
+  id: string;
+  displayName: string;
+}
+
 export interface Snapshot {
   id: string;
   workload: Workload;
@@ -36,6 +42,10 @@ export interface BackupCatalog {
   listMailboxes(): Promise<Mailbox[]>;
   /** Instantanés d'une boîte pour une charge, du plus récent au plus ancien. */
   listSnapshots(mailboxId: string, workload: Workload): Promise<Snapshot[]>;
+  /** Sites SharePoint dont une sauvegarde existe (et non tous les sites du tenant). */
+  listSites(): Promise<Site[]>;
+  /** Instantanés `sharepoint` d'un site, du plus récent au plus ancien. */
+  listSiteSnapshots(siteId: string): Promise<Snapshot[]>;
   /** `null` si l'instantané n'existe pas. */
   getSnapshotDetail(workload: Workload, snapshotId: string): Promise<SnapshotDetail | null>;
 }

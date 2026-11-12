@@ -5,6 +5,7 @@ export {
   isWorkload,
   type BackupCatalog,
   type Mailbox,
+  type Site,
   type Snapshot,
   type SnapshotDetail,
   type Workload,
@@ -14,6 +15,7 @@ export {
   backupState,
   buildStatusReport,
   type BackupState,
+  type SourceKind,
   type StatusReport,
   type StatusRow,
 } from './status.js';

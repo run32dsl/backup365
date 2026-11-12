@@ -69,7 +69,7 @@ export function buildApp({
   searchIndex,
   mailContent,
   audit,
-  status = { maxAgeHours: DEFAULT_MAX_AGE_HOURS, workloads: ['mail', 'onedrive'] },
+  status = { maxAgeHours: DEFAULT_MAX_AGE_HOURS, workloads: ['mail', 'onedrive', 'sharepoint'] },
   webDir,
 }: AppOptions): FastifyInstance {
   const app = Fastify({ logger, routerOptions: { maxParamLength: 512 } });
