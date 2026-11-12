@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -41,6 +41,48 @@ describe('SqliteSearchIndex storage', () => {
     expect(await second.isSnapshotIndexed('snap')).toBe(true);
     expect(await second.search({ limit: 10, offset: 0 })).toMatchObject({ total: 1 });
     second.close();
+  });
+
+  it('creates the folder and database files readable by the owner only', async () => {
+    const path = join(dir, 'prive', 'search.sqlite');
+    const index = SqliteSearchIndex.open(path);
+    await index.indexSnapshot('mbx', 'snap', [mail('m1')]);
+    expect(statSync(join(dir, 'prive')).mode & 0o777).toBe(0o700);
+    for (const file of [path, `${path}-wal`, `${path}-shm`]) {
+      expect(statSync(file).mode & 0o077, file).toBe(0);
+    }
+    index.close();
+  });
+
+  it('counts only the messages added by a snapshot', async () => {
+    const path = join(dir, 'count', 'search.sqlite');
+    const index = SqliteSearchIndex.open(path);
+    await index.indexSnapshot('mbx', 's1', [mail('m1'), mail('m2')]);
+    await index.indexSnapshot('mbx', 's2', [mail('m2'), mail('m3')]);
+    index.close();
+    const db = new DatabaseSync(path);
+    const rows = db
+      .prepare('SELECT snapshot_id, message_count FROM indexed_snapshots ORDER BY snapshot_id')
+      .all();
+    db.close();
+    expect(rows.map((r) => ({ ...r }))).toEqual([
+      { snapshot_id: 's1', message_count: 2 },
+      { snapshot_id: 's2', message_count: 1 },
+    ]);
+  });
+
+  it('leaves no transaction open when a statement fails after BEGIN', async () => {
+    const path = join(dir, 'tx', 'search.sqlite');
+    const index = SqliteSearchIndex.open(path);
+    const other = new DatabaseSync(path);
+    other.exec('ALTER TABLE indexed_snapshots RENAME TO indexed_snapshots_off');
+    await expect(index.indexSnapshot('mbx', 'snap', [mail('m1')])).rejects.toThrow();
+    // Une transaction restée ouverte verrouillerait la base pour l'autre connexion.
+    other.exec('ALTER TABLE indexed_snapshots_off RENAME TO indexed_snapshots');
+    other.close();
+    await index.indexSnapshot('mbx', 'snap', [mail('m1')]);
+    expect(await index.isSnapshotIndexed('snap')).toBe(true);
+    index.close();
   });
 
   it('rejects an invalid date without indexing anything', async () => {

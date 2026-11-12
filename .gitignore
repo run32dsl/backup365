@@ -11,7 +11,7 @@ CLAUDE.local.md
 .review/
 .pr/
 # Base de recherche (données personnelles)
-data/
+/data/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm

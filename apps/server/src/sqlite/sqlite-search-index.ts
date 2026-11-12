@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs';
+import { chmodSync, closeSync, mkdirSync, openSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type {
@@ -59,7 +59,12 @@ export class SqliteSearchIndex implements SearchIndex {
 
   /** Ouvre (et crée au besoin) la base ; `:memory:` pour les tests. */
   static open(path: string): SqliteSearchIndex {
-    if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
+    if (path !== ':memory:') {
+      // La base contient des données personnelles : dossier 0700, fichier 0600 (WAL/SHM en héritent).
+      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+      closeSync(openSync(path, 'a', 0o600));
+      chmodSync(path, 0o600);
+    }
     const db = new DatabaseSync(path);
     try {
       db.exec('PRAGMA busy_timeout = 5000');
@@ -88,11 +93,11 @@ export class SqliteSearchIndex implements SearchIndex {
     try {
       // Réindexer un instantané déjà indexé est sans effet (reprise, déclenchements concurrents).
       db.exec('BEGIN IMMEDIATE');
-      if (db.prepare('SELECT 1 FROM indexed_snapshots WHERE snapshot_id = ?').get(snapshotId)) {
-        db.exec('ROLLBACK');
-        return Promise.resolve();
-      }
       try {
+        if (db.prepare('SELECT 1 FROM indexed_snapshots WHERE snapshot_id = ?').get(snapshotId)) {
+          db.exec('ROLLBACK');
+          return Promise.resolve();
+        }
         const insert = db.prepare(
           `INSERT OR IGNORE INTO mail_messages
              (mailbox_id, message_id, snapshot_id, sender, recipients, subject, sent_at, folder, size, attachments)
@@ -101,6 +106,7 @@ export class SqliteSearchIndex implements SearchIndex {
         const insertFts = db.prepare(
           'INSERT INTO mail_fts (rowid, sender, recipients, subject, folder, attachments) VALUES (?, ?, ?, ?, ?, ?)',
         );
+        let added = 0;
         for (const m of mails) {
           if (!Number.isInteger(m.size) || m.size < 0) throw new RangeError('size invalide');
           const result = insert.run(
@@ -116,6 +122,7 @@ export class SqliteSearchIndex implements SearchIndex {
             JSON.stringify(m.attachments),
           );
           if (result.changes > 0) {
+            added += 1;
             insertFts.run(
               result.lastInsertRowid,
               m.sender,
@@ -126,12 +133,13 @@ export class SqliteSearchIndex implements SearchIndex {
             );
           }
         }
+        // message_count = messages nouveaux apportés par cet instantané (doublons ignorés).
         db.prepare(
           'INSERT INTO indexed_snapshots (snapshot_id, mailbox_id, message_count, indexed_at) VALUES (?, ?, ?, ?)',
-        ).run(snapshotId, mailboxId, mails.length, new Date().toISOString());
+        ).run(snapshotId, mailboxId, added, new Date().toISOString());
         db.exec('COMMIT');
       } catch (err) {
-        db.exec('ROLLBACK');
+        if (db.isTransaction) db.exec('ROLLBACK');
         throw err;
       }
     } catch (err) {
