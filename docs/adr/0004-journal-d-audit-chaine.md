@@ -1,6 +1,6 @@
 # ADR 0004 : journal d'audit chaîné (SQLite)
 
-Statut : **proposé**
+Statut : **accepté** le 2026-11-12 par le Product Manager (issue #23)
 
 ## Contexte
 
