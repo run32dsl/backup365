@@ -41,7 +41,7 @@ export function registerCatalogRoutes(
     return sendError(err, reply);
   });
 
-  app.get('/api/mailboxes', async (req, reply) => {
+  app.get('/api/mailboxes', async (_req, reply) => {
     if (!catalog) return reply.code(503).send(unavailable);
     const mailboxes = await catalog.listMailboxes();
     return { mailboxes };
