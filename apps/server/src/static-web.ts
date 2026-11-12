@@ -41,7 +41,14 @@ export function registerWebRoutes(app: FastifyInstance, webDir: string): void {
   const index = files.get('/index.html');
   if (!index) throw new Error('BACKUP365_WEB_DIR sans index.html');
   app.setNotFoundHandler((req, reply) => {
-    const path = req.url.split('?')[0] ?? '/';
+    const rawPath = req.url.split('?')[0] ?? '/';
+    let path: string;
+    try {
+      // Les noms de fichiers à caractères encodés (espace, accent) doivent être retrouvés.
+      path = decodeURIComponent(rawPath);
+    } catch {
+      return reply.code(404).send({ error: 'not_found' });
+    }
     if (
       (req.method !== 'GET' && req.method !== 'HEAD') ||
       path === '/api' ||

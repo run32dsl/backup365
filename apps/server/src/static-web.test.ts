@@ -11,6 +11,7 @@ beforeEach(() => {
   writeFileSync(join(dir, 'index.html'), '<div id="root"></div>');
   writeFileSync(join(dir, 'assets', 'app.js'), 'console.log(1)');
   writeFileSync(join(dir, 'notes.txt'), 'non servi');
+  writeFileSync(join(dir, 'assets', 'mon fichier é.js'), 'console.log(2)');
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -33,6 +34,13 @@ describe('interface statique', () => {
     expect((await app.inject('/statut')).body).toContain('id="root"');
     expect((await app.inject('/notes.txt')).statusCode).toBe(404);
     expect((await app.inject('/assets/ancien.js')).statusCode).toBe(404);
+  });
+  it('decodes the path before looking the file up', async () => {
+    const app = buildApp({ version: 't', webDir: dir });
+    const res = await app.inject('/assets/mon%20fichier%20%C3%A9.js');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toBe('console.log(2)');
+    expect((await app.inject('/assets/%E0%A4%A.js')).statusCode).toBe(400);
   });
   it('answers HEAD on the root', async () => {
     const res = await buildApp({ version: 't', webDir: dir }).inject({ method: 'HEAD', url: '/' });
