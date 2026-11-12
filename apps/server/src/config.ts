@@ -76,6 +76,38 @@ const STORAGE_REQUIRED = [
   'BACKUP365_ENCRYPTION_PASSPHRASE',
 ] as const;
 
+/** Variables de stockage qui acceptent une variante `<NOM>_FILE` (secret monté en fichier). */
+const SECRET_FILE_TARGETS = [
+  'BACKUP365_S3_ACCESS_KEY_ID',
+  'BACKUP365_S3_SECRET_ACCESS_KEY',
+  'BACKUP365_ENCRYPTION_PASSPHRASE',
+] as const;
+
+/**
+ * Complète l'environnement avec les secrets montés en fichiers : `<NOM>_FILE` désigne un fichier
+ * dont le contenu (sans fin de ligne finale) devient `<NOM>`. `<NOM>` et `<NOM>_FILE` ensemble
+ * sont refusés. Les erreurs nomment la variable, jamais le chemin ni le contenu.
+ */
+export function withSecretFiles(
+  env: Record<string, string | undefined>,
+  readFile: (path: string) => string,
+): Record<string, string | undefined> {
+  const result = { ...env };
+  for (const name of SECRET_FILE_TARGETS) {
+    const path = env[`${name}_FILE`];
+    if (!path) continue;
+    if (env[name]) throw new Error(`${name} et ${name}_FILE sont exclusifs`);
+    let content: string;
+    try {
+      content = readFile(path);
+    } catch {
+      throw new Error(`${name}_FILE illisible`);
+    }
+    result[name] = content.replace(/\r?\n$/, '');
+  }
+  return result;
+}
+
 /**
  * Lit la configuration du stockage S3 d'Atlas. Renvoie `undefined` si aucune variable n'est
  * définie (console sans catalogue) ; lève une erreur qui nomme les variables manquantes si la

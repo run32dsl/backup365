@@ -1,5 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import { parseDataDir, parseLogLevel, parsePort, parseStorageConfig } from './config.js';
+import {
+  parseDataDir,
+  parseLogLevel,
+  parsePort,
+  parseStorageConfig,
+  withSecretFiles,
+} from './config.js';
+
+describe('withSecretFiles', () => {
+  const files: Record<string, string> = { '/run/secrets/pass': 'une-phrase-de-test\n' };
+  const read = (path: string): string => {
+    const content = files[path];
+    if (content === undefined) throw new Error(`ENOENT ${path}`);
+    return content;
+  };
+
+  it('fills the variable from the file, without the trailing newline', () => {
+    const env = withSecretFiles(
+      { BACKUP365_ENCRYPTION_PASSPHRASE_FILE: '/run/secrets/pass' },
+      read,
+    );
+    expect(env['BACKUP365_ENCRYPTION_PASSPHRASE']).toBe('une-phrase-de-test');
+  });
+  it('leaves the environment alone without _FILE variables', () => {
+    expect(withSecretFiles({ PORT: '80' }, read)).toEqual({ PORT: '80' });
+  });
+  it('rejects a variable given both directly and by file', () => {
+    const env = {
+      BACKUP365_ENCRYPTION_PASSPHRASE: 'x',
+      BACKUP365_ENCRYPTION_PASSPHRASE_FILE: '/run/secrets/pass',
+    };
+    expect(() => withSecretFiles(env, read)).toThrow('exclusifs');
+  });
+  it('names the variable, never the path, when the file is unreadable', () => {
+    const run = () =>
+      withSecretFiles({ BACKUP365_S3_SECRET_ACCESS_KEY_FILE: '/chemin-secret' }, read);
+    expect(run).toThrow('BACKUP365_S3_SECRET_ACCESS_KEY_FILE illisible');
+    expect(run).not.toThrow('/chemin-secret');
+  });
+});
 
 describe('parsePort', () => {
   it('uses the default when unset or empty', () => {

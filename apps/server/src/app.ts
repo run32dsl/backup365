@@ -12,6 +12,7 @@ import { sendError } from './errors.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
 import { registerMailRoutes } from './mail-routes.js';
 import { registerSearchRoutes } from './search-routes.js';
+import { registerWebRoutes } from './static-web.js';
 import { registerStatusRoutes, type StatusOptions } from './status-routes.js';
 
 export interface AppOptions {
@@ -27,6 +28,8 @@ export interface AppOptions {
   audit?: AuditLog;
   /** Seuil et charges du tableau de bord ; 26 h, mail et OneDrive par défaut. */
   status?: StatusOptions;
+  /** Dossier de l'interface construite ; sans lui, seule l'API répond. */
+  webDir?: string;
 }
 
 /** Champs jamais écrits dans le journal (secrets, jetons, cookies). */
@@ -67,10 +70,15 @@ export function buildApp({
   mailContent,
   audit,
   status = { maxAgeHours: DEFAULT_MAX_AGE_HOURS, workloads: ['mail', 'onedrive'] },
+  webDir,
 }: AppOptions): FastifyInstance {
   const app = Fastify({ logger, routerOptions: { maxParamLength: 512 } });
   app.addHook('onSend', (_req, reply, payload, done) => {
-    void reply.headers(SECURITY_HEADERS);
+    // La politique propre aux pages de l'interface (static-web.ts) l'emporte sur celle de l'API.
+    const own = reply.getHeader('content-security-policy');
+    void reply.headers(
+      own ? { ...SECURITY_HEADERS, 'content-security-policy': own } : SECURITY_HEADERS,
+    );
     done(null, payload);
   });
   // Aucun message d'erreur interne (moteur SQLite, chemin) ne sort : 500 générique.
@@ -94,5 +102,6 @@ export function buildApp({
     registerMailRoutes(scope, searchIndex, mailContent, audit);
     done();
   });
+  if (webDir) registerWebRoutes(app, webDir);
   return app;
 }

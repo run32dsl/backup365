@@ -24,7 +24,9 @@ sont épinglées par SHA : pour les mettre à jour, changer le SHA et le comment
 ensemble. En développement : `pnpm --filter
 @backup365/server start` après un build (port 3000, variables `PORT`, `HOST`, `LOG_LEVEL`, `BACKUP365_DATA_DIR` pour le dossier des bases (`search.sqlite`, reconstructible, et `audit.sqlite`, journal d'audit à conserver), `./data` par défaut ; catalogue : `BACKUP365_TENANT_ID`, `BACKUP365_S3_ENDPOINT`,
 `BACKUP365_S3_ACCESS_KEY_ID`, `BACKUP365_S3_SECRET_ACCESS_KEY`, `BACKUP365_ENCRYPTION_PASSPHRASE`,
-`BACKUP365_S3_REGION` facultative, voir l'ADR 0002) et
+`BACKUP365_S3_REGION` facultative, voir l'ADR 0002 ; chaque secret accepte une variante `_FILE`,
+voir [docs/installation.md](docs/installation.md) ; `BACKUP365_WEB_DIR` fait servir l'interface
+construite par le serveur, voir l'ADR 0007) et
 `pnpm --filter @backup365/web dev` (proxy `/api` vers le serveur).
 
 ## Conventions

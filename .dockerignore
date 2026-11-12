@@ -1,0 +1,12 @@
+.git
+node_modules
+**/node_modules
+**/dist
+data
+.env
+*.env
+secrets
+.pr
+.review
+.claude
+CLAUDE.local.md
