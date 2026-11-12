@@ -11,6 +11,7 @@ import { registerAuditRoutes } from './audit-routes.js';
 import { sendError } from './errors.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
 import { registerMailRoutes } from './mail-routes.js';
+import type { SearchIndexer } from './search-indexer.js';
 import { registerSearchRoutes } from './search-routes.js';
 import { registerWebRoutes } from './static-web.js';
 import { registerStatusRoutes, type StatusOptions } from './status-routes.js';
@@ -26,6 +27,8 @@ export interface AppOptions {
   mailContent?: MailContentReader;
   /** Journal d'audit ; sans lui, les routes qui renvoient des éléments sauvegardés répondent 503. */
   audit?: AuditLog;
+  /** Indexation en arrière-plan ; son état figure dans `/api/status`. */
+  indexer?: SearchIndexer;
   /** Seuil et charges du tableau de bord ; 26 h, mail et OneDrive par défaut. */
   status?: StatusOptions;
   /** Dossier de l'interface construite ; sans lui, seule l'API répond. */
@@ -69,6 +72,7 @@ export function buildApp({
   searchIndex,
   mailContent,
   audit,
+  indexer,
   status = { maxAgeHours: DEFAULT_MAX_AGE_HOURS, workloads: ['mail', 'onedrive', 'sharepoint'] },
   webDir,
 }: AppOptions): FastifyInstance {
@@ -87,7 +91,7 @@ export function buildApp({
   // Plugin encapsulé : son gestionnaire d'erreurs ne touche pas le reste de l'application.
   void app.register((scope, _opts, done) => {
     registerCatalogRoutes(scope, catalog, audit);
-    registerStatusRoutes(scope, catalog, status);
+    registerStatusRoutes(scope, catalog, status, { index: searchIndex, indexer });
     done();
   });
   void app.register((scope, _opts, done) => {

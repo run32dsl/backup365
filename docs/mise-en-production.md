@@ -56,6 +56,11 @@ l'âge du dernier instantané (ok, ancien, absent). Seuil d'alerte `BACKUP365_ST
 (26 h par défaut), charges suivies `BACKUP365_STATUS_WORKLOADS` (`mail,onedrive,sharepoint` par défaut) ; les sites sauvegardés viennent d'un recensement du stockage, gardé en cache `BACKUP365_CATALOG_CACHE_MINUTES` (60 min par défaut) ;
 voir l'ADR 0006.
 
+Recherche : la console indexe les métadonnées des mails sauvegardés au démarrage, puis toutes les
+`BACKUP365_INDEX_INTERVAL_MINUTES` minutes (60 par défaut), en arrière-plan. `GET /api/status`
+renvoie alors `index` : nombre de mails indexés, dernier cycle, dernier cycle réussi, échec du
+dernier cycle ; le détail d'un échec est dans le journal, sans contenu. Voir l'ADR 0003.
+
 ## 6. Droits des personnes et effacement
 
 Procédure pour l'accès (art. 15), l'effacement (art. 17 : la donnée effacée reste dans les

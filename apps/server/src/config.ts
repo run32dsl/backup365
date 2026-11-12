@@ -65,6 +65,16 @@ export function parseStatusWorkloads(
   return [...new Set(workloads)];
 }
 
+/** Intervalle d'indexation, en millisecondes (`BACKUP365_INDEX_INTERVAL_MINUTES`, 60 par défaut). */
+export function parseIndexIntervalMs(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return 3_600_000;
+  const minutes = Number(raw);
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) {
+    throw new Error('BACKUP365_INDEX_INTERVAL_MINUTES invalide : attendu un entier de 1 à 1440');
+  }
+  return minutes * 60_000;
+}
+
 /** Dossier des données de l'application (base de recherche…), `./data` par défaut. */
 export function parseDataDir(raw: string | undefined, fallback = './data'): string {
   return raw === undefined || raw === '' ? fallback : raw;

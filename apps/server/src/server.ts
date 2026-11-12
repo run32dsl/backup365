@@ -4,11 +4,13 @@ import { buildApp, LOG_SERIALIZERS, REDACTED_PATHS } from './app.js';
 import { startAtlas } from './atlas-startup.js';
 import {
   parseDataDir,
+  parseIndexIntervalMs,
   parseLogLevel,
   parseMaxAgeHours,
   parseStatusWorkloads,
   withSecretFiles,
 } from './config.js';
+import { SearchIndexer } from './search-indexer.js';
 import { tryOpenAuditLog } from './sqlite/open-audit-log.js';
 import { tryOpenSearchIndex } from './sqlite/open-search-index.js';
 
@@ -22,6 +24,7 @@ export function createServer(
   version: string,
   readFile: (path: string) => string,
 ): FastifyInstance {
+  const indexIntervalMs = parseIndexIntervalMs(env['BACKUP365_INDEX_INTERVAL_MINUTES']);
   const dataDir = parseDataDir(env['BACKUP365_DATA_DIR']);
   const opened = tryOpenSearchIndex(join(dataDir, 'search.sqlite'));
   const openedAudit = tryOpenAuditLog(join(dataDir, 'audit.sqlite'));
@@ -41,6 +44,18 @@ export function createServer(
   // Dossier de l'interface construite (image de conteneur) ; sans lui, l'API seule est servie.
   const webDir = env['BACKUP365_WEB_DIR'];
 
+  const indexer =
+    startup.status === 'ready' && opened.index
+      ? new SearchIndexer({
+          catalog: startup.atlas.catalog,
+          reader: startup.atlas.reader,
+          index: opened.index,
+          intervalMs: indexIntervalMs,
+          // `app` existe quand le premier cycle s'exécute (hook onReady).
+          logger: { error: (obj, msg) => app.log.error(obj, msg) },
+        })
+      : undefined;
+
   const app = buildApp({
     version,
     logger: {
@@ -56,6 +71,7 @@ export function createServer(
     ...(startup.status === 'ready' ? { mailContent: startup.atlas.content } : {}),
     ...(opened.index ? { searchIndex: opened.index } : {}),
     ...(openedAudit.audit ? { audit: openedAudit.audit } : {}),
+    ...(indexer ? { indexer } : {}),
     ...(webDir ? { webDir } : {}),
   });
   if (openedAudit.error) {
@@ -75,7 +91,14 @@ export function createServer(
   } else if (startup.status === 'unconfigured') {
     app.log.warn('stockage non configuré, les routes du catalogue répondent 503');
   }
+  if (indexer) {
+    // Au démarrage de l'application, sans retarder l'écoute ni /api/health.
+    app.addHook('onReady', () => {
+      indexer.start();
+    });
+  }
   app.addHook('onClose', async () => {
+    await indexer?.stop();
     closeDatabases();
     if (startup.status === 'ready') {
       await startup.atlas.dispose().catch(() => {
