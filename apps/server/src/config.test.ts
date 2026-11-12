@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   parseDataDir,
+  parseIndexIntervalMs,
   parseLogLevel,
   parsePort,
   parseStorageConfig,
@@ -104,6 +105,16 @@ describe('parseStorageConfig', () => {
       });
     expect(run).toThrow('BACKUP365_S3_ACCESS_KEY_ID, BACKUP365_ENCRYPTION_PASSPHRASE');
     expect(run).not.toThrow('topsecret');
+  });
+});
+
+describe('parseIndexIntervalMs', () => {
+  it('defaults to 60 minutes and converts minutes to milliseconds', () => {
+    expect(parseIndexIntervalMs(undefined)).toBe(3_600_000);
+    expect(parseIndexIntervalMs('5')).toBe(300_000);
+  });
+  it.each(['0', '1441', '1.5', 'abc'])('rejects %s', (raw) => {
+    expect(() => parseIndexIntervalMs(raw)).toThrow('BACKUP365_INDEX_INTERVAL_MINUTES invalide');
   });
 });
 

@@ -1,5 +1,11 @@
-import { buildStatusReport, type BackupCatalog, type Workload } from '@backup365/core';
+import {
+  buildStatusReport,
+  type BackupCatalog,
+  type SearchIndex,
+  type Workload,
+} from '@backup365/core';
 import type { FastifyInstance } from 'fastify';
+import type { SearchIndexer } from './search-indexer.js';
 
 export interface StatusOptions {
   maxAgeHours: number;
@@ -15,9 +21,26 @@ export function registerStatusRoutes(
   scope: FastifyInstance,
   catalog: BackupCatalog | undefined,
   options: StatusOptions,
+  indexing?: { index?: SearchIndex | undefined; indexer?: SearchIndexer | undefined },
 ) {
   scope.get('/api/status', async (_req, reply) => {
     if (!catalog) return reply.code(503).send({ error: 'catalog_unavailable' });
-    return buildStatusReport(catalog, options.workloads, options.maxAgeHours);
+    const report = await buildStatusReport(catalog, options.workloads, options.maxAgeHours);
+    if (!indexing?.index) return report;
+    // Nombre de mails indexés : `null` si l'index ne répond pas, sans faire échouer le tableau.
+    const mails = await indexing.index
+      .search({ limit: 1, offset: 0 })
+      .then((page) => page.total)
+      .catch(() => null);
+    const state = indexing.indexer?.status();
+    return {
+      ...report,
+      index: {
+        mails,
+        lastRunAt: state?.lastRunAt ?? null,
+        lastSuccessAt: state?.lastSuccessAt ?? null,
+        lastRunFailed: state?.lastRunFailed ?? false,
+      },
+    };
   });
 }

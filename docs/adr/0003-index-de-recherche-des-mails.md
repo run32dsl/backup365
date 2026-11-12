@@ -28,14 +28,31 @@ l'adaptateur. La console doit retrouver un mail parmi les instantanés sans reli
 - Les termes recherchés sont des données personnelles : le journal des requêtes omet la chaîne
   de requête.
 
+## Remplissage en production (issue #36)
+
+- `AtlasSdkSnapshotMailReader` lit `outlook.getSnapshotDetail` (manifeste seul, sans Graph, sans
+  déchiffrer de mail) : `objectId` devient `messageId`, `from.address` l'expéditeur, `subject`
+  l'objet, `folderId` le dossier (l'identifiant, pas le chemin), `sizeBytes` la taille, les noms
+  de `attachments` les pièces jointes (entrées JSON seulement ; un mail MIME embarque les siennes,
+  sans nom dans le manifeste).
+- **Date** : `receivedAt` du manifeste quand il existe (entrées MIME), sinon la date de
+  l'instantané où le mail apparaît. **Destinataires** : vides (voir les limites).
+- `SearchIndexer` lance un cycle au démarrage (hook `onReady`, sans retarder l'écoute ni
+  `/api/health`) puis un par `BACKUP365_INDEX_INTERVAL_MINUTES` (60 par défaut), jamais deux à la
+  fois. Il appelle `indexMailbox` pour chaque boîte ; un instantané est indexé de façon atomique,
+  donc un échec est repris au cycle suivant. L'échec est journalisé par nom et code d'erreur
+  seulement.
+- `GET /api/status` ajoute `index: { mails, lastRunAt, lastSuccessAt, lastRunFailed }` (dates
+  `null` avant le premier cycle ; `mails` est `null` si l'index ne répond pas). L'état du cycle
+  est en mémoire : il repart de zéro au redémarrage.
+
 ## Limites connues
 
 - `node:sqlite` est « expérimental » en Node 22 (avertissement au démarrage) ; à réévaluer si
   l'API change.
 - Un message déplacé de dossier entre deux instantanés garde son dossier d'origine.
-- Le lecteur de métadonnées par instantané (`SnapshotMailReader`) n'a pas d'adaptateur SDK : rien
-  ne remplit encore l'index en production, et rien ne déclenche l'indexation (planification à
-  venir).
+- Les destinataires ne sont pas dans le manifeste de l'instantané : ils restent vides, et le
+  filtre `to` ne trouve donc aucun mail réel (les lire demanderait un déchiffrement par mail).
 - La recherche renvoie des métadonnées d'éléments sauvegardés : elle exige donc un `AuditLog`
   (port du cœur, sans termes recherchés dans l'événement) et répond 503 sans lui. Aucun adaptateur
   d'audit n'existe encore : la route est inactive en production tant qu'il n'est pas branché.

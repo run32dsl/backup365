@@ -1,6 +1,7 @@
 import { createAtlasInstance, type AtlasInstanceConfig } from '@wisecom/atlas-sdk';
 import { AtlasSdkCatalog, type AtlasCatalogOptions, type AtlasSdkReader } from './atlas-catalog.js';
 import { AtlasSdkMailContentReader, type AtlasMessageReader } from './atlas-mail-content.js';
+import { AtlasSdkSnapshotMailReader, type AtlasManifestReader } from './atlas-mail-index.js';
 import type { StorageConfig } from './config.js';
 
 /**
@@ -12,7 +13,9 @@ export const NO_GRAPH_CLIENT_SECRET = 'backup365-read-only-no-graph';
 
 /** Instance du SDK réduite à ce que la console lit, plus de quoi la libérer. */
 export interface AtlasHandle extends AtlasSdkReader {
-  outlook: AtlasSdkReader['outlook'] & AtlasMessageReader['outlook'];
+  outlook: AtlasSdkReader['outlook'] &
+    AtlasMessageReader['outlook'] &
+    AtlasManifestReader['outlook'];
   dispose(): Promise<void>;
 }
 
@@ -44,12 +47,14 @@ export function createAtlasCatalog(
 ): {
   catalog: AtlasSdkCatalog;
   content: AtlasSdkMailContentReader;
+  reader: AtlasSdkSnapshotMailReader;
   dispose: () => Promise<void>;
 } {
   const atlas = factory(toAtlasConfig(storage));
   return {
     catalog: new AtlasSdkCatalog(atlas, options),
     content: new AtlasSdkMailContentReader(atlas),
+    reader: new AtlasSdkSnapshotMailReader(atlas),
     dispose: () => atlas.dispose(),
   };
 }
