@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { HealthResponse } from '@backup365/core';
 import { fetchHealth } from './health.js';
+import { fetchStatus } from './status.js';
+import { StatusView, type StatusState } from './StatusView.js';
 
 /** État de la vérification du serveur. */
 export type HealthState = HealthResponse | 'loading' | 'error';
@@ -24,10 +26,15 @@ export function Home() {
   useEffect(() => {
     fetchHealth().then(setState, () => setState('error'));
   }, []);
+  const [status, setStatus] = useState<StatusState>('loading');
+  useEffect(() => {
+    fetchStatus().then(setStatus, () => setStatus('error'));
+  }, []);
   return (
     <main>
       <h1>backup365</h1>
       <HealthView state={state} />
+      <StatusView state={status} />
     </main>
   );
 }
