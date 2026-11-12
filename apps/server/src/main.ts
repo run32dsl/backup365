@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { buildApp, LOG_SERIALIZERS, REDACTED_PATHS } from './app.js';
@@ -8,6 +9,7 @@ import {
   parseMaxAgeHours,
   parsePort,
   parseStatusWorkloads,
+  withSecretFiles,
 } from './config.js';
 import { tryOpenAuditLog } from './sqlite/open-audit-log.js';
 import { tryOpenSearchIndex } from './sqlite/open-search-index.js';
@@ -24,7 +26,10 @@ const openedAudit = tryOpenAuditLog(
 );
 
 // Une configuration partielle arrête le démarrage (startAtlas lève, sans valeur dans l'erreur).
-const startup = startAtlas(process.env);
+const startup = startAtlas(withSecretFiles(process.env, (path) => readFileSync(path, 'utf8')));
+
+// Dossier de l'interface construite (image de conteneur) ; sans lui, l'API seule est servie.
+const webDir = process.env['BACKUP365_WEB_DIR'];
 
 const app = buildApp({
   version,
@@ -41,6 +46,7 @@ const app = buildApp({
   ...(startup.status === 'ready' ? { mailContent: startup.atlas.content } : {}),
   ...(opened.index ? { searchIndex: opened.index } : {}),
   ...(openedAudit.audit ? { audit: openedAudit.audit } : {}),
+  ...(webDir ? { webDir } : {}),
 });
 if (openedAudit.error) {
   const code = (openedAudit.error as NodeJS.ErrnoException).code;

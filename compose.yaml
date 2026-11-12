@@ -1,0 +1,72 @@
+# backup365 : console seule (`docker compose up -d`) ou console + MinIO local
+# (`docker compose --profile minio up -d`). Voir docs/installation.md.
+#
+# Configuration : copier .env.example en .env ; secrets : un fichier par secret dans ./secrets/.
+# La console n'a pas d'authentification : le port n'est publié que sur 127.0.0.1.
+
+name: backup365
+
+services:
+  console:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: backup365:local
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${BACKUP365_PORT:-3000}:3000'
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      BACKUP365_TENANT_ID: ${BACKUP365_TENANT_ID:-}
+      BACKUP365_S3_ENDPOINT: ${BACKUP365_S3_ENDPOINT:-}
+      BACKUP365_S3_REGION: ${BACKUP365_S3_REGION:-}
+      BACKUP365_STATUS_MAX_AGE_HOURS: ${BACKUP365_STATUS_MAX_AGE_HOURS:-}
+      BACKUP365_STATUS_WORKLOADS: ${BACKUP365_STATUS_WORKLOADS:-}
+      # Secrets lus dans des fichiers montés, jamais dans l'environnement.
+      BACKUP365_S3_ACCESS_KEY_ID_FILE: /run/secrets/s3_access_key_id
+      BACKUP365_S3_SECRET_ACCESS_KEY_FILE: /run/secrets/s3_secret_access_key
+      BACKUP365_ENCRYPTION_PASSPHRASE_FILE: /run/secrets/encryption_passphrase
+    secrets:
+      - s3_access_key_id
+      - s3_secret_access_key
+      - encryption_passphrase
+    volumes:
+      - console-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+  # Stockage S3 local, facultatif (essais, petite installation). En production, préférer le
+  # stockage S3 immuable de l'organisation (docs/mise-en-production.md).
+  minio:
+    profiles: [minio]
+    # À REMPLACER avant usage : digest d'une version de MinIO relue et choisie par l'opérateur
+    # (`docker buildx imagetools inspect quay.io/minio/minio:<version>`). Le digest ci-dessous
+    # est un marqueur, il ne désigne aucune image.
+    image: quay.io/minio/minio@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    restart: unless-stopped
+    command: server /data
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/s3_access_key_id
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/s3_secret_access_key
+    secrets:
+      - s3_access_key_id
+      - s3_secret_access_key
+    volumes:
+      - minio-data:/data
+    # Aucun port publié : seule la console joint MinIO (http://minio:9000).
+
+secrets:
+  s3_access_key_id:
+    file: ./secrets/s3_access_key_id
+  s3_secret_access_key:
+    file: ./secrets/s3_secret_access_key
+  encryption_passphrase:
+    file: ./secrets/encryption_passphrase
+
+volumes:
+  console-data:
+  minio-data:

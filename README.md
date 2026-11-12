@@ -14,6 +14,10 @@ vous contrôlez. Console open source construite sur le moteur
 > **État** : en développement, MVP visé le 10 décembre 2026. Rien ici n'est prêt pour la
 > production. Voir [docs/vision.md](docs/vision.md).
 
+## Installation
+
+Image de conteneur et `compose.yaml` : voir [docs/installation.md](docs/installation.md).
+
 ## Pourquoi
 
 Une organisation devrait pouvoir sauvegarder ses données Microsoft 365 chez elle, sur son

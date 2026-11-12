@@ -3,6 +3,8 @@ dist/
 coverage/
 .env
 *.env
+# Secrets de compose.yaml (un fichier par secret)
+/secrets/
 .turbo/
 *.log
 CLAUDE.local.md
