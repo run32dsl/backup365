@@ -1,3 +1,5 @@
+import { DEFAULT_MAX_AGE_HOURS, WORKLOADS, isWorkload, type Workload } from '@backup365/core';
+
 /** Lit un port TCP (entier de 1 à 65535) ; lève une erreur explicite sinon. */
 export function parsePort(raw: string | undefined, fallback = 3000): number {
   if (raw === undefined || raw === '') return fallback;
@@ -17,6 +19,36 @@ export function parseLogLevel(raw: string | undefined, fallback = 'info'): strin
     throw new Error(`LOG_LEVEL invalide : attendu ${LOG_LEVELS.join(', ')}`);
   }
   return raw;
+}
+
+/** Seuil d'alerte du tableau de bord, en heures (`BACKUP365_STATUS_MAX_AGE_HOURS`, 26 par défaut). */
+export function parseMaxAgeHours(
+  raw: string | undefined,
+  fallback = DEFAULT_MAX_AGE_HOURS,
+): number {
+  if (raw === undefined || raw === '') return fallback;
+  const hours = Number(raw);
+  if (!Number.isFinite(hours) || hours <= 0 || hours > 8760) {
+    throw new Error('BACKUP365_STATUS_MAX_AGE_HOURS invalide : attendu un nombre de 0 à 8760');
+  }
+  return hours;
+}
+
+/**
+ * Charges suivies par le tableau de bord (`BACKUP365_STATUS_WORKLOADS`, liste séparée par des
+ * virgules). Par défaut les charges que l'adaptateur sait lire : `mail` et `onedrive` (ADR 0002).
+ */
+export function parseStatusWorkloads(
+  raw: string | undefined,
+  fallback: readonly Workload[] = ['mail', 'onedrive'],
+): Workload[] {
+  if (raw === undefined || raw.trim() === '') return [...fallback];
+  const names = raw.split(',').map((name) => name.trim());
+  const workloads = names.filter(isWorkload);
+  if (workloads.length !== names.length) {
+    throw new Error(`BACKUP365_STATUS_WORKLOADS invalide : attendu ${WORKLOADS.join(', ')}`);
+  }
+  return [...new Set(workloads)];
 }
 
 /** Dossier des données de l'application (base de recherche…), `./data` par défaut. */

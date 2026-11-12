@@ -9,6 +9,14 @@ export {
   type SnapshotDetail,
   type Workload,
 } from './catalog.js';
+export {
+  DEFAULT_MAX_AGE_HOURS,
+  backupState,
+  buildStatusReport,
+  type BackupState,
+  type StatusReport,
+  type StatusRow,
+} from './status.js';
 export { FakeBackupCatalog, type FakeCatalogData } from './fake-catalog.js';
 export {
   AUDIT_ACTIONS,

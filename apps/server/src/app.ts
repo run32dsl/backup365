@@ -1,4 +1,5 @@
 import {
+  DEFAULT_MAX_AGE_HOURS,
   healthResponse,
   type AuditLog,
   type BackupCatalog,
@@ -11,6 +12,7 @@ import { sendError } from './errors.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
 import { registerMailRoutes } from './mail-routes.js';
 import { registerSearchRoutes } from './search-routes.js';
+import { registerStatusRoutes, type StatusOptions } from './status-routes.js';
 
 export interface AppOptions {
   version: string;
@@ -23,6 +25,8 @@ export interface AppOptions {
   mailContent?: MailContentReader;
   /** Journal d'audit ; sans lui, les routes qui renvoient des éléments sauvegardés répondent 503. */
   audit?: AuditLog;
+  /** Seuil et charges du tableau de bord ; 26 h, mail et OneDrive par défaut. */
+  status?: StatusOptions;
 }
 
 /** Champs jamais écrits dans le journal (secrets, jetons, cookies). */
@@ -62,6 +66,7 @@ export function buildApp({
   searchIndex,
   mailContent,
   audit,
+  status = { maxAgeHours: DEFAULT_MAX_AGE_HOURS, workloads: ['mail', 'onedrive'] },
 }: AppOptions): FastifyInstance {
   const app = Fastify({ logger, routerOptions: { maxParamLength: 512 } });
   app.addHook('onSend', (_req, reply, payload, done) => {
@@ -74,6 +79,7 @@ export function buildApp({
   // Plugin encapsulé : son gestionnaire d'erreurs ne touche pas le reste de l'application.
   void app.register((scope, _opts, done) => {
     registerCatalogRoutes(scope, catalog, audit);
+    registerStatusRoutes(scope, catalog, status);
     done();
   });
   void app.register((scope, _opts, done) => {

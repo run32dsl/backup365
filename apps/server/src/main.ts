@@ -2,7 +2,13 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { buildApp, LOG_SERIALIZERS, REDACTED_PATHS } from './app.js';
 import { startAtlas } from './atlas-startup.js';
-import { parseDataDir, parseLogLevel, parsePort } from './config.js';
+import {
+  parseDataDir,
+  parseLogLevel,
+  parseMaxAgeHours,
+  parsePort,
+  parseStatusWorkloads,
+} from './config.js';
 import { tryOpenAuditLog } from './sqlite/open-audit-log.js';
 import { tryOpenSearchIndex } from './sqlite/open-search-index.js';
 
@@ -28,6 +34,10 @@ const app = buildApp({
     serializers: LOG_SERIALIZERS,
   },
   ...(startup.status === 'ready' ? { catalog: startup.atlas.catalog } : {}),
+  status: {
+    maxAgeHours: parseMaxAgeHours(process.env['BACKUP365_STATUS_MAX_AGE_HOURS']),
+    workloads: parseStatusWorkloads(process.env['BACKUP365_STATUS_WORKLOADS']),
+  },
   ...(startup.status === 'ready' ? { mailContent: startup.atlas.content } : {}),
   ...(opened.index ? { searchIndex: opened.index } : {}),
   ...(openedAudit.audit ? { audit: openedAudit.audit } : {}),
