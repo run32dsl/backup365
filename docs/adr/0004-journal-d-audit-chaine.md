@@ -48,14 +48,15 @@ MVP derrière un port de `packages/core`, avec PostgreSQL ensuite.
   élément. L'événement sera émis par la route d'export, qui demande d'abord un port de lecture
   de contenu. `item.open` est émis par `GET /api/snapshots/:id` (fiche d'un instantané), seule
   ouverture existante ; la fiche d'un mail attendra le même port de lecture.
-- **Écart avec l'ADR 0002** (accepté) : il dit que les lectures de métadonnées du catalogue « ne
-  passent pas par le journal d'audit ». Ici, elles sont consignées (`list.view`, `item.open`) et
-  répondent 503 sans journal, parce que l'issue #5 demande les événements « consultation d'une
-  liste » et « ouverture d'une fiche » et que le catalogue porte les seules listes et fiches
-  existantes avec la recherche. Si cet ADR est accepté, il remplace l'ADR 0002 sur ce point ;
-  s'il est refusé sur ce point, retirer la consignation de `catalog-routes.ts`.
+- **Cohérence avec l'ADR 0002** (accepté) : les lectures de métadonnées du catalogue (`GET
+/api/mailboxes` et `GET /api/mailboxes/:id/snapshots`) ne passent pas par le journal d'audit et
+  ne dépendent pas de lui (décision du PO) : elles répondent sans journal et ne consignent ni
+  `list.view` ni `access.denied`. Sont consignés : l'ouverture d'un instantané (`item.open`,
+  `GET /api/snapshots/:id`, 503 sans journal), la recherche (`list.view`) et les échecs d'accès à
+  ces deux routes.
 - `GET /api/audit` n'est pas elle-même consignée : le journal n'est pas un élément sauvegardé,
   mais il contient des identifiants de boîte. Choix de l'auteur, à confirmer.
 - `access.denied` est émis quand le catalogue ou l'index est indisponible ou qu'un instantané est
-  introuvable ; le refus d'authentification viendra avec l'authentification.
+  introuvable, sur l'ouverture d'un instantané et sur la recherche ; le refus d'authentification
+  viendra avec l'authentification.
 - Pas de rétention ni de purge : le journal grossit (rétention RGPD à décider séparément).

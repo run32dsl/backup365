@@ -96,39 +96,62 @@ describe('catalog routes', () => {
     const entries = async (audit: SqliteAuditLog) =>
       (await audit.list({ limit: 100, offset: 0 })).items.reverse();
 
-    it('records list views and snapshot openings', async () => {
+    const failing = {
+      record: () => Promise.reject(new Error('disk full')),
+    } as unknown as AuditLog;
+    const down: BackupCatalog = {
+      ...fake,
+      listMailboxes: () => Promise.reject(new CatalogUnavailableError('bucket x denied')),
+      listSnapshots: () => Promise.reject(new CatalogUnavailableError('bucket x denied')),
+      getSnapshotDetail: () => Promise.reject(new CatalogUnavailableError('bucket x denied')),
+    };
+
+    it('records snapshot openings only, not the metadata lists', async () => {
       const audit = SqliteAuditLog.open(':memory:');
       const app = buildApp({ version: '1', catalog: fake, audit });
       await app.inject({ method: 'GET', url: '/api/mailboxes' });
       await app.inject({ method: 'GET', url: '/api/mailboxes/mbx-1/snapshots' });
       await app.inject({ method: 'GET', url: '/api/snapshots/snap-new' });
-      expect((await entries(audit)).map((e) => [e.action, e.resource, e.target, e.count])).toEqual([
-        ['list.view', 'mailboxes', undefined, 1],
-        ['list.view', 'snapshots', 'mbx-1', 2],
-        ['item.open', 'snapshot', 'snap-new', undefined],
+      expect((await entries(audit)).map((e) => [e.action, e.resource, e.target])).toEqual([
+        ['item.open', 'snapshot', 'snap-new'],
       ]);
-      expect(await audit.verify()).toEqual({ ok: true, entries: 3 });
+      expect(await audit.verify()).toEqual({ ok: true, entries: 1 });
     });
 
-    it('records an access failure when the catalog is unavailable', async () => {
+    it('serves the metadata lists without audit log or with a failing one', async () => {
+      for (const audit of [undefined, failing]) {
+        const app = buildApp({ version: '1', catalog: fake, audit });
+        expect((await app.inject({ method: 'GET', url: '/api/mailboxes' })).statusCode).toBe(200);
+        const res = await app.inject({ method: 'GET', url: '/api/mailboxes/mbx-1/snapshots' });
+        expect(res.statusCode).toBe(200);
+      }
+    });
+
+    it('does not record an access failure on the metadata lists', async () => {
       const audit = SqliteAuditLog.open(':memory:');
-      const failing: BackupCatalog = {
-        listMailboxes: () => Promise.resolve([]),
-        getSnapshotDetail: () => Promise.resolve(null),
-        listSnapshots: () => Promise.reject(new CatalogUnavailableError('bucket x denied')),
-      };
-      const app = buildApp({ version: '1', catalog: failing, audit });
-      const res = await app.inject({ method: 'GET', url: '/api/mailboxes/mbx-1/snapshots' });
+      const res = await buildApp({ version: '1', catalog: down, audit }).inject({
+        method: 'GET',
+        url: '/api/mailboxes/mbx-1/snapshots',
+      });
       expect(res.statusCode).toBe(503);
-      expect((await entries(audit)).map((e) => [e.action, e.reason])).toEqual([
-        ['access.denied', 'catalog_unavailable'],
+      await buildApp({ version: '1', audit }).inject({ method: 'GET', url: '/api/mailboxes' });
+      expect(await entries(audit)).toEqual([]);
+    });
+
+    it('records an access failure when the catalog is unavailable on a snapshot', async () => {
+      const audit = SqliteAuditLog.open(':memory:');
+      const app = buildApp({ version: '1', catalog: down, audit });
+      const res = await app.inject({ method: 'GET', url: '/api/snapshots/snap-new' });
+      expect(res.statusCode).toBe(503);
+      expect((await entries(audit)).map((e) => [e.action, e.resource, e.reason])).toEqual([
+        ['access.denied', 'snapshot', 'catalog_unavailable'],
       ]);
       expect(JSON.stringify(await entries(audit))).not.toContain('bucket');
     });
 
     it('records an access failure without catalog, and for an unknown snapshot', async () => {
       const audit = SqliteAuditLog.open(':memory:');
-      await buildApp({ version: '1', audit }).inject({ method: 'GET', url: '/api/mailboxes' });
+      await buildApp({ version: '1', audit }).inject({ method: 'GET', url: '/api/snapshots/x' });
       const app = buildApp({ version: '1', catalog: fake, audit });
       const res = await app.inject({ method: 'GET', url: '/api/snapshots/inconnu' });
       expect(res.statusCode).toBe(404);
@@ -140,44 +163,19 @@ describe('catalog routes', () => {
 
     it('answers 503 without audit log and sends nothing when recording fails', async () => {
       const noAudit = buildApp({ version: '1', catalog: fake });
-      expect((await noAudit.inject({ method: 'GET', url: '/api/mailboxes' })).statusCode).toBe(503);
-      const failing = {
-        record: () => Promise.reject(new Error('disk full')),
-      } as unknown as AuditLog;
+      const res0 = await noAudit.inject({ method: 'GET', url: '/api/snapshots/snap-new' });
+      expect(res0.statusCode).toBe(503);
       const app = buildApp({ version: '1', catalog: fake, audit: failing });
-      const res = await app.inject({ method: 'GET', url: '/api/mailboxes' });
+      const res = await app.inject({ method: 'GET', url: '/api/snapshots/snap-new' });
       expect(res.statusCode).toBe(500);
       expect(res.body).toBe('{"error":"internal_error"}');
     });
 
     it('answers 503 catalog_unavailable even when recording the denial fails', async () => {
-      const failing = {
-        record: () => Promise.reject(new Error('disk full')),
-      } as unknown as AuditLog;
-      const down: BackupCatalog = {
-        ...fake,
-        listMailboxes: () => Promise.reject(new CatalogUnavailableError('x')),
-        listSnapshots: () => Promise.reject(new CatalogUnavailableError('x')),
-        getSnapshotDetail: () => Promise.reject(new CatalogUnavailableError('x')),
-      };
       const app = buildApp({ version: '1', catalog: down, audit: failing });
-      const res = await app.inject({ method: 'GET', url: '/api/mailboxes' });
+      const res = await app.inject({ method: 'GET', url: '/api/snapshots/snap-new' });
       expect(res.statusCode).toBe(503);
       expect(res.body).toBe('{"error":"catalog_unavailable"}');
-    });
-
-    it('records the route as resource when the catalog fails', async () => {
-      const audit = SqliteAuditLog.open(':memory:');
-      const down: BackupCatalog = {
-        ...fake,
-        listMailboxes: () => Promise.resolve([]),
-        listSnapshots: () => Promise.reject(new CatalogUnavailableError('x')),
-        getSnapshotDetail: () => Promise.reject(new CatalogUnavailableError('x')),
-      };
-      const app = buildApp({ version: '1', catalog: down, audit });
-      await app.inject({ method: 'GET', url: '/api/mailboxes/mbx-1/snapshots' });
-      await app.inject({ method: 'GET', url: '/api/snapshots/snap-new' });
-      expect((await entries(audit)).map((e) => e.resource)).toEqual(['snapshots', 'snapshot']);
     });
   });
 
