@@ -22,7 +22,10 @@ export interface AuditEvent {
   target?: string;
   /** Nombre d'éléments renvoyés, le cas échéant. */
   count?: number;
-  /** Motif d'un échec d'accès (code court, sans donnée personnelle). */
+  /**
+   * Motif : code court d'un échec d'accès, ou motif saisi par l'utilisateur pour un export. Ce
+   * dernier est du texte libre, conservé tel quel : il ne doit pas contenir de contenu de mail.
+   */
   reason?: string;
 }
 

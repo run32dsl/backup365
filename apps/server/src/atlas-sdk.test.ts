@@ -43,6 +43,7 @@ describe('createAtlasCatalog', () => {
         listMailboxes: () => Promise.resolve([{ ownerId: 'o1', ownerEmail: 'a@example.test' }]),
         listSnapshots: () => Promise.resolve([]),
         getSnapshotDetail: () => Promise.resolve(undefined),
+        readMessage: () => Promise.resolve(undefined),
       },
       onedrive: { listSnapshots: () => Promise.resolve([]) },
       validate,

@@ -16,6 +16,7 @@ const handle = (dispose = vi.fn(() => Promise.resolve())): AtlasHandle => ({
     listMailboxes: () => Promise.resolve([]),
     listSnapshots: () => Promise.resolve([]),
     getSnapshotDetail: () => Promise.resolve(undefined),
+    readMessage: () => Promise.resolve(undefined),
   },
   onedrive: { listSnapshots: () => Promise.resolve([]) },
   dispose,

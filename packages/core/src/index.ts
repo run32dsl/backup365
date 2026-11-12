@@ -24,6 +24,12 @@ export {
   type AuditVerification,
 } from './audit.js';
 export {
+  MailContentUnavailableError,
+  type MailAttachmentInfo,
+  type MailContent,
+  type MailContentReader,
+} from './mail-content.js';
+export {
   indexMailbox,
   type IndexedMail,
   type MailMetadata,

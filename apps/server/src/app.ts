@@ -2,12 +2,14 @@ import {
   healthResponse,
   type AuditLog,
   type BackupCatalog,
+  type MailContentReader,
   type SearchIndex,
 } from '@backup365/core';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { registerAuditRoutes } from './audit-routes.js';
 import { sendError } from './errors.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
+import { registerMailRoutes } from './mail-routes.js';
 import { registerSearchRoutes } from './search-routes.js';
 
 export interface AppOptions {
@@ -17,6 +19,8 @@ export interface AppOptions {
   catalog?: BackupCatalog;
   /** Index de recherche des mails ; absent si la base n'est pas ouverte. */
   searchIndex?: SearchIndex;
+  /** Lecture du contenu des mails (export EML) ; absente tant que le stockage n'est pas configuré. */
+  mailContent?: MailContentReader;
   /** Journal d'audit ; sans lui, les routes qui renvoient des éléments sauvegardés répondent 503. */
   audit?: AuditLog;
 }
@@ -56,6 +60,7 @@ export function buildApp({
   logger = false,
   catalog,
   searchIndex,
+  mailContent,
   audit,
 }: AppOptions): FastifyInstance {
   const app = Fastify({ logger, routerOptions: { maxParamLength: 512 } });
@@ -77,6 +82,10 @@ export function buildApp({
   });
   void app.register((scope, _opts, done) => {
     registerSearchRoutes(scope, searchIndex, audit);
+    done();
+  });
+  void app.register((scope, _opts, done) => {
+    registerMailRoutes(scope, searchIndex, mailContent, audit);
     done();
   });
   return app;

@@ -100,6 +100,18 @@ export function searchIndexContract(name: string, create: () => Promise<SearchIn
       expect([...ids(first), ...ids(second)]).toEqual(['m3', 'm2', 'm1']);
     });
 
+    it('returns the sheet of one mail, or null when it is not in that mailbox', async () => {
+      const index = await seeded();
+      expect(await index.getMail('mbx-1', 'm2')).toMatchObject({
+        mailboxId: 'mbx-1',
+        messageId: 'm2',
+        snapshotId: 'snap-1',
+        subject: 'Réunion équipe',
+      });
+      expect(await index.getMail('mbx-2', 'm2')).toBeNull();
+      expect(await index.getMail('mbx-1', 'absent')).toBeNull();
+    });
+
     it('treats query syntax as plain text', async () => {
       const index = await seeded();
       for (const q of ['"', 'facture OR', 'sujet*)', 'NEAR(', '-', 'subject:x']) {

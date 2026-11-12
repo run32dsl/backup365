@@ -54,6 +54,8 @@ export interface SearchIndex {
    */
   indexSnapshot(mailboxId: string, snapshotId: string, mails: MailMetadata[]): Promise<void>;
   search(query: SearchQuery): Promise<SearchPage>;
+  /** Fiche d'un mail indexé ; `null` s'il n'existe pas dans cette boîte. */
+  getMail(mailboxId: string, messageId: string): Promise<IndexedMail | null>;
 }
 
 /** Lit les métadonnées des mails d'un instantané (adaptateur SDK à venir). */

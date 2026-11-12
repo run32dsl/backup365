@@ -28,6 +28,7 @@ const app = buildApp({
     serializers: LOG_SERIALIZERS,
   },
   ...(startup.status === 'ready' ? { catalog: startup.atlas.catalog } : {}),
+  ...(startup.status === 'ready' ? { mailContent: startup.atlas.content } : {}),
   ...(opened.index ? { searchIndex: opened.index } : {}),
   ...(openedAudit.audit ? { audit: openedAudit.audit } : {}),
 });
