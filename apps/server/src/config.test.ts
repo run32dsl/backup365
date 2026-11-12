@@ -27,7 +27,8 @@ describe('parseDataDir', () => {
 
 describe('parseStorageConfig', () => {
   const full = {
-    BACKUP365_S3_BUCKET: 'b',
+    BACKUP365_TENANT_ID: 'tenant-test',
+    BACKUP365_S3_ENDPOINT: 'https://s3.example.test',
     BACKUP365_S3_ACCESS_KEY_ID: 'id',
     BACKUP365_S3_SECRET_ACCESS_KEY: 'topsecret',
     BACKUP365_ENCRYPTION_PASSPHRASE: 'phrase',
@@ -36,28 +37,32 @@ describe('parseStorageConfig', () => {
     expect(parseStorageConfig({})).toBeUndefined();
   });
   it('reads a full configuration with defaults', () => {
-    expect(parseStorageConfig(full)).toMatchObject({ bucket: 'b', region: 'eu-west-3' });
+    expect(parseStorageConfig(full)).toMatchObject({
+      tenantId: 'tenant-test',
+      endpoint: 'https://s3.example.test',
+      region: 'eu-west-3',
+    });
   });
-  it('reads the optional endpoint and region', () => {
-    expect(
-      parseStorageConfig({
-        ...full,
-        BACKUP365_S3_ENDPOINT: 'https://s3.example.test',
-        BACKUP365_S3_REGION: 'r1',
-      }),
-    ).toMatchObject({ endpoint: 'https://s3.example.test', region: 'r1' });
+  it('reads the optional region', () => {
+    expect(parseStorageConfig({ ...full, BACKUP365_S3_REGION: 'r1' })).toMatchObject({
+      region: 'r1',
+    });
   });
-  it('rejects a configuration with only optional variables', () => {
+  it('rejects a configuration with only the region', () => {
     expect(() => parseStorageConfig({ BACKUP365_S3_REGION: 'r1' })).toThrow('incomplète');
   });
   it('treats an empty required variable as missing', () => {
-    expect(() => parseStorageConfig({ ...full, BACKUP365_S3_BUCKET: '' })).toThrow(
-      'BACKUP365_S3_BUCKET',
+    expect(() => parseStorageConfig({ ...full, BACKUP365_S3_ENDPOINT: '' })).toThrow(
+      'BACKUP365_S3_ENDPOINT',
     );
   });
   it('names the missing variables without echoing values', () => {
     const run = (): unknown =>
-      parseStorageConfig({ BACKUP365_S3_BUCKET: 'b', BACKUP365_S3_SECRET_ACCESS_KEY: 'topsecret' });
+      parseStorageConfig({
+        BACKUP365_TENANT_ID: 'tenant-test',
+        BACKUP365_S3_ENDPOINT: 'https://s3.example.test',
+        BACKUP365_S3_SECRET_ACCESS_KEY: 'topsecret',
+      });
     expect(run).toThrow('BACKUP365_S3_ACCESS_KEY_ID, BACKUP365_ENCRYPTION_PASSPHRASE');
     expect(run).not.toThrow('topsecret');
   });
