@@ -1,6 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { AUDIT_ACTIONS, type AuditAction } from '@backup365/core';
-import { fetchAudit, toUtcIso, type AuditQuery, type AuditResponse } from './audit.js';
+import {
+  AUDIT_PAGE_SIZE,
+  fetchAudit,
+  pageOffsets,
+  queryFromForm,
+  type AuditQuery,
+  type AuditResponse,
+} from './audit.js';
 
 /** État de la consultation du journal. */
 export type AuditState = AuditResponse | 'loading' | 'error';
@@ -60,7 +67,7 @@ export function AuditView({ state }: { state: AuditState }) {
 
 /** Écran de consultation du journal d'audit, avec filtres par date, acteur et action. */
 export function AuditPage() {
-  const [query, setQuery] = useState<AuditQuery>({ limit: 50, offset: 0 });
+  const [query, setQuery] = useState<AuditQuery>({ limit: AUDIT_PAGE_SIZE, offset: 0 });
   const [state, setState] = useState<AuditState>('loading');
   useEffect(() => {
     let current = true;
@@ -76,22 +83,14 @@ export function AuditPage() {
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const text = (name: string) => String(form.get(name) ?? '').trim();
-    const action = text('action');
-    setQuery({
-      limit: 50,
-      offset: 0,
-      from: toUtcIso(text('from')),
-      to: toUtcIso(text('to')),
-      actor: text('actor'),
-      ...(AUDIT_ACTIONS.some((a) => a === action) ? { action: action as AuditAction } : {}),
-    });
+    setQuery(queryFromForm(new FormData(e.currentTarget)));
   }
 
-  const offset = query.offset ?? 0;
-  const limit = query.limit ?? 50;
-  const total = typeof state === 'object' ? state.total : 0;
+  const pages = pageOffsets(
+    query.offset ?? 0,
+    query.limit ?? AUDIT_PAGE_SIZE,
+    typeof state === 'object' ? state.total : 0,
+  );
   return (
     <main>
       <h1>Journal d’audit</h1>
@@ -122,18 +121,18 @@ export function AuditPage() {
       <p>
         <button
           type="button"
-          disabled={offset === 0}
+          disabled={pages.previous === null}
           onClick={() => {
-            setQuery({ ...query, offset: Math.max(0, offset - limit) });
+            if (pages.previous !== null) setQuery({ ...query, offset: pages.previous });
           }}
         >
           Précédent
         </button>{' '}
         <button
           type="button"
-          disabled={offset + limit >= total}
+          disabled={pages.next === null}
           onClick={() => {
-            setQuery({ ...query, offset: offset + limit });
+            if (pages.next !== null) setQuery({ ...query, offset: pages.next });
           }}
         >
           Suivant

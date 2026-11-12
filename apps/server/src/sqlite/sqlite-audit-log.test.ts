@@ -76,6 +76,22 @@ describe('SqliteAuditLog storage', () => {
     second.close();
   });
 
+  it('keeps one chain when two connections append in turn', async () => {
+    // Deux connexions sur le même fichier, comme deux processus : chacune relit le dernier
+    // maillon en base au lieu de se fier à ce qu'elle a écrit.
+    const path = freshPath();
+    const first = SqliteAuditLog.open(path);
+    const second = SqliteAuditLog.open(path);
+    for (let i = 0; i < 10; i += 1) {
+      await first.record({ ...event, actor: `first-${String(i)}` });
+      await second.record({ ...event, actor: `second-${String(i)}` });
+    }
+    expect(await first.verify()).toEqual({ ok: true, entries: 20 });
+    expect(await second.verify()).toEqual({ ok: true, entries: 20 });
+    first.close();
+    second.close();
+  });
+
   it('creates the database readable by the owner only', async () => {
     const path = freshPath();
     const log = SqliteAuditLog.open(path);

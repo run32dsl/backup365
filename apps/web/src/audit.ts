@@ -1,4 +1,4 @@
-import type { AuditAction, AuditEntry } from '@backup365/core';
+import { isAuditAction, type AuditAction, type AuditEntry } from '@backup365/core';
 
 export interface AuditQuery {
   from?: string;
@@ -34,4 +34,39 @@ export async function fetchAudit(
 export function toUtcIso(local: string): string {
   const date = new Date(local);
   return local === '' || isNaN(date.getTime()) ? '' : date.toISOString();
+}
+
+/** Nombre d'entrées par page de l'écran. */
+export const AUDIT_PAGE_SIZE = 50;
+
+/**
+ * Requête issue du formulaire de filtres : retour à la première page, dates locales converties
+ * en UTC, action hors vocabulaire ignorée.
+ */
+export function queryFromForm(form: FormData): AuditQuery {
+  const text = (name: string): string => {
+    const value = form.get(name);
+    return typeof value === 'string' ? value.trim() : '';
+  };
+  const action = text('action');
+  return {
+    limit: AUDIT_PAGE_SIZE,
+    offset: 0,
+    from: toUtcIso(text('from')),
+    to: toUtcIso(text('to')),
+    actor: text('actor'),
+    ...(isAuditAction(action) ? { action } : {}),
+  };
+}
+
+/** Décalages des pages précédente et suivante ; `null` quand il n'y en a pas. */
+export function pageOffsets(
+  offset: number,
+  limit: number,
+  total: number,
+): { previous: number | null; next: number | null } {
+  return {
+    previous: offset > 0 ? Math.max(0, offset - limit) : null,
+    next: offset + limit < total ? offset + limit : null,
+  };
 }

@@ -2,7 +2,7 @@ import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { screenOf } from './App.js';
 import { AuditPage, AuditView } from './AuditPage.js';
-import { fetchAudit, toUtcIso } from './audit.js';
+import { fetchAudit, pageOffsets, queryFromForm, toUtcIso } from './audit.js';
 
 const entry = {
   seq: 2,
@@ -65,6 +65,52 @@ describe('fetchAudit', () => {
   it('rejects on a non-2xx response', async () => {
     const fake = (() => Promise.resolve(new Response('', { status: 503 }))) as typeof fetch;
     await expect(fetchAudit({}, fake)).rejects.toThrow('HTTP 503');
+  });
+});
+
+describe('queryFromForm', () => {
+  const form = (fields: Record<string, string>) => {
+    const data = new FormData();
+    for (const [name, value] of Object.entries(fields)) data.set(name, value);
+    return data;
+  };
+
+  it('builds the query sent on submit, back on the first page', () => {
+    const query = queryFromForm(
+      form({ from: '2026-01-15T10:00', to: '', actor: '  alice ', action: 'access.denied' }),
+    );
+    expect(query).toEqual({
+      limit: 50,
+      offset: 0,
+      from: toUtcIso('2026-01-15T10:00'),
+      to: '',
+      actor: 'alice',
+      action: 'access.denied',
+    });
+  });
+
+  it('ignores an action outside the vocabulary and missing fields', () => {
+    expect(queryFromForm(form({ action: 'drop table' }))).toEqual({
+      limit: 50,
+      offset: 0,
+      from: '',
+      to: '',
+      actor: '',
+    });
+  });
+});
+
+describe('pageOffsets', () => {
+  it('has no previous page at the start and no next page at the end', () => {
+    expect(pageOffsets(0, 50, 120)).toEqual({ previous: null, next: 50 });
+    expect(pageOffsets(50, 50, 120)).toEqual({ previous: 0, next: 100 });
+    expect(pageOffsets(100, 50, 120)).toEqual({ previous: 50, next: null });
+    expect(pageOffsets(0, 50, 50)).toEqual({ previous: null, next: null });
+    expect(pageOffsets(0, 50, 0)).toEqual({ previous: null, next: null });
+  });
+
+  it('never goes below the first entry', () => {
+    expect(pageOffsets(20, 50, 120).previous).toBe(0);
   });
 });
 
