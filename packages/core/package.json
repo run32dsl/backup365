@@ -7,6 +7,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./src/catalog.contract.ts",
+      "default": "./src/catalog.contract.ts"
     }
   },
   "scripts": {

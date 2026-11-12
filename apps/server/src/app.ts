@@ -1,9 +1,12 @@
-import { healthResponse } from '@backup365/core';
+import { healthResponse, type BackupCatalog } from '@backup365/core';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import { registerCatalogRoutes } from './catalog-routes.js';
 
 export interface AppOptions {
   version: string;
   logger?: FastifyServerOptions['logger'];
+  /** Catalogue des sauvegardes ; absent tant que le stockage n'est pas configuré. */
+  catalog?: BackupCatalog;
 }
 
 /** Champs jamais écrits dans le journal (secrets, jetons, cookies). */
@@ -24,12 +27,17 @@ export const SECURITY_HEADERS: Record<string, string> = {
 };
 
 /** Construit l'application Fastify, sans écouter de port. */
-export function buildApp({ version, logger = false }: AppOptions): FastifyInstance {
-  const app = Fastify({ logger });
+export function buildApp({ version, logger = false, catalog }: AppOptions): FastifyInstance {
+  const app = Fastify({ logger, routerOptions: { maxParamLength: 512 } });
   app.addHook('onSend', (_req, reply, payload, done) => {
     void reply.headers(SECURITY_HEADERS);
     done(null, payload);
   });
   app.get('/api/health', () => healthResponse(version));
+  // Plugin encapsulé : son gestionnaire d'erreurs ne touche pas le reste de l'application.
+  void app.register((scope, _opts, done) => {
+    registerCatalogRoutes(scope, catalog);
+    done();
+  });
   return app;
 }
