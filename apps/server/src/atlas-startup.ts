@@ -1,5 +1,5 @@
 import { createAtlasCatalog, type AtlasFactory } from './atlas-sdk.js';
-import { parseStorageConfig } from './config.js';
+import { parseSiteCacheTtlMs, parseStorageConfig } from './config.js';
 
 export type AtlasStartup =
   | { status: 'unconfigured' }
@@ -15,8 +15,9 @@ export type AtlasStartup =
 export function startAtlas(env: NodeJS.ProcessEnv, factory?: AtlasFactory): AtlasStartup {
   const storage = parseStorageConfig(env);
   if (!storage) return { status: 'unconfigured' };
+  const siteCacheTtlMs = parseSiteCacheTtlMs(env['BACKUP365_CATALOG_CACHE_MINUTES']);
   try {
-    return { status: 'ready', atlas: createAtlasCatalog(storage, factory) };
+    return { status: 'ready', atlas: createAtlasCatalog(storage, factory, { siteCacheTtlMs }) };
   } catch (err) {
     const { code, name } = err as { code?: unknown; name?: unknown };
     return {

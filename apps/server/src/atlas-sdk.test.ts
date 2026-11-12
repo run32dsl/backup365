@@ -46,6 +46,8 @@ describe('createAtlasCatalog', () => {
         readMessage: () => Promise.resolve(undefined),
       },
       onedrive: { listSnapshots: () => Promise.resolve([]) },
+      sharepoint: { listSnapshots: () => Promise.resolve([]) },
+      getStorageUsage: () => Promise.resolve({ complete: true }),
       validate,
       dispose,
     }));

@@ -6,7 +6,7 @@ import {
 } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
-import { parseMaxAgeHours, parseStatusWorkloads } from './config.js';
+import { parseMaxAgeHours, parseSiteCacheTtlMs, parseStatusWorkloads } from './config.js';
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
 
@@ -28,13 +28,25 @@ describe('GET /api/status', () => {
     expect(res.statusCode).toBe(200);
     const report = res.json<StatusReport>();
     expect(report.maxAgeHours).toBe(26);
-    expect(report.rows.map((r) => [r.mailboxId, r.workload, r.state])).toEqual([
+    expect(report.rows.map((r) => [r.sourceId, r.workload, r.state])).toEqual([
       ['a', 'mail', 'ok'],
       ['a', 'onedrive', 'missing'],
       ['b', 'mail', 'stale'],
       ['b', 'onedrive', 'missing'],
     ]);
     expect(report.alertCount).toBe(3);
+  });
+
+  it('includes backed-up SharePoint sites in rows and alerts', async () => {
+    const withSite = new FakeBackupCatalog({
+      mailboxes: [],
+      sites: [{ id: 'site,1', displayName: 'Site de test' }],
+      snapshots: { 'site,1': [{ id: 'p', workload: 'sharepoint', createdAt: hoursAgo(30) }] },
+    });
+    const app = buildApp({ version: '1', catalog: withSite });
+    const report = (await app.inject({ method: 'GET', url: '/api/status' })).json<StatusReport>();
+    expect(report.rows).toMatchObject([{ kind: 'site', sourceId: 'site,1', state: 'stale' }]);
+    expect(report.alertCount).toBe(1);
   });
 
   it('uses the configured threshold and workloads', async () => {
@@ -75,8 +87,15 @@ describe('status configuration', () => {
       expect(() => parseMaxAgeHours(bad)).toThrow('BACKUP365_STATUS_MAX_AGE_HOURS');
     }
   });
+  it('parses the site cache duration', () => {
+    expect(parseSiteCacheTtlMs(undefined)).toBe(3_600_000);
+    expect(parseSiteCacheTtlMs('5')).toBe(300_000);
+    for (const bad of ['0', '1.5', 'abc', '1441']) {
+      expect(() => parseSiteCacheTtlMs(bad)).toThrow('BACKUP365_CATALOG_CACHE_MINUTES');
+    }
+  });
   it('parses the workloads', () => {
-    expect(parseStatusWorkloads(undefined)).toEqual(['mail', 'onedrive']);
+    expect(parseStatusWorkloads(undefined)).toEqual(['mail', 'onedrive', 'sharepoint']);
     expect(parseStatusWorkloads('mail, contacts,mail')).toEqual(['mail', 'contacts']);
     expect(() => parseStatusWorkloads('mail,chat')).toThrow('BACKUP365_STATUS_WORKLOADS');
   });

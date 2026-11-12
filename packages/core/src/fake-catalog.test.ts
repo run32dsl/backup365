@@ -5,7 +5,11 @@ backupCatalogContract('FakeBackupCatalog', () =>
   Promise.resolve(
     new FakeBackupCatalog({
       mailboxes: [{ ...CONTRACT_FIXTURE.mailbox }],
-      snapshots: { 'mbx-1': CONTRACT_FIXTURE.snapshots.map((s) => ({ ...s })) },
+      sites: [{ ...CONTRACT_FIXTURE.site }],
+      snapshots: {
+        'mbx-1': CONTRACT_FIXTURE.snapshots.map((s) => ({ ...s })),
+        [CONTRACT_FIXTURE.site.id]: CONTRACT_FIXTURE.siteSnapshots.map((s) => ({ ...s })),
+      },
       details: { 'snap-new': { ...CONTRACT_FIXTURE.detail } },
     }),
   ),

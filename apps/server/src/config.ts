@@ -35,12 +35,26 @@ export function parseMaxAgeHours(
 }
 
 /**
+ * Durée de validité du recensement des sites SharePoint, en millisecondes
+ * (`BACKUP365_CATALOG_CACHE_MINUTES`, 60 minutes par défaut, de 1 à 1440 minutes entières).
+ */
+export function parseSiteCacheTtlMs(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return 3_600_000;
+  const minutes = Number(raw);
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) {
+    throw new Error('BACKUP365_CATALOG_CACHE_MINUTES invalide : attendu un entier de 1 à 1440');
+  }
+  return minutes * 60_000;
+}
+
+/**
  * Charges suivies par le tableau de bord (`BACKUP365_STATUS_WORKLOADS`, liste séparée par des
- * virgules). Par défaut les charges que l'adaptateur sait lire : `mail` et `onedrive` (ADR 0002).
+ * virgules). Par défaut les charges que l'adaptateur sait lire : `mail`, `onedrive` (ADR 0002)
+ * et `sharepoint` (ADR 0006).
  */
 export function parseStatusWorkloads(
   raw: string | undefined,
-  fallback: readonly Workload[] = ['mail', 'onedrive'],
+  fallback: readonly Workload[] = ['mail', 'onedrive', 'sharepoint'],
 ): Workload[] {
   if (raw === undefined || raw.trim() === '') return [...fallback];
   const names = raw.split(',').map((name) => name.trim());

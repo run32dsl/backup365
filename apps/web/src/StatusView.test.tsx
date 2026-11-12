@@ -10,7 +10,8 @@ const report: StatusReport = {
   alertCount: 2,
   rows: [
     {
-      mailboxId: 'a',
+      kind: 'mailbox',
+      sourceId: 'a',
       displayName: 'Boîte A',
       workload: 'mail',
       lastSnapshotAt: '2026-11-12T06:00:00Z',
@@ -18,7 +19,8 @@ const report: StatusReport = {
       state: 'ok',
     },
     {
-      mailboxId: 'a',
+      kind: 'mailbox',
+      sourceId: 'a',
       displayName: 'Boîte A',
       workload: 'onedrive',
       lastSnapshotAt: '2026-11-09T06:00:00Z',
@@ -26,12 +28,22 @@ const report: StatusReport = {
       state: 'stale',
     },
     {
-      mailboxId: 'b',
+      kind: 'mailbox',
+      sourceId: 'b',
       displayName: 'Boîte B',
       workload: 'mail',
       lastSnapshotAt: null,
       ageHours: null,
       state: 'missing',
+    },
+    {
+      kind: 'site',
+      sourceId: 'x,1',
+      displayName: 'Site X',
+      workload: 'sharepoint',
+      lastSnapshotAt: '2026-11-12T06:00:00Z',
+      ageHours: 6,
+      state: 'ok',
     },
   ],
 };
@@ -43,13 +55,15 @@ describe('StatusView', () => {
     expect(html).toContain('ancien');
     expect(html).toContain('absent');
     expect(html).toContain('2026-11-09T06:00:00Z');
-    expect(html.match(/<tr/g)).toHaveLength(4);
+    expect(html).toContain('Site X');
+    expect(html).toContain('site SharePoint');
+    expect(html.match(/<tr/g)).toHaveLength(5);
   });
 
   it('says so when there is no alert', () => {
     const html = renderToString(<StatusView state={{ ...report, alertCount: 0, rows: [] }} />);
     expect(html).toContain('Aucune alerte');
-    expect(html).toContain('Aucune boîte sauvegardée');
+    expect(html).toContain('Aucune boîte ni site sauvegardé');
   });
 
   it('shows loading and error states', () => {

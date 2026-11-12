@@ -1,5 +1,5 @@
 import { createAtlasInstance, type AtlasInstanceConfig } from '@wisecom/atlas-sdk';
-import { AtlasSdkCatalog, type AtlasSdkReader } from './atlas-catalog.js';
+import { AtlasSdkCatalog, type AtlasCatalogOptions, type AtlasSdkReader } from './atlas-catalog.js';
 import { AtlasSdkMailContentReader, type AtlasMessageReader } from './atlas-mail-content.js';
 import type { StorageConfig } from './config.js';
 
@@ -40,6 +40,7 @@ export function toAtlasConfig(storage: StorageConfig): AtlasInstanceConfig {
 export function createAtlasCatalog(
   storage: StorageConfig,
   factory: AtlasFactory = createAtlasInstance,
+  options: AtlasCatalogOptions = {},
 ): {
   catalog: AtlasSdkCatalog;
   content: AtlasSdkMailContentReader;
@@ -47,7 +48,7 @@ export function createAtlasCatalog(
 } {
   const atlas = factory(toAtlasConfig(storage));
   return {
-    catalog: new AtlasSdkCatalog(atlas),
+    catalog: new AtlasSdkCatalog(atlas, options),
     content: new AtlasSdkMailContentReader(atlas),
     dispose: () => atlas.dispose(),
   };

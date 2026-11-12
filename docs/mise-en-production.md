@@ -51,9 +51,9 @@ n'est pas la sienne, journal d'audit conservé et revu, information des salarié
 consulter via `GET /api/audit` et à vérifier par `pnpm --filter @backup365/server audit:verify`
 (code 0 intact, 1 altéré, 2 introuvable ou illisible).
 
-Surveillance : l'accueil de la console et `GET /api/status` indiquent, par boîte et par charge,
+Surveillance : l'accueil de la console et `GET /api/status` indiquent, par boîte, par site SharePoint et par charge,
 l'âge du dernier instantané (ok, ancien, absent). Seuil d'alerte `BACKUP365_STATUS_MAX_AGE_HOURS`
-(26 h par défaut), charges suivies `BACKUP365_STATUS_WORKLOADS` (`mail,onedrive` par défaut) ;
+(26 h par défaut), charges suivies `BACKUP365_STATUS_WORKLOADS` (`mail,onedrive,sharepoint` par défaut) ; les sites sauvegardés viennent d'un recensement du stockage, gardé en cache `BACKUP365_CATALOG_CACHE_MINUTES` (60 min par défaut) ;
 voir l'ADR 0006.
 
 ## 6. Droits des personnes et effacement

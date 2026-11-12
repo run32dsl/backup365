@@ -1,8 +1,17 @@
-import type { BackupCatalog, Mailbox, Snapshot, SnapshotDetail, Workload } from './catalog.js';
+import type {
+  BackupCatalog,
+  Mailbox,
+  Site,
+  Snapshot,
+  SnapshotDetail,
+  Workload,
+} from './catalog.js';
 
 export interface FakeCatalogData {
   mailboxes: Mailbox[];
-  /** Instantanés par boîte. */
+  /** Sites SharePoint sauvegardés. */
+  sites?: Site[];
+  /** Instantanés par boîte ou par site. */
   snapshots: Record<string, Snapshot[]>;
   details?: Record<string, SnapshotDetail>;
 }
@@ -13,6 +22,14 @@ export class FakeBackupCatalog implements BackupCatalog {
 
   listMailboxes(): Promise<Mailbox[]> {
     return Promise.resolve([...this.data.mailboxes]);
+  }
+
+  listSites(): Promise<Site[]> {
+    return Promise.resolve([...(this.data.sites ?? [])]);
+  }
+
+  listSiteSnapshots(siteId: string): Promise<Snapshot[]> {
+    return this.listSnapshots(siteId, 'sharepoint');
   }
 
   listSnapshots(mailboxId: string, workload: Workload): Promise<Snapshot[]> {

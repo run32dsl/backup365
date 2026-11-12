@@ -61,6 +61,8 @@ describe('catalog routes', () => {
       listMailboxes: () => Promise.resolve([]),
       listSnapshots: () => Promise.reject(new CatalogUnavailableError('x')),
       getSnapshotDetail: () => Promise.resolve(null),
+      listSites: () => Promise.resolve([]),
+      listSiteSnapshots: () => Promise.resolve([]),
     };
     const app = buildApp({
       version: '1',
@@ -87,6 +89,8 @@ describe('catalog routes', () => {
       listMailboxes: () => Promise.reject(new Error('boom')),
       listSnapshots: () => Promise.resolve([]),
       getSnapshotDetail: () => Promise.resolve(null),
+      listSites: () => Promise.resolve([]),
+      listSiteSnapshots: () => Promise.resolve([]),
     };
     const app = buildApp({ version: '1', catalog: broken, audit: SqliteAuditLog.open(':memory:') });
     expect((await app.inject({ method: 'GET', url: '/api/mailboxes' })).statusCode).toBe(500);
@@ -104,6 +108,8 @@ describe('catalog routes', () => {
       listMailboxes: () => Promise.reject(new CatalogUnavailableError('bucket x denied')),
       listSnapshots: () => Promise.reject(new CatalogUnavailableError('bucket x denied')),
       getSnapshotDetail: () => Promise.reject(new CatalogUnavailableError('bucket x denied')),
+      listSites: () => Promise.resolve([]),
+      listSiteSnapshots: () => Promise.resolve([]),
     };
 
     it('records snapshot openings only, not the metadata lists', async () => {
@@ -185,6 +191,8 @@ describe('catalog routes', () => {
       listMailboxes: () => Promise.reject(new CatalogUnavailableError('bucket x denied')),
       listSnapshots: () => Promise.reject(new CatalogUnavailableError('bucket x denied')),
       getSnapshotDetail: () => Promise.resolve(null),
+      listSites: () => Promise.resolve([]),
+      listSiteSnapshots: () => Promise.resolve([]),
     };
     const app = buildApp({
       version: '1',
