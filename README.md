@@ -1,5 +1,7 @@
 # backup365
 
+[![CI](https://github.com/run32dsl/backup365/actions/workflows/ci.yml/badge.svg)](https://github.com/run32dsl/backup365/actions/workflows/ci.yml)
+
 **Console open source et auto-hébergée de sauvegarde Microsoft 365**, construite sur le moteur
 [Atlas](https://github.com/wisecom-oy/atlas) (Apache-2.0, Wisecom Oy).
 
