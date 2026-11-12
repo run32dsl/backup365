@@ -1,6 +1,6 @@
 # ADR 0002 : catalogue des sauvegardes via le SDK Atlas, sans Graph
 
-Statut : **proposé** (issues #3 et #14), à accepter par le Product Manager
+Statut : **accepté** le 2026-11-12 par le Product Manager (issue #18)
 
 ## Contexte
 
@@ -51,8 +51,8 @@ Graph volontairement faux) quelles lectures fonctionnent sans Graph.
 - Les routes ne sont pas authentifiées (Entra est hors MVP) : la console ne doit pas être
   exposée hors d'un réseau de confiance.
 - Seules des métadonnées (boîtes, dates) sont lues, pas de contenu : ces lectures ne passent pas
-  par le journal d'audit, qui couvre la lecture et l'export d'éléments sauvegardés. À confirmer
-  par le Product Manager.
+  par le journal d'audit, qui couvre la lecture et l'export d'éléments sauvegardés. Confirmé
+  par le Product Manager (issue #18).
 - Le détail d'un instantané OneDrive relit les instantanés de toutes les boîtes, en séquence et
   avec leurs manifests complets. Il ignore un propriétaire OneDrive sans sauvegarde mail (la
   liste des boîtes vient des manifests Outlook). Acceptable pour un petit parc, à remplacer si
