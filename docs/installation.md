@@ -18,7 +18,10 @@ mkdir -m 700 secrets            # un fichier par secret, sans fin de ligne utile
 for s in s3_access_key_id s3_secret_access_key encryption_passphrase; do
   read -rsp "$s : " v && printf '%s' "$v" > "secrets/$s" && echo   # hors historique du shell
 done
-sudo chown 1000:1000 secrets/* && chmod 400 secrets/*   # uid 1000 : utilisateur node du conteneur
+# Phrase de chiffrement : console seule (uid 1000, utilisateur node). Secrets du stockage :
+# lus aussi par MinIO (uid 65532), donc lisibles par tous ; le dossier en 700 les protège sur l'hôte.
+sudo chown 1000:1000 secrets/encryption_passphrase && chmod 400 secrets/encryption_passphrase
+chmod 444 secrets/s3_access_key_id secrets/s3_secret_access_key
 docker compose up -d --build    # console seule
 docker compose --profile minio up -d --build   # console + MinIO local
 ```
