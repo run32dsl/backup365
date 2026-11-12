@@ -61,7 +61,10 @@ export class SqliteSearchIndex implements SearchIndex {
   static open(path: string): SqliteSearchIndex {
     if (path !== ':memory:') {
       // La base contient des données personnelles : dossier 0700, fichier 0600 (WAL/SHM en héritent).
-      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+      const folder = dirname(path);
+      mkdirSync(folder, { recursive: true, mode: 0o700 });
+      // `mode` ne s'applique pas à un dossier déjà créé avec un umask permissif.
+      chmodSync(folder, 0o700);
       closeSync(openSync(path, 'a', 0o600));
       chmodSync(path, 0o600);
     }

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -52,6 +52,14 @@ describe('SqliteSearchIndex storage', () => {
       expect(statSync(file).mode & 0o077, file).toBe(0);
     }
     index.close();
+  });
+
+  it('tightens an existing folder created with permissive rights', () => {
+    const folder = join(dir, 'ancien');
+    mkdirSync(folder, { mode: 0o755 });
+    chmodSync(folder, 0o755);
+    SqliteSearchIndex.open(join(folder, 'search.sqlite')).close();
+    expect(statSync(folder).mode & 0o777).toBe(0o700);
   });
 
   it('counts only the messages added by a snapshot', async () => {
