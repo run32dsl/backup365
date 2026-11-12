@@ -1,7 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
-import { MailPage, MailView } from './MailPage.js';
+import { ExportForm, MailPage, MailView } from './MailPage.js';
 import { SearchPage, SearchView } from './SearchPage.js';
 import {
   exportEml,
@@ -73,7 +73,31 @@ describe('MailPage', () => {
   });
 });
 
+describe('ExportForm', () => {
+  it('shows the label, the ticket placeholder and the no-personal-data guidance', () => {
+    const html = renderToString(
+      <ExportForm
+        reason=""
+        exporting="idle"
+        onReason={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+    expect(html).toContain('Motif de l’export');
+    expect(html).toContain('placeholder="Ticket INC-12345"');
+    expect(html).toContain('maxLength="120"');
+    expect(html).toContain(
+      'Indiquez de préférence le numéro du ticket interne. N’y saisissez pas de donnée personnelle (nom, adresse, contenu du mail).',
+    );
+  });
+});
+
 describe('mail helpers', () => {
+  it('refuses a reason longer than 120 characters', () => {
+    expect(isReasonValid('x'.repeat(120))).toBe(true);
+    expect(isReasonValid('x'.repeat(121))).toBe(false);
+  });
+
   it('round-trips the sheet address, including reserved characters', () => {
     expect(parseMailHash(mailHref(mail))).toEqual({ mailboxId: 'mbx 1', messageId: 'm/1=' });
     expect(parseMailHash('#/mail/a')).toBeNull();

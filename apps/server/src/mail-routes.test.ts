@@ -130,11 +130,23 @@ describe('POST /api/mails/:mailboxId/:messageId/export', () => {
     expect(Date.parse(t.events[0]?.at ?? '')).not.toBeNaN();
   });
 
+  it('accepts a reason of exactly 120 characters', async () => {
+    const t = setup();
+    const app = await t.build();
+    const res = await app.inject({
+      method: 'POST',
+      url: exportUrl,
+      payload: { reason: 'x'.repeat(120) },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(t.events).toMatchObject([{ action: 'item.export', reason: 'x'.repeat(120) }]);
+  });
+
   it.each([
     {},
     { reason: '' },
     { reason: '  ab ' },
-    { reason: 'x'.repeat(501) },
+    { reason: 'x'.repeat(121) },
     { reason: 'a\nb c' },
   ])('refuses a missing or invalid reason (%j) without reading or recording', async (payload) => {
     const t = setup();

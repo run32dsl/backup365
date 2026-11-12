@@ -23,6 +23,9 @@ export const SEARCH_PAGE_SIZE = 25;
 /** Longueur minimale du motif d'export (la même que côté serveur). */
 export const MIN_REASON_LENGTH = 3;
 
+/** Longueur maximale du motif d'export (la même que côté serveur). */
+export const MAX_REASON_LENGTH = 120;
+
 function params(query: SearchQuery): string {
   const out = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
@@ -90,7 +93,8 @@ export async function fetchMail(
 
 /** Motif utilisable : au moins `MIN_REASON_LENGTH` caractères hors espaces de bord. */
 export function isReasonValid(reason: string): boolean {
-  return reason.trim().length >= MIN_REASON_LENGTH;
+  const length = reason.trim().length;
+  return length >= MIN_REASON_LENGTH && length <= MAX_REASON_LENGTH;
 }
 
 /** Demande l'export EML avec son motif. Lève une erreur hors 2xx ; renvoie le fichier. */
