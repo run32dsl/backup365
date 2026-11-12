@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { FastifyInstance } from 'fastify';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AtlasHandle } from './atlas-sdk.js';
 import { createServer } from './server.js';
 import { SqliteAuditLog } from './sqlite/sqlite-audit-log.js';
 
@@ -115,6 +116,87 @@ describe('createServer, environnement de compose.yaml', () => {
     expect(() => createServer(env, 't', noFile)).toThrow(
       /^BACKUP365_S3_ACCESS_KEY_ID_FILE illisible$/,
     );
+  });
+});
+
+describe("branchement de l'indexeur de recherche", () => {
+  const storageEnv = (extra: Record<string, string> = {}): Record<string, string> => ({
+    ...imageEnv(),
+    BACKUP365_TENANT_ID: 'tenant-de-test',
+    BACKUP365_S3_ENDPOINT: 'https://s3.example.test',
+    BACKUP365_S3_ACCESS_KEY_ID: 'identifiant-de-test',
+    BACKUP365_S3_SECRET_ACCESS_KEY: 'valeur-secrete-de-test',
+    BACKUP365_ENCRYPTION_PASSPHRASE: 'phrase-de-test-assez-longue',
+    ...extra,
+  });
+
+  /** Faux SDK dont les manifestes restent bloqués jusqu'à `release()`. */
+  function blockedAtlas() {
+    let release = (): void => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const getSnapshotDetail = vi.fn(async () => {
+      await gate;
+      return {
+        snapshotId: 's1',
+        totalObjects: 1,
+        createdAt: new Date('2026-03-01T00:00:00Z'),
+        entries: [{ objectId: 'obj-1', sizeBytes: 1, subject: 'Budget annuel' }],
+      };
+    });
+    const handle: AtlasHandle = {
+      outlook: {
+        listMailboxes: () => Promise.resolve([{ ownerId: 'o1', ownerEmail: 'a@example.test' }]),
+        listSnapshots: () =>
+          Promise.resolve([{ snapshotId: 's1', createdAt: new Date('2026-03-01T00:00:00Z') }]),
+        getSnapshotDetail,
+        readMessage: () => Promise.resolve(undefined),
+      },
+      onedrive: { listSnapshots: () => Promise.resolve([]) },
+      sharepoint: { listSnapshots: () => Promise.resolve([]) },
+      getStorageUsage: () => Promise.resolve({ complete: true }),
+      dispose: () => Promise.resolve(),
+    };
+    return { handle, release, getSnapshotDetail };
+  }
+
+  it('answers /api/health before the first cycle ends, then fills the index', async () => {
+    const { handle, release, getSnapshotDetail } = blockedAtlas();
+    app = createServer(storageEnv(), 't', noFile, () => handle);
+    await app.ready();
+    expect((await app.inject('/api/health')).statusCode).toBe(200);
+    await vi.waitFor(() => expect(getSnapshotDetail).toHaveBeenCalled());
+    release();
+    await vi.waitFor(async () => {
+      const status = (await app!.inject('/api/status')).json<{ index: { mails: number } }>();
+      expect(status.index.mails).toBe(1);
+    });
+  });
+
+  it('does not start an indexer without storage', async () => {
+    app = createServer(imageEnv(), 't', noFile);
+    await app.ready();
+    expect((await app.inject('/api/status')).statusCode).toBe(503);
+  });
+
+  it('refuses to start on an invalid index interval', () => {
+    expect(() =>
+      createServer(storageEnv({ BACKUP365_INDEX_INTERVAL_MINUTES: '0' }), 't', noFile, () => {
+        throw new Error('le SDK ne doit pas être construit');
+      }),
+    ).toThrow(/BACKUP365_INDEX_INTERVAL_MINUTES/);
+  });
+
+  it('stops the indexer and releases the SDK on close', async () => {
+    const { handle, release } = blockedAtlas();
+    const dispose = vi.spyOn(handle, 'dispose');
+    app = createServer(storageEnv(), 't', noFile, () => handle);
+    await app.ready();
+    release();
+    await app.close();
+    app = undefined;
+    expect(dispose).toHaveBeenCalledOnce();
   });
 });
 

@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { buildApp, LOG_SERIALIZERS, REDACTED_PATHS } from './app.js';
+import type { AtlasFactory } from './atlas-sdk.js';
 import { startAtlas } from './atlas-startup.js';
 import {
   parseDataDir,
@@ -23,6 +24,7 @@ export function createServer(
   env: Record<string, string | undefined>,
   version: string,
   readFile: (path: string) => string,
+  factory?: AtlasFactory,
 ): FastifyInstance {
   const indexIntervalMs = parseIndexIntervalMs(env['BACKUP365_INDEX_INTERVAL_MINUTES']);
   const dataDir = parseDataDir(env['BACKUP365_DATA_DIR']);
@@ -35,7 +37,7 @@ export function createServer(
 
   let startup: ReturnType<typeof startAtlas>;
   try {
-    startup = startAtlas(withSecretFiles(env, readFile));
+    startup = startAtlas(withSecretFiles(env, readFile), factory);
   } catch (err) {
     closeDatabases();
     throw err;

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { AtlasSdkSnapshotMailReader, type AtlasManifestEntry } from './atlas-mail-index.js';
+import {
+  AtlasSdkSnapshotMailReader,
+  SnapshotManifestMissingError,
+  type AtlasManifestEntry,
+} from './atlas-mail-index.js';
 
 const createdAt = new Date('2026-03-01T08:00:00.000Z');
 
@@ -57,7 +61,9 @@ describe('AtlasSdkSnapshotMailReader', () => {
     ]);
   });
 
-  it('returns nothing for an unknown snapshot', async () => {
-    expect(await readerOf(undefined).readMails('mbx', 'snap-1')).toEqual([]);
+  it('throws for a listed snapshot without manifest, so that it is retried', async () => {
+    await expect(readerOf(undefined).readMails('mbx', 'snap-1')).rejects.toThrow(
+      SnapshotManifestMissingError,
+    );
   });
 });
