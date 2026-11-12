@@ -145,6 +145,15 @@ describe('POST /api/mails/:mailboxId/:messageId/export', () => {
     expect(t.events).toEqual([]);
   });
 
+  it('refuses a POST without any body with 400', async () => {
+    const t = setup();
+    const app = await t.build();
+    const res = await app.inject({ method: 'POST', url: exportUrl });
+    expect(res.statusCode).toBe(400);
+    expect(t.reads).toEqual([]);
+    expect(t.events).toEqual([]);
+  });
+
   it('sends nothing when the audit log fails (fail-closed)', async () => {
     const audit: AuditLog = {
       record: () => Promise.reject(new Error('disk full')),

@@ -88,7 +88,7 @@ export function registerMailRoutes(
     },
     async (req, reply) => {
       if (!audit) return reply.code(503).send({ error: 'search_unavailable' });
-      const reason = cleanReason(req.body.reason);
+      const reason = cleanReason(req.body?.reason);
       if (reason === null) return reply.code(400).send({ error: 'reason_required' });
       const mail = await findMail(req, reply, audit, 'mail.export');
       if (!mail) return reply;
