@@ -40,6 +40,11 @@ describe('parseStorageConfig', () => {
   it('rejects a configuration with only optional variables', () => {
     expect(() => parseStorageConfig({ BACKUP365_S3_REGION: 'r1' })).toThrow('incomplète');
   });
+  it('treats an empty required variable as missing', () => {
+    expect(() => parseStorageConfig({ ...full, BACKUP365_S3_BUCKET: '' })).toThrow(
+      'BACKUP365_S3_BUCKET',
+    );
+  });
   it('names the missing variables without echoing values', () => {
     const run = (): unknown =>
       parseStorageConfig({ BACKUP365_S3_BUCKET: 'b', BACKUP365_S3_SECRET_ACCESS_KEY: 'topsecret' });
