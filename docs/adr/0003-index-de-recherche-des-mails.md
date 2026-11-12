@@ -1,6 +1,6 @@
 # ADR 0003 : index de recherche des mails (SQLite FTS5)
 
-Statut : **proposé** (issue #4)
+Statut : **accepté** le 2026-11-12 par le Product Manager (issue #18)
 
 ## Contexte
 
