@@ -6,7 +6,7 @@ Statut : **proposé** (issues #3 et #14), à accepter par le Product Manager
 
 La console doit lister boîtes et instantanés (vision, principe 3 : moindre privilège, mode
 lecture seule possible). Le SDK `@wisecom/atlas-sdk` expose ces lectures sur le stockage S3
-d'Atlas. Le Product Manager a vérifié (2026-11-12, sauvegardes du tenant de test, identifiants
+d'Atlas. Le Product Owner a vérifié (2026-11-12, sauvegardes du tenant de test, identifiants
 Graph volontairement faux) quelles lectures fonctionnent sans Graph.
 
 ## Décision
@@ -65,7 +65,8 @@ Graph volontairement faux) quelles lectures fonctionnent sans Graph.
 
 Lecture réelle contre un stockage S3 : les tests n'utilisent qu'un faux du SDK. Les signatures
 et formes de retour ont été relevées dans les types du paquet 6.2.0, et le constat « sans Graph »
-vient de l'essai du Product Manager.
+vient de l'essai du Product Owner. Le démarrage (`startAtlas`) est testé avec un faux du SDK ;
+l'assemblage final de `main.ts` ne l'est pas.
 
 ## Conséquences
 

@@ -1,8 +1,8 @@
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { buildApp, LOG_SERIALIZERS, REDACTED_PATHS } from './app.js';
-import { createAtlasCatalog } from './atlas-sdk.js';
-import { parseDataDir, parseLogLevel, parsePort, parseStorageConfig } from './config.js';
+import { startAtlas } from './atlas-startup.js';
+import { parseDataDir, parseLogLevel, parsePort } from './config.js';
 import { tryOpenSearchIndex } from './sqlite/open-search-index.js';
 
 const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
@@ -12,17 +12,8 @@ const opened = tryOpenSearchIndex(
   join(parseDataDir(process.env['BACKUP365_DATA_DIR']), 'search.sqlite'),
 );
 
-// Une configuration partielle arrête le démarrage (l'erreur nomme les variables, sans valeur).
-const storage = parseStorageConfig(process.env);
-let atlas: ReturnType<typeof createAtlasCatalog> | undefined;
-let atlasError: unknown;
-if (storage) {
-  try {
-    atlas = createAtlasCatalog(storage);
-  } catch (err) {
-    atlasError = err;
-  }
-}
+// Une configuration partielle arrête le démarrage (startAtlas lève, sans valeur dans l'erreur).
+const startup = startAtlas(process.env);
 
 const app = buildApp({
   version,
@@ -31,7 +22,7 @@ const app = buildApp({
     redact: REDACTED_PATHS,
     serializers: LOG_SERIALIZERS,
   },
-  ...(atlas ? { catalog: atlas.catalog } : {}),
+  ...(startup.status === 'ready' ? { catalog: startup.atlas.catalog } : {}),
   ...(opened.index ? { searchIndex: opened.index } : {}),
 });
 if (opened.error) {
@@ -39,21 +30,21 @@ if (opened.error) {
   const code = (opened.error as NodeJS.ErrnoException).code;
   app.log.error({ code }, 'index de recherche indisponible, /api/search répond 503');
 }
-if (atlasError) {
-  // Le code seul : le message du SDK peut contenir une valeur de configuration.
-  const { code, name } = atlasError as { code?: string; name?: string };
+if (startup.status === 'failed') {
   app.log.error(
-    { code, name },
+    { code: startup.code, name: startup.name },
     'catalogue Atlas indisponible, les routes du catalogue répondent 503',
   );
-} else if (!storage) {
+} else if (startup.status === 'unconfigured') {
   app.log.warn('stockage non configuré, les routes du catalogue répondent 503');
 }
 app.addHook('onClose', async () => {
   opened.index?.close();
-  await atlas?.dispose().catch(() => {
-    app.log.error('libération du SDK Atlas en échec');
-  });
+  if (startup.status === 'ready') {
+    await startup.atlas.dispose().catch(() => {
+      app.log.error('libération du SDK Atlas en échec');
+    });
+  }
 });
 
 app.listen({ port, host }).catch((err: unknown) => {

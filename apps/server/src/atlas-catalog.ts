@@ -28,10 +28,9 @@ export interface AtlasSdkReader {
 }
 
 function toIso(value: Date): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime()))
+  if (Number.isNaN(value.getTime()))
     throw new CatalogUnavailableError('Date de sauvegarde invalide');
-  return date.toISOString();
+  return value.toISOString();
 }
 
 /**
