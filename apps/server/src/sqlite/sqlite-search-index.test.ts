@@ -10,7 +10,7 @@ import {
 } from '@backup365/core';
 import { searchIndexContract } from '@backup365/core/testing';
 import { afterAll, describe, expect, it } from 'vitest';
-import { MIGRATIONS, migrate } from './migrations.js';
+import { SEARCH_MIGRATIONS, migrate } from './migrations.js';
 import { SqliteSearchIndex } from './sqlite-search-index.js';
 
 searchIndexContract('SqliteSearchIndex', () => Promise.resolve(SqliteSearchIndex.open(':memory:')));
@@ -105,17 +105,17 @@ describe('SqliteSearchIndex storage', () => {
 describe('migrations', () => {
   it('records the version and is idempotent', () => {
     const db = new DatabaseSync(':memory:');
-    migrate(db);
-    migrate(db);
+    migrate(db, SEARCH_MIGRATIONS);
+    migrate(db, SEARCH_MIGRATIONS);
     const rows = db.prepare('SELECT version FROM schema_migrations').all();
-    expect(rows).toEqual(MIGRATIONS.map((m) => ({ version: m.version })));
+    expect(rows).toEqual(SEARCH_MIGRATIONS.map((m) => ({ version: m.version })));
   });
 
   it('applies only the missing migrations', () => {
     const db = new DatabaseSync(':memory:');
-    migrate(db);
+    migrate(db, SEARCH_MIGRATIONS);
     migrate(db, [
-      ...MIGRATIONS,
+      ...SEARCH_MIGRATIONS,
       { version: 2, name: 'extra', sql: 'CREATE TABLE extra (id INTEGER)' },
     ]);
     expect(db.prepare('SELECT COUNT(*) AS n FROM schema_migrations').get()).toEqual({ n: 2 });
@@ -123,10 +123,10 @@ describe('migrations', () => {
 
   it('rolls back a failing migration', () => {
     const db = new DatabaseSync(':memory:');
-    migrate(db);
+    migrate(db, SEARCH_MIGRATIONS);
     const bad = { version: 2, name: 'bad', sql: 'CREATE TABLE ok (id INTEGER); BROKEN' };
     expect(() => {
-      migrate(db, [...MIGRATIONS, bad]);
+      migrate(db, [...SEARCH_MIGRATIONS, bad]);
     }).toThrow();
     expect(() => db.prepare('SELECT * FROM ok').all()).toThrow();
     expect(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get()).toEqual({ v: 1 });
@@ -134,10 +134,10 @@ describe('migrations', () => {
 
   it('refuses a database newer than the program', () => {
     const db = new DatabaseSync(':memory:');
-    migrate(db);
+    migrate(db, SEARCH_MIGRATIONS);
     db.prepare("INSERT INTO schema_migrations VALUES (99, 'future', 'x')").run();
     expect(() => {
-      migrate(db);
+      migrate(db, SEARCH_MIGRATIONS);
     }).toThrow(/plus récente/);
   });
 });

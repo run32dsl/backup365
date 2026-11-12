@@ -7,7 +7,8 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "start": "node dist/main.js"
+    "start": "node dist/main.js",
+    "audit:verify": "node dist/audit-verify.js"
   },
   "dependencies": {
     "@backup365/core": "workspace:*",
