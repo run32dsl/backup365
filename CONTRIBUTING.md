@@ -22,7 +22,7 @@ Ces cinq commandes doivent passer avant toute PR ; le job `ci` de GitHub Actions
 (`.github/workflows/ci.yml`) les rejoue sur chaque PR vers `develop` et `main`. Les actions y
 sont épinglées par SHA : pour les mettre à jour, changer le SHA et le commentaire de version
 ensemble. En développement : `pnpm --filter
-@backup365/server start` après un build (port 3000, variables `PORT`, `HOST`, `LOG_LEVEL`, `BACKUP365_DATA_DIR` pour le dossier de la base de recherche, `./data` par défaut ; catalogue : `BACKUP365_TENANT_ID`, `BACKUP365_S3_ENDPOINT`,
+@backup365/server start` après un build (port 3000, variables `PORT`, `HOST`, `LOG_LEVEL`, `BACKUP365_DATA_DIR` pour le dossier des bases (`search.sqlite`, reconstructible, et `audit.sqlite`, journal d'audit à conserver), `./data` par défaut ; catalogue : `BACKUP365_TENANT_ID`, `BACKUP365_S3_ENDPOINT`,
 `BACKUP365_S3_ACCESS_KEY_ID`, `BACKUP365_S3_SECRET_ACCESS_KEY`, `BACKUP365_ENCRYPTION_PASSPHRASE`,
 `BACKUP365_S3_REGION` facultative, voir l'ADR 0002) et
 `pnpm --filter @backup365/web dev` (proxy `/api` vers le serveur).

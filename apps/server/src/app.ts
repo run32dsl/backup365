@@ -5,6 +5,7 @@ import {
   type SearchIndex,
 } from '@backup365/core';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import { registerAuditRoutes } from './audit-routes.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
 import { registerSearchRoutes } from './search-routes.js';
 
@@ -15,7 +16,7 @@ export interface AppOptions {
   catalog?: BackupCatalog;
   /** Index de recherche des mails ; absent si la base n'est pas ouverte. */
   searchIndex?: SearchIndex;
-  /** Journal d'audit ; sans lui, la recherche reste désactivée. */
+  /** Journal d'audit ; sans lui, les routes qui renvoient des éléments sauvegardés répondent 503. */
   audit?: AuditLog;
 }
 
@@ -64,7 +65,11 @@ export function buildApp({
   app.get('/api/health', () => healthResponse(version));
   // Plugin encapsulé : son gestionnaire d'erreurs ne touche pas le reste de l'application.
   void app.register((scope, _opts, done) => {
-    registerCatalogRoutes(scope, catalog);
+    registerCatalogRoutes(scope, catalog, audit);
+    done();
+  });
+  void app.register((scope, _opts, done) => {
+    registerAuditRoutes(scope, audit);
     done();
   });
   void app.register((scope, _opts, done) => {

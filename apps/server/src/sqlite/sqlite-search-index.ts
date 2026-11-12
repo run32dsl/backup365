@@ -1,6 +1,4 @@
-import { chmodSync, closeSync, mkdirSync, openSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
+import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
 import type {
   IndexedMail,
   MailMetadata,
@@ -8,7 +6,8 @@ import type {
   SearchPage,
   SearchQuery,
 } from '@backup365/core';
-import { migrate } from './migrations.js';
+import { SEARCH_MIGRATIONS } from './migrations.js';
+import { openDatabase } from './open-database.js';
 
 interface MailRow {
   mailbox_id: string;
@@ -59,25 +58,7 @@ export class SqliteSearchIndex implements SearchIndex {
 
   /** Ouvre (et crée au besoin) la base ; `:memory:` pour les tests. */
   static open(path: string): SqliteSearchIndex {
-    if (path !== ':memory:') {
-      // La base contient des données personnelles : dossier 0700, fichier 0600 (WAL/SHM en héritent).
-      const folder = dirname(path);
-      mkdirSync(folder, { recursive: true, mode: 0o700 });
-      // `mode` ne s'applique pas à un dossier déjà créé avec un umask permissif.
-      chmodSync(folder, 0o700);
-      closeSync(openSync(path, 'a', 0o600));
-      chmodSync(path, 0o600);
-    }
-    const db = new DatabaseSync(path);
-    try {
-      db.exec('PRAGMA busy_timeout = 5000');
-      if (path !== ':memory:') db.exec('PRAGMA journal_mode = WAL');
-      migrate(db);
-    } catch (err) {
-      db.close();
-      throw err;
-    }
-    return new SqliteSearchIndex(db);
+    return new SqliteSearchIndex(openDatabase(path, SEARCH_MIGRATIONS));
   }
 
   close(): void {

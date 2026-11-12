@@ -11,9 +11,20 @@ export {
 } from './catalog.js';
 export { FakeBackupCatalog, type FakeCatalogData } from './fake-catalog.js';
 export {
-  indexMailbox,
+  AUDIT_ACTIONS,
+  AUDIT_GENESIS_HASH,
+  auditHashInput,
+  isAuditAction,
+  type AuditAction,
+  type AuditEntry,
   type AuditEvent,
+  type AuditFilter,
   type AuditLog,
+  type AuditPage,
+  type AuditVerification,
+} from './audit.js';
+export {
+  indexMailbox,
   type IndexedMail,
   type MailMetadata,
   type SearchIndex,

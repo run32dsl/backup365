@@ -61,19 +61,6 @@ export interface SnapshotMailReader {
   readMails(mailboxId: string, snapshotId: string): Promise<MailMetadata[]>;
 }
 
-/** Événement du journal d'audit. Il ne contient jamais les termes recherchés (données personnelles). */
-export interface AuditEvent {
-  action: 'mail.search';
-  at: string;
-  /** Nombre d'éléments renvoyés dans la page. */
-  returned: number;
-}
-
-/** Port du journal d'audit : toute lecture d'un élément sauvegardé doit y être consignée. */
-export interface AuditLog {
-  record(event: AuditEvent): Promise<void>;
-}
-
 /** Indexe les instantanés mail non encore indexés d'une boîte, du plus ancien au plus récent. */
 export async function indexMailbox(
   deps: { catalog: BackupCatalog; reader: SnapshotMailReader; index: SearchIndex },

@@ -10,7 +10,7 @@ export interface Migration {
  * Migrations de la base de recherche, dans l'ordre. Ne jamais modifier une migration publiée :
  * en ajouter une. Horodatages en UTC ISO 8601 (texte), identifiants en texte.
  */
-export const MIGRATIONS: readonly Migration[] = [
+export const SEARCH_MIGRATIONS: readonly Migration[] = [
   {
     version: 1,
     name: 'mail-search',
@@ -45,8 +45,39 @@ export const MIGRATIONS: readonly Migration[] = [
   },
 ];
 
+/**
+ * Migrations du journal d'audit (audit.sqlite, base distincte : l'index de recherche peut être
+ * reconstruit, pas le journal). Les triggers refusent tout UPDATE et DELETE : ajout seul.
+ */
+export const AUDIT_MIGRATIONS: readonly Migration[] = [
+  {
+    version: 1,
+    name: 'audit-log',
+    sql: `
+      CREATE TABLE audit_log (
+        seq INTEGER PRIMARY KEY,
+        at TEXT NOT NULL,
+        actor TEXT NOT NULL,
+        action TEXT NOT NULL,
+        resource TEXT NOT NULL,
+        target TEXT,
+        count INTEGER,
+        reason TEXT,
+        previous_hash TEXT NOT NULL,
+        hash TEXT NOT NULL UNIQUE
+      );
+      CREATE INDEX audit_log_at ON audit_log (at);
+      CREATE INDEX audit_log_actor ON audit_log (actor);
+      CREATE TRIGGER audit_log_no_update BEFORE UPDATE ON audit_log
+        BEGIN SELECT RAISE(ABORT, 'audit_log est en ajout seul'); END;
+      CREATE TRIGGER audit_log_no_delete BEFORE DELETE ON audit_log
+        BEGIN SELECT RAISE(ABORT, 'audit_log est en ajout seul'); END;
+    `,
+  },
+];
+
 /** Applique les migrations manquantes, chacune dans une transaction. */
-export function migrate(db: DatabaseSync, migrations: readonly Migration[] = MIGRATIONS): void {
+export function migrate(db: DatabaseSync, migrations: readonly Migration[]): void {
   db.exec(
     'CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)',
   );
@@ -57,7 +88,7 @@ export function migrate(db: DatabaseSync, migrations: readonly Migration[] = MIG
   const latest = migrations.at(-1)?.version ?? 0;
   if (current > latest) {
     throw new Error(
-      `Base de recherche en version ${current}, plus récente que ce programme (${latest}) : mettre à jour backup365`,
+      `Base en version ${current}, plus récente que ce programme (${latest}) : mettre à jour backup365`,
     );
   }
   for (const migration of migrations.filter((m) => m.version > current)) {

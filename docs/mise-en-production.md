@@ -46,7 +46,10 @@ conservation par charge, et ce qui est **exclu** (chats Teams, Entra ID, si c'es
 ## 5. Accès et traçabilité
 
 Qui peut consulter ou exporter quoi (rôles), validation à deux personnes pour une boîte qui
-n'est pas la sienne, journal d'audit conservé et revu, information des salariés.
+n'est pas la sienne, journal d'audit conservé et revu, information des salariés. Le journal est `audit.sqlite` dans
+`BACKUP365_DATA_DIR` : à sauvegarder (contrairement à `search.sqlite`, reconstructible), à
+consulter via `GET /api/audit` et à vérifier par `pnpm --filter @backup365/server audit:verify`
+(code 0 intact, 1 altéré, 2 introuvable ou illisible).
 
 ## 6. Droits des personnes et effacement
 
