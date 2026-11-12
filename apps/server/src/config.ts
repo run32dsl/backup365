@@ -19,6 +19,11 @@ export function parseLogLevel(raw: string | undefined, fallback = 'info'): strin
   return raw;
 }
 
+/** Dossier des données de l'application (base de recherche…), `./data` par défaut. */
+export function parseDataDir(raw: string | undefined, fallback = './data'): string {
+  return raw === undefined || raw === '' ? fallback : raw;
+}
+
 export interface StorageConfig {
   endpoint?: string;
   region: string;

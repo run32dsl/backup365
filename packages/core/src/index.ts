@@ -10,3 +10,14 @@ export {
   type Workload,
 } from './catalog.js';
 export { FakeBackupCatalog, type FakeCatalogData } from './fake-catalog.js';
+export {
+  indexMailbox,
+  type AuditEvent,
+  type AuditLog,
+  type IndexedMail,
+  type MailMetadata,
+  type SearchIndex,
+  type SearchPage,
+  type SearchQuery,
+  type SnapshotMailReader,
+} from './search.js';

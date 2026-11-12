@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseLogLevel, parsePort, parseStorageConfig } from './config.js';
+import { parseDataDir, parseLogLevel, parsePort, parseStorageConfig } from './config.js';
 
 describe('parsePort', () => {
   it('uses the default when unset or empty', () => {
@@ -12,6 +12,16 @@ describe('parsePort', () => {
   });
   it.each(['abc', '0', '65536', '-1', '80.5'])('rejects %s', (raw) => {
     expect(() => parsePort(raw)).toThrow('PORT invalide');
+  });
+});
+
+describe('parseDataDir', () => {
+  it('uses ./data when unset or empty', () => {
+    expect(parseDataDir(undefined)).toBe('./data');
+    expect(parseDataDir('')).toBe('./data');
+  });
+  it('uses the given folder', () => {
+    expect(parseDataDir('/var/lib/backup365')).toBe('/var/lib/backup365');
   });
 });
 

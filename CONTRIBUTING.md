@@ -22,7 +22,7 @@ Ces cinq commandes doivent passer avant toute PR ; le job `ci` de GitHub Actions
 (`.github/workflows/ci.yml`) les rejoue sur chaque PR vers `develop` et `main`. Les actions y
 sont épinglées par SHA : pour les mettre à jour, changer le SHA et le commentaire de version
 ensemble. En développement : `pnpm --filter
-@backup365/server start` après un build (port 3000, variables `PORT`, `HOST`, `LOG_LEVEL`) et
+@backup365/server start` après un build (port 3000, variables `PORT`, `HOST`, `LOG_LEVEL`, `BACKUP365_DATA_DIR` pour le dossier de la base de recherche, `./data` par défaut) et
 `pnpm --filter @backup365/web dev` (proxy `/api` vers le serveur).
 
 ## Conventions

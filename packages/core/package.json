@@ -9,8 +9,8 @@
       "default": "./dist/index.js"
     },
     "./testing": {
-      "types": "./src/catalog.contract.ts",
-      "default": "./src/catalog.contract.ts"
+      "types": "./src/testing.ts",
+      "default": "./src/testing.ts"
     }
   },
   "scripts": {
