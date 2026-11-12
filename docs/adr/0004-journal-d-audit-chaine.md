@@ -1,6 +1,6 @@
 # ADR 0004 : journal d'audit chaîné (SQLite)
 
-Statut : **proposé**
+Statut : **accepté** le 2026-11-12 par le Product Manager (issue #23)
 
 ## Contexte
 
@@ -39,8 +39,8 @@ MVP derrière un port de `packages/core`, avec PostgreSQL ensuite.
 
 - Qui peut écrire dans la base peut **recalculer toute la chaîne** : la chaîne détecte une
   altération ou une suppression au milieu, pas une réécriture complète ni la troncature de la
-  fin. Pour s'en prémunir : sauvegarder ou publier régulièrement la dernière empreinte hors de la
-  machine (à planifier).
+  fin. Parade : ancrer régulièrement la dernière empreinte hors de la base. **Obligatoire avant
+  toute mise en production** (décision du PM du 2026-11-12), suivi dans #21.
 - Pas d'authentification (ADR 0002) : l'acteur vaut `anonymous` (`actorOf`, un seul point à
   changer) et `GET /api/audit` est ouvert comme le reste de l'API.
 - `item.export` fait partie du vocabulaire mais **rien ne l'émet** : aucune route d'export
@@ -55,7 +55,8 @@ MVP derrière un port de `packages/core`, avec PostgreSQL ensuite.
   `GET /api/snapshots/:id`, 503 sans journal), la recherche (`list.view`) et les échecs d'accès à
   ces deux routes.
 - `GET /api/audit` n'est pas elle-même consignée : le journal n'est pas un élément sauvegardé,
-  mais il contient des identifiants de boîte. Choix de l'auteur, à confirmer.
+  mais il contient des identifiants de boîte. Confirmé par le PM le 2026-11-12 (issue #23), valable
+  jusqu'à l'authentification ; la consignation de cette lecture est suivie dans #22.
 - `access.denied` est émis quand le catalogue ou l'index est indisponible ou qu'un instantané est
   introuvable, sur l'ouverture d'un instantané et sur la recherche ; le refus d'authentification
   viendra avec l'authentification.
