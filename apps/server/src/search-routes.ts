@@ -1,4 +1,4 @@
-import type { SearchIndex } from '@backup365/core';
+import type { AuditLog, SearchIndex } from '@backup365/core';
 import type { FastifyInstance } from 'fastify';
 
 export const MAX_PAGE_SIZE = 100;
@@ -17,8 +17,16 @@ interface SearchQuerystring {
 const text = { type: 'string', minLength: 1, maxLength: 256 } as const;
 const date = { type: 'string', format: 'date-time' } as const;
 
-/** Recherche dans l'index des mails. Sans index configuré, elle répond 503. */
-export function registerSearchRoutes(app: FastifyInstance, index: SearchIndex | undefined) {
+/**
+ * Recherche dans l'index des mails. Elle renvoie des métadonnées d'éléments sauvegardés : sans
+ * index ou sans journal d'audit configuré, elle répond 503. Chaque réponse est consignée avant
+ * d'être envoyée ; si la consignation échoue, rien n'est renvoyé.
+ */
+export function registerSearchRoutes(
+  app: FastifyInstance,
+  index: SearchIndex | undefined,
+  audit: AuditLog | undefined,
+) {
   app.get<{ Querystring: SearchQuerystring }>(
     '/api/search',
     {
@@ -39,7 +47,7 @@ export function registerSearchRoutes(app: FastifyInstance, index: SearchIndex | 
       },
     },
     async (req, reply) => {
-      if (!index) return reply.code(503).send({ error: 'search_unavailable' });
+      if (!index || !audit) return reply.code(503).send({ error: 'search_unavailable' });
       // Le format `date-time` accepte des dates que JavaScript refuse (seconde intercalaire).
       if (
         [req.query.after, req.query.before].some((d) => d !== undefined && isNaN(Date.parse(d)))
@@ -48,6 +56,11 @@ export function registerSearchRoutes(app: FastifyInstance, index: SearchIndex | 
       }
       // Les termes recherchés sont des données personnelles : ils ne sont jamais journalisés.
       const page = await index.search(req.query);
+      await audit.record({
+        action: 'mail.search',
+        at: new Date().toISOString(),
+        returned: page.items.length,
+      });
       return {
         total: page.total,
         limit: req.query.limit,

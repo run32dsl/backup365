@@ -62,6 +62,7 @@ export class SqliteSearchIndex implements SearchIndex {
     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
     const db = new DatabaseSync(path);
     try {
+      db.exec('PRAGMA busy_timeout = 5000');
       if (path !== ':memory:') db.exec('PRAGMA journal_mode = WAL');
       migrate(db);
     } catch (err) {

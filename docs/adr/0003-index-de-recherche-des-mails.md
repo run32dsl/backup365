@@ -36,8 +36,9 @@ l'adaptateur. La console doit retrouver un mail parmi les instantanés sans reli
 - Le lecteur de métadonnées par instantané (`SnapshotMailReader`) n'a pas d'adaptateur SDK : rien
   ne remplit encore l'index en production, et rien ne déclenche l'indexation (planification à
   venir).
-- La recherche renvoie des métadonnées d'éléments sauvegardés sans passer par un journal d'audit,
-  qui n'existe pas encore. À traiter avec lui ; à confirmer par le Product Manager.
+- La recherche renvoie des métadonnées d'éléments sauvegardés : elle exige donc un `AuditLog`
+  (port du cœur, sans termes recherchés dans l'événement) et répond 503 sans lui. Aucun adaptateur
+  d'audit n'existe encore : la route est inactive en production tant qu'il n'est pas branché.
 - Routes non authentifiées (voir ADR 0002).
 - Les paramètres `after` et `before` (date ISO 8601, borne haute exclue) complètent l'API
   demandée par l'issue pour la recherche par plage de dates.

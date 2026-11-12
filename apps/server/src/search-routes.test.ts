@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import type { AuditEvent } from '@backup365/core';
 import { buildApp, LOG_SERIALIZERS } from './app.js';
 import { SqliteSearchIndex } from './sqlite/sqlite-search-index.js';
+
+const events: AuditEvent[] = [];
+const audit = {
+  record: (e: AuditEvent) => {
+    events.push(e);
+    return Promise.resolve();
+  },
+};
 
 async function appWithData() {
   const searchIndex = SqliteSearchIndex.open(':memory:');
@@ -15,7 +24,7 @@ async function appWithData() {
     attachments: [],
   }));
   await searchIndex.indexSnapshot('mbx-1', 'snap-1', mails);
-  return buildApp({ version: '1', searchIndex });
+  return buildApp({ version: '1', searchIndex, audit });
 }
 
 describe('GET /api/search', () => {
@@ -29,6 +38,35 @@ describe('GET /api/search', () => {
     const body = res.json<{ total: number; limit: number; offset: number; items: unknown[] }>();
     expect(body).toMatchObject({ total: 3, limit: 2, offset: 1 });
     expect(body.items).toHaveLength(2);
+  });
+
+  it('records an audit event without the search terms', async () => {
+    events.length = 0;
+    const app = await appWithData();
+    await app.inject({ method: 'GET', url: '/api/search?q=facture&limit=2' });
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ action: 'mail.search', returned: 2 });
+    expect(JSON.stringify(events)).not.toContain('facture');
+  });
+
+  it('answers 503 without audit log', async () => {
+    const searchIndex = SqliteSearchIndex.open(':memory:');
+    const res = await buildApp({ version: '1', searchIndex }).inject({
+      method: 'GET',
+      url: '/api/search',
+    });
+    expect(res.statusCode).toBe(503);
+  });
+
+  it('sends nothing when the audit fails', async () => {
+    const searchIndex = SqliteSearchIndex.open(':memory:');
+    const failing = { record: () => Promise.reject(new Error('disk full')) };
+    const res = await buildApp({ version: '1', searchIndex, audit: failing }).inject({
+      method: 'GET',
+      url: '/api/search',
+    });
+    expect(res.statusCode).toBe(500);
+    expect(res.body).not.toContain('items');
   });
 
   it('filters by date range', async () => {
