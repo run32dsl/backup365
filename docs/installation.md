@@ -23,11 +23,12 @@ docker compose up -d --build    # console seule
 docker compose --profile minio up -d --build   # console + MinIO local
 ```
 
-Avec MinIO : choisir d'abord l'image, en remplaçant le digest marqueur de `compose.yaml`
-(`docker buildx imagetools inspect quay.io/minio/minio:<version>`), mettre
-`BACKUP365_S3_ENDPOINT=http://minio:9000`, et créer le bucket `atlas-<tenant>` (outil `mc mb`). MinIO exige 3 caractères au moins pour l'identifiant
-et 8 pour le mot de passe. Les deux
-premiers secrets sont alors l'identifiant et le mot de passe racine de MinIO.
+Avec MinIO : l'image est épinglée par digest dans `compose.yaml` (MinIO de Chainguard, la même
+que celle des tests de bout en bout d'Atlas). Mettre `BACKUP365_S3_ENDPOINT=http://minio:9000`.
+**Ne pas créer le bucket à la main** : Atlas crée `atlas-<tenant>` à la première sauvegarde,
+avec Object Lock et versioning (un bucket créé par `mc mb` sans `--with-lock` ne peut plus être
+rendu immuable). MinIO exige 3 caractères au moins pour l'identifiant et 8 pour le mot de
+passe ; les deux premiers secrets sont alors l'identifiant et le mot de passe racine de MinIO.
 
 ## Variables d'environnement
 

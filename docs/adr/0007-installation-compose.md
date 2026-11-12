@@ -9,7 +9,7 @@ que l'API, et les secrets du stockage n'existaient qu'en variables d'environneme
 
 ## Décision
 
-- `Containerfile` en deux étapes : construction avec pnpm, puis exécution sur `node:22-slim`
+- `Containerfile` en deux étapes : construction avec pnpm, puis exécution sur `node:22.23.4-slim` épinglé par digest (index multi-architecture)
   sans pnpm ni sources (`pnpm deploy --prod`), utilisateur `node`, volume `/data`.
 - Le serveur sert lui-même l'interface construite quand `BACKUP365_WEB_DIR` est défini
   (`static-web.ts`, sans dépendance) : fichiers lus au démarrage et indexés, donc aucune

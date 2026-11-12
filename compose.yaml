@@ -43,10 +43,10 @@ services:
   # stockage S3 immuable de l'organisation (docs/mise-en-production.md).
   minio:
     profiles: [minio]
-    # À REMPLACER avant usage : digest d'une version de MinIO relue et choisie par l'opérateur
-    # (`docker buildx imagetools inspect quay.io/minio/minio:<version>`). Le digest ci-dessous
-    # est un marqueur, il ne désigne aucune image.
-    image: quay.io/minio/minio@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    # MinIO de Chainguard, épinglé par digest (index multi-architecture, publié le 2026-09-24),
+    # le même que les tests de bout en bout d'Atlas. Mise à jour : relire la version, puis
+    # `skopeo inspect --raw docker://cgr.dev/chainguard/minio:latest | sha256sum`.
+    image: cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1
     restart: unless-stopped
     command: server /data
     environment:

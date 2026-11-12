@@ -2,7 +2,7 @@
 # Construction : `podman build -t backup365 .` (ou `docker build`), depuis la racine du dépôt.
 
 # --- Étape 1 : construction (dépendances de développement, compilation) ---
-FROM node:22-slim AS build
+FROM node:22.23.4-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d AS build
 WORKDIR /src
 # La version de pnpm vient du champ packageManager de package.json.
 RUN corepack enable
@@ -13,7 +13,7 @@ RUN pnpm install --frozen-lockfile \
  && pnpm --filter @backup365/server deploy --prod --legacy /out
 
 # --- Étape 2 : exécution (sans pnpm, sans sources, utilisateur non root) ---
-FROM node:22-slim
+FROM node:22.23.4-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
