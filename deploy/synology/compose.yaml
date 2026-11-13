@@ -1,0 +1,29 @@
+# backup365 : démo sur un NAS Synology (DSM 7, Container Manager). Voir docs/installation-synology.md.
+#
+# RÉSEAU LOCAL UNIQUEMENT : la console n'a pas d'authentification (#22). Le port est publié sur
+# l'adresse LAN du NAS (BACKUP365_BIND_ADDRESS, obligatoire dans .env), jamais sur 0.0.0.0 par
+# défaut. Ne pas rediriger de port sur la box, ne pas la placer derrière un proxy inverse public.
+#
+# Configuration : copier .env.example en .env (non versionné) dans le dossier du projet.
+# Image : épinglée par digest. Mise à jour : relever le digest de l'étiquette voulue avec
+# `docker buildx imagetools inspect ghcr.io/run32dsl/backup365:develop`.
+
+name: backup365
+
+services:
+  console:
+    # Digest de l'image : BACKUP365_IMAGE_DIGEST dans .env (sha256:...), voir docs/installation-synology.md.
+    image: ghcr.io/run32dsl/backup365@${BACKUP365_IMAGE_DIGEST:?renseigner le digest de l image (sha256:...) dans .env}
+    restart: unless-stopped
+    ports:
+      - '${BACKUP365_BIND_ADDRESS:?renseigner l adresse LAN du NAS dans .env}:${BACKUP365_PORT:-3000}:3000'
+    env_file: .env
+    volumes:
+      # Dossier partagé du NAS ; doit appartenir à l'uid 1000 (docs/installation-synology.md).
+      - ${BACKUP365_DATA_PATH:-/volume1/docker/backup365/data}:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
