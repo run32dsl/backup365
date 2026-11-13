@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { HealthResponse } from '@backup365/core';
 import { fetchHealth } from './health.js';
-import { fetchStatus } from './status.js';
+import { NoBackupError, fetchStatus } from './status.js';
 import { StatusView, type StatusState } from './StatusView.js';
 
 /** État de la vérification du serveur. */
@@ -28,7 +28,9 @@ export function Home() {
   }, []);
   const [status, setStatus] = useState<StatusState>('loading');
   useEffect(() => {
-    fetchStatus().then(setStatus, () => setStatus('error'));
+    fetchStatus().then(setStatus, (err: unknown) =>
+      setStatus(err instanceof NoBackupError ? 'empty' : 'error'),
+    );
   }, []);
   return (
     <main>

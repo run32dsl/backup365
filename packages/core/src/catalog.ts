@@ -37,6 +37,14 @@ export class CatalogUnavailableError extends Error {
   }
 }
 
+/** Le stockage répond, mais le bucket n'existe pas : aucune sauvegarde n'a encore eu lieu. */
+export class NoBackupFoundError extends CatalogUnavailableError {
+  constructor(options?: ErrorOptions) {
+    super('Aucune sauvegarde trouvée', options);
+    this.name = 'NoBackupFoundError';
+  }
+}
+
 /** Catalogue des sauvegardes, en lecture seule. */
 export interface BackupCatalog {
   listMailboxes(): Promise<Mailbox[]>;

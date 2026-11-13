@@ -1,6 +1,7 @@
 import {
   CatalogUnavailableError,
   FakeBackupCatalog,
+  NoBackupFoundError,
   type BackupCatalog,
   type StatusReport,
 } from '@backup365/core';
@@ -64,6 +65,19 @@ describe('GET /api/status', () => {
     const res = await buildApp({ version: '1' }).inject({ method: 'GET', url: '/api/status' });
     expect(res.statusCode).toBe(503);
     expect(res.json()).toEqual({ error: 'catalog_unavailable' });
+  });
+
+  it('answers a dedicated code when no backup exists yet, and health stays 200', async () => {
+    const empty = {
+      listMailboxes: () => Promise.reject(new NoBackupFoundError({ cause: new Error('atlas-x') })),
+    } as unknown as BackupCatalog;
+    const app = buildApp({ version: '1', catalog: empty });
+    const res = await app.inject({ method: 'GET', url: '/api/status' });
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toEqual({ error: 'no_backup_found' });
+    const mailboxes = await app.inject({ method: 'GET', url: '/api/mailboxes' });
+    expect(mailboxes.json()).toEqual({ error: 'no_backup_found' });
+    expect((await app.inject({ method: 'GET', url: '/api/health' })).statusCode).toBe(200);
   });
 
   it('answers 503 without detail when the catalog fails', async () => {

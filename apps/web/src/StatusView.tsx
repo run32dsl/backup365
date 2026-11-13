@@ -1,7 +1,7 @@
 import type { BackupState, SourceKind, StatusReport } from '@backup365/core';
 
 /** État du chargement du tableau de bord. */
-export type StatusState = StatusReport | 'loading' | 'error';
+export type StatusState = StatusReport | 'loading' | 'error' | 'empty';
 
 const STATE_LABELS: Record<BackupState, string> = {
   ok: 'ok',
@@ -14,6 +14,8 @@ const KIND_LABELS: Record<SourceKind, string> = { mailbox: 'boîte', site: 'site
 /** Synthèse puis tableau par boîte ou site et par charge ; l'état est écrit en toutes lettres (pas la couleur seule). */
 export function StatusView({ state }: { state: StatusState }) {
   if (state === 'loading') return <p role="status">Chargement de l’état des sauvegardes…</p>;
+  if (state === 'empty')
+    return <p role="status">Aucune sauvegarde trouvée : lancez une première sauvegarde Atlas.</p>;
   if (state === 'error') return <p role="alert">État des sauvegardes indisponible</p>;
   return (
     <section aria-label="État des sauvegardes">

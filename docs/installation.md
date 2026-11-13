@@ -18,13 +18,46 @@ mkdir -m 700 secrets            # un fichier par secret, sans fin de ligne utile
 for s in s3_access_key_id s3_secret_access_key encryption_passphrase; do
   read -rsp "$s : " v && printf '%s' "$v" > "secrets/$s" && echo   # hors historique du shell
 done
-# Phrase de chiffrement : console seule (uid 1000, utilisateur node). Secrets du stockage :
-# lus aussi par MinIO (uid 65532), donc lisibles par tous ; le dossier en 700 les protège sur l'hôte.
-sudo chown 1000:1000 secrets/encryption_passphrase && chmod 400 secrets/encryption_passphrase
+```
+
+Droits des secrets. Phrase de chiffrement : console seule (uid 1000, utilisateur `node` du
+conteneur). Secrets du stockage : lus aussi par MinIO (uid 65532), donc lisibles par tous ; le
+dossier en 700 les protège sur l'hôte. Régler les droits (`chmod`) **avant** de changer le
+propriétaire (`chown`).
+
+**Docker** (démon en root) :
+
+```sh
+chmod 400 secrets/encryption_passphrase
 chmod 444 secrets/s3_access_key_id secrets/s3_secret_access_key
+sudo chown 1000:1000 secrets/encryption_passphrase
+```
+
+**Podman sans root** : l'uid 1000 du conteneur n'est pas l'uid 1000 de l'hôte, et `sudo chown`
+donnerait le fichier à un autre utilisateur. `podman unshare` entre dans l'espace de noms
+utilisateur de Podman :
+
+```sh
+chmod 400 secrets/encryption_passphrase
+chmod 444 secrets/s3_access_key_id secrets/s3_secret_access_key
+podman unshare chown 1000:1000 secrets/encryption_passphrase
+```
+
+**SELinux** (Fedora, RHEL) : s'il est en mode `Enforcing` (`getenforce`), il refuse aux
+conteneurs la lecture des fichiers secrets, et la console comme MinIO redémarrent en boucle
+(`…_FILE illisible`, `Invalid credentials`). Étiqueter le dossier :
+`chcon -R -t container_file_t secrets` (à refaire si le dossier est recréé ou restauré). Après
+`podman unshare chown`, le fichier appartient à un autre uid côté hôte : le relire demande
+`podman unshare cat`.
+
+Puis :
+
+```sh
 docker compose up -d --build    # console seule
 docker compose --profile minio up -d --build   # console + MinIO local
 ```
+
+Avec Podman, remplacer `docker compose` par `podman compose`.
 
 Avec MinIO : l'image est épinglée par digest dans `compose.yaml` (MinIO de Chainguard, la même
 que celle des tests de bout en bout d'Atlas). Mettre `BACKUP365_S3_ENDPOINT=http://minio:9000`.
@@ -51,8 +84,10 @@ deux. `compose.yaml` utilise les fichiers de `./secrets/` montés dans `/run/sec
 
 ## Premier accès
 
-Ouvrir <http://127.0.0.1:3000>. `GET /api/health` doit répondre `ok`. **La console n'a pas
-d'authentification** : le port n'est publié que sur la machine elle-même. Pour un accès distant,
+Ouvrir <http://127.0.0.1:3000>. `GET /api/health` doit répondre `ok`. Tant qu'aucune
+sauvegarde n'a créé le bucket, le catalogue répond 503 avec le code `no_backup_found`, et
+l'interface affiche « Aucune sauvegarde trouvée : lancez une première sauvegarde Atlas » ;
+`/api/health` reste 200. **La console n'a pas d'authentification** : le port n'est publié que sur la machine elle-même. Pour un accès distant,
 passer par un tunnel SSH ou un proxy inverse qui authentifie.
 
 ## Sauvegarde de la base SQLite
