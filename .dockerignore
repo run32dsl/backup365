@@ -2,10 +2,11 @@
 node_modules
 **/node_modules
 **/dist
-data
-.env
-*.env
-secrets
+**/data
+**/.env
+**/*.env
+**/.env.*
+**/secrets
 .pr
 .review
 .claude
