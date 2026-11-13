@@ -83,9 +83,11 @@ export function createServer(
     },
     ...(startup.status === 'ready' ? { catalog: startup.atlas.catalog } : {}),
     status: {
-      auditAnchor: anchor.configured
-        ? { configured: true }
-        : { configured: false, reason: anchor.reason },
+      auditAnchor: !anchor.configured
+        ? { configured: false, reason: anchor.reason }
+        : anchorer
+          ? { configured: true }
+          : { configured: false, reason: "journal d'audit indisponible" },
       maxAgeHours: parseMaxAgeHours(env['BACKUP365_STATUS_MAX_AGE_HOURS']),
       workloads: parseStatusWorkloads(env['BACKUP365_STATUS_WORKLOADS']),
     },

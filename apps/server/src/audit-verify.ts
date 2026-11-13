@@ -23,7 +23,11 @@ export async function runAuditVerify(
   out(`Journal d'audit intact : ${result.entries} entrée(s) vérifiée(s).`);
   if (!anchors) return 0;
   const read = readAnchors(anchors.dir, anchors.key);
-  const problem = read.anchors ? checkAnchors(log, read.anchors) : read.error;
+  const problem = read.anchors
+    ? read.anchors.length === 0
+      ? "fichier d'ancres vide (vidé ou jamais écrit)"
+      : checkAnchors(log, read.anchors)
+    : read.error;
   if (problem !== undefined || !read.anchors) {
     out(`Ancres du journal d'audit INCOHÉRENTES : ${problem}.`);
     return 1;

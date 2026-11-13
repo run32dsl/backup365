@@ -146,6 +146,16 @@ describe("ancrage du journal d'audit", () => {
     log.close();
   });
 
+  it("refuse un fichier d'ancres vidé", async () => {
+    const { log, anchorDir } = await setup(2);
+    new AuditAnchorer(log, anchorDir, key, 60_000, () => undefined).anchorNow();
+    writeFileSync(join(anchorDir, ANCHOR_FILE), '');
+    const { code, text } = await run(log, anchorDir);
+    expect(code).toBe(1);
+    expect(text).toContain('vide');
+    log.close();
+  });
+
   it('main : sortie non nulle sur troncature, 0 sur le cas nominal', async () => {
     const { log, path, dataDir, anchorDir } = await setup(3);
     new AuditAnchorer(log, anchorDir, key, 60_000, () => undefined).anchorNow();
