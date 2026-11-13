@@ -1,34 +1,58 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { AuditLog } from '@backup365/core';
-import { parseDataDir } from './config.js';
+import { checkAnchors, readAnchors, resolveAnchorConfig, type AnchorHead } from './audit-anchor.js';
+import { parseDataDir, withSecretFiles } from './config.js';
 import { SqliteAuditLog } from './sqlite/sqlite-audit-log.js';
 
-/** Vérifie la chaîne et renvoie le code de sortie : 0 intacte, 1 altérée. Écrit sur `out`. */
+/**
+ * Vérifie la chaîne puis, si `anchors` est donné, les ancres externes. Renvoie le code de sortie :
+ * 0 intact, 1 altéré (chaîne ou ancres). Écrit sur `out`.
+ */
 export async function runAuditVerify(
-  log: AuditLog,
+  log: AuditLog & AnchorHead,
   out: (line: string) => void = console.log,
+  anchors?: { dir: string; key: Buffer },
 ): Promise<number> {
   const result = await log.verify();
-  if (result.ok) {
-    out(`Journal d'audit intact : ${result.entries} entrée(s) vérifiée(s).`);
-    return 0;
+  if (!result.ok) {
+    out(`Journal d'audit ALTÉRÉ à l'entrée ${result.brokenAt} : ${result.reason}.`);
+    return 1;
   }
-  out(`Journal d'audit ALTÉRÉ à l'entrée ${result.brokenAt} : ${result.reason}.`);
-  return 1;
+  out(`Journal d'audit intact : ${result.entries} entrée(s) vérifiée(s).`);
+  if (!anchors) return 0;
+  const read = readAnchors(anchors.dir, anchors.key);
+  const problem = read.anchors ? checkAnchors(log, read.anchors) : read.error;
+  if (problem !== undefined || !read.anchors) {
+    out(`Ancres du journal d'audit INCOHÉRENTES : ${problem}.`);
+    return 1;
+  }
+  out(`Ancres vérifiées : ${read.anchors.length} ancre(s) cohérente(s) avec le journal.`);
+  return 0;
 }
 
 /** Commande `pnpm --filter @backup365/server audit:verify` ; 2 si le journal est illisible. */
 export async function main(env: Record<string, string | undefined>): Promise<number> {
   let log: SqliteAuditLog;
+  let anchors: { dir: string; key: Buffer } | undefined;
   try {
-    const path = join(parseDataDir(env['BACKUP365_DATA_DIR']), 'audit.sqlite');
+    const dataDir = parseDataDir(env['BACKUP365_DATA_DIR']);
+    const path = join(dataDir, 'audit.sqlite');
     // Ne jamais créer une base vide : un dossier mal configuré ne doit pas passer pour « intact ».
     if (!existsSync(path)) {
       console.error("Journal d'audit introuvable (ENOENT) : vérifier BACKUP365_DATA_DIR.");
       return 2;
     }
+    const secrets = withSecretFiles(env, (p) => readFileSync(p, 'utf8'));
+    const config = resolveAnchorConfig(
+      env['BACKUP365_AUDIT_ANCHOR_DIR'],
+      dataDir,
+      secrets['BACKUP365_ENCRYPTION_PASSPHRASE'],
+    );
+    if (config.configured) anchors = { dir: config.dir, key: config.key };
+    else
+      console.warn(`Ancrage du journal : non configuré (${config.reason}), ancres non vérifiées.`);
     log = SqliteAuditLog.open(path);
   } catch (err) {
     // Le code d'erreur seul : le message peut contenir un chemin local.
@@ -38,7 +62,7 @@ export async function main(env: Record<string, string | undefined>): Promise<num
     return 2;
   }
   try {
-    return await runAuditVerify(log);
+    return await runAuditVerify(log, console.log, anchors);
   } finally {
     log.close();
   }

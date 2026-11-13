@@ -24,6 +24,9 @@ services:
       BACKUP365_STATUS_WORKLOADS: ${BACKUP365_STATUS_WORKLOADS:-}
       BACKUP365_CATALOG_CACHE_MINUTES: ${BACKUP365_CATALOG_CACHE_MINUTES:-}
       BACKUP365_INDEX_INTERVAL_MINUTES: ${BACKUP365_INDEX_INTERVAL_MINUTES:-}
+      # Ancres du journal d'audit, sur un volume distinct des données (docs/installation.md).
+      BACKUP365_AUDIT_ANCHOR_DIR: /anchors
+      BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN: ${BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN:-}
       # Secrets lus dans des fichiers montés, jamais dans l'environnement.
       BACKUP365_S3_ACCESS_KEY_ID_FILE: /run/secrets/s3_access_key_id
       BACKUP365_S3_SECRET_ACCESS_KEY_FILE: /run/secrets/s3_secret_access_key
@@ -34,6 +37,9 @@ services:
       - encryption_passphrase
     volumes:
       - console-data:/data
+      # Par défaut un volume nommé ; pour une vraie protection, le remplacer par un montage vers
+      # un autre stockage (ex. `${BACKUP365_ANCHOR_PATH}:/anchors`, partage à instantanés immuables).
+      - console-anchors:/anchors
     read_only: true
     tmpfs:
       - /tmp
@@ -71,4 +77,5 @@ secrets:
 
 volumes:
   console-data:
+  console-anchors:
   minio-data:

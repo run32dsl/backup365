@@ -23,7 +23,9 @@ WORKDIR /app
 COPY --from=build /out/ ./
 COPY --from=build /src/apps/web/dist/ ./web/
 # Dossier des bases SQLite, à monter en volume ; propriété de l'utilisateur non root.
-RUN mkdir /data && chown node:node /data
+# /anchors : point de montage des ancres du journal d'audit (volume distinct, voir compose.yaml) ;
+# BACKUP365_AUDIT_ANCHOR_DIR n'est pas fixé ici : sans montage, l'ancrage ne doit pas paraître actif.
+RUN mkdir /data /anchors && chown node:node /data /anchors
 USER node
 VOLUME /data
 EXPOSE 3000

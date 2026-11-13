@@ -61,6 +61,34 @@ describe('GET /api/status', () => {
     expect(report.alertCount).toBe(0);
   });
 
+  it('exposes the audit anchoring state', async () => {
+    const get = async (
+      auditAnchor: NonNullable<Parameters<typeof buildApp>[0]['status']>['auditAnchor'],
+    ) => {
+      const app = buildApp({
+        version: '1',
+        catalog,
+        status: { maxAgeHours: 26, workloads: ['mail'], auditAnchor },
+      });
+      return (await app.inject({ method: 'GET', url: '/api/status' })).json<
+        Record<string, unknown>
+      >();
+    };
+    expect(
+      (await get({ configured: false, reason: 'BACKUP365_AUDIT_ANCHOR_DIR absent' }))[
+        'auditAnchor'
+      ],
+    ).toEqual({
+      configured: false,
+      label: 'ancrage du journal : non configuré',
+      reason: 'BACKUP365_AUDIT_ANCHOR_DIR absent',
+    });
+    expect((await get({ configured: true }))['auditAnchor']).toEqual({
+      configured: true,
+      label: 'ancrage du journal : configuré',
+    });
+  });
+
   it('answers 503 without catalog', async () => {
     const res = await buildApp({ version: '1' }).inject({ method: 'GET', url: '/api/status' });
     expect(res.statusCode).toBe(503);

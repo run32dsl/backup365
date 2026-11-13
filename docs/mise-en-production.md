@@ -49,7 +49,9 @@ Qui peut consulter ou exporter quoi (rôles), validation à deux personnes pour 
 n'est pas la sienne, journal d'audit conservé et revu, information des salariés. Le journal est `audit.sqlite` dans
 `BACKUP365_DATA_DIR` : à sauvegarder (contrairement à `search.sqlite`, reconstructible), à
 consulter via `GET /api/audit` et à vérifier par `pnpm --filter @backup365/server audit:verify`
-(code 0 intact, 1 altéré, 2 introuvable ou illisible).
+(code 0 intact, 1 altéré, 2 introuvable ou illisible). L'ancrage externe de l'empreinte de tête
+(`BACKUP365_AUDIT_ANCHOR_DIR`, stockage distinct, voir `docs/installation.md`) est obligatoire
+avant la production ; `audit-verify` en contrôle les ancres.
 
 Surveillance : l'accueil de la console et `GET /api/status` indiquent, par boîte, par site SharePoint et par charge,
 l'âge du dernier instantané (ok, ancien, absent). Seuil d'alerte `BACKUP365_STATUS_MAX_AGE_HOURS`

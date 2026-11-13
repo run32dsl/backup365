@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { buildApp, LOG_SERIALIZERS, REDACTED_PATHS } from './app.js';
+import { AuditAnchorer, parseAnchorIntervalMs, resolveAnchorConfig } from './audit-anchor.js';
 import type { AtlasFactory } from './atlas-sdk.js';
 import { startAtlas } from './atlas-startup.js';
 import {
@@ -27,6 +28,7 @@ export function createServer(
   factory?: AtlasFactory,
 ): FastifyInstance {
   const indexIntervalMs = parseIndexIntervalMs(env['BACKUP365_INDEX_INTERVAL_MINUTES']);
+  const anchorIntervalMs = parseAnchorIntervalMs(env['BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN']);
   const dataDir = parseDataDir(env['BACKUP365_DATA_DIR']);
   const opened = tryOpenSearchIndex(join(dataDir, 'search.sqlite'));
   const openedAudit = tryOpenAuditLog(join(dataDir, 'audit.sqlite'));
@@ -36,12 +38,26 @@ export function createServer(
   };
 
   let startup: ReturnType<typeof startAtlas>;
+  let secretEnv: Record<string, string | undefined>;
   try {
-    startup = startAtlas(withSecretFiles(env, readFile), factory);
+    secretEnv = withSecretFiles(env, readFile);
+    startup = startAtlas(secretEnv, factory);
   } catch (err) {
     closeDatabases();
     throw err;
   }
+
+  const anchor = resolveAnchorConfig(
+    env['BACKUP365_AUDIT_ANCHOR_DIR'],
+    dataDir,
+    secretEnv['BACKUP365_ENCRYPTION_PASSPHRASE'],
+  );
+  const anchorer =
+    anchor.configured && openedAudit.audit
+      ? new AuditAnchorer(openedAudit.audit, anchor.dir, anchor.key, anchorIntervalMs, (code) => {
+          app.log.error({ code }, "écriture de l'ancre du journal d'audit en échec");
+        })
+      : undefined;
 
   // Dossier de l'interface construite (image de conteneur) ; sans lui, l'API seule est servie.
   const webDir = env['BACKUP365_WEB_DIR'];
@@ -67,6 +83,9 @@ export function createServer(
     },
     ...(startup.status === 'ready' ? { catalog: startup.atlas.catalog } : {}),
     status: {
+      auditAnchor: anchor.configured
+        ? { configured: true }
+        : { configured: false, reason: anchor.reason },
       maxAgeHours: parseMaxAgeHours(env['BACKUP365_STATUS_MAX_AGE_HOURS']),
       workloads: parseStatusWorkloads(env['BACKUP365_STATUS_WORKLOADS']),
     },
@@ -79,6 +98,11 @@ export function createServer(
   if (openedAudit.error) {
     const code = (openedAudit.error as NodeJS.ErrnoException).code;
     app.log.error({ code }, "journal d'audit indisponible, les routes de données répondent 503");
+  }
+  if (!anchor.configured) {
+    app.log.warn(
+      `ancrage du journal : non configuré (${anchor.reason}) ; une réécriture complète ou la troncature du journal ne seraient pas détectées`,
+    );
   }
   if (opened.error) {
     // Le code d'erreur seul : le message peut contenir un chemin local.
@@ -93,14 +117,16 @@ export function createServer(
   } else if (startup.status === 'unconfigured') {
     app.log.warn('stockage non configuré, les routes du catalogue répondent 503');
   }
-  if (indexer) {
+  if (indexer || anchorer) {
     // Au démarrage de l'application, sans retarder l'écoute ni /api/health.
     app.addHook('onReady', () => {
-      indexer.start();
+      indexer?.start();
+      anchorer?.start();
     });
   }
   app.addHook('onClose', async () => {
     await indexer?.stop();
+    anchorer?.stop();
     closeDatabases();
     if (startup.status === 'ready') {
       await startup.atlas.dispose().catch(() => {

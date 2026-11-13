@@ -35,12 +35,40 @@ MVP derrière un port de `packages/core`, avec PostgreSQL ensuite.
   banc fournit `alterActor` et `deleteEntry` pour simuler l'attaque sur le stockage.
 - Aucune dépendance ajoutée (`node:crypto`, `node:sqlite`).
 
+## Ancrage externe
+
+Statut : **proposé** (issue #21, décisions du PO du 2026-11-13).
+
+- Le serveur écrit une ancre `{seq, headHash, at, mac}` (une ligne JSON) dans
+  `audit-anchors.jsonl`, fichier ouvert en **ajout seul**, situé dans `BACKUP365_AUDIT_ANCHOR_DIR`.
+  Ce dossier doit être distinct de `BACKUP365_DATA_DIR` et destiné à un autre stockage (partage NAS
+  à instantanés immuables, par exemple). L'ancre ne contient ni contenu de mail ni motif d'export.
+- Écriture au démarrage, toutes les `BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN` minutes (60 par défaut,
+  entier de 1 à 1440) **seulement si la tête a changé**, et à l'arrêt propre.
+- Signature : HMAC-SHA256 de `seq`, `headHash` et `at` avec une clé dérivée par HKDF-SHA256
+  (`node:crypto`) de `BACKUP365_ENCRYPTION_PASSPHRASE`, contexte `backup365-audit-anchor`. Aucun
+  nouveau secret. Qui n'a pas la phrase ne peut pas forger d'ancre ; changer la phrase invalide
+  les ancres existantes (à noter lors d'une rotation).
+- `audit-verify` contrôle aussi les ancres : signature valide ; `seq` de chaque ancre ≤ dernier
+  `seq` local (sinon **troncature**) ; empreinte locale au `seq` ancré = `headHash` (sinon
+  **réécriture**). Écart : message explicite et code de sortie 1. Un fichier d'ancres absent ou
+  illisible alors que le dossier est configuré est aussi un écart.
+- Dossier absent, égal à `BACKUP365_DATA_DIR` ou contenu dedans (ou phrase de chiffrement absente) :
+  avertissement au démarrage et `GET /api/status` expose « ancrage du journal : non configuré » avec
+  la raison ; le démarrage n'est pas refusé (démo).
+- Limites : une ancre protège jusqu'à la dernière écrite ; les entrées ajoutées depuis (au plus
+  l'intervalle) peuvent être tronquées sans détection. Qui contrôle aussi le stockage des ancres et
+  la phrase peut tout refaire : d'où le stockage distinct et immuable. `GET /api/status` n'est
+  servi qu'avec le catalogue configuré.
+- Hors périmètre : ancrage S3 Object Lock (client S3 direct, donc nouvelle dépendance soumise au
+  PM), issue séparée.
+
 ## Limites connues
 
 - Qui peut écrire dans la base peut **recalculer toute la chaîne** : la chaîne détecte une
   altération ou une suppression au milieu, pas une réécriture complète ni la troncature de la
-  fin. Parade : ancrer régulièrement la dernière empreinte hors de la base. **Obligatoire avant
-  toute mise en production** (décision du PM du 2026-11-12), suivi dans #21.
+  fin. Parade : ancrer régulièrement la dernière empreinte hors de la base (section « Ancrage
+  externe »). **Obligatoire avant toute mise en production** (décision du PM du 2026-11-12), #21.
 - Pas d'authentification (ADR 0002) : l'acteur vaut `anonymous` (`actorOf`, un seul point à
   changer) et `GET /api/audit` est ouvert comme le reste de l'API.
 - `item.export` fait partie du vocabulaire mais **rien ne l'émet** : aucune route d'export

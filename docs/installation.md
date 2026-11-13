@@ -68,16 +68,17 @@ passe ; les deux premiers secrets sont alors l'identifiant et le mot de passe ra
 
 ## Variables d'environnement
 
-| Variable                                                                                          | Rôle                                                 |
-| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `BACKUP365_TENANT_ID`, `BACKUP365_S3_ENDPOINT`                                                    | tenant et URL du stockage S3 (obligatoires)          |
-| `BACKUP365_S3_REGION`                                                                             | région S3 (`eu-west-3`)                              |
-| `BACKUP365_S3_ACCESS_KEY_ID`, `BACKUP365_S3_SECRET_ACCESS_KEY`, `BACKUP365_ENCRYPTION_PASSPHRASE` | secrets, **fournis par fichier** : variante `…_FILE` |
-| `BACKUP365_STATUS_MAX_AGE_HOURS`, `BACKUP365_STATUS_WORKLOADS`                                    | tableau de bord : seuil d'alerte (26 h), charges     |
-| `BACKUP365_CATALOG_CACHE_MINUTES`                                                                 | cache du recensement des sites SharePoint (60 min)   |
-| `BACKUP365_INDEX_INTERVAL_MINUTES`                                                                | intervalle d'indexation de la recherche (60 min)     |
-| `BACKUP365_PORT`, `LOG_LEVEL`                                                                     | port publié sur 127.0.0.1 (3000), journal (`info`)   |
-| `BACKUP365_DATA_DIR`, `BACKUP365_WEB_DIR`                                                         | fixés par l'image (`/data`, `/app/web`)              |
+| Variable                                                                                          | Rôle                                                                                      |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `BACKUP365_TENANT_ID`, `BACKUP365_S3_ENDPOINT`                                                    | tenant et URL du stockage S3 (obligatoires)                                               |
+| `BACKUP365_S3_REGION`                                                                             | région S3 (`eu-west-3`)                                                                   |
+| `BACKUP365_S3_ACCESS_KEY_ID`, `BACKUP365_S3_SECRET_ACCESS_KEY`, `BACKUP365_ENCRYPTION_PASSPHRASE` | secrets, **fournis par fichier** : variante `…_FILE`                                      |
+| `BACKUP365_STATUS_MAX_AGE_HOURS`, `BACKUP365_STATUS_WORKLOADS`                                    | tableau de bord : seuil d'alerte (26 h), charges                                          |
+| `BACKUP365_CATALOG_CACHE_MINUTES`                                                                 | cache du recensement des sites SharePoint (60 min)                                        |
+| `BACKUP365_INDEX_INTERVAL_MINUTES`                                                                | intervalle d'indexation de la recherche (60 min)                                          |
+| `BACKUP365_AUDIT_ANCHOR_DIR`, `BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN`                               | ancres du journal d'audit : dossier (`/anchors` dans `compose.yaml`), intervalle (60 min) |
+| `BACKUP365_PORT`, `LOG_LEVEL`                                                                     | port publié sur 127.0.0.1 (3000), journal (`info`)                                        |
+| `BACKUP365_DATA_DIR`, `BACKUP365_WEB_DIR`                                                         | fixés par l'image (`/data`, `/app/web`)                                                   |
 
 Un secret se donne soit en variable, soit par `<NOM>_FILE` (chemin d'un fichier monté), jamais les
 deux. `compose.yaml` utilise les fichiers de `./secrets/` montés dans `/run/secrets/`.
@@ -105,3 +106,16 @@ docker compose exec console rm /data/audit.backup.sqlite
 Conserver la copie ailleurs que sur la machine, avec les mêmes droits d'accès que les
 sauvegardes (elle contient des données personnelles). Intégrité du journal :
 `docker compose exec console node dist/audit-verify.js`.
+
+## Ancrage du journal d'audit
+
+Sans copie de sa tête hors de la base, la chaîne du journal ne détecte ni la troncature de fin ni
+une réécriture complète (ADR 0004). La console écrit donc une ancre signée (`{seq, headHash, at}`)
+dans `audit-anchors.jsonl`, en ajout seul, toutes les `BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN`
+minutes si la tête a changé, et à l'arrêt propre. Le volume `console-anchors` (`/anchors`) doit
+être **distinct** de `console-data` et, en production, résider sur un autre stockage : remplacer
+le volume nommé par un montage vers un partage à instantanés immuables. Sinon l'ancre protège
+moins qu'elle ne le laisse croire. Sans `BACKUP365_AUDIT_ANCHOR_DIR`, ou s'il est égal à
+`BACKUP365_DATA_DIR` ou contenu dedans, le démarrage journalise un avertissement et
+`GET /api/status` indique « ancrage du journal : non configuré ». `audit-verify` contrôle alors
+aussi les ancres (code 1 en cas d'écart).

@@ -18,9 +18,14 @@ services:
     ports:
       - '${BACKUP365_BIND_ADDRESS:?renseigner l adresse LAN du NAS dans .env}:${BACKUP365_PORT:-3000}:3000'
     env_file: .env
+    environment:
+      BACKUP365_AUDIT_ANCHOR_DIR: /anchors
     volumes:
       # Dossier partagé du NAS ; doit appartenir à l'uid 1000 (docs/installation-synology.md).
       - ${BACKUP365_DATA_PATH:-/volume1/docker/backup365/data}:/data
+      # Ancres du journal d'audit : dossier d'un AUTRE volume ou partage du NAS, de préférence
+      # avec instantanés immuables (docs/installation-synology.md). Uid 1000 en écriture.
+      - ${BACKUP365_ANCHOR_PATH:?renseigner le dossier des ancres (autre volume du NAS) dans .env}:/anchors
     read_only: true
     tmpfs:
       - /tmp

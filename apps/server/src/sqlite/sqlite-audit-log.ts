@@ -58,6 +58,19 @@ export class SqliteAuditLog implements AuditLog {
     this.db.close();
   }
 
+  /** Dernier maillon (rang et empreinte), `undefined` si le journal est vide. */
+  head(): { seq: number; hash: string } | undefined {
+    return this.db.prepare('SELECT seq, hash FROM audit_log ORDER BY seq DESC LIMIT 1').get() as
+      { seq: number; hash: string } | undefined;
+  }
+
+  /** Empreinte stockée au rang `seq`, `undefined` si ce rang n'existe pas. */
+  hashAt(seq: number): string | undefined {
+    const row = this.db.prepare('SELECT hash FROM audit_log WHERE seq = ?').get(seq) as
+      { hash: string } | undefined;
+    return row?.hash;
+  }
+
   record(event: AuditEvent): Promise<void> {
     try {
       this.append(event);
