@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { AuditEvent } from '@backup365/core';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
   ANCHOR_FILE,
   AuditAnchorer,
@@ -146,6 +146,16 @@ describe("ancrage du journal d'audit", () => {
     log.close();
   });
 
+  it("refuse une ligne « null » sans lever d'exception", async () => {
+    const { log, anchorDir } = await setup(1);
+    appendAnchor(anchorDir, key, { seq: 1, headHash: log.head()!.hash, at: 'x' });
+    appendFileSync(join(anchorDir, ANCHOR_FILE), 'null\n');
+    const { code, text } = await run(log, anchorDir);
+    expect(code).toBe(1);
+    expect(text).toContain('mal formée');
+    log.close();
+  });
+
   it("refuse un fichier d'ancres vidé", async () => {
     const { log, anchorDir } = await setup(2);
     new AuditAnchorer(log, anchorDir, key, 60_000, () => undefined).anchorNow();
@@ -172,6 +182,18 @@ describe("ancrage du journal d'audit", () => {
     db.close();
     expect(await main(env)).toBe(1);
   });
+
+  it("main : sans dossier d'ancres configuré, avertit et sort en 0", async () => {
+    const { log, dataDir } = await setup(2);
+    log.close();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      expect(await main({ BACKUP365_DATA_DIR: dataDir })).toBe(0);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('non configuré'));
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });
 
 describe('configuration', () => {
@@ -182,6 +204,7 @@ describe('configuration', () => {
     expect(resolveAnchorConfig('/data/anchors', '/data', p).configured).toBe(false);
     expect(resolveAnchorConfig('./data/../data/a', './data', p).configured).toBe(false);
     expect(resolveAnchorConfig('/data-anchors', '/data', p).configured).toBe(true);
+    expect(resolveAnchorConfig('/data/..anchors', '/data', p).configured).toBe(false);
     expect(resolveAnchorConfig('/anchors', '/data', p).configured).toBe(true);
     expect(resolveAnchorConfig('/anchors', '/data', undefined).configured).toBe(false);
   });

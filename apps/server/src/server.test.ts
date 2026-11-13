@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -221,5 +221,75 @@ describe("sauvegarde à chaud du journal d'audit (docs/installation.md)", () => 
     expect(await restored.verify()).toMatchObject({ ok: true, entries: 1 });
     restored.close();
     expect((await app.inject('/api/audit')).statusCode).toBe(200);
+  });
+});
+
+describe("ancrage du journal d'audit dans createServer", () => {
+  const capture = (): { lines: string[]; stream: { write(msg: string): void } } => {
+    const lines: string[] = [];
+    return { lines, stream: { write: (msg) => void lines.push(msg) } };
+  };
+  const anchorEnv = (): Record<string, string> => ({
+    ...imageEnv(),
+    LOG_LEVEL: 'warn',
+    BACKUP365_TENANT_ID: 'tenant-de-test',
+    BACKUP365_S3_ENDPOINT: 'https://s3.example.test',
+    BACKUP365_S3_ACCESS_KEY_ID: 'identifiant-de-test',
+    BACKUP365_S3_SECRET_ACCESS_KEY: 'valeur-secrete-de-test',
+    BACKUP365_ENCRYPTION_PASSPHRASE: 'phrase-de-test-assez-longue',
+    BACKUP365_AUDIT_ANCHOR_DIR: join(dir, 'anchors'),
+  });
+  const emptyAtlas = (): AtlasHandle => ({
+    outlook: {
+      listMailboxes: () => Promise.resolve([]),
+      listSnapshots: () => Promise.resolve([]),
+      getSnapshotDetail: () => Promise.resolve(undefined),
+      readMessage: () => Promise.resolve(undefined),
+    },
+    onedrive: { listSnapshots: () => Promise.resolve([]) },
+    sharepoint: { listSnapshots: () => Promise.resolve([]) },
+    getStorageUsage: () => Promise.resolve({ complete: true }),
+    dispose: () => Promise.resolve(),
+  });
+  const anchorFile = (): string => join(dir, 'anchors', 'audit-anchors.jsonl');
+
+  it("journalise un avertissement au démarrage sans dossier d'ancres", () => {
+    const { lines, stream } = capture();
+    app = createServer({ ...imageEnv(), LOG_LEVEL: 'warn' }, 't', noFile, undefined, stream);
+    expect(lines.join('')).toContain('ancrage du journal : non configuré');
+  });
+
+  it("écrit une ancre valide à l'arrêt propre", async () => {
+    const { lines, stream } = capture();
+    app = createServer(anchorEnv(), 't', noFile, emptyAtlas, stream);
+    await app.ready();
+    const writer = SqliteAuditLog.open(join(dir, 'data', 'audit.sqlite'));
+    await writer.record({
+      at: '2026-01-01T00:00:00.000Z',
+      actor: 'anonymous',
+      action: 'list.view',
+      resource: 'mailboxes',
+    });
+    writer.close();
+    await app.close();
+    const log = SqliteAuditLog.open(join(dir, 'data', 'audit.sqlite'));
+    const head = log.head()!;
+    log.close();
+    const last = JSON.parse(readFileSync(anchorFile(), 'utf8').trim().split('\n').at(-1)!) as {
+      seq: number;
+      headHash: string;
+    };
+    expect(last).toMatchObject({ seq: head.seq, headHash: head.hash });
+    expect(lines.join('')).not.toContain('ancrage du journal : non configuré');
+  });
+
+  it("n'ancre rien et le signale quand le journal d'audit est indisponible", async () => {
+    mkdirSync(join(dir, 'data', 'audit.sqlite'));
+    const { lines, stream } = capture();
+    app = createServer(anchorEnv(), 't', noFile, emptyAtlas, stream);
+    await app.ready();
+    await app.close();
+    expect(lines.join('')).toContain("journal d'audit indisponible");
+    expect(existsSync(anchorFile())).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 /** Nom du fichier d'ancres, en ajout seul, dans `BACKUP365_AUDIT_ANCHOR_DIR`. */
 export const ANCHOR_FILE = 'audit-anchors.jsonl';
@@ -39,7 +39,7 @@ export function parseAnchorIntervalMs(raw: string | undefined): number {
 /** Vrai si `child` est `parent` ou se trouve dedans. */
 function isInside(child: string, parent: string): boolean {
   const rel = relative(resolve(parent), resolve(child));
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
 export type AnchorConfig =
@@ -104,6 +104,8 @@ export function readAnchors(dir: string, key: Buffer): ReadAnchors {
       return { error: `ancre ${n} illisible` };
     }
     if (
+      raw === null ||
+      typeof raw !== 'object' ||
       !Number.isInteger(raw.seq) ||
       typeof raw.headHash !== 'string' ||
       typeof raw.at !== 'string' ||

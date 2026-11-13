@@ -26,6 +26,7 @@ export function createServer(
   version: string,
   readFile: (path: string) => string,
   factory?: AtlasFactory,
+  logStream?: { write(msg: string): void },
 ): FastifyInstance {
   const indexIntervalMs = parseIndexIntervalMs(env['BACKUP365_INDEX_INTERVAL_MINUTES']);
   const anchorIntervalMs = parseAnchorIntervalMs(env['BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN']);
@@ -80,6 +81,7 @@ export function createServer(
       level: parseLogLevel(env['LOG_LEVEL']),
       redact: REDACTED_PATHS,
       serializers: LOG_SERIALIZERS,
+      ...(logStream ? { stream: logStream } : {}),
     },
     ...(startup.status === 'ready' ? { catalog: startup.atlas.catalog } : {}),
     status: {
