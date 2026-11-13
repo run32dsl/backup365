@@ -1,5 +1,6 @@
 import {
   CatalogUnavailableError,
+  NoBackupFoundError,
   type BackupCatalog,
   type Mailbox,
   type Site,
@@ -57,6 +58,23 @@ export interface AtlasCatalogOptions {
 interface SiteEntry {
   site: Site;
   snapshots: Snapshot[];
+}
+
+/**
+ * Aucune sauvegarde : Atlas ne crée le bucket qu'à la première. Le SDK 6.2 convertit alors le
+ * `NoSuchBucket` de S3 en `NotFoundError` (`ATLAS_NOT_FOUND`, « No backups found for tenant … »),
+ * le `NoSuchBucket` d'origine restant dans `cause` ; on accepte aussi ce dernier tel quel.
+ */
+function isBucketMissing(err: unknown): boolean {
+  for (let e: unknown = err, depth = 0; e instanceof Error && depth < 4; e = e.cause, depth++) {
+    if (e.name === 'NoSuchBucket') return true;
+    if (
+      (e as { code?: unknown }).code === 'ATLAS_NOT_FOUND' &&
+      e.message.includes('No backups found')
+    )
+      return true;
+  }
+  return false;
 }
 
 function toIso(value: Date): string {
@@ -205,6 +223,7 @@ export class AtlasSdkCatalog implements BackupCatalog {
       return await fn();
     } catch (err) {
       if (err instanceof CatalogUnavailableError) throw err;
+      if (isBucketMissing(err)) throw new NoBackupFoundError({ cause: err });
       // Le message d'origine peut contenir des détails de stockage : il reste dans `cause`.
       throw new CatalogUnavailableError('Catalogue des sauvegardes indisponible', { cause: err });
     }

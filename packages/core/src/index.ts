@@ -1,6 +1,7 @@
 export { healthResponse, type HealthResponse } from './health.js';
 export {
   CatalogUnavailableError,
+  NoBackupFoundError,
   WORKLOADS,
   isWorkload,
   type BackupCatalog,

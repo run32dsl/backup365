@@ -1,7 +1,7 @@
 import type { StatusReport } from '@backup365/core';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { fetchStatus } from './status.js';
+import { NoBackupError, fetchStatus } from './status.js';
 import { StatusView } from './StatusView.js';
 
 const report: StatusReport = {
@@ -70,6 +70,12 @@ describe('StatusView', () => {
     expect(renderToString(<StatusView state="loading" />)).toContain('Chargement');
     expect(renderToString(<StatusView state="error" />)).toContain('indisponible');
   });
+
+  it('asks for a first Atlas backup when none exists yet', () => {
+    expect(renderToString(<StatusView state="empty" />)).toContain(
+      'Aucune sauvegarde trouvée : lancez une première sauvegarde Atlas',
+    );
+  });
 });
 
 describe('fetchStatus', () => {
@@ -78,5 +84,10 @@ describe('fetchStatus', () => {
     await expect(fetchStatus(ok)).resolves.toEqual(report);
     const ko = (() => Promise.resolve(new Response('', { status: 503 }))) as typeof fetch;
     await expect(fetchStatus(ko)).rejects.toThrow('HTTP 503');
+    const none = (() =>
+      Promise.resolve(
+        Response.json({ error: 'no_backup_found' }, { status: 503 }),
+      )) as typeof fetch;
+    await expect(fetchStatus(none)).rejects.toBeInstanceOf(NoBackupError);
   });
 });

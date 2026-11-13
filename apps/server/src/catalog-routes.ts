@@ -1,5 +1,6 @@
 import {
   CatalogUnavailableError,
+  NoBackupFoundError,
   WORKLOADS,
   type AuditLog,
   type BackupCatalog,
@@ -28,6 +29,8 @@ export function registerCatalogRoutes(
   audit: AuditLog | undefined,
 ) {
   const unavailable = { error: 'catalog_unavailable' };
+  // Bucket absent : normal avant la première sauvegarde ; code dédié, sans détail interne.
+  const noBackup = { error: 'no_backup_found' };
   const auditMissing = { error: 'audit_unavailable' };
 
   app.setErrorHandler(async (err, req, reply) => {
@@ -36,7 +39,7 @@ export function registerCatalogRoutes(
       app.log.error({ errorName: err.name }, 'catalog unavailable');
       const resource = RESOURCE_BY_ROUTE[req.routeOptions.url ?? ''];
       if (audit && resource) await recordDenied(audit, req, resource, 'catalog_unavailable');
-      return reply.code(503).send(unavailable);
+      return reply.code(503).send(err instanceof NoBackupFoundError ? noBackup : unavailable);
     }
     return sendError(err, reply);
   });

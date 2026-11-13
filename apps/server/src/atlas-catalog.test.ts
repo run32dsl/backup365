@@ -1,4 +1,4 @@
-import { CatalogUnavailableError } from '@backup365/core';
+import { CatalogUnavailableError, NoBackupFoundError } from '@backup365/core';
 import { CONTRACT_FIXTURE, backupCatalogContract } from '@backup365/core/testing';
 import { describe, expect, it, vi } from 'vitest';
 import { AtlasSdkCatalog, type AtlasSdkReader } from './atlas-catalog.js';
@@ -235,6 +235,44 @@ describe('AtlasSdkCatalog', () => {
         fakeAtlas({}, { getStorageUsage: () => Promise.resolve({ complete: false }) }),
       );
       await expect(catalog.listSites()).rejects.toBeInstanceOf(CatalogUnavailableError);
+    });
+  });
+
+  describe('missing bucket', () => {
+    // Forme réelle du SDK 6.2 (`create_readonly`) : NotFoundError ATLAS_NOT_FOUND, S3 en `cause`.
+    const sdkNotFound = () =>
+      Object.assign(new Error('No backups found for tenant secret-tenant'), {
+        name: 'NotFoundError',
+        code: 'ATLAS_NOT_FOUND',
+        cause: Object.assign(new Error('bucket secret-name'), { name: 'NoSuchBucket' }),
+      });
+
+    it('reports the SDK "no backups" error without leaking its message', async () => {
+      const catalog = new AtlasSdkCatalog(
+        fakeAtlas({ listMailboxes: () => Promise.reject(sdkNotFound()) }),
+      );
+      const err = await catalog.listMailboxes().catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(NoBackupFoundError);
+      expect(err).toBeInstanceOf(CatalogUnavailableError);
+      expect((err as Error).message).not.toContain('secret');
+    });
+
+    it('also recognises a raw NoSuchBucket, on the sites path too', async () => {
+      const raw = Object.assign(new Error('x'), { name: 'NoSuchBucket' });
+      const catalog = new AtlasSdkCatalog(
+        fakeAtlas({}, { getStorageUsage: () => Promise.reject(raw) }),
+      );
+      await expect(catalog.listSites()).rejects.toBeInstanceOf(NoBackupFoundError);
+    });
+
+    it('keeps other failures (denied access) as plain unavailable', async () => {
+      const denied = Object.assign(new Error('denied'), { name: 'AccessDenied' });
+      const catalog = new AtlasSdkCatalog(
+        fakeAtlas({ listMailboxes: () => Promise.reject(denied) }),
+      );
+      const err = await catalog.listMailboxes().catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(CatalogUnavailableError);
+      expect(err).not.toBeInstanceOf(NoBackupFoundError);
     });
   });
 
