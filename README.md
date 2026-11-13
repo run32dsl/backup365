@@ -52,6 +52,12 @@ docker compose up -d --build
 
 La console répond sur <http://127.0.0.1:3000>. Prérequis, secrets et MinIO pour les essais : [docs/installation.md](docs/installation.md).
 
+Sans construire : l'image publiée (`linux/amd64`) se tire avec
+`docker pull ghcr.io/run32dsl/backup365:develop` (dernière fusion), `:sha-<court>` (une fusion
+précise) ou `:<version>` (tag `v<version>`). Un paquet GHCR est privé à sa création : le
+mainteneur doit le passer en public (Paramètres du paquet, Visibilité) pour un `docker pull`
+sans identifiants ; sinon, `docker login ghcr.io` avec un jeton `read:packages`.
+
 ## Pourquoi
 
 Une organisation devrait pouvoir sauvegarder ses données Microsoft 365 chez elle, sur son

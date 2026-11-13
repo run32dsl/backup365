@@ -25,6 +25,15 @@ que l'API, et les secrets du stockage n'existaient qu'en variables d'environneme
   `VACUUM INTO` sont ainsi testés sans conteneur (`server.test.ts`, `delivery.test.ts`). Ces
   tests ne remplacent pas le job `image`, seul à construire et démarrer l'image réelle.
 
+## Complément : publication de l'image (statut : proposé)
+
+Le workflow `publish-image.yml` construit le `Containerfile` et pousse l'image sur
+`ghcr.io/run32dsl/backup365` : étiquettes `develop` et `sha-<7 caractères>` à chaque fusion sur
+`develop`, version (sans le `v`) à chaque tag `v*`. `linux/amd64` seulement ; signature et arm64
+hors périmètre. Il n'utilise que `GITHUB_TOKEN` (`packages: write`) et les commandes `docker` du
+runner, sans action tierce à épingler. Le contexte de construction exclut `.env*`, `secrets`,
+`data` et les dossiers de travail (`.dockerignore`).
+
 ## Conséquences
 
 Installation en quelques commandes, sans Node ni pnpm sur l'hôte. Les images Node et MinIO sont
