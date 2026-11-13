@@ -2,7 +2,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { AuditLog } from '@backup365/core';
-import { checkAnchors, readAnchors, resolveAnchorConfig, type AnchorHead } from './audit-anchor.js';
+import {
+  ANCHOR_FILE,
+  checkAnchors,
+  readAnchors,
+  resolveAnchorConfig,
+  type AnchorHead,
+} from './audit-anchor.js';
 import { parseDataDir, withSecretFiles } from './config.js';
 import { SqliteAuditLog } from './sqlite/sqlite-audit-log.js';
 
@@ -22,6 +28,11 @@ export async function runAuditVerify(
   }
   out(`Journal d'audit intact : ${result.entries} entrée(s) vérifiée(s).`);
   if (!anchors) return 0;
+  // Journal vide et jamais ancré (installation neuve) : rien à comparer, pas un écart.
+  if (log.head() === undefined && !existsSync(join(anchors.dir, ANCHOR_FILE))) {
+    out("Ancres : aucune attendue, le journal d'audit est vide.");
+    return 0;
+  }
   const read = readAnchors(anchors.dir, anchors.key);
   const problem = read.anchors
     ? read.anchors.length === 0

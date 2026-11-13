@@ -84,6 +84,35 @@ describe("ancrage du journal d'audit", () => {
     log.close();
   });
 
+  it("installation neuve : journal vide et pas d'ancre, exit 0", async () => {
+    const { log, anchorDir } = await setup(0);
+    const { code, text } = await run(log, anchorDir);
+    expect(code).toBe(0);
+    expect(text).toContain('aucune attendue');
+    log.close();
+  });
+
+  it('start() ancre au démarrage puis à chaque intervalle si la tête a changé', async () => {
+    vi.useFakeTimers();
+    try {
+      const { log, anchorDir } = await setup(1);
+      const anchorer = new AuditAnchorer(log, anchorDir, key, 60_000, () => undefined);
+      const count = () =>
+        readFileSync(join(anchorDir, ANCHOR_FILE), 'utf8').trim().split('\n').length;
+      anchorer.start();
+      expect(count()).toBe(1);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(count()).toBe(1);
+      await log.record(event(2));
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(count()).toBe(2);
+      anchorer.stop();
+      log.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('détecte la troncature de fin', async () => {
     const { log, path, anchorDir } = await setup(5);
     new AuditAnchorer(log, anchorDir, key, 60_000, () => undefined).anchorNow();

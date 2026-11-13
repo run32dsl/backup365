@@ -259,6 +259,12 @@ describe("ancrage du journal d'audit dans createServer", () => {
     expect(lines.join('')).toContain('ancrage du journal : non configuré');
   });
 
+  it("refuse un intervalle d'ancrage invalide", () => {
+    expect(() =>
+      createServer({ ...anchorEnv(), BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN: '0' }, 't', noFile),
+    ).toThrow('BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN');
+  });
+
   it("écrit une ancre valide à l'arrêt propre", async () => {
     const { lines, stream } = capture();
     app = createServer(anchorEnv(), 't', noFile, emptyAtlas, stream);
