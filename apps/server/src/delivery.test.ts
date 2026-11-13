@@ -71,6 +71,43 @@ describe('compose.yaml', () => {
   });
 });
 
+describe('deploy/synology', () => {
+  const compose = read('deploy/synology/compose.yaml');
+  const console_ = service(compose, 'console');
+
+  // La forme seulement : le digest marqueur (64 zéros) est accepté.
+  it('references the ghcr.io image by digest', () => {
+    expect(/^\s+image: (\S+)$/m.exec(console_)?.[1]).toMatch(
+      /^ghcr\.io\/run32dsl\/backup365@sha256:[0-9a-f]{64}$/,
+    );
+  });
+
+  it('requires an explicit bind address, never defaulting to all interfaces', () => {
+    const ports = /ports:\n((?: {6}- .*\n)+)/.exec(console_)?.[1] ?? '';
+    expect(ports.trim()).toMatch(/^- '\$\{BACKUP365_BIND_ADDRESS:\?[^}]+\}:/);
+    expect(ports).not.toContain('0.0.0.0');
+  });
+
+  it('reads an unversioned .env and keeps data on a bind mount, without secret values', () => {
+    expect(console_).toMatch(/^ {4}env_file: \.env$/m);
+    expect(console_).toMatch(/^ {6}- \$\{BACKUP365_DATA_PATH:-\/volume1\/[^}]+\}:\/data$/m);
+    expect(compose).not.toMatch(/^\s+\w*(SECRET_ACCESS_KEY|PASSPHRASE|ACCESS_KEY_ID):/m);
+    expect(read('.gitignore')).toMatch(/^\.env$/m);
+  });
+
+  it('gives only generic example addresses in the guide and the .env example', () => {
+    for (const file of ['docs/installation-synology.md', 'deploy/synology/.env.example']) {
+      const text = read(file);
+      for (const [ip] of text.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g)) {
+        expect(ip, file).toMatch(/^192\.168\.1\.\d+$|^0\.0\.0\.0$/);
+      }
+    }
+    expect(read('docs/installation-synology.md').split('\n').slice(0, 3).join(' ')).toContain(
+      'Réseau local uniquement',
+    );
+  });
+});
+
 describe('interface sous la CSP des pages', () => {
   const web = join(root, 'apps', 'web');
   const sources = (dir: string): string[] =>
