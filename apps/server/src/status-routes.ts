@@ -10,6 +10,8 @@ import type { SearchIndexer } from './search-indexer.js';
 export interface StatusOptions {
   maxAgeHours: number;
   workloads: readonly Workload[];
+  /** Ancrage externe de la tête du journal d'audit (ADR 0004) ; absent : rien n'est exposé. */
+  auditAnchor?: { configured: true } | { configured: false; reason: string };
 }
 
 /**
@@ -25,7 +27,19 @@ export function registerStatusRoutes(
 ) {
   scope.get('/api/status', async (_req, reply) => {
     if (!catalog) return reply.code(503).send({ error: 'catalog_unavailable' });
-    const report = await buildStatusReport(catalog, options.workloads, options.maxAgeHours);
+    const base = await buildStatusReport(catalog, options.workloads, options.maxAgeHours);
+    const report = options.auditAnchor
+      ? {
+          ...base,
+          auditAnchor: options.auditAnchor.configured
+            ? { configured: true, label: 'ancrage du journal : configuré' }
+            : {
+                configured: false,
+                label: 'ancrage du journal : non configuré',
+                reason: options.auditAnchor.reason,
+              },
+        }
+      : base;
     if (!indexing?.index) return report;
     // Nombre de mails indexés : `null` si l'index ne répond pas, sans faire échouer le tableau.
     const mails = await indexing.index

@@ -29,6 +29,11 @@ répond `no_backup_found` (voir [installation.md](installation.md)).
    [`deploy/synology/`](../deploy/synology/).
 2. **Droits.** La console tourne en uid 1000 et doit pouvoir écrire dans `data` :
    `sudo chown 1000:1000 /volume1/docker/backup365/data` (en SSH).
+   Créer de même le dossier des ancres du journal d'audit sur **un autre volume ou partage**
+   (`/volume2/backup365-anchors`, à activer en instantanés immuables si DSM le permet) et lui
+   donner le même propriétaire : `sudo chown 1000:1000 /volume2/backup365-anchors`.
+   Il se renseigne dans `BACKUP365_ANCHOR_PATH` du `.env` (étape 3) : le projet refuse de
+   démarrer sans lui. Un dossier sur le même volume que les données protège peu.
 3. **Fichier `.env`.** Renommer `.env.example` en `.env` et renseigner :
    - `BACKUP365_BIND_ADDRESS` : l'adresse LAN du NAS (`192.168.1.10`) ;
    - `BACKUP365_IMAGE_DIGEST` : le digest de l'image, relevé à l'étape 4 ;
