@@ -31,6 +31,7 @@ répond `no_backup_found` (voir [installation.md](installation.md)).
    `sudo chown 1000:1000 /volume1/docker/backup365/data` (en SSH).
 3. **Fichier `.env`.** Renommer `.env.example` en `.env` et renseigner :
    - `BACKUP365_BIND_ADDRESS` : l'adresse LAN du NAS (`192.168.1.10`) ;
+   - `BACKUP365_IMAGE_DIGEST` : le digest de l'image, relevé à l'étape 4 ;
    - `BACKUP365_TENANT_ID` ;
    - `BACKUP365_S3_ENDPOINT` (`http://192.168.1.20:9000` par exemple),
      `BACKUP365_S3_ACCESS_KEY_ID` et `BACKUP365_S3_SECRET_ACCESS_KEY` ;
@@ -39,8 +40,11 @@ répond `no_backup_found` (voir [installation.md](installation.md)).
    Le `.env` contient des secrets : il n'est pas versionné et seul son propriétaire doit le lire
    (`chmod 600`). Ne jamais le copier dans le dépôt ni dans un ticket.
 
-4. **Digest de l'image.** Dans `compose.yaml`, remplacer le digest `sha256:000…` par celui de
-   l'image voulue : `docker buildx imagetools inspect ghcr.io/run32dsl/backup365:develop`.
+4. **Digest de l'image.** Relever le digest de l'image voulue, soit sur la page du paquet
+   `backup365` de ghcr.io, soit avec
+   `docker buildx imagetools inspect ghcr.io/run32dsl/backup365:develop`, puis le coller dans
+   `BACKUP365_IMAGE_DIGEST` du `.env` (`sha256:` suivi de 64 caractères hexadécimaux).
+   Sans lui, le projet refuse de démarrer avec un message explicite.
    Si le paquet GHCR est privé : `docker login ghcr.io` avec un jeton `read:packages`.
 5. **Projet.** Container Manager › Projet › Créer : nom `backup365`, chemin
    `/volume1/docker/backup365`, source « utiliser le `compose.yaml` existant ». Ne pas activer
@@ -62,5 +66,5 @@ vers le NAS.
 
 ## Mise à jour
 
-Relever le nouveau digest, le remplacer dans `compose.yaml`, puis Container Manager › Projet ›
+Relever le nouveau digest (étape 4), le remplacer dans `BACKUP365_IMAGE_DIGEST` du `.env`, puis Container Manager › Projet ›
 Action › Construire (ou arrêter puis démarrer le projet). Les données (`data`) sont conservées.

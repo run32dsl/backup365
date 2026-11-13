@@ -76,34 +76,19 @@ describe('deploy/synology', () => {
   const console_ = service(compose, 'console');
 
   const guide = read('docs/installation-synology.md');
-  const digest = /^\s+image: ghcr\.io\/run32dsl\/backup365@sha256:([0-9a-f]{64})$/m.exec(
-    console_,
-  )?.[1];
-  const marker = '0'.repeat(64);
 
-  it('references the ghcr.io image by digest, never by tag', () => {
-    expect(digest).toMatch(/^[0-9a-f]{64}$/);
-  });
-
-  // Le digest marqueur (64 zéros) ne désigne aucune image : tant qu'il est dans le dépôt
-  // (question ouverte au PO, voir la PR de #41), le compose ne démarre pas tel quel. Ce test
-  // ne le cache pas : il exige alors que le fichier le dise et que le guide le fasse remplacer
-  // avant le démarrage du projet. Avec un vrai digest, l'alerte et le marqueur doivent partir.
-  it('ships the marker digest only with a guide step that replaces it before start', () => {
+  it('requires the image digest from .env, never a tag or a placeholder digest', () => {
+    const image = /^\s+image: (.+)$/m.exec(console_)?.[1];
+    expect(image).toMatch(/^ghcr\.io\/run32dsl\/backup365@\$\{BACKUP365_IMAGE_DIGEST:\?[^}]+\}$/);
+    expect(compose).not.toMatch(/sha256:0{8,}/);
+    expect(read('deploy/synology/.env.example')).toMatch(/^BACKUP365_IMAGE_DIGEST=/m);
+    // Le guide dit où relever le digest et le renseigner avant le démarrage du projet.
     const steps = [...guide.matchAll(/^(\d+)\. \*\*([^*]+)\*\*([^]*?)(?=^\d+\. \*\*|^## )/gm)];
     const replace = steps.find(([, , , body]) => body?.includes('imagetools inspect'));
     const start = steps.find(([, , title]) => title === 'Projet.');
-    expect(start, 'étape du guide qui démarre le projet').toBeDefined();
-    // Dans les deux cas, le guide dit comment relever un digest (installation ou mise à jour).
-    expect(guide).toContain('imagetools inspect ghcr.io/run32dsl/backup365:');
-    if (digest === marker) {
-      expect(compose).toMatch(/^\s+# DIGEST À RENSEIGNER/m);
-      expect(replace?.[3], 'étape du guide qui remplace le marqueur').toContain('sha256:000');
-      expect(Number(replace?.[1])).toBeLessThan(Number(start?.[1]));
-    } else {
-      expect(compose).not.toContain('DIGEST À RENSEIGNER');
-      expect(guide).not.toContain('sha256:000');
-    }
+    expect(replace?.[3]).toContain('BACKUP365_IMAGE_DIGEST');
+    expect(Number(replace?.[1])).toBeLessThan(Number(start?.[1]));
+    expect(guide).not.toContain('sha256:000');
   });
 
   it('requires an explicit bind address, never defaulting to all interfaces', () => {
