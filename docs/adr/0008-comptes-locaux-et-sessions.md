@@ -49,7 +49,10 @@ s'authentifier simplement. Le SSO Microsoft (OIDC Entra ID) viendra dans une iss
   pas celui de l'IP. Un compte inconnu coûte autant de calcul qu'un compte connu, et la réponse
   est la même (401) pour mot de passe faux, compte inconnu ou compte désactivé.
 - **Essais simultanés** : `scrypt` est asynchrone ; un essai en vol compte déjà dans le seuil, de
-  sorte que 20 requêtes parallèles sur un compte n'en laissent passer que 5 (testé).
+  sorte que 20 requêtes parallèles sur un compte n'en laissent passer que 5 (testé). Un second
+  essai lancé pendant qu'un premier est en vol pour le même compte est refusé (429 « occupé »)
+  sans poser de verrou : deux onglets qui valident en même temps peuvent donc en voir un refusé.
+  C'est voulu, pour empêcher de contourner le seuil par le parallélisme.
 - **Adresse IP** : `req.ip` du socket. Derrière un proxy, `BACKUP365_TRUST_PROXY` liste ses
   adresses IP ou CIDR : `X-Forwarded-For` et `-Proto` ne sont crus que s'ils viennent d'elles, et
   le client retenu est la première adresse non fiable de la chaîne. Défaut : aucun proxy. `true`
