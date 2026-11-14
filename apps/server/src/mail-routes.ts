@@ -73,7 +73,7 @@ export function registerMailRoutes(
       if (!audit) return reply.code(503).send({ error: 'search_unavailable' });
       const mail = await findMail(req, reply, audit, 'mail');
       if (!mail) return reply;
-      await audit.record(auditEvent('item.open', 'mail', { target: targetOf(req.params) }));
+      await audit.record(auditEvent(req, 'item.open', 'mail', { target: targetOf(req.params) }));
       return mail;
     },
   );
@@ -117,7 +117,11 @@ export function registerMailRoutes(
       }
       // Fail-closed : le motif est inscrit au journal avant que le fichier ne parte.
       await audit.record(
-        auditEvent('item.export', 'mail', { target: targetOf(req.params), count: 1, reason }),
+        auditEvent(req, 'item.export', 'mail', {
+          target: targetOf(req.params),
+          count: 1,
+          reason,
+        }),
       );
       void reply
         .header('content-type', 'message/rfc822')

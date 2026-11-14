@@ -1,8 +1,9 @@
 # backup365 : démo sur un NAS Synology (DSM 7, Container Manager). Voir docs/installation-synology.md.
 #
-# RÉSEAU LOCAL UNIQUEMENT : la console n'a pas d'authentification (#22). Le port est publié sur
+# RÉSEAU LOCAL UNIQUEMENT : comptes locaux, mais HTTP sans chiffrement. Le port est publié sur
 # l'adresse LAN du NAS (BACKUP365_BIND_ADDRESS, obligatoire dans .env), jamais sur 0.0.0.0 par
 # défaut. Ne pas rediriger de port sur la box, ne pas la placer derrière un proxy inverse public.
+# Au premier accès, la console demande de créer le compte administrateur.
 #
 # Configuration : copier .env.example en .env (non versionné) dans le dossier du projet.
 # Image : épinglée par digest. Mise à jour : relever le digest de l'étiquette voulue avec

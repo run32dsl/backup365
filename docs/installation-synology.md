@@ -1,11 +1,13 @@
 # Installer une démo sur un NAS Synology
 
-> **⚠️ Réseau local uniquement.** La console n'a pas d'authentification (issue #22) : toute
-> personne qui l'atteint lit les sauvegardes. Tant que #22 n'est pas livré :
+> **⚠️ Réseau local uniquement.** La console a des comptes locaux, mais elle ne parle qu'en HTTP :
+> les mots de passe circulent en clair sur le réseau. Pour cette démo :
 >
 > - ne **pas** rediriger de port sur la box (ni NAT, ni UPnP) ;
 > - ne **pas** la placer derrière un proxy inverse public (ni celui de DSM, ni un domaine public) ;
-> - ne publier le port que sur l'adresse LAN du NAS, jamais sur `0.0.0.0`.
+> - ne publier le port que sur l'adresse LAN du NAS, jamais sur `0.0.0.0` ;
+> - créer le compte administrateur dès le démarrage (étape 7) : tant qu'il n'existe pas, la
+>   première personne qui atteint la console le crée.
 
 Ce guide vise DSM 7 avec Container Manager. Hors périmètre : paquet `.spk`, HTTPS.
 
@@ -62,6 +64,20 @@ répond `no_backup_found` (voir [installation.md](installation.md)).
 
    Puis ouvrir `http://192.168.1.10:3000`. Si le projet redémarre en boucle, lire son journal
    (Container Manager › Projet › Journal) : droits de `data`, `.env` incomplet.
+
+7. **Premier démarrage : compte administrateur.** La page affiche « Créer le compte
+   administrateur » (aucun compte n'existe encore, aucun mot de passe par défaut). Saisir un nom
+   d'utilisateur et un mot de passe de 12 caractères au minimum, noté dans le gestionnaire de
+   mots de passe de l'équipe. La console connecte aussitôt ce compte ; l'écran n'est plus
+   proposé. Les autres personnes sont créées ensuite dans « Comptes » (rôle administrateur ou
+   opérateur), avec un mot de passe provisoire qu'elles changent à leur première connexion.
+   Une session expire après 8 heures d'inactivité. Si le mot de passe administrateur est perdu :
+   en SSH, cette commande crée un second administrateur :
+
+   ```sh
+   printf '%s' "<mot de passe>" | sudo docker exec -i <conteneur> \
+     node dist/admin.js create-admin --username <autre-nom> --password-stdin
+   ```
 
 ## Vérifier que rien n'est exposé
 

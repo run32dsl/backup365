@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import { DEFAULT_MAX_AGE_HOURS, WORKLOADS, isWorkload, type Workload } from '@backup365/core';
 
 /** Lit un port TCP (entier de 1 à 65535) ; lève une erreur explicite sinon. */
@@ -73,6 +74,32 @@ export function parseIndexIntervalMs(raw: string | undefined): number {
     throw new Error('BACKUP365_INDEX_INTERVAL_MINUTES invalide : attendu un entier de 1 à 1440');
   }
   return minutes * 60_000;
+}
+
+/**
+ * `BACKUP365_TRUST_PROXY=<adresses>` : adresses IP ou plages CIDR (séparées par des virgules) des
+ * proxys inverses que l'on maîtrise devant la console. `X-Forwarded-Proto` (cookie `Secure`) et
+ * `X-Forwarded-For` (anti-force brute) ne sont crus que si la connexion vient de l'un d'eux, et
+ * l'adresse cliente est la première non fiable en remontant la chaîne : le client ne choisit pas
+ * la sienne. Défaut (`false`) : ces en-têtes sont ignorés. `true` et un nombre de sauts sont
+ * refusés (le premier ferait confiance à tout le monde, donc à une adresse forgée).
+ */
+export function parseTrustProxy(raw: string | undefined): string | false {
+  if (raw === undefined || raw === '' || raw === 'false') return false;
+  const entries = raw.split(',').map((entry) => entry.trim());
+  const valid = entries.every((entry) => {
+    const [address, prefix, ...rest] = entry.split('/');
+    const family = isIP(address ?? '');
+    if (family === 0 || rest.length > 0) return false;
+    if (prefix === undefined) return true;
+    return /^\d{1,3}$/.test(prefix) && Number(prefix) <= (family === 4 ? 32 : 128);
+  });
+  if (!valid) {
+    throw new Error(
+      'BACKUP365_TRUST_PROXY invalide : attendu false ou des adresses IP ou plages CIDR de proxys',
+    );
+  }
+  return entries.join(',');
 }
 
 /** Dossier des données de l'application (base de recherche…), `./data` par défaut. */

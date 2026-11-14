@@ -61,7 +61,7 @@ export function registerSearchRoutes(
       }
       // Les termes recherchés sont des données personnelles : ils ne sont jamais journalisés.
       const page = await index.search(req.query);
-      await audit.record(auditEvent('list.view', 'mail.search', { count: page.items.length }));
+      await audit.record(auditEvent(req, 'list.view', 'mail.search', { count: page.items.length }));
       return {
         total: page.total,
         limit: req.query.limit,

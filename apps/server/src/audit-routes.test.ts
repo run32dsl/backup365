@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { buildApp } from './app.js';
+import { buildTestApp } from './test-support.js';
 import { main as auditVerifyMain, runAuditVerify } from './audit-verify.js';
 import { tryOpenAuditLog } from './sqlite/open-audit-log.js';
 import { SqliteAuditLog } from './sqlite/sqlite-audit-log.js';
@@ -30,7 +30,7 @@ async function seeded() {
     actor: 'alice',
     action: 'item.open',
   });
-  return { audit, app: buildApp({ version: '1', audit }) };
+  return { audit, app: buildTestApp({ version: '1', audit }) };
 }
 
 type AuditBody = { total: number; limit: number; items: { seq: number }[] };
@@ -53,9 +53,9 @@ describe('GET /api/audit', () => {
     expect((await get('actor=alice')).items.map((i) => i.seq)).toEqual([3, 1]);
     expect((await get('action=access.denied')).items.map((i) => i.seq)).toEqual([2]);
     expect((await get('from=2026-01-02T00:00:00Z&to=2026-01-03T00:00:00Z')).total).toBe(1);
-    const page = await get('limit=1&offset=1');
-    expect(page).toMatchObject({ total: 3, limit: 1 });
-    expect(page.items.map((i) => i.seq)).toEqual([2]);
+    const page = await get('actor=alice&limit=1&offset=1');
+    expect(page).toMatchObject({ total: 2, limit: 1 });
+    expect(page.items.map((i) => i.seq)).toEqual([1]);
   });
 
   it.each(['action=nope', 'from=hier', 'limit=0', 'limit=101', 'offset=-1', 'actor='])(
@@ -73,7 +73,7 @@ describe('GET /api/audit', () => {
   });
 
   it('answers 503 without audit log', async () => {
-    const res = await buildApp({ version: '1' }).inject({ method: 'GET', url: '/api/audit' });
+    const res = await buildTestApp({ version: '1' }).inject({ method: 'GET', url: '/api/audit' });
     expect(res.statusCode).toBe(503);
     expect(res.json()).toEqual({ error: 'audit_unavailable' });
   });

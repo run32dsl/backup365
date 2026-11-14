@@ -1,5 +1,6 @@
 import { AUDIT_ACTIONS, type AuditAction, type AuditLog } from '@backup365/core';
 import type { FastifyInstance } from 'fastify';
+import { auditEvent } from './audit-events.js';
 
 interface AuditQuerystring {
   from?: string;
@@ -38,6 +39,8 @@ export function registerAuditRoutes(app: FastifyInstance, audit: AuditLog | unde
         return reply.code(400).send({ error: 'invalid_date' });
       }
       const page = await audit.list(req.query);
+      // La lecture du journal est elle-même journalisée (décision du 2026-11-12), avant la réponse.
+      await audit.record(auditEvent(req, 'list.view', 'audit', { count: page.items.length }));
       return {
         total: page.total,
         limit: req.query.limit,

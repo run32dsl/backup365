@@ -5,8 +5,22 @@ import {
   parseLogLevel,
   parsePort,
   parseStorageConfig,
+  parseTrustProxy,
   withSecretFiles,
 } from './config.js';
+
+describe('parseTrustProxy', () => {
+  it('is off by default and takes proxy addresses, never a blanket "true"', () => {
+    expect(parseTrustProxy(undefined)).toBe(false);
+    expect(parseTrustProxy('')).toBe(false);
+    expect(parseTrustProxy('false')).toBe(false);
+    expect(parseTrustProxy('172.18.0.1')).toBe('172.18.0.1');
+    expect(parseTrustProxy(' 10.0.0.0/8 , ::1 ')).toBe('10.0.0.0/8,::1');
+    for (const bad of ['true', '1', '10.0.0.0/33', '10.0.0.1/8/8', 'x', '10.0.0.1,']) {
+      expect(() => parseTrustProxy(bad), bad).toThrow('BACKUP365_TRUST_PROXY');
+    }
+  });
+});
 
 describe('withSecretFiles', () => {
   const files: Record<string, string> = { '/run/secrets/pass': 'une-phrase-de-test\n' };

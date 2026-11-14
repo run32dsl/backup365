@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AtlasHandle } from './atlas-sdk.js';
 import { createServer } from './server.js';
 import { SqliteAuditLog } from './sqlite/sqlite-audit-log.js';
+import { TEST_PASSWORD, withHeaders } from './test-support.js';
 
 // Ces tests rejouent, sans conteneur, ce que le job CI `image` et docs/installation.md
 // demandent à l'image : mêmes variables que le Containerfile et compose.yaml.
@@ -16,6 +17,18 @@ let app: FastifyInstance | undefined;
 const noFile = (): string => {
   throw new Error('aucun fichier attendu');
 };
+
+/** Crée l'administrateur par l'écran de premier démarrage et signe les requêtes suivantes. */
+async function signIn(target: FastifyInstance): Promise<void> {
+  const res = await target.inject({
+    method: 'POST',
+    url: '/api/auth/setup',
+    payload: { username: 'tester', password: TEST_PASSWORD },
+  });
+  expect(res.statusCode).toBe(201);
+  const cookie = String(res.headers['set-cookie']).split(';')[0]!;
+  withHeaders(target, { cookie, 'x-csrf-token': res.json<{ csrfToken: string }>().csrfToken });
+}
 
 /** Environnement fixé par le Containerfile, dans un dossier temporaire. */
 function imageEnv(): Record<string, string> {
@@ -50,24 +63,38 @@ describe('createServer, image sans configuration (job CI image)', () => {
     expect(page.body).toContain('<div id="root">');
   });
 
-  it('creates both databases in the data directory and opens the audit log', async () => {
+  it('creates the three databases in the data directory and opens the audit log', async () => {
     app = createServer(imageEnv(), 't', noFile);
+    await signIn(app);
     expect(existsSync(join(dir, 'data', 'audit.sqlite'))).toBe(true);
     expect(existsSync(join(dir, 'data', 'search.sqlite'))).toBe(true);
+    expect(existsSync(join(dir, 'data', 'accounts.sqlite'))).toBe(true);
     expect((await app.inject('/api/audit')).statusCode).toBe(200);
   });
 
   it('answers 503 on catalog routes while storage is not configured', async () => {
     app = createServer(imageEnv(), 't', noFile);
+    await signIn(app);
     expect((await app.inject('/api/mailboxes')).statusCode).toBe(503);
   });
 
-  it('still starts when the data directory is unusable', async () => {
+  it('still starts when the data directory is unusable, with the API closed', async () => {
     // Un fichier à la place du dossier : aucune base ne peut y être créée.
     const unusable = join(dir, 'web', 'index.html');
     app = createServer({ ...imageEnv(), BACKUP365_DATA_DIR: unusable }, 't', noFile);
     expect((await app.inject('/api/health')).statusCode).toBe(200);
+    // Sans base des comptes, aucune session possible : l'API ne s'ouvre jamais.
     expect((await app.inject('/api/audit')).statusCode).toBe(503);
+    expect((await app.inject('/api/search')).statusCode).toBe(503);
+  });
+
+  it('requires a session on the API of the real server, and a first admin to create one', async () => {
+    app = createServer(imageEnv(), 't', noFile);
+    expect((await app.inject('/api/audit')).statusCode).toBe(401);
+    expect((await app.inject('/api/auth/setup-status')).json()).toEqual({ needsSetup: true });
+    await signIn(app);
+    expect((await app.inject('/api/audit')).statusCode).toBe(200);
+    expect((await app.inject('/api/auth/setup-status')).json()).toEqual({ needsSetup: false });
   });
 });
 
@@ -165,6 +192,7 @@ describe("branchement de l'indexeur de recherche", () => {
     const { handle, release, getSnapshotDetail } = blockedAtlas();
     app = createServer(storageEnv(), 't', noFile, () => handle);
     await app.ready();
+    await signIn(app);
     expect((await app.inject('/api/health')).statusCode).toBe(200);
     await vi.waitFor(() => expect(getSnapshotDetail).toHaveBeenCalled());
     release();
@@ -177,6 +205,7 @@ describe("branchement de l'indexeur de recherche", () => {
   it('does not start an indexer without storage', async () => {
     app = createServer(imageEnv(), 't', noFile);
     await app.ready();
+    await signIn(app);
     expect((await app.inject('/api/status')).statusCode).toBe(503);
   });
 
@@ -220,6 +249,7 @@ describe("sauvegarde à chaud du journal d'audit (docs/installation.md)", () => 
     const restored = SqliteAuditLog.open(copy);
     expect(await restored.verify()).toMatchObject({ ok: true, entries: 1 });
     restored.close();
+    await signIn(app);
     expect((await app.inject('/api/audit')).statusCode).toBe(200);
   });
 });

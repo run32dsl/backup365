@@ -2,7 +2,8 @@
 # (`docker compose --profile minio up -d`). Voir docs/installation.md.
 #
 # Configuration : copier .env.example en .env ; secrets : un fichier par secret dans ./secrets/.
-# La console n'a pas d'authentification : le port n'est publié que sur 127.0.0.1.
+# Comptes locaux (écran de premier démarrage) mais HTTP sans chiffrement : le port n'est publié
+# que sur 127.0.0.1. Derrière un proxy HTTPS de confiance : BACKUP365_TRUST_PROXY=<adresse du proxy>.
 
 name: backup365
 
@@ -24,6 +25,7 @@ services:
       BACKUP365_STATUS_WORKLOADS: ${BACKUP365_STATUS_WORKLOADS:-}
       BACKUP365_CATALOG_CACHE_MINUTES: ${BACKUP365_CATALOG_CACHE_MINUTES:-}
       BACKUP365_INDEX_INTERVAL_MINUTES: ${BACKUP365_INDEX_INTERVAL_MINUTES:-}
+      BACKUP365_TRUST_PROXY: ${BACKUP365_TRUST_PROXY:-}
       # Ancres du journal d'audit, sur un volume distinct des données (docs/installation.md).
       BACKUP365_AUDIT_ANCHOR_DIR: /anchors
       BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN: ${BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN:-}

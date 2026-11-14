@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
+import { buildTestApp, testAuth } from './test-support.js';
 
 let dir: string;
 beforeEach(() => {
@@ -51,7 +52,7 @@ describe('interface statique', () => {
     expect(res.body).not.toContain('root:');
   });
   it('keeps a JSON 404 and the API CSP for unknown API routes', async () => {
-    const app = buildApp({ version: 't', webDir: dir });
+    const app = buildTestApp({ version: 't', webDir: dir });
     const res = await app.inject('/api/inconnu');
     expect(res.statusCode).toBe(404);
     expect(res.json()).toEqual({ error: 'not_found' });
@@ -59,6 +60,22 @@ describe('interface statique', () => {
       "default-src 'none'; frame-ancestors 'none'",
     );
     expect((await app.inject('/api/health')).statusCode).toBe(200);
+  });
+  it('answers 401, not 404, for unknown or oddly encoded API paths without a session', async () => {
+    const { auth } = testAuth();
+    const app = buildApp({ version: 't', webDir: dir, auth });
+    for (const url of [
+      '/api/inconnu',
+      '/api/',
+      '/api',
+      '/%61pi/search',
+      '/API/search',
+      '/api/health/x',
+    ]) {
+      expect((await app.inject(url)).statusCode, url).toBe(401);
+    }
+    // L'interface reste servie sans session : c'est elle qui affiche l'écran de connexion.
+    expect((await app.inject('/')).statusCode).toBe(200);
   });
   it('fails at startup without index.html', () => {
     rmSync(join(dir, 'index.html'));

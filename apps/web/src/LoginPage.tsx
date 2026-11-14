@@ -1,0 +1,190 @@
+import { useState, type FormEvent } from 'react';
+import { changePassword, type Outcome, type SessionInfo, authenticate } from './session.js';
+
+/** Champ de formulaire : étiquette visible, jamais de valeur préremplie. */
+function Field({
+  label,
+  name,
+  type = 'text',
+  autoComplete,
+}: {
+  label: string;
+  name: string;
+  type?: string;
+  autoComplete: string;
+}) {
+  return (
+    <p>
+      <label>
+        {label}
+        <br />
+        <input name={name} type={type} autoComplete={autoComplete} required />
+      </label>
+    </p>
+  );
+}
+
+/** Formulaire de connexion ou de création du premier administrateur. */
+export function CredentialsView({
+  mode,
+  error,
+  busy = false,
+  onSubmit,
+}: {
+  mode: 'login' | 'setup';
+  error?: string;
+  busy?: boolean;
+  onSubmit?: (form: FormData) => void;
+}) {
+  const setup = mode === 'setup';
+  return (
+    <main>
+      <h1>{setup ? 'Créer le compte administrateur' : 'Connexion'}</h1>
+      {setup && (
+        <p>
+          Aucun compte n’existe encore. Ce compte administrateur permettra de créer les autres
+          comptes.
+        </p>
+      )}
+      <form
+        onSubmit={(e: FormEvent<HTMLFormElement>) => {
+          e.preventDefault();
+          onSubmit?.(new FormData(e.currentTarget));
+        }}
+      >
+        <Field label="Nom d’utilisateur" name="username" autoComplete="username" />
+        <Field
+          label="Mot de passe"
+          name="password"
+          type="password"
+          autoComplete={setup ? 'new-password' : 'current-password'}
+        />
+        {setup && (
+          <>
+            <p>12 caractères au minimum.</p>
+            <Field
+              label="Confirmer le mot de passe"
+              name="confirm"
+              type="password"
+              autoComplete="new-password"
+            />
+          </>
+        )}
+        {error && <p role="alert">{error}</p>}
+        <button type="submit" disabled={busy}>
+          {setup ? 'Créer le compte' : 'Se connecter'}
+        </button>
+      </form>
+    </main>
+  );
+}
+
+const text = (form: FormData, name: string): string => {
+  const value = form.get(name);
+  return typeof value === 'string' ? value : '';
+};
+
+/** Connexion ou premier démarrage : appelle l'API, puis remet la session à l'application. */
+export function CredentialsPage({
+  mode,
+  onSession,
+}: {
+  mode: 'login' | 'setup';
+  onSession: (session: SessionInfo) => void;
+}) {
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const submit = (form: FormData) => {
+    if (mode === 'setup' && text(form, 'password') !== text(form, 'confirm')) {
+      setError('Les deux mots de passe ne correspondent pas.');
+      return;
+    }
+    setBusy(true);
+    setError(undefined);
+    authenticate(mode, text(form, 'username').trim(), text(form, 'password')).then(
+      (outcome: Outcome<SessionInfo>) => {
+        setBusy(false);
+        if (outcome.ok) onSession(outcome.value);
+        else setError(outcome.message);
+      },
+      () => {
+        setBusy(false);
+        setError('Serveur injoignable.');
+      },
+    );
+  };
+  return <CredentialsView mode={mode} error={error} busy={busy} onSubmit={submit} />;
+}
+
+/** Changement de son mot de passe ; imposé après une réinitialisation par un administrateur. */
+export function PasswordView({
+  forced,
+  error,
+  done = false,
+  onSubmit,
+}: {
+  forced: boolean;
+  error?: string;
+  done?: boolean;
+  onSubmit?: (form: FormData) => void;
+}) {
+  return (
+    <main>
+      <h1>Changer le mot de passe</h1>
+      {forced && (
+        <p>Votre mot de passe a été réinitialisé : choisissez-en un nouveau pour continuer.</p>
+      )}
+      <form
+        onSubmit={(e: FormEvent<HTMLFormElement>) => {
+          e.preventDefault();
+          onSubmit?.(new FormData(e.currentTarget));
+        }}
+      >
+        <Field
+          label="Mot de passe actuel"
+          name="current"
+          type="password"
+          autoComplete="current-password"
+        />
+        <Field
+          label="Nouveau mot de passe"
+          name="next"
+          type="password"
+          autoComplete="new-password"
+        />
+        <p>12 caractères au minimum.</p>
+        <Field
+          label="Confirmer le nouveau mot de passe"
+          name="confirm"
+          type="password"
+          autoComplete="new-password"
+        />
+        {error && <p role="alert">{error}</p>}
+        {done && <p role="status">Mot de passe modifié.</p>}
+        <button type="submit">Changer le mot de passe</button>
+      </form>
+    </main>
+  );
+}
+
+export function PasswordPage({ forced, onDone }: { forced: boolean; onDone: () => void }) {
+  const [error, setError] = useState<string>();
+  const [done, setDone] = useState(false);
+  const submit = (form: FormData) => {
+    if (text(form, 'next') !== text(form, 'confirm')) {
+      setError('Les deux mots de passe ne correspondent pas.');
+      return;
+    }
+    changePassword(text(form, 'current'), text(form, 'next')).then(
+      (outcome) => {
+        if (outcome.ok) {
+          setError(undefined);
+          setDone(true);
+          onDone();
+        } else setError(outcome.message);
+      },
+      () => setError('Serveur injoignable.'),
+    );
+  };
+  return <PasswordView forced={forced} error={error} done={done} onSubmit={submit} />;
+}

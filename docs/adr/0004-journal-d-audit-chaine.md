@@ -25,7 +25,9 @@ MVP derrière un port de `packages/core`, avec PostgreSQL ensuite.
 - **Vérification** : `verify()` relit la chaîne et signale la première entrée dont le rang, le
   chaînage ou l'empreinte est incorrect. Commande : `pnpm --filter @backup365/server audit:verify`
   (après `build`) ; code de sortie 0 chaîne intacte, 1 altérée, 2 journal illisible.
-- **Événements** (vocabulaire fermé) : `list.view`, `item.open`, `item.export`, `access.denied`.
+- **Événements** (vocabulaire fermé) : `list.view`, `item.open`, `item.export`, `access.denied`
+  (l'ADR 0008 y ajoute `auth.login`, `auth.login_failed`, `auth.logout`, `account.create`,
+  `account.update`, et l'acteur est désormais le compte connecté au lieu de `anonymous`).
   Un événement porte horodatage, acteur, ressource, cible opaque, nombre d'éléments, motif. Jamais
   de terme recherché ni de contenu.
 - **Fail-closed** : les routes qui renvoient des éléments sauvegardés consignent avant de répondre ;
@@ -69,8 +71,9 @@ Statut : **proposé** (issue #21, décisions du PO du 2026-11-13).
   altération ou une suppression au milieu, pas une réécriture complète ni la troncature de la
   fin. Parade : ancrer régulièrement la dernière empreinte hors de la base (section « Ancrage
   externe »). **Obligatoire avant toute mise en production** (décision du PM du 2026-11-12), #21.
-- Pas d'authentification (ADR 0002) : l'acteur vaut `anonymous` (`actorOf`, un seul point à
-  changer) et `GET /api/audit` est ouvert comme le reste de l'API.
+- Écrit avant l'ADR 0008 : l'acteur valait `anonymous` et `GET /api/audit` était ouvert. Depuis,
+  l'acteur est le compte de la session (`actorOf`) et la lecture du journal est elle-même
+  consignée (`list.view`, ressource `audit`).
 - `item.export` fait partie du vocabulaire mais **rien ne l'émet** : aucune route d'export
   n'existe, et le port `BackupCatalog` ne lit que des métadonnées (ADR 0002), pas le contenu d'un
   élément. L'événement sera émis par la route d'export, qui demande d'abord un port de lecture

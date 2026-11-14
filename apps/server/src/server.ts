@@ -10,9 +10,12 @@ import {
   parseLogLevel,
   parseMaxAgeHours,
   parseStatusWorkloads,
+  parseTrustProxy,
   withSecretFiles,
 } from './config.js';
+import { AuthService } from './auth.js';
 import { SearchIndexer } from './search-indexer.js';
+import { tryOpenAccountStore } from './sqlite/open-account-store.js';
 import { tryOpenAuditLog } from './sqlite/open-audit-log.js';
 import { tryOpenSearchIndex } from './sqlite/open-search-index.js';
 
@@ -30,13 +33,17 @@ export function createServer(
 ): FastifyInstance {
   const indexIntervalMs = parseIndexIntervalMs(env['BACKUP365_INDEX_INTERVAL_MINUTES']);
   const anchorIntervalMs = parseAnchorIntervalMs(env['BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN']);
+  const trustProxy = parseTrustProxy(env['BACKUP365_TRUST_PROXY']);
   const dataDir = parseDataDir(env['BACKUP365_DATA_DIR']);
   const opened = tryOpenSearchIndex(join(dataDir, 'search.sqlite'));
   const openedAudit = tryOpenAuditLog(join(dataDir, 'audit.sqlite'));
+  const openedAccounts = tryOpenAccountStore(join(dataDir, 'accounts.sqlite'));
   const closeDatabases = (): void => {
     opened.index?.close();
     openedAudit.audit?.close();
+    openedAccounts.store?.close();
   };
+  const auth = openedAccounts.store ? new AuthService({ store: openedAccounts.store }) : undefined;
 
   let startup: ReturnType<typeof startAtlas>;
   let secretEnv: Record<string, string | undefined>;
@@ -96,12 +103,20 @@ export function createServer(
     ...(startup.status === 'ready' ? { mailContent: startup.atlas.content } : {}),
     ...(opened.index ? { searchIndex: opened.index } : {}),
     ...(openedAudit.audit ? { audit: openedAudit.audit } : {}),
+    ...(auth ? { auth } : {}),
+    trustProxy,
     ...(indexer ? { indexer } : {}),
     ...(webDir ? { webDir } : {}),
   });
   if (openedAudit.error) {
     const code = (openedAudit.error as NodeJS.ErrnoException).code;
     app.log.error({ code }, "journal d'audit indisponible, les routes de données répondent 503");
+  }
+  if (openedAccounts.error) {
+    const code = (openedAccounts.error as NodeJS.ErrnoException).code;
+    app.log.error({ code }, 'base des comptes indisponible, toute l’API hors santé répond 503');
+  } else if (auth?.needsSetup()) {
+    app.log.warn('aucun compte : ouvrir la console pour créer le compte administrateur');
   }
   if (!anchor.configured) {
     app.log.warn(

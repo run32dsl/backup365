@@ -1,5 +1,15 @@
 /** Actions consignées. Le vocabulaire est fermé : une action inconnue est refusée par l'API. */
-export const AUDIT_ACTIONS = ['list.view', 'item.open', 'item.export', 'access.denied'] as const;
+export const AUDIT_ACTIONS = [
+  'list.view',
+  'item.open',
+  'item.export',
+  'access.denied',
+  'auth.login',
+  'auth.login_failed',
+  'auth.logout',
+  'account.create',
+  'account.update',
+] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export function isAuditAction(value: string): value is AuditAction {
@@ -13,7 +23,10 @@ export function isAuditAction(value: string): value is AuditAction {
 export interface AuditEvent {
   /** Horodatage UTC, ISO 8601. */
   at: string;
-  /** Auteur de l'accès. Sans authentification (ADR 0002), c'est `anonymous`. */
+  /**
+   * Auteur : nom du compte connecté ; `anonymous` pour une connexion échouée dont le nom n'est
+   * pas celui d'un compte ; `cli` pour la commande locale `admin.js`.
+   */
   actor: string;
   action: AuditAction;
   /** Ressource consultée, ex. `mailboxes`, `mail.search`, `snapshot`. */

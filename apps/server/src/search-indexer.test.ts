@@ -1,6 +1,6 @@
 import type { AuditLog, StatusReport, Workload } from '@backup365/core';
 import { describe, expect, it, vi } from 'vitest';
-import { buildApp } from './app.js';
+import { buildTestApp } from './test-support.js';
 import { createAtlasCatalog, type AtlasHandle } from './atlas-sdk.js';
 import type { AtlasManifestEntry } from './atlas-mail-index.js';
 import type { StorageConfig } from './config.js';
@@ -93,7 +93,7 @@ function setup(fail?: { on: boolean }) {
     intervalMs: 60_000,
     logger: { error: (obj) => errors.push(obj) },
   });
-  const app = buildApp({ version: '1', catalog, searchIndex: index, audit, indexer });
+  const app = buildTestApp({ version: '1', catalog, searchIndex: index, audit, indexer });
   return { indexer, app, errors, index };
 }
 
@@ -177,7 +177,7 @@ describe('SearchIndexer', () => {
     const { indexer, index } = setup();
     const broken = { ...index, search: () => Promise.reject(new Error('db')) };
     const { catalog } = createAtlasCatalog(storage, () => fakeAtlas());
-    const app = buildApp({
+    const app = buildTestApp({
       version: '1',
       catalog,
       searchIndex: broken as unknown as SqliteSearchIndex,

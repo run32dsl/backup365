@@ -6,7 +6,7 @@ import {
   type StatusReport,
 } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
-import { buildApp } from './app.js';
+import { buildTestApp } from './test-support.js';
 import { parseMaxAgeHours, parseSiteCacheTtlMs, parseStatusWorkloads } from './config.js';
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
@@ -24,7 +24,7 @@ const catalog = new FakeBackupCatalog({
 
 describe('GET /api/status', () => {
   it('returns the state per mailbox and workload with the alert count', async () => {
-    const app = buildApp({ version: '1', catalog });
+    const app = buildTestApp({ version: '1', catalog });
     const res = await app.inject({ method: 'GET', url: '/api/status' });
     expect(res.statusCode).toBe(200);
     const report = res.json<StatusReport>();
@@ -44,14 +44,14 @@ describe('GET /api/status', () => {
       sites: [{ id: 'site,1', displayName: 'Site de test' }],
       snapshots: { 'site,1': [{ id: 'p', workload: 'sharepoint', createdAt: hoursAgo(30) }] },
     });
-    const app = buildApp({ version: '1', catalog: withSite });
+    const app = buildTestApp({ version: '1', catalog: withSite });
     const report = (await app.inject({ method: 'GET', url: '/api/status' })).json<StatusReport>();
     expect(report.rows).toMatchObject([{ kind: 'site', sourceId: 'site,1', state: 'stale' }]);
     expect(report.alertCount).toBe(1);
   });
 
   it('uses the configured threshold and workloads', async () => {
-    const app = buildApp({
+    const app = buildTestApp({
       version: '1',
       catalog,
       status: { maxAgeHours: 48, workloads: ['mail'] },
@@ -63,9 +63,9 @@ describe('GET /api/status', () => {
 
   it('exposes the audit anchoring state', async () => {
     const get = async (
-      auditAnchor: NonNullable<Parameters<typeof buildApp>[0]['status']>['auditAnchor'],
+      auditAnchor: NonNullable<Parameters<typeof buildTestApp>[0]['status']>['auditAnchor'],
     ) => {
-      const app = buildApp({
+      const app = buildTestApp({
         version: '1',
         catalog,
         status: { maxAgeHours: 26, workloads: ['mail'], auditAnchor },
@@ -90,7 +90,7 @@ describe('GET /api/status', () => {
   });
 
   it('answers 503 without catalog', async () => {
-    const res = await buildApp({ version: '1' }).inject({ method: 'GET', url: '/api/status' });
+    const res = await buildTestApp({ version: '1' }).inject({ method: 'GET', url: '/api/status' });
     expect(res.statusCode).toBe(503);
     expect(res.json()).toEqual({ error: 'catalog_unavailable' });
   });
@@ -99,7 +99,7 @@ describe('GET /api/status', () => {
     const empty = {
       listMailboxes: () => Promise.reject(new NoBackupFoundError({ cause: new Error('atlas-x') })),
     } as unknown as BackupCatalog;
-    const app = buildApp({ version: '1', catalog: empty });
+    const app = buildTestApp({ version: '1', catalog: empty });
     const res = await app.inject({ method: 'GET', url: '/api/status' });
     expect(res.statusCode).toBe(503);
     expect(res.json()).toEqual({ error: 'no_backup_found' });
@@ -112,7 +112,7 @@ describe('GET /api/status', () => {
     const failing = {
       listMailboxes: () => Promise.reject(new CatalogUnavailableError('bucket atlas-secret')),
     } as unknown as BackupCatalog;
-    const res = await buildApp({ version: '1', catalog: failing }).inject({
+    const res = await buildTestApp({ version: '1', catalog: failing }).inject({
       method: 'GET',
       url: '/api/status',
     });
