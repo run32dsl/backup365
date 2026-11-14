@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { SqliteAuditLog } from './sqlite/sqlite-audit-log.js';
 import { buildApp } from './app.js';
 import { TEST_PASSWORD, addAccount, sessionFor, testAuth } from './test-support.js';
@@ -93,6 +93,15 @@ describe('premier démarrage', () => {
       ['root', 'account.create'],
       ['root', 'auth.login'],
     ]);
+  });
+
+  it('refuses a second setup without hashing the password', async () => {
+    const { app, auth } = setup();
+    await post(app, '/api/auth/setup', { username: 'root', password: TEST_PASSWORD });
+    const spy = vi.spyOn(auth, 'setup');
+    const res = await post(app, '/api/auth/setup', { username: 'autre', password: TEST_PASSWORD });
+    expect(res.statusCode).toBe(409);
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it('creates only one administrator when two requests race', async () => {

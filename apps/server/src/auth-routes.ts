@@ -90,6 +90,8 @@ export function registerAuthRoutes(
       const { username, password } = req.body;
       const problem = passwordProblem(password);
       if (problem) return reply.code(400).send({ error: problem });
+      // Sans hachage (scrypt coûteux) une fois configuré : la route est publique.
+      if (!auth.needsSetup()) return reply.code(409).send({ error: 'already_configured' });
       // Une seule instruction SQL : seul le premier appel crée un compte.
       const account = await auth.setup(username, password);
       if (!account) return reply.code(409).send({ error: 'already_configured' });

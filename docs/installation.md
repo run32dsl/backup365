@@ -94,7 +94,7 @@ l'interface affiche « Aucune sauvegarde trouvée : lancez une première sauvega
 ### Premier démarrage : créer l'administrateur
 
 Au premier accès, tant qu'aucun compte n'existe, la console affiche l'écran **« Créer le compte
-administrateur »** : choisir un nom d'utilisateur (3 à 64 caractères : lettres, chiffres,
+administrateur »** : choisir un identifiant (3 à 64 caractères : lettres, chiffres,
 `. _ @ -`) et un mot de passe de 12 caractères au minimum. Il n'y a ni mot de passe par défaut,
 ni variable d'environnement pour en donner un. Le compte créé est administrateur et connecté
 aussitôt ; l'écran n'est plus jamais proposé (la route répond 409 dès qu'un compte existe).

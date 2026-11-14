@@ -66,8 +66,8 @@ répond `no_backup_found` (voir [installation.md](installation.md)).
    (Container Manager › Projet › Journal) : droits de `data`, `.env` incomplet.
 
 7. **Premier démarrage : compte administrateur.** La page affiche « Créer le compte
-   administrateur » (aucun compte n'existe encore, aucun mot de passe par défaut). Saisir un nom
-   d'utilisateur et un mot de passe de 12 caractères au minimum, noté dans le gestionnaire de
+   administrateur » (aucun compte n'existe encore, aucun mot de passe par défaut). Saisir un
+   identifiant et un mot de passe de 12 caractères au minimum, noté dans le gestionnaire de
    mots de passe de l'équipe. La console connecte aussitôt ce compte ; l'écran n'est plus
    proposé. Les autres personnes sont créées ensuite dans « Comptes » (rôle administrateur ou
    opérateur), avec un mot de passe provisoire qu'elles changent à leur première connexion.

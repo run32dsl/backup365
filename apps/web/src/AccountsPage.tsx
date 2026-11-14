@@ -34,8 +34,8 @@ function RoleSelect({
   return (
     <select
       name={name}
-      defaultValue={value}
-      onChange={onChange && ((e) => onChange(e.currentTarget.value as Role))}
+      {...(name ? { defaultValue: value } : { value })}
+      onChange={(e) => onChange?.(e.currentTarget.value as Role)}
     >
       {(Object.keys(ROLE_LABELS) as Role[]).map((role) => (
         <option key={role} value={role}>
