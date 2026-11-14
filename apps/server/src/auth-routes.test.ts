@@ -256,6 +256,54 @@ describe('POST /api/auth/login', () => {
     expect(res.headers['retry-after']).toBe('30');
   });
 
+  it('does not write one audit line per locked request: 1000 locked requests, one event', async () => {
+    const { app, auth, audit } = setup();
+    await addAccount(auth, 'alice');
+    for (let i = 0; i < 5; i++) {
+      await post(app, '/api/auth/login', { username: 'alice', password: 'mauvais mot de passe' });
+    }
+    for (let i = 0; i < 1000; i++) {
+      const res = await post(app, '/api/auth/login', { username: 'alice', password: 'x' });
+      expect(res.statusCode).toBe(429);
+    }
+    const log = await entries(audit);
+    expect(log.filter((e) => e.reason === 'locked')).toHaveLength(1);
+    expect(log).toHaveLength(6);
+  });
+
+  it('counts wrong current passwords on /api/auth/password in the lockout, and audits them once', async () => {
+    const { app, auth, audit } = setup();
+    await addAccount(auth, 'alice');
+    const login = await post(app, '/api/auth/login', {
+      username: 'alice',
+      password: TEST_PASSWORD,
+    });
+    const headers = {
+      cookie: String(login.headers['set-cookie']).split(';')[0]!,
+      'x-csrf-token': loginBody(login).csrfToken,
+    };
+    const body = { currentPassword: 'faux faux faux faux', newPassword: 'nouveau mot de passe' };
+    for (let i = 0; i < 5; i++) {
+      expect((await post(app, '/api/auth/password', body, headers)).statusCode).toBe(403);
+    }
+    for (let i = 0; i < 50; i++) {
+      const res = await post(
+        app,
+        '/api/auth/password',
+        { ...body, currentPassword: TEST_PASSWORD },
+        headers,
+      );
+      expect(res.statusCode).toBe(429);
+      expect(res.headers['retry-after']).toBe('30');
+    }
+    const failures = (await entries(audit)).filter((e) => e.action === 'auth.login_failed');
+    expect(failures.map((e) => e.reason).sort()).toEqual([
+      ...Array(5).fill('password_change_failed'),
+      'password_change_locked',
+    ]);
+    expect(JSON.stringify(failures)).not.toContain('faux faux');
+  });
+
   it('records success and failure in the audit log, never the password nor an invented name', async () => {
     const { app, auth, audit } = setup();
     await addAccount(auth, 'alice');

@@ -115,12 +115,16 @@ export function registerAuthRoutes(
       if (!result.ok) {
         // Le nom saisi n'est consigné que s'il désigne un compte : une faute de frappe pourrait
         // être un mot de passe. Jamais le mot de passe.
-        await recordSoft(
-          req,
-          event(result.account?.username ?? 'anonymous', 'auth.login_failed', {
-            reason: result.reason,
-          }),
-        );
+        // Les refus par le verrou ne sont consignés qu'une fois par série (le journal ne se
+        // purge pas), les refus « occupé » jamais.
+        if (result.reason !== 'locked' || result.firstLock) {
+          await recordSoft(
+            req,
+            event(result.account?.username ?? 'anonymous', 'auth.login_failed', {
+              reason: result.reason,
+            }),
+          );
+        }
         if (result.reason === 'locked') {
           return reply
             .code(429)
@@ -161,12 +165,27 @@ export function registerAuthRoutes(
       if (!auth || !session) return reply.code(401).send({ error: 'unauthenticated' });
       if (!audit) return reply.code(503).send({ error: 'audit_unavailable' });
       const { currentPassword, newPassword } = req.body;
-      const outcome = await auth.changePassword(
+      const { outcome, retryAfterSec, firstLock } = await auth.changePassword(
         session.accountId,
         session.token,
         currentPassword,
         newPassword,
       );
+      if (outcome === 'wrong_password' || (outcome === 'locked' && firstLock)) {
+        await recordSoft(
+          req,
+          event(session.username, 'auth.login_failed', {
+            target: session.username,
+            reason: outcome === 'locked' ? 'password_change_locked' : 'password_change_failed',
+          }),
+        );
+      }
+      if (outcome === 'locked') {
+        return reply
+          .code(429)
+          .header('retry-after', String(retryAfterSec ?? 1))
+          .send({ error: 'too_many_attempts', retryAfterSec });
+      }
       if (outcome === 'wrong_password') return reply.code(403).send({ error: outcome });
       if (outcome !== 'ok') return reply.code(400).send({ error: outcome });
       await audit.record({

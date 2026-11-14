@@ -86,6 +86,10 @@ s'authentifier simplement. Le SSO Microsoft (OIDC Entra ID) viendra dans une iss
   définitif : hors périmètre, à décider avec le SSO Entra.
 - Le verrou par compte permet à qui atteint le port de bloquer un compte, `admin` compris, pendant
   15 minutes au plus. Derrière un proxy non déclaré, une adresse partagée verrouille tout le monde.
+- Le journal d'audit ne se purge pas : le passage en verrou n'est consigné qu'une fois par série
+  de refus, les refus « occupé » jamais, pour qu'un client non authentifié ne le fasse pas grossir
+  sans limite. Le changement de son propre mot de passe (`/api/auth/password`) compte ses échecs
+  dans la même temporisation que la connexion (clé du compte) et les consigne avec la même borne.
 - Pour les routes de gestion des comptes, l'événement d'audit est écrit **après** la
   modification : si l'écriture échoue, la réponse est 500 mais le changement est appliqué sans
   trace. Seules la connexion et le premier démarrage refusent sans journal avant d'ouvrir une

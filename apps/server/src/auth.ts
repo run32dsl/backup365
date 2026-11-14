@@ -43,12 +43,16 @@ export type LoginResult =
       /** Compte existant dont le nom a été saisi (pour l'audit) ; jamais un nom inventé. */
       account?: AccountRecord;
       retryAfterSec?: number;
+      /** Vrai pour la seule première réponse « verrouillé » d'une série : seule celle-ci est consignée. */
+      firstLock?: boolean;
     };
 
 interface Failures {
   count: number;
   lockedUntil: number;
   last: number;
+  /** Le passage en verrou a déjà été consigné à l'audit. */
+  reported?: boolean;
 }
 
 /** Temporisation croissante après `MAX_FAILURES` échecs, suivie par compte et par adresse IP. */
@@ -104,6 +108,23 @@ class LoginThrottle {
       if (n <= 0) this.inflight.delete(k);
       else this.inflight.set(k, n);
     }
+  }
+
+  /**
+   * Vrai une seule fois par verrou : le journal d'audit est en ajout seul, les requêtes refusées
+   * par le verrou ne doivent donc pas toutes y écrire une ligne.
+   */
+  claimLockReport(keys: string[]): boolean {
+    const now = this.now();
+    let first = false;
+    for (const k of keys) {
+      const entry = this.entries.get(k);
+      if (entry && entry.lockedUntil > now && !entry.reported) {
+        entry.reported = true;
+        first = true;
+      }
+    }
+    return first;
   }
 
   reset(key: string): void {
@@ -189,6 +210,8 @@ export class AuthService {
         reason: 'locked',
         ...(account ? { account } : {}),
         retryAfterSec: Math.ceil((waitMs > 0 ? waitMs : BASE_LOCK_MS) / 1000),
+        // Un refus « occupé » (essais en vol) n'est jamais consigné.
+        firstLock: waitMs > 0 && this.throttle.claimLockReport(keys),
       };
     }
     this.throttle.begin(keys);
@@ -256,30 +279,49 @@ export class AuthService {
     }
   }
 
-  /** Change son propre mot de passe : l'ancien est exigé et les autres sessions sont fermées. */
+  /**
+   * Change son propre mot de passe : l'ancien est exigé et les autres sessions sont fermées. Les
+   * échecs sont comptés dans la temporisation du compte, comme à la connexion.
+   */
   async changePassword(
     accountId: number,
     token: string,
     current: string,
     next: string,
-  ): Promise<string> {
+  ): Promise<{ outcome: string; retryAfterSec?: number; firstLock?: boolean }> {
     const account = this.store.findById(accountId);
-    if (
-      !account ||
-      current.length > MAX_PASSWORD_LENGTH ||
-      !(await verifyPassword(current, account.passwordHash))
-    ) {
-      return 'wrong_password';
+    if (!account) return { outcome: 'wrong_password' };
+    const keys = [`u:${account.username.toLowerCase()}`];
+    const waitMs = this.throttle.remainingMs(keys);
+    if (waitMs > 0 || this.throttle.busy(keys)) {
+      return {
+        outcome: 'locked',
+        retryAfterSec: Math.ceil((waitMs > 0 ? waitMs : BASE_LOCK_MS) / 1000),
+        firstLock: waitMs > 0 && this.throttle.claimLockReport(keys),
+      };
     }
+    this.throttle.begin(keys);
+    try {
+      if (
+        current.length > MAX_PASSWORD_LENGTH ||
+        !(await verifyPassword(current, account.passwordHash))
+      ) {
+        this.throttle.fail(keys);
+        return { outcome: 'wrong_password' };
+      }
+    } finally {
+      this.throttle.end(keys);
+    }
+    this.throttle.reset(keys[0]!);
     const problem = passwordProblem(next);
-    if (problem) return problem;
-    if (next === current) return 'same_password';
+    if (problem) return { outcome: problem };
+    if (next === current) return { outcome: 'same_password' };
     this.store.update(accountId, {
       passwordHash: await this.hash(next),
       mustChangePassword: false,
     });
     this.revokeAccount(accountId, token);
-    return 'ok';
+    return { outcome: 'ok' };
   }
 
   /** Réinitialisation par un administrateur : mot de passe provisoire, à changer à la connexion. */
