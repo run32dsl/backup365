@@ -32,7 +32,7 @@ const MESSAGES: Record<string, string> = {
   same_password: 'Le nouveau mot de passe doit être différent de l’ancien.',
   wrong_password: 'Le mot de passe actuel est incorrect.',
   already_configured: 'Un administrateur existe déjà : connectez-vous.',
-  username_taken: 'Cet identifiant est déjà pris.',
+  username_taken: 'Cet identifiant est déjà utilisé.',
   last_admin: 'Impossible : c’est le dernier administrateur actif.',
   audit_unavailable: 'Journal d’audit indisponible : action refusée.',
   auth_unavailable: 'Base des comptes indisponible.',
@@ -118,7 +118,8 @@ export function withSession(
     if (token && !['GET', 'HEAD', 'OPTIONS'].includes(method)) headers.set('x-csrf-token', token);
     const res = await base(input, { ...init, headers });
     const url = input instanceof Request ? input.url : String(input);
-    if (res.status === 401 && !/\/api\/auth\/(login|setup|me)/.test(url)) onExpired('expired');
+    if (res.status === 401 && !/\/api\/auth\/(login|setup|me|logout)/.test(url))
+      onExpired('expired');
     if (res.status === 403) {
       const body = (await res
         .clone()

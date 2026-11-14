@@ -7,6 +7,7 @@ import { createAccount, resetPassword } from './accounts.js';
 import {
   LOGIN_HASH,
   authenticate,
+  errorMessage,
   loadGate,
   lossMessage,
   requestedPage,
@@ -199,6 +200,13 @@ describe('maquette de l’issue #22', () => {
   });
 });
 
+describe('errorMessage', () => {
+  it('uses the PO wording for a taken identifier', async () => {
+    const res = await reply({ error: 'username_taken' }, 409);
+    expect(await errorMessage(res)).toBe('Cet identifiant est déjà utilisé.');
+  });
+});
+
 describe('withSession', () => {
   it('adds the CSRF token to requests that change state, not to reads', async () => {
     const base = vi.fn<typeof fetch>(() => reply({}));
@@ -221,6 +229,7 @@ describe('withSession', () => {
     expect(expired).toHaveBeenCalledTimes(1);
     await wrapped('/api/auth/login', { method: 'POST' });
     await wrapped('/api/auth/me');
+    await wrapped('/api/auth/logout', { method: 'POST' });
     expect(expired).toHaveBeenCalledTimes(1);
     expect(expired).toHaveBeenCalledWith('expired');
   });
