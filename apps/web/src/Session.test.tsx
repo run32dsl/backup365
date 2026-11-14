@@ -2,8 +2,16 @@ import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
 import { AccountsView } from './AccountsPage.js';
-import { CredentialsView, PasswordView } from './LoginPage.js';
-import { authenticate, loadGate, withSession } from './session.js';
+import { CredentialsView, Field, PasswordView } from './LoginPage.js';
+import { createAccount, resetPassword } from './accounts.js';
+import {
+  LOGIN_HASH,
+  authenticate,
+  loadGate,
+  lossMessage,
+  requestedPage,
+  withSession,
+} from './session.js';
 
 const reply = (body: unknown, status = 200) => Promise.resolve(Response.json(body, { status }));
 
@@ -113,12 +121,81 @@ describe('authenticate', () => {
     const bad = (() => reply({ error: 'invalid_credentials' }, 401)) as typeof fetch;
     await expect(authenticate('login', 'a', 'b', bad)).resolves.toEqual({
       ok: false,
-      message: 'Nom d’utilisateur ou mot de passe incorrect.',
+      message: 'Identifiant ou mot de passe incorrect.',
     });
     const locked = (() =>
       reply({ error: 'too_many_attempts', retryAfterSec: 30 }, 429)) as typeof fetch;
     const out = await authenticate('login', 'a', 'b', locked);
     expect(out).toMatchObject({ ok: false, message: expect.stringContaining('30 secondes') });
+  });
+});
+
+describe('maquette de l’issue #22', () => {
+  it('labels the login field « Identifiant », never « Nom d’utilisateur »', () => {
+    for (const mode of ['login', 'setup'] as const) {
+      const html = renderToString(<CredentialsView mode={mode} />);
+      expect(html).toContain('Identifiant');
+      expect(html).not.toContain('utilisateur');
+    }
+    const accounts = renderToString(<AccountsView state={[]} />);
+    expect(accounts).toContain('Identifiant');
+    expect(accounts).not.toContain('Nom d’utilisateur');
+  });
+
+  it('offers Afficher / Masquer on password fields only', () => {
+    const hidden = renderToString(
+      <Field label="Mot de passe" name="password" type="password" autoComplete="off" />,
+    );
+    expect(hidden).toContain('type="password"');
+    expect(hidden).toContain('aria-pressed="false"');
+    expect(hidden).toContain('Afficher');
+    const shown = renderToString(
+      <Field label="Mot de passe" name="password" type="password" autoComplete="off" revealed />,
+    );
+    expect(shown).toContain('type="text"');
+    expect(shown).toContain('aria-pressed="true"');
+    expect(shown).toContain('Masquer');
+    const plain = renderToString(<Field label="Identifiant" name="username" autoComplete="off" />);
+    expect(plain).not.toContain('Afficher');
+    // Chaque mot de passe de chaque écran a son bouton.
+    expect(renderToString(<CredentialsView mode="setup" />).match(/Afficher</g)).toHaveLength(2);
+    expect(renderToString(<PasswordView forced />).match(/Afficher</g)).toHaveLength(3);
+  });
+
+  it('gives each lost session its message on the login screen', () => {
+    expect(lossMessage('expired')).toBe('Votre session a expiré. Reconnectez-vous.');
+    expect(lossMessage('invalid')).toBe('Votre session n’est plus valide. Reconnectez-vous.');
+    const html = renderToString(<CredentialsView mode="login" notice={lossMessage('expired')} />);
+    expect(html).toContain('<p role="status">Votre session a expiré. Reconnectez-vous.</p>');
+    expect(renderToString(<CredentialsView mode="login" />)).not.toContain('expiré');
+  });
+
+  it('remembers the requested page, never the login anchor itself', () => {
+    expect(requestedPage('#/audit')).toBe('#/audit');
+    expect(requestedPage('#/mail/boite/message')).toBe('#/mail/boite/message');
+    expect(requestedPage(LOGIN_HASH)).toBeNull();
+    expect(LOGIN_HASH).toBe('#/connexion');
+    expect(requestedPage('')).toBeNull();
+    expect(requestedPage('#autre')).toBeNull();
+  });
+
+  it('sends the typed passwords to the unchanged account routes', async () => {
+    const fetchFn = vi.fn<typeof fetch>(() => reply({}));
+    await createAccount('bob', 'un mot de passe long', 'operator', fetchFn);
+    await resetPassword(2, 'un autre mot de passe', fetchFn);
+    expect(fetchFn.mock.calls.map(([url, init]) => [url, init?.body])).toEqual([
+      [
+        '/api/accounts',
+        JSON.stringify({ username: 'bob', password: 'un mot de passe long', role: 'operator' }),
+      ],
+      ['/api/accounts/2/reset-password', JSON.stringify({ password: 'un autre mot de passe' })],
+    ]);
+  });
+
+  it('gives the account forms an Afficher / Masquer button on every password', () => {
+    const html = renderToString(<AccountsView state={[]} />);
+    expect(html.match(/Afficher</g)).toHaveLength(2);
+    expect(html).toContain('Identifiant');
   });
 });
 
@@ -145,5 +222,23 @@ describe('withSession', () => {
     await wrapped('/api/auth/login', { method: 'POST' });
     await wrapped('/api/auth/me');
     expect(expired).toHaveBeenCalledTimes(1);
+    expect(expired).toHaveBeenCalledWith('expired');
+  });
+
+  it('signals an invalid session on a CSRF refusal, leaving the body readable', async () => {
+    const lost = vi.fn();
+    const refused = (() => reply({ error: 'csrf_invalid' }, 403)) as typeof fetch;
+    const res = await withSession(refused, () => 'jeton', lost)('/api/x', { method: 'POST' });
+    expect(lost).toHaveBeenCalledExactlyOnceWith('invalid');
+    await expect(res.json()).resolves.toEqual({ error: 'csrf_invalid' });
+    // Les autres refus 403 ne ferment pas la session.
+    const other = (() => reply({ error: 'password_change_required' }, 403)) as typeof fetch;
+    await withSession(other, () => 'jeton', lost)('/api/x', { method: 'POST' });
+    expect(lost).toHaveBeenCalledTimes(1);
+    // Un 403 sans corps JSON n'est pas un refus CSRF et ne casse pas la requête.
+    const empty = (() => Promise.resolve(new Response('', { status: 403 }))) as typeof fetch;
+    const res403 = await withSession(empty, () => 'jeton', lost)('/api/x', { method: 'POST' });
+    expect(res403.status).toBe(403);
+    expect(lost).toHaveBeenCalledTimes(1);
   });
 });

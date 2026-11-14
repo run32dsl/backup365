@@ -24,7 +24,7 @@ export type Gate =
 export type Outcome<T> = { ok: true; value: T } | { ok: false; message: string };
 
 const MESSAGES: Record<string, string> = {
-  invalid_credentials: 'Nom d’utilisateur ou mot de passe incorrect.',
+  invalid_credentials: 'Identifiant ou mot de passe incorrect.',
   too_many_attempts: 'Trop de tentatives. Réessayez dans quelques instants.',
   password_too_short: 'Le mot de passe doit comporter au moins 12 caractères.',
   password_too_long: 'Le mot de passe ne doit pas dépasser 256 caractères.',
@@ -32,12 +32,18 @@ const MESSAGES: Record<string, string> = {
   same_password: 'Le nouveau mot de passe doit être différent de l’ancien.',
   wrong_password: 'Le mot de passe actuel est incorrect.',
   already_configured: 'Un administrateur existe déjà : connectez-vous.',
-  username_taken: 'Ce nom d’utilisateur est déjà pris.',
+  username_taken: 'Cet identifiant est déjà pris.',
   last_admin: 'Impossible : c’est le dernier administrateur actif.',
   audit_unavailable: 'Journal d’audit indisponible : action refusée.',
   auth_unavailable: 'Base des comptes indisponible.',
-  bad_request: 'Saisie invalide : 3 à 64 caractères (lettres, chiffres, . _ @ -) pour le nom.',
+  bad_request:
+    'Saisie invalide : 3 à 64 caractères (lettres, chiffres, . _ @ -) pour l’identifiant.',
 };
+
+/** Écran de connexion après un 401 d'une requête alors qu'une session existait. */
+export const SESSION_EXPIRED = 'Votre session a expiré. Reconnectez-vous.';
+/** Écran de connexion après un refus CSRF (jeton absent ou périmé). */
+export const SESSION_INVALID = 'Votre session n’est plus valide. Reconnectez-vous.';
 
 /** Message en français pour une réponse d'erreur de l'API. */
 export async function errorMessage(res: Response): Promise<string> {
@@ -101,7 +107,7 @@ export async function changePassword(
 export function withSession(
   base: typeof fetch,
   getToken: () => string | null,
-  onExpired: () => void,
+  onExpired: (reason: SessionLoss) => void,
 ): typeof fetch {
   return async (input, init) => {
     const method = (
@@ -112,18 +118,42 @@ export function withSession(
     if (token && !['GET', 'HEAD', 'OPTIONS'].includes(method)) headers.set('x-csrf-token', token);
     const res = await base(input, { ...init, headers });
     const url = input instanceof Request ? input.url : String(input);
-    if (res.status === 401 && !/\/api\/auth\/(login|setup|me)/.test(url)) onExpired();
+    if (res.status === 401 && !/\/api\/auth\/(login|setup|me)/.test(url)) onExpired('expired');
+    if (res.status === 403) {
+      const body = (await res
+        .clone()
+        .json()
+        .catch(() => null)) as { error?: unknown } | null;
+      if (body?.error === 'csrf_invalid') onExpired('invalid');
+    }
     return res;
   };
 }
 
+/** Perte de la session : `expired` (401), `invalid` (refus CSRF). */
+export type SessionLoss = 'expired' | 'invalid';
+
+/** Message de l'écran de connexion pour une session perdue. */
+export const lossMessage = (loss: SessionLoss): string =>
+  loss === 'expired' ? SESSION_EXPIRED : SESSION_INVALID;
+
+/** Ancre de l'écran de connexion ; elle remplace la page demandée le temps de la connexion. */
+export const LOGIN_HASH = '#/connexion';
+
+/**
+ * Page à rouvrir après la connexion : l'ancre demandée si c'est une page de la console, sinon
+ * rien (on garde l'ancre déjà mémorisée, et l'accueil par défaut).
+ */
+export const requestedPage = (hash: string): string | null =>
+  hash.startsWith('#/') && hash !== LOGIN_HASH ? hash : null;
+
 let csrfToken: string | null = null;
-let expiredListener: () => void = () => undefined;
+let expiredListener: (reason: SessionLoss) => void = () => undefined;
 
 export const setCsrfToken = (token: string | null): void => {
   csrfToken = token;
 };
-export const onSessionExpired = (listener: () => void): void => {
+export const onSessionExpired = (listener: (reason: SessionLoss) => void): void => {
   expiredListener = listener;
 };
 
@@ -132,8 +162,8 @@ export function installSessionFetch(): void {
   window.fetch = withSession(
     window.fetch.bind(window),
     () => csrfToken,
-    () => {
-      expiredListener();
+    (reason) => {
+      expiredListener(reason);
     },
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AccountsPage } from './AccountsPage.js';
 import { AuditPage } from './AuditPage.js';
 import { Home } from './Home.js';
@@ -7,9 +7,12 @@ import { MailPage } from './MailPage.js';
 import { SearchPage } from './SearchPage.js';
 import { parseMailHash } from './mail.js';
 import {
+  LOGIN_HASH,
   installSessionFetch,
   loadGate,
   logout,
+  lossMessage,
+  requestedPage,
   onSessionExpired,
   setCsrfToken,
   type Gate,
@@ -78,23 +81,57 @@ export function App() {
     setCsrfToken(next.status === 'ready' ? next.session.csrfToken : null);
     setGate(next);
   };
+  // Message affiché entre la perte d'une session et la connexion suivante.
+  const [notice, setNotice] = useState<string>();
+  // Page demandée avant la connexion, rouverte ensuite ; l'ancre vaut `#/connexion` entre-temps.
+  const target = useRef<string | null>(null);
+  // Incrémenté à chaque refus CSRF : une lecture de session partie avant ne doit pas le défaire.
+  const generation = useRef(0);
   const refresh = () => {
-    loadGate().then(apply, () => apply({ status: 'error' }));
+    const started = generation.current;
+    const ifCurrent = (next: Gate) => {
+      if (started === generation.current) apply(next);
+    };
+    loadGate().then(ifCurrent, () => {
+      ifCurrent({ status: 'error' });
+    });
   };
   useEffect(() => {
     installSessionFetch();
-    onSessionExpired(refresh);
+    onSessionExpired((loss) => {
+      setNotice(lossMessage(loss));
+      // Un refus CSRF laisse une session valide côté serveur : on revient à la connexion sans
+      // la relire, sinon `loadGate` la rouvrirait aussitôt.
+      if (loss === 'invalid') {
+        generation.current += 1;
+        apply({ status: 'login' });
+      } else refresh();
+    });
     refresh();
     // Au montage seulement : `refresh` ne dépend de rien qui change.
   }, []);
 
+  const unauthenticated = gate.status === 'login' || gate.status === 'setup';
+  useEffect(() => {
+    if (!unauthenticated) return;
+    target.current = requestedPage(window.location.hash) ?? target.current;
+    window.location.hash = LOGIN_HASH;
+  }, [unauthenticated]);
+
   const open = (session: SessionInfo) => {
+    setNotice(undefined);
+    window.location.hash = target.current ?? '#/';
+    target.current = null;
     apply({ status: 'ready', session });
   };
   const leave = () => {
+    setNotice(undefined);
     logout().finally(() => {
+      target.current = null;
       window.location.hash = '';
-      refresh();
+      // Même si la déconnexion est refusée (jeton CSRF périmé), l'utilisateur voit la connexion.
+      generation.current += 1;
+      apply({ status: 'login' });
     });
   };
 
@@ -105,7 +142,13 @@ export function App() {
       return <p role="alert">Serveur injoignable</p>;
     case 'setup':
     case 'login':
-      return <CredentialsPage mode={gate.status} onSession={open} />;
+      return (
+        <CredentialsPage
+          mode={gate.status}
+          notice={gate.status === 'login' ? notice : undefined}
+          onSession={open}
+        />
+      );
     case 'ready':
       return gate.session.user.mustChangePassword ? (
         <PasswordPage forced onDone={refresh} />

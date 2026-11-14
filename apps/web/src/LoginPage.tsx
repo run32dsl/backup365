@@ -1,38 +1,71 @@
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { changePassword, type Outcome, type SessionInfo, authenticate } from './session.js';
 
-/** Champ de formulaire : étiquette visible, jamais de valeur préremplie. */
-function Field({
+/**
+ * Champ de formulaire : étiquette visible, jamais de valeur préremplie. Un champ de mot de passe
+ * porte un bouton « Afficher » / « Masquer » ; `revealed` fixe son état initial.
+ */
+export function Field({
   label,
   name,
   type = 'text',
   autoComplete,
+  revealed = false,
 }: {
   label: string;
   name: string;
-  type?: string;
+  type?: 'text' | 'password';
   autoComplete: string;
+  revealed?: boolean;
 }) {
+  const id = useId();
+  const secret = type === 'password';
+  const [shown, setShown] = useState(revealed);
   return (
     <p>
-      <label>
-        {label}
-        <br />
-        <input name={name} type={type} autoComplete={autoComplete} required />
-      </label>
+      <label htmlFor={id}>{label}</label>
+      <br />
+      <input
+        id={id}
+        name={name}
+        type={secret && !shown ? 'password' : 'text'}
+        autoComplete={autoComplete}
+        required
+      />
+      {secret && (
+        <>
+          {' '}
+          <button
+            type="button"
+            aria-controls={id}
+            aria-pressed={shown}
+            aria-label={`${shown ? 'Masquer' : 'Afficher'} : ${label}`}
+            onClick={() => {
+              setShown(!shown);
+            }}
+          >
+            {shown ? 'Masquer' : 'Afficher'}
+          </button>
+        </>
+      )}
     </p>
   );
 }
 
-/** Formulaire de connexion ou de création du premier administrateur. */
+/**
+ * Formulaire de connexion ou de création du premier administrateur. `notice` annonce une session
+ * perdue (expirée ou refusée).
+ */
 export function CredentialsView({
   mode,
   error,
+  notice,
   busy = false,
   onSubmit,
 }: {
   mode: 'login' | 'setup';
   error?: string;
+  notice?: string;
   busy?: boolean;
   onSubmit?: (form: FormData) => void;
 }) {
@@ -46,13 +79,14 @@ export function CredentialsView({
           comptes.
         </p>
       )}
+      {notice && <p role="status">{notice}</p>}
       <form
         onSubmit={(e: FormEvent<HTMLFormElement>) => {
           e.preventDefault();
           onSubmit?.(new FormData(e.currentTarget));
         }}
       >
-        <Field label="Nom d’utilisateur" name="username" autoComplete="username" />
+        <Field label="Identifiant" name="username" autoComplete="username" />
         <Field
           label="Mot de passe"
           name="password"
@@ -87,9 +121,11 @@ const text = (form: FormData, name: string): string => {
 /** Connexion ou premier démarrage : appelle l'API, puis remet la session à l'application. */
 export function CredentialsPage({
   mode,
+  notice,
   onSession,
 }: {
   mode: 'login' | 'setup';
+  notice?: string;
   onSession: (session: SessionInfo) => void;
 }) {
   const [error, setError] = useState<string>();
@@ -113,7 +149,9 @@ export function CredentialsPage({
       },
     );
   };
-  return <CredentialsView mode={mode} error={error} busy={busy} onSubmit={submit} />;
+  return (
+    <CredentialsView mode={mode} error={error} notice={notice} busy={busy} onSubmit={submit} />
+  );
 }
 
 /** Changement de son mot de passe ; imposé après une réinitialisation par un administrateur. */

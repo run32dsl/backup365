@@ -7,6 +7,7 @@ import {
   updateAccount,
   type AccountInfo,
 } from './accounts.js';
+import { Field } from './LoginPage.js';
 import type { Outcome, Role } from './session.js';
 
 export type AccountsState = AccountInfo[] | 'loading' | 'error';
@@ -68,7 +69,7 @@ export function AccountsView({
       <table>
         <thead>
           <tr>
-            <th>Nom d’utilisateur</th>
+            <th>Identifiant</th>
             <th>Rôle</th>
             <th>État</th>
             <th>Actions</th>
@@ -95,13 +96,7 @@ export function AccountsView({
       <form onSubmit={submit(actions?.onCreate)}>
         <p>
           <label>
-            Nom d’utilisateur <input name="username" autoComplete="off" required />
-          </label>
-        </p>
-        <p>
-          <label>
-            Mot de passe provisoire (12 caractères au minimum){' '}
-            <input name="password" type="password" autoComplete="new-password" required />
+            Identifiant <input name="username" autoComplete="off" required />
           </label>
         </p>
         <p>
@@ -109,6 +104,12 @@ export function AccountsView({
             Rôle <RoleSelect name="role" value="operator" />
           </label>
         </p>
+        <Field
+          label="Mot de passe provisoire (12 caractères au minimum)"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+        />
         <button type="submit">Créer</button>
       </form>
       <h2>Réinitialiser un mot de passe</h2>
@@ -126,12 +127,12 @@ export function AccountsView({
             </select>
           </label>
         </p>
-        <p>
-          <label>
-            Mot de passe provisoire{' '}
-            <input name="password" type="password" autoComplete="new-password" required />
-          </label>
-        </p>
+        <Field
+          label="Mot de passe provisoire"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+        />
         <button type="submit">Réinitialiser</button>
       </form>
     </>
