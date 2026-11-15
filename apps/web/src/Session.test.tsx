@@ -316,6 +316,17 @@ describe('textes restants de la maquette de #22', () => {
     expect(html).toContain('>Se déconnecter</button>');
   });
 
+  it('renders a labelled main navigation with one current entry and a closed menu', () => {
+    const user = { id: 1, username: 'marie', role: 'operator' as const, mustChangePassword: false };
+    vi.stubGlobal('window', { location: { hash: '' }, addEventListener: () => undefined });
+    const html = renderToString(<Console user={user} onLogout={() => undefined} />);
+    vi.unstubAllGlobals();
+    expect(html).toContain('<nav aria-label="Navigation principale">');
+    expect(html.match(/aria-current="page"/g)).toHaveLength(1);
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('class="skip-link"');
+  });
+
   it('clears an account form only when the request succeeded', async () => {
     type El = { type?: unknown; props?: { children?: unknown; [k: string]: unknown } };
     vi.stubGlobal('FormData', class {});

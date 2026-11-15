@@ -1,0 +1,68 @@
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+
+const css = readFileSync(new URL('./charte.css', import.meta.url), 'utf8');
+
+function variables(block: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of block.matchAll(/--([a-z0-9-]+):\s*(#[0-9a-f]{6});/gi)) {
+    out[m[1]!] = m[2]!.toLowerCase();
+  }
+  return out;
+}
+
+const light = variables(/:root\s*\{([^}]*)\}/.exec(css)?.[1] ?? '');
+const darkOverrides = variables(
+  /prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{([^}]*)\}/.exec(css)?.[1] ?? '',
+);
+const dark = { ...light, ...darkOverrides };
+
+function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+}
+
+function ratio(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi! + 0.05) / (lo! + 0.05);
+}
+
+/** [premier plan, fond, seuil WCAG AA] : 4,5 pour le texte, 3 pour les composants graphiques. */
+const PAIRS: [string, string, number][] = [
+  ['text', 'bg', 4.5],
+  ['text', 'surface', 4.5],
+  ['text', 'border-soft', 4.5],
+  ['muted', 'bg', 4.5],
+  ['muted', 'surface', 4.5],
+  ['accent', 'bg', 4.5],
+  ['accent', 'surface', 4.5],
+  ['accent-text', 'accent', 4.5],
+  ['ok-fg', 'ok-bg', 4.5],
+  ['warn-fg', 'warn-bg', 4.5],
+  ['err-fg', 'err-bg', 4.5],
+  ['info-fg', 'info-bg', 4.5],
+  ['border', 'bg', 3],
+  ['focus', 'bg', 3],
+  ['focus', 'surface', 3],
+];
+
+describe('charte.css contrast (WCAG AA)', () => {
+  it('parses both palettes', () => {
+    expect(Object.keys(light).length).toBeGreaterThan(15);
+    expect(Object.keys(darkOverrides).length).toBeGreaterThan(15);
+  });
+
+  for (const [name, palette] of [
+    ['light', light],
+    ['dark', dark],
+  ] as const) {
+    for (const [fg, bg, min] of PAIRS) {
+      it(`${name}: ${fg} on ${bg} >= ${min}`, () => {
+        expect(ratio(palette[fg]!, palette[bg]!)).toBeGreaterThanOrEqual(min);
+      });
+    }
+  }
+});
