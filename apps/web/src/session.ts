@@ -40,6 +40,12 @@ const MESSAGES: Record<string, string> = {
     'Saisie invalide : 3 à 64 caractères (lettres, chiffres, . _ @ -) pour l’identifiant.',
 };
 
+/** Console injoignable (réseau coupé ou serveur arrêté). */
+export const UNREACHABLE = 'Impossible de joindre la console. Réessayez.';
+/** Rappel affiché au bas des écrans de connexion et de comptes (information des personnes). */
+export const AUDIT_NOTICE =
+  'Les connexions et les modifications de comptes sont inscrites au journal d’audit.';
+
 /** Écran de connexion après un 401 d'une requête alors qu'une session existait. */
 export const SESSION_EXPIRED = 'Votre session a expiré. Reconnectez-vous.';
 /** Écran de connexion après un refus CSRF (jeton absent ou périmé). */

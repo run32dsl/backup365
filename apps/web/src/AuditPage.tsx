@@ -99,6 +99,7 @@ export function AuditPage() {
   return (
     <main>
       <h1>Journal d’audit</h1>
+      <p>La consultation de ce journal est elle-même journalisée.</p>
       <form onSubmit={submit}>
         <label>
           Du <input type="datetime-local" name="from" />

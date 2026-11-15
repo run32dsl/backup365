@@ -1,5 +1,12 @@
 import { useId, useState, type FormEvent } from 'react';
-import { changePassword, type Outcome, type SessionInfo, authenticate } from './session.js';
+import {
+  AUDIT_NOTICE,
+  UNREACHABLE,
+  authenticate,
+  changePassword,
+  type Outcome,
+  type SessionInfo,
+} from './session.js';
 
 /**
  * Champ de formulaire : étiquette visible, jamais de valeur préremplie. Un champ de mot de passe
@@ -72,7 +79,7 @@ export function CredentialsView({
   const setup = mode === 'setup';
   return (
     <main>
-      <h1>{setup ? 'Créer le compte administrateur' : 'Connexion'}</h1>
+      <h1>{setup ? 'Créer le compte administrateur' : 'Connexion à la console'}</h1>
       {setup && (
         <p>
           Aucun compte n’existe encore. Ce compte administrateur permettra de créer les autres
@@ -95,7 +102,7 @@ export function CredentialsView({
         />
         {setup && (
           <>
-            <p>12 caractères au minimum.</p>
+            <p>12 caractères minimum. Une phrase de passe convient.</p>
             <Field
               label="Confirmer le mot de passe"
               name="confirm"
@@ -106,9 +113,10 @@ export function CredentialsView({
         )}
         {error && <p role="alert">{error}</p>}
         <button type="submit" disabled={busy}>
-          {setup ? 'Créer le compte' : 'Se connecter'}
+          {setup ? 'Créer le compte administrateur' : 'Se connecter'}
         </button>
       </form>
+      <p>{AUDIT_NOTICE}</p>
     </main>
   );
 }
@@ -145,7 +153,7 @@ export function CredentialsPage({
       },
       () => {
         setBusy(false);
-        setError('Serveur injoignable.');
+        setError(UNREACHABLE);
       },
     );
   };
@@ -168,7 +176,7 @@ export function PasswordView({
 }) {
   return (
     <main>
-      <h1>Changer le mot de passe</h1>
+      <h1>Choisissez un nouveau mot de passe</h1>
       {forced && (
         <p>Votre mot de passe a été réinitialisé : choisissez-en un nouveau pour continuer.</p>
       )}
@@ -190,7 +198,7 @@ export function PasswordView({
           type="password"
           autoComplete="new-password"
         />
-        <p>12 caractères au minimum.</p>
+        <p>12 caractères minimum. Une phrase de passe convient.</p>
         <Field
           label="Confirmer le nouveau mot de passe"
           name="confirm"
@@ -199,7 +207,7 @@ export function PasswordView({
         />
         {error && <p role="alert">{error}</p>}
         {done && <p role="status">Mot de passe modifié.</p>}
-        <button type="submit">Changer le mot de passe</button>
+        <button type="submit">Enregistrer et continuer</button>
       </form>
     </main>
   );
@@ -221,7 +229,7 @@ export function PasswordPage({ forced, onDone }: { forced: boolean; onDone: () =
           onDone();
         } else setError(outcome.message);
       },
-      () => setError('Serveur injoignable.'),
+      () => setError(UNREACHABLE),
     );
   };
   return <PasswordView forced={forced} error={error} done={done} onSubmit={submit} />;

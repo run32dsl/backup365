@@ -1,10 +1,13 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
-import { AccountsView } from './AccountsPage.js';
+import { AccountsPage, AccountsView } from './AccountsPage.js';
+import { AuditPage } from './AuditPage.js';
 import { CredentialsView, Field, PasswordView } from './LoginPage.js';
 import { createAccount, resetPassword } from './accounts.js';
 import {
+  AUDIT_NOTICE,
+  UNREACHABLE,
   LOGIN_HASH,
   authenticate,
   errorMessage,
@@ -78,7 +81,7 @@ describe('AccountsView', () => {
 
 describe('screenOf', () => {
   it('knows the accounts and password screens', () => {
-    expect(screenOf('#/accounts')).toBe('accounts');
+    expect(screenOf('#/comptes')).toBe('accounts');
     expect(screenOf('#/password')).toBe('password');
   });
 });
@@ -197,6 +200,31 @@ describe('maquette de l’issue #22', () => {
     const html = renderToString(<AccountsView state={[]} />);
     expect(html.match(/Afficher</g)).toHaveLength(2);
     expect(html).toContain('Identifiant');
+  });
+
+  it('takes the titles and buttons of the mock-up', () => {
+    expect(renderToString(<CredentialsView mode="login" />)).toContain('Connexion à la console');
+    const setup = renderToString(<CredentialsView mode="setup" />);
+    expect(setup).toContain('>Créer le compte administrateur</button>');
+    expect(setup).toContain('12 caractères minimum. Une phrase de passe convient.');
+    const password = renderToString(<PasswordView forced={false} />);
+    expect(password).toContain('Choisissez un nouveau mot de passe');
+    expect(password).toContain('>Enregistrer et continuer</button>');
+    const view = renderToString(<AccountsView state={[]} />);
+    expect(view).toContain('>Nouveau compte</button>');
+  });
+
+  it('names the console in the accounts title and says the journal is audited', () => {
+    expect(renderToString(<AccountsPage />)).toContain('Comptes de la console');
+    for (const html of [
+      renderToString(<CredentialsView mode="login" />),
+      renderToString(<AccountsView state={[]} />),
+    ])
+      expect(html).toContain(AUDIT_NOTICE);
+    expect(renderToString(<AuditPage />)).toContain(
+      'La consultation de ce journal est elle-même journalisée.',
+    );
+    expect(UNREACHABLE).toBe('Impossible de joindre la console. Réessayez.');
   });
 });
 

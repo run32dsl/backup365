@@ -8,7 +8,7 @@ import {
   type AccountInfo,
 } from './accounts.js';
 import { Field } from './LoginPage.js';
-import type { Outcome, Role } from './session.js';
+import { AUDIT_NOTICE, UNREACHABLE, type Outcome, type Role } from './session.js';
 
 export type AccountsState = AccountInfo[] | 'loading' | 'error';
 
@@ -110,7 +110,7 @@ export function AccountsView({
           type="password"
           autoComplete="new-password"
         />
-        <button type="submit">Créer</button>
+        <button type="submit">Nouveau compte</button>
       </form>
       <h2>Réinitialiser un mot de passe</h2>
       <p>L’utilisateur devra le changer à sa prochaine connexion.</p>
@@ -135,6 +135,7 @@ export function AccountsView({
         />
         <button type="submit">Réinitialiser</button>
       </form>
+      <p>{AUDIT_NOTICE}</p>
     </>
   );
 }
@@ -144,7 +145,7 @@ const text = (form: FormData, name: string): string => {
   return typeof value === 'string' ? value : '';
 };
 
-/** Gestion des comptes (écran `#/accounts`, administrateur seulement). */
+/** Gestion des comptes (écran `#/comptes`, administrateur seulement). */
 export function AccountsPage() {
   const [state, setState] = useState<AccountsState>('loading');
   const [message, setMessage] = useState<{ kind: 'error' | 'status'; text: string }>();
@@ -161,10 +162,12 @@ export function AccountsPage() {
         );
         reload();
       },
-      () => setMessage({ kind: 'error', text: 'Serveur injoignable.' }),
+      () => setMessage({ kind: 'error', text: UNREACHABLE }),
     );
   };
 
+  const nameOf = (id: number) =>
+    (Array.isArray(state) ? state.find((a) => a.id === id)?.username : undefined) ?? 'le compte';
   const actions: AccountActions = {
     onRole: (id, role) => run('Rôle modifié.', updateAccount(id, { role })),
     onDisabled: (id, disabled) =>
@@ -180,13 +183,13 @@ export function AccountsPage() {
       ),
     onReset: (form) =>
       run(
-        'Mot de passe réinitialisé.',
+        `Mot de passe réinitialisé : ${nameOf(Number(text(form, 'id')))} devra le changer à sa prochaine connexion.`,
         resetPassword(Number(text(form, 'id')), text(form, 'password')),
       ),
   };
   return (
     <main>
-      <h1>Comptes</h1>
+      <h1>Comptes de la console</h1>
       <AccountsView state={state} message={message} actions={actions} />
     </main>
   );

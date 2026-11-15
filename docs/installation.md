@@ -106,7 +106,7 @@ sur 127.0.0.1 par défaut.
 Ensuite, toute l'API sauf `/api/health` exige une session. Deux rôles : **administrateur**
 (comptes ; plans et restaurations viendront avec leurs écrans) et **opérateur** (consultation, export, restauration avec
 motif). L'administrateur crée, désactive et change le rôle des comptes dans l'écran « Comptes »
-(`#/accounts`) ; il ne peut pas désactiver ni rétrograder le dernier administrateur actif. Un mot
+(`#/comptes`) ; il ne peut pas désactiver ni rétrograder le dernier administrateur actif. Un mot
 de passe provisoire (création ou réinitialisation) est à changer à la connexion suivante.
 
 La session tient dans un cookie `b365_session` (`HttpOnly`, `SameSite=Strict`, et `Secure` quand

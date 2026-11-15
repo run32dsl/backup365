@@ -18,11 +18,12 @@ import {
   type Gate,
   type SessionInfo,
   type User,
+  UNREACHABLE,
 } from './session.js';
 
 /**
  * Écran demandé par l'ancre de l'URL : `#/audit` le journal, `#/search` la recherche,
- * `#/accounts` les comptes, `#/password` le changement de mot de passe, `#/mail/<boîte>/<message>`
+ * `#/comptes` les comptes, `#/password` le changement de mot de passe, `#/mail/<boîte>/<message>`
  * la fiche d'un mail, tout le reste l'accueil.
  */
 export function screenOf(
@@ -30,7 +31,7 @@ export function screenOf(
 ): 'audit' | 'search' | 'accounts' | 'password' | 'mail' | 'home' {
   if (hash === '#/audit') return 'audit';
   if (hash === '#/search') return 'search';
-  if (hash === '#/accounts') return 'accounts';
+  if (hash === '#/comptes') return 'accounts';
   if (hash === '#/password') return 'password';
   return parseMailHash(hash) ? 'mail' : 'home';
 }
@@ -54,7 +55,7 @@ export function Console({ user, onLogout }: { user: User; onLogout: () => void }
     <>
       <nav>
         <a href="#/">Accueil</a> <a href="#/search">Recherche</a>{' '}
-        <a href="#/audit">Journal d’audit</a> {admin && <a href="#/accounts">Comptes</a>}{' '}
+        <a href="#/audit">Journal d’audit</a> {admin && <a href="#/comptes">Comptes</a>}{' '}
         <a href="#/password">Mot de passe</a>{' '}
         <button type="button" onClick={onLogout}>
           Se déconnecter ({user.username})
@@ -137,9 +138,9 @@ export function App() {
 
   switch (gate.status) {
     case 'loading':
-      return <p role="status">Chargement…</p>;
+      return <p role="status">Vérification de la session…</p>;
     case 'error':
-      return <p role="alert">Serveur injoignable</p>;
+      return <p role="alert">{UNREACHABLE}</p>;
     case 'setup':
     case 'login':
       return (
