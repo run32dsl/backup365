@@ -85,7 +85,7 @@ export function registerCatalogRoutes(
         await recordDenied(audit, req, 'snapshot', 'not_found');
         return reply.code(404).send({ error: 'snapshot_not_found' });
       }
-      await audit.record(auditEvent('item.open', 'snapshot', { target: req.params.id }));
+      await audit.record(auditEvent(req, 'item.open', 'snapshot', { target: req.params.id }));
       return detail;
     },
   );

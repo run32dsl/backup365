@@ -48,8 +48,9 @@ Graph volontairement faux) quelles lectures fonctionnent sans Graph.
 
 ## Limites connues
 
-- Les routes ne sont pas authentifiées (Entra est hors MVP) : la console ne doit pas être
-  exposée hors d'un réseau de confiance.
+- Les routes exigent une session depuis l'ADR 0008 (comptes locaux ; Entra est hors MVP). La
+  console parle HTTP : elle ne doit pas être exposée hors d'un réseau de confiance sans proxy
+  HTTPS.
 - Seules des métadonnées (boîtes, dates) sont lues, pas de contenu : ces lectures ne passent pas
   par le journal d'audit, qui couvre la lecture et l'export d'éléments sauvegardés. Confirmé
   par le Product Manager (issue #18).

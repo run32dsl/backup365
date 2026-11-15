@@ -18,7 +18,7 @@ que l'API, et les secrets du stockage n'existaient qu'en variables d'environneme
 - Secrets du stockage : variante `<NOM>_FILE` (clé d'accès, clé secrète, phrase de chiffrement),
   exclusive de la variable directe ; compose monte des fichiers de `./secrets/`.
 - `compose.yaml` : console et MinIO facultatif (profil `minio`, aucun port publié). Le port de la
-  console n'est publié que sur 127.0.0.1, la console n'ayant pas d'authentification.
+  console n'est publié que sur 127.0.0.1 (HTTP sans chiffrement ; comptes locaux depuis l'ADR 0008).
 - La CI construit l'image et vérifie qu'elle démarre (`/api/health`, interface servie).
 - Ce que l'image lance est assemblé par `createServer` (`server.ts`), `main.ts` n'ajoutant que
   l'écoute : le démarrage sans stockage, l'environnement de `compose.yaml` et la copie
@@ -39,4 +39,4 @@ runner, sans action tierce à épingler. Le contexte de construction exclut `.en
 Installation en quelques commandes, sans Node ni pnpm sur l'hôte. Les images Node et MinIO sont
 épinglées par digest d'index multi-architecture (décision du PO du 2026-11-12, PR #32), sur des
 versions publiées depuis au moins une semaine ; leur mise à jour régulière reste à organiser. Le serveur porte désormais un
-petit service de fichiers statiques à maintenir ; une authentification reste à faire (hors MVP).
+petit service de fichiers statiques à maintenir ; l'authentification par comptes locaux est décrite dans l'ADR 0008.

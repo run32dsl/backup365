@@ -6,7 +6,7 @@ import {
   type MailContent,
   type MailContentReader,
 } from '@backup365/core';
-import { buildApp } from './app.js';
+import { buildTestApp } from './test-support.js';
 import { SqliteSearchIndex } from './sqlite/sqlite-search-index.js';
 
 /** Instantané factice : un vrai message MIME, des adresses en `example.test`. */
@@ -62,7 +62,7 @@ function setup(over: { audit?: AuditLog; content?: MailContentReader | null } = 
           attachments: [],
         },
       ]);
-      return buildApp({
+      return buildTestApp({
         version: '1',
         searchIndex,
         audit,
@@ -98,7 +98,7 @@ describe('GET /api/mails/:mailboxId/:messageId', () => {
 
   it('answers 503 without audit log', async () => {
     const searchIndex = SqliteSearchIndex.open(':memory:');
-    const app = buildApp({ version: '1', searchIndex });
+    const app = buildTestApp({ version: '1', searchIndex });
     const res = await app.inject({ method: 'GET', url: '/api/mails/mbx-1/m1' });
     expect(res.statusCode).toBe(503);
   });
@@ -121,7 +121,7 @@ describe('POST /api/mails/:mailboxId/:messageId/export', () => {
     expect(t.events).toHaveLength(1);
     expect(t.events[0]).toMatchObject({
       action: 'item.export',
-      actor: 'anonymous',
+      actor: 'tester',
       resource: 'mail',
       target: 'mbx-1/m1',
       count: 1,
@@ -174,7 +174,7 @@ describe('POST /api/mails/:mailboxId/:messageId/export', () => {
   });
 
   it('answers 503 without audit log', async () => {
-    const app = buildApp({ version: '1', searchIndex: SqliteSearchIndex.open(':memory:') });
+    const app = buildTestApp({ version: '1', searchIndex: SqliteSearchIndex.open(':memory:') });
     const res = await app.inject({
       method: 'POST',
       url: exportUrl,

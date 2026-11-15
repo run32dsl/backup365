@@ -7,6 +7,10 @@ import {
   type SearchIndex,
 } from '@backup365/core';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import { registerAccountRoutes } from './account-routes.js';
+import type { AuthService } from './auth.js';
+import { registerAuthHook } from './auth-hook.js';
+import { registerAuthRoutes } from './auth-routes.js';
 import { registerAuditRoutes } from './audit-routes.js';
 import { sendError } from './errors.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
@@ -31,6 +35,13 @@ export interface AppOptions {
   indexer?: SearchIndexer;
   /** Seuil et charges du tableau de bord ; 26 h, mail et OneDrive par défaut. */
   status?: StatusOptions;
+  /**
+   * Comptes locaux et sessions. Absent (base des comptes illisible), toute l'API hors santé
+   * répond 503 : jamais d'accès sans authentification.
+   */
+  auth?: AuthService;
+  /** Derrière un proxy inverse de confiance : `X-Forwarded-Proto` et `-For` sont lus (cookie `Secure`, IP). */
+  trustProxy?: string | false;
   /** Dossier de l'interface construite ; sans lui, seule l'API répond. */
   webDir?: string;
 }
@@ -72,11 +83,13 @@ export function buildApp({
   searchIndex,
   mailContent,
   audit,
+  auth,
+  trustProxy = false,
   indexer,
   status = { maxAgeHours: DEFAULT_MAX_AGE_HOURS, workloads: ['mail', 'onedrive', 'sharepoint'] },
   webDir,
 }: AppOptions): FastifyInstance {
-  const app = Fastify({ logger, routerOptions: { maxParamLength: 512 } });
+  const app = Fastify({ logger, trustProxy, routerOptions: { maxParamLength: 512 } });
   app.addHook('onSend', (_req, reply, payload, done) => {
     // La politique propre aux pages de l'interface (static-web.ts) l'emporte sur celle de l'API.
     const own = reply.getHeader('content-security-policy');
@@ -87,7 +100,13 @@ export function buildApp({
   });
   // Aucun message d'erreur interne (moteur SQLite, chemin) ne sort : 500 générique.
   app.setErrorHandler((err, _req, reply) => sendError(err, reply));
+  registerAuthHook(app, auth);
   app.get('/api/health', () => healthResponse(version));
+  void app.register((scope, _opts, done) => {
+    registerAuthRoutes(scope, auth, audit);
+    registerAccountRoutes(scope, auth, audit);
+    done();
+  });
   // Plugin encapsulé : son gestionnaire d'erreurs ne touche pas le reste de l'application.
   void app.register((scope, _opts, done) => {
     registerCatalogRoutes(scope, catalog, audit);

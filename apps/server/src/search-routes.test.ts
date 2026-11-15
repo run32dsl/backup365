@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AuditEvent, AuditLog } from '@backup365/core';
-import { buildApp, LOG_SERIALIZERS } from './app.js';
+import { LOG_SERIALIZERS } from './app.js';
+import { buildTestApp } from './test-support.js';
 import { SqliteSearchIndex } from './sqlite/sqlite-search-index.js';
 
 const events: AuditEvent[] = [];
@@ -26,7 +27,7 @@ async function appWithData() {
     attachments: [],
   }));
   await searchIndex.indexSnapshot('mbx-1', 'snap-1', mails);
-  return buildApp({ version: '1', searchIndex, audit });
+  return buildTestApp({ version: '1', searchIndex, audit });
 }
 
 describe('GET /api/search', () => {
@@ -50,7 +51,7 @@ describe('GET /api/search', () => {
     expect(events[0]).toMatchObject({
       action: 'list.view',
       resource: 'mail.search',
-      actor: 'anonymous',
+      actor: 'tester',
       count: 2,
     });
     expect(JSON.stringify(events)).not.toContain('facture');
@@ -58,7 +59,7 @@ describe('GET /api/search', () => {
 
   it('answers 503 without audit log', async () => {
     const searchIndex = SqliteSearchIndex.open(':memory:');
-    const res = await buildApp({ version: '1', searchIndex }).inject({
+    const res = await buildTestApp({ version: '1', searchIndex }).inject({
       method: 'GET',
       url: '/api/search',
     });
@@ -68,7 +69,7 @@ describe('GET /api/search', () => {
   it('sends nothing when the audit fails', async () => {
     const searchIndex = SqliteSearchIndex.open(':memory:');
     const failing: AuditLog = { ...audit, record: () => Promise.reject(new Error('disk full')) };
-    const res = await buildApp({ version: '1', searchIndex, audit: failing }).inject({
+    const res = await buildTestApp({ version: '1', searchIndex, audit: failing }).inject({
       method: 'GET',
       url: '/api/search',
     });
@@ -101,14 +102,14 @@ describe('GET /api/search', () => {
   });
 
   it('answers 503 without index', async () => {
-    const res = await buildApp({ version: '1' }).inject({ method: 'GET', url: '/api/search' });
+    const res = await buildTestApp({ version: '1' }).inject({ method: 'GET', url: '/api/search' });
     expect(res.statusCode).toBe(503);
     expect(res.json()).toEqual({ error: 'search_unavailable' });
   });
 
   it('records access.denied when the index is missing but the audit log is present', async () => {
     events.length = 0;
-    const res = await buildApp({ version: '1', audit }).inject({
+    const res = await buildTestApp({ version: '1', audit }).inject({
       method: 'GET',
       url: '/api/search',
     });

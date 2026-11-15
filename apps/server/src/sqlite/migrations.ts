@@ -76,6 +76,28 @@ export const AUDIT_MIGRATIONS: readonly Migration[] = [
   },
 ];
 
+/**
+ * Migrations des comptes locaux (accounts.sqlite, base distincte : elle contient des empreintes
+ * de mots de passe). Le nom d'utilisateur est unique sans tenir compte de la casse.
+ */
+export const ACCOUNT_MIGRATIONS: readonly Migration[] = [
+  {
+    version: 1,
+    name: 'local-accounts',
+    sql: `
+      CREATE TABLE accounts (
+        id INTEGER PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        role TEXT NOT NULL CHECK (role IN ('admin', 'operator')),
+        password_hash TEXT NOT NULL,
+        disabled INTEGER NOT NULL DEFAULT 0,
+        must_change_password INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
+    `,
+  },
+];
+
 /** Applique les migrations manquantes, chacune dans une transaction. */
 export function migrate(db: DatabaseSync, migrations: readonly Migration[]): void {
   db.exec(

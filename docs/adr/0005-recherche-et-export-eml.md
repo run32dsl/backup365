@@ -47,7 +47,7 @@ l'index (métadonnées), l'ADR 0004 le journal d'audit ; ce dernier note que `it
   conservation du journal est **à fixer dans le registre RGPD**.
 - Rien ne remplit l'index en production (ADR 0003) : tant que l'indexation n'est pas branchée,
   la recherche ne renvoie rien.
-- Routes non authentifiées (`anonymous`, ADR 0002).
+- Routes authentifiées depuis l'ADR 0008 (l'acteur du journal est le compte connecté).
 - Pas de téléchargement en lot, pas de lecture du corps dans l'interface.
 - Le contenu est lu en mémoire (un mail à la fois).
 

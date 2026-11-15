@@ -1,18 +1,22 @@
 import type { AuditAction, AuditEvent, AuditLog } from '@backup365/core';
 import type { FastifyRequest } from 'fastify';
 
-/** Auteur d'une requête. Aucune authentification pour l'instant (ADR 0002) : un seul point à changer. */
-export function actorOf(): string {
-  return 'anonymous';
+/**
+ * Auteur d'une requête : le compte de la session. Les routes d'API exigent une session
+ * (auth-hook.ts) ; `anonymous` ne sert qu'aux routes publiques, qui ne consignent que des échecs.
+ */
+export function actorOf(req: FastifyRequest): string {
+  return req.session?.username ?? 'anonymous';
 }
 
 /** Événement d'audit d'une requête, daté maintenant. */
 export function auditEvent(
+  req: FastifyRequest,
   action: AuditAction,
   resource: string,
   extra: Pick<AuditEvent, 'target' | 'count' | 'reason'> = {},
 ): AuditEvent {
-  return { at: new Date().toISOString(), actor: actorOf(), action, resource, ...extra };
+  return { at: new Date().toISOString(), actor: actorOf(req), action, resource, ...extra };
 }
 
 /**
@@ -26,7 +30,7 @@ export async function recordDenied(
   reason: string,
 ): Promise<void> {
   try {
-    await audit.record(auditEvent('access.denied', resource, { reason }));
+    await audit.record(auditEvent(req, 'access.denied', resource, { reason }));
   } catch {
     req.log.error('consignation de l’accès refusé en échec');
   }

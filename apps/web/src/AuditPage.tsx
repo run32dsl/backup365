@@ -17,6 +17,11 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   'item.open': 'Ouverture d’une fiche',
   'item.export': 'Export',
   'access.denied': 'Échec d’accès',
+  'auth.login': 'Connexion',
+  'auth.login_failed': 'Échec de connexion',
+  'auth.logout': 'Déconnexion',
+  'account.create': 'Création de compte',
+  'account.update': 'Modification de compte',
 };
 
 /** Tableau des entrées du journal, du plus récent au plus ancien. */
@@ -94,6 +99,7 @@ export function AuditPage() {
   return (
     <main>
       <h1>Journal d’audit</h1>
+      <p>La consultation de ce journal est elle-même journalisée.</p>
       <form onSubmit={submit}>
         <label>
           Du <input type="datetime-local" name="from" />
