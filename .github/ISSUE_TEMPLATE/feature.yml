@@ -1,0 +1,22 @@
+name: Demande de fonction
+description: Proposer une amélioration
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Ce dépôt est public. Ne collez aucune donnée réelle.
+  - type: textarea
+    id: need
+    attributes:
+      label: Besoin
+      description: Quel problème voulez-vous résoudre, et pour qui ?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposition
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives envisagées

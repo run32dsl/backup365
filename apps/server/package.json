@@ -1,0 +1,21 @@
+{
+  "name": "@backup365/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "start": "node dist/main.js",
+    "audit:verify": "node dist/audit-verify.js"
+  },
+  "dependencies": {
+    "@backup365/core": "workspace:*",
+    "@wisecom/atlas-sdk": "6.2.0",
+    "fastify": "^5.12.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6"
+  }
+}

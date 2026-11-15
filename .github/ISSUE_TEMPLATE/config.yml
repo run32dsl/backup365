@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question générale ou idée à discuter
+    url: https://github.com/run32dsl/backup365/discussions
+    about: Les questions d'usage vont dans les Discussions (si elles sont activées sur le dépôt).
+  - name: Signaler une faille de sécurité
+    url: https://github.com/run32dsl/backup365/security/advisories/new
+    about: Signalement privé, jamais dans une issue publique. Voir SECURITY.md.

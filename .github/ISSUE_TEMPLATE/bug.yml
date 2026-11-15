@@ -1,0 +1,31 @@
+name: Bug
+description: Quelque chose ne marche pas comme prévu
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ce dépôt est public. **Ne collez aucune donnée réelle** (tenant, adresses, contenu de mails,
+        secrets, journaux non relus). Une faille de sécurité se signale en privé : voir SECURITY.md.
+  - type: textarea
+    id: observed
+    attributes:
+      label: Ce qui se passe
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ce qui était attendu
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes pour reproduire
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version ou commit

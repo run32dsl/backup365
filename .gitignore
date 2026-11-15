@@ -3,6 +3,8 @@ dist/
 coverage/
 .env
 *.env
+# Secrets de compose.yaml (un fichier par secret)
+/secrets/
 .turbo/
 *.log
 CLAUDE.local.md
@@ -10,3 +12,8 @@ CLAUDE.local.md
 .claude/agents/
 .review/
 .pr/
+# Base de recherche (données personnelles)
+/data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

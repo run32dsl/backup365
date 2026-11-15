@@ -6,14 +6,14 @@ RSSI, DPO) et à conserver.
 
 ## 1. Cadre et responsabilités
 
-| Point | À renseigner |
-|---|---|
-| Responsable de traitement | l'organisation propriétaire du tenant |
+| Point                      | À renseigner                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| Responsable de traitement  | l'organisation propriétaire du tenant                                                            |
 | Opérateur de la sauvegarde | personne ou équipe, interne ou prestataire (contrat de sous-traitance, art. 28 RGPD, si externe) |
-| Finalité | continuité d'activité et restauration de données supprimées ou corrompues |
-| Base légale | intérêt légitime / obligation de sécurité (art. 32) ; à valider par le DPO |
-| Registre des traitements | entrée créée ou mise à jour |
-| AIPD | nécessaire si sauvegarde des boîtes de tous les salariés : à décider avec le DPO |
+| Finalité                   | continuité d'activité et restauration de données supprimées ou corrompues                        |
+| Base légale                | intérêt légitime / obligation de sécurité (art. 32) ; à valider par le DPO                       |
+| Registre des traitements   | entrée créée ou mise à jour                                                                      |
+| AIPD                       | nécessaire si sauvegarde des boîtes de tous les salariés : à décider avec le DPO                 |
 
 ## 2. Périmètre
 
@@ -46,7 +46,22 @@ conservation par charge, et ce qui est **exclu** (chats Teams, Entra ID, si c'es
 ## 5. Accès et traçabilité
 
 Qui peut consulter ou exporter quoi (rôles), validation à deux personnes pour une boîte qui
-n'est pas la sienne, journal d'audit conservé et revu, information des salariés.
+n'est pas la sienne, journal d'audit conservé et revu, information des salariés. Le journal est `audit.sqlite` dans
+`BACKUP365_DATA_DIR` : à sauvegarder (contrairement à `search.sqlite`, reconstructible), à
+consulter via `GET /api/audit` et à vérifier par `pnpm --filter @backup365/server audit:verify`
+(code 0 intact, 1 altéré, 2 introuvable ou illisible). L'ancrage externe de l'empreinte de tête
+(`BACKUP365_AUDIT_ANCHOR_DIR`, stockage distinct, voir `docs/installation.md`) est obligatoire
+avant la production ; `audit-verify` en contrôle les ancres.
+
+Surveillance : l'accueil de la console et `GET /api/status` indiquent, par boîte, par site SharePoint et par charge,
+l'âge du dernier instantané (ok, ancien, absent). Seuil d'alerte `BACKUP365_STATUS_MAX_AGE_HOURS`
+(26 h par défaut), charges suivies `BACKUP365_STATUS_WORKLOADS` (`mail,onedrive,sharepoint` par défaut) ; les sites sauvegardés viennent d'un recensement du stockage, gardé en cache `BACKUP365_CATALOG_CACHE_MINUTES` (60 min par défaut) ;
+voir l'ADR 0006.
+
+Recherche : la console indexe les métadonnées des mails sauvegardés au démarrage, puis toutes les
+`BACKUP365_INDEX_INTERVAL_MINUTES` minutes (60 par défaut), en arrière-plan. `GET /api/status`
+renvoie alors `index` : nombre de mails indexés, dernier cycle, dernier cycle réussi, échec du
+dernier cycle ; le détail d'un échec est dans le journal, sans contenu. Voir l'ADR 0003.
 
 ## 6. Droits des personnes et effacement
 
@@ -62,7 +77,7 @@ l'application Entra, des identifiants, purge du stockage à l'issue de la réten
 ## 8. Validation
 
 | Rôle | Nom | Date | Accord |
-|---|---|---|---|
-| DSI | | | |
-| RSSI | | | |
-| DPO | | | |
+| ---- | --- | ---- | ------ |
+| DSI  |     |      |        |
+| RSSI |     |      |        |
+| DPO  |     |      |        |
