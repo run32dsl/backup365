@@ -46,6 +46,12 @@ export const UNREACHABLE = 'Impossible de joindre la console. Réessayez.';
 export const AUDIT_NOTICE =
   'Les connexions et les modifications de comptes sont inscrites au journal d’audit.';
 
+/** Page des comptes ouverte par un opérateur. */
+export const ADMIN_ONLY = 'Cette page est réservée aux administrateurs.';
+/** Récapitulatif affiché après la création du premier administrateur. */
+export const setupRecap = (username: string): string =>
+  `Compte « ${username} », rôle administrateur. Ses actions sont inscrites au journal d’audit.`;
+
 /** Écran de connexion après un 401 d'une requête alors qu'une session existait. */
 export const SESSION_EXPIRED = 'Votre session a expiré. Reconnectez-vous.';
 /** Écran de connexion après un refus CSRF (jeton absent ou périmé). */

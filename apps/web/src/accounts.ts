@@ -14,6 +14,25 @@ export const ROLE_LABELS: Record<Role, string> = {
   operator: 'Opérateur',
 };
 
+/** Ce que permet chaque rôle (texte de la maquette de #22). */
+export const ROLE_DESCRIPTIONS: Record<Role, string> = {
+  admin: 'gère les comptes, les plans et les restaurations.',
+  operator: 'consulte, exporte et restaure, avec un motif.',
+};
+
+/** Textes d'état de l'écran des comptes. */
+export const NO_OPERATOR = 'Aucun opérateur pour l’instant.';
+export const LAST_ADMIN_NOTICE = 'Dernier administrateur : ce compte ne peut pas être désactivé.';
+
+/** Vrai pour l'unique administrateur actif : ni désactivation ni changement de rôle possibles. */
+export function isLastAdmin(accounts: AccountInfo[], account: AccountInfo): boolean {
+  return (
+    account.role === 'admin' &&
+    !account.disabled &&
+    accounts.filter((a) => a.role === 'admin' && !a.disabled).length === 1
+  );
+}
+
 /** Liste des comptes (administrateur seulement). Lève une erreur si la réponse n'est pas en 2xx. */
 export async function fetchAccounts(fetchFn: typeof fetch = fetch): Promise<AccountInfo[]> {
   const res = await fetchFn('/api/accounts');

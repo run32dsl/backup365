@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { AccountsPage } from './AccountsPage.js';
 import { AuditPage } from './AuditPage.js';
 import { Home } from './Home.js';
-import { CredentialsPage, PasswordPage } from './LoginPage.js';
+import { CredentialsPage, ErrorView, PasswordPage } from './LoginPage.js';
 import { MailPage } from './MailPage.js';
 import { SearchPage } from './SearchPage.js';
 import { parseMailHash } from './mail.js';
 import {
+  ADMIN_ONLY,
   LOGIN_HASH,
   installSessionFetch,
   loadGate,
@@ -36,6 +37,31 @@ export function screenOf(
   return parseMailHash(hash) ? 'mail' : 'home';
 }
 
+/**
+ * Écran affiché pour une ancre et un rôle : un opérateur qui ouvre `#/comptes` reçoit « page
+ * réservée » au lieu d'un accueil silencieux.
+ */
+export function screenFor(hash: string, admin: boolean): ReturnType<typeof screenOf> | 'forbidden' {
+  const screen = screenOf(hash);
+  return screen === 'accounts' && !admin ? 'forbidden' : screen;
+}
+
+const goHome = () => {
+  window.location.hash = '#/';
+};
+
+/** Page des comptes refusée à un opérateur. */
+export function ForbiddenView() {
+  return (
+    <main>
+      <p role="alert">{ADMIN_ONLY}</p>
+      <p>
+        <a href="#/">Retour à l’accueil</a>
+      </p>
+    </main>
+  );
+}
+
 /** Navigation minimale par ancre, sans dépendance de routage. */
 export function Console({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [hash, setHash] = useState(window.location.hash);
@@ -49,7 +75,7 @@ export function Console({ user, onLogout }: { user: User; onLogout: () => void }
     };
   }, []);
   const admin = user.role === 'admin';
-  const screen = screenOf(hash);
+  const screen = screenFor(hash, admin);
   const mail = parseMailHash(hash);
   return (
     <>
@@ -63,10 +89,13 @@ export function Console({ user, onLogout }: { user: User; onLogout: () => void }
       </nav>
       {screen === 'audit' && <AuditPage />}
       {screen === 'search' && <SearchPage />}
-      {screen === 'accounts' && admin && <AccountsPage />}
-      {screen === 'password' && <PasswordPage forced={false} onDone={() => undefined} />}
+      {screen === 'accounts' && <AccountsPage />}
+      {screen === 'forbidden' && <ForbiddenView />}
+      {screen === 'password' && (
+        <PasswordPage forced={false} onDone={() => undefined} onCancel={goHome} />
+      )}
       {screen === 'mail' && mail && <MailPage key={hash} {...mail} />}
-      {(screen === 'home' || (screen === 'accounts' && !admin)) && <Home />}
+      {screen === 'home' && <Home />}
     </>
   );
 }
@@ -140,7 +169,15 @@ export function App() {
     case 'loading':
       return <p role="status">Vérification de la session…</p>;
     case 'error':
-      return <p role="alert">{UNREACHABLE}</p>;
+      return (
+        <ErrorView
+          message={UNREACHABLE}
+          onRetry={() => {
+            setGate({ status: 'loading' });
+            refresh();
+          }}
+        />
+      );
     case 'setup':
     case 'login':
       return (

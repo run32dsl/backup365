@@ -1,12 +1,14 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { screenOf } from './App.js';
+import { ForbiddenView, screenFor, screenOf } from './App.js';
 import { AccountsPage, AccountsView } from './AccountsPage.js';
 import { AuditPage } from './AuditPage.js';
-import { CredentialsView, Field, PasswordView } from './LoginPage.js';
-import { createAccount, resetPassword } from './accounts.js';
+import { CredentialsView, ErrorView, Field, PasswordView, SetupRecapView } from './LoginPage.js';
+import { createAccount, isLastAdmin, resetPassword } from './accounts.js';
 import {
+  ADMIN_ONLY,
   AUDIT_NOTICE,
+  setupRecap,
   UNREACHABLE,
   LOGIN_HASH,
   authenticate,
@@ -225,6 +227,120 @@ describe('maquette de l’issue #22', () => {
       'La consultation de ce journal est elle-même journalisée.',
     );
     expect(UNREACHABLE).toBe('Impossible de joindre la console. Réessayez.');
+  });
+});
+
+describe('textes restants de la maquette de #22', () => {
+  const account = (id: number, role: 'admin' | 'operator', disabled = false) => ({
+    id,
+    username: `u${id}`,
+    role,
+    disabled,
+    mustChangePassword: false,
+    createdAt: '',
+  });
+
+  it('decides the screen from the anchor and the role, as a pure function', () => {
+    expect(screenFor('#/comptes', true)).toBe('accounts');
+    expect(screenFor('#/comptes', false)).toBe('forbidden');
+    expect(screenFor('#/audit', false)).toBe('audit');
+    expect(screenFor('', false)).toBe('home');
+  });
+
+  it('tells an operator that the accounts page is reserved, with a link home', () => {
+    const html = renderToString(<ForbiddenView />);
+    expect(html).toContain('Cette page est réservée aux administrateurs.');
+    expect(html).toContain('href="#/"');
+    expect(ADMIN_ONLY).toBe('Cette page est réservée aux administrateurs.');
+  });
+
+  it('shows the empty state when there is no operator', () => {
+    const empty = renderToString(<AccountsView state={[account(1, 'admin')]} />);
+    expect(empty).toContain('Aucun opérateur pour l’instant.');
+    const some = renderToString(
+      <AccountsView state={[account(1, 'admin'), account(2, 'operator')]} />,
+    );
+    expect(some).not.toContain('Aucun opérateur');
+  });
+
+  it('flags the last active administrator and marks its actions aria-disabled', () => {
+    const only = [account(1, 'admin'), account(2, 'operator')];
+    expect(isLastAdmin(only, only[0]!)).toBe(true);
+    expect(isLastAdmin(only, only[1]!)).toBe(false);
+    const html = renderToString(<AccountsView state={only} />);
+    expect(html).toContain('Dernier administrateur : ce compte ne peut pas être désactivé.');
+    expect(html.match(/aria-disabled="true"/g)).toHaveLength(2);
+    const two = [account(1, 'admin'), account(2, 'admin'), account(3, 'admin', true)];
+    expect(isLastAdmin(two, two[0]!)).toBe(false);
+    expect(renderToString(<AccountsView state={two} />)).not.toContain('Dernier administrateur');
+    // Un administrateur désactivé ne compte pas : l'autre est le dernier.
+    const left = [account(1, 'admin'), account(2, 'admin', true)];
+    expect(isLastAdmin(left, left[0]!)).toBe(true);
+  });
+
+  it('describes each role in the create form', () => {
+    const html = renderToString(<AccountsView state={[]} />);
+    expect(html).toContain('gère les comptes, les plans et les restaurations.');
+    expect(html).toContain('consulte, exporte et restaure, avec un motif.');
+  });
+
+  it('recaps the first start with the account and its audit', () => {
+    expect(setupRecap('root')).toBe(
+      'Compte « root », rôle administrateur. Ses actions sont inscrites au journal d’audit.',
+    );
+    const html = renderToString(<SetupRecapView username="root" />);
+    expect(html).toContain('rôle administrateur. Ses actions sont inscrites au journal d’audit.');
+    expect(html).toContain('Continuer');
+    expect(renderToString(<SetupRecapView username="<b>" />)).not.toContain('<b>');
+  });
+
+  it('offers Annuler on the account forms and on a voluntary password change', () => {
+    expect(renderToString(<AccountsView state={[]} />).match(/>Annuler</g)).toHaveLength(2);
+    expect(renderToString(<PasswordView forced={false} />)).toContain('>Annuler</button>');
+    expect(renderToString(<PasswordView forced />)).not.toContain('Annuler');
+  });
+
+  it('wires the handlers: a locked account does nothing, Réessayer and Annuler call back', () => {
+    type El = { type?: unknown; props?: { children?: unknown; [k: string]: unknown } };
+    const find = (node: unknown, match: (e: El) => boolean, out: El[] = []): El[] => {
+      if (Array.isArray(node)) node.forEach((n) => find(n, match, out));
+      else if (node && typeof node === 'object') {
+        const el = node as El;
+        if (match(el)) out.push(el);
+        find(el.props?.children, match, out);
+      }
+      return out;
+    };
+    const onDisabled = vi.fn();
+    const only = [account(1, 'admin'), account(2, 'operator')];
+    const tree = AccountsView({ state: only, actions: { onDisabled } });
+    const disable = find(tree, (e) => e.type === 'button' && e.props?.['aria-disabled'] === true);
+    expect(disable).toHaveLength(1);
+    (disable[0]!.props!.onClick as () => void)();
+    expect(onDisabled).not.toHaveBeenCalled();
+    const other = find(tree, (e) => e.type === 'button' && e.props?.children === 'Désactiver');
+    (other.find((e) => e.props?.['aria-disabled'] === undefined)!.props!.onClick as () => void)();
+    expect(onDisabled).toHaveBeenCalledWith(2, true);
+
+    const onRetry = vi.fn();
+    const retry = find(ErrorView({ message: 'x', onRetry }), (e) => e.type === 'button');
+    (retry[0]!.props!.onClick as () => void)();
+    expect(onRetry).toHaveBeenCalledOnce();
+
+    const onCancel = vi.fn();
+    const cancel = find(
+      PasswordView({ forced: false, onCancel }),
+      (e) => e.type === 'button' && e.props?.children === 'Annuler',
+    );
+    (cancel[0]!.props!.onClick as () => void)();
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it('offers Réessayer after a network or server error', () => {
+    const html = renderToString(<ErrorView message={UNREACHABLE} />);
+    expect(html).toContain('Impossible de joindre la console. Réessayez.');
+    expect(html).toContain('>Réessayer</button>');
+    expect(renderToString(<AccountsView state="error" />)).toContain('>Réessayer</button>');
   });
 });
 

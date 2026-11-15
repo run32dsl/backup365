@@ -3,6 +3,7 @@ import {
   AUDIT_NOTICE,
   UNREACHABLE,
   authenticate,
+  setupRecap,
   changePassword,
   type Outcome,
   type SessionInfo,
@@ -56,6 +57,37 @@ export function Field({
         </>
       )}
     </p>
+  );
+}
+
+/** Erreur réseau ou serveur, avec le bouton « Réessayer ». */
+export function ErrorView({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <>
+      <p role="alert">{message}</p>
+      <button type="button" onClick={onRetry}>
+        Réessayer
+      </button>
+    </>
+  );
+}
+
+/** Récapitulatif du premier démarrage, avant d'entrer dans la console. */
+export function SetupRecapView({
+  username,
+  onContinue,
+}: {
+  username: string;
+  onContinue?: () => void;
+}) {
+  return (
+    <main>
+      <h1>Compte administrateur créé</h1>
+      <p role="status">{setupRecap(username)}</p>
+      <button type="button" onClick={onContinue}>
+        Continuer
+      </button>
+    </main>
   );
 }
 
@@ -138,6 +170,7 @@ export function CredentialsPage({
 }) {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState<SessionInfo>();
   const submit = (form: FormData) => {
     if (mode === 'setup' && text(form, 'password') !== text(form, 'confirm')) {
       setError('Les deux mots de passe ne correspondent pas.');
@@ -148,8 +181,9 @@ export function CredentialsPage({
     authenticate(mode, text(form, 'username').trim(), text(form, 'password')).then(
       (outcome: Outcome<SessionInfo>) => {
         setBusy(false);
-        if (outcome.ok) onSession(outcome.value);
-        else setError(outcome.message);
+        if (!outcome.ok) setError(outcome.message);
+        else if (mode === 'setup') setCreated(outcome.value);
+        else onSession(outcome.value);
       },
       () => {
         setBusy(false);
@@ -157,6 +191,16 @@ export function CredentialsPage({
       },
     );
   };
+  if (created) {
+    return (
+      <SetupRecapView
+        username={created.user.username}
+        onContinue={() => {
+          onSession(created);
+        }}
+      />
+    );
+  }
   return (
     <CredentialsView mode={mode} error={error} notice={notice} busy={busy} onSubmit={submit} />
   );
@@ -168,11 +212,14 @@ export function PasswordView({
   error,
   done = false,
   onSubmit,
+  onCancel,
 }: {
   forced: boolean;
   error?: string;
   done?: boolean;
   onSubmit?: (form: FormData) => void;
+  /** Retour sans changer (absent quand le changement est imposé). */
+  onCancel?: () => void;
 }) {
   return (
     <main>
@@ -208,12 +255,28 @@ export function PasswordView({
         {error && <p role="alert">{error}</p>}
         {done && <p role="status">Mot de passe modifié.</p>}
         <button type="submit">Enregistrer et continuer</button>
+        {!forced && (
+          <>
+            {' '}
+            <button type="button" onClick={onCancel}>
+              Annuler
+            </button>
+          </>
+        )}
       </form>
     </main>
   );
 }
 
-export function PasswordPage({ forced, onDone }: { forced: boolean; onDone: () => void }) {
+export function PasswordPage({
+  forced,
+  onDone,
+  onCancel,
+}: {
+  forced: boolean;
+  onDone: () => void;
+  onCancel?: () => void;
+}) {
   const [error, setError] = useState<string>();
   const [done, setDone] = useState(false);
   const submit = (form: FormData) => {
@@ -232,5 +295,7 @@ export function PasswordPage({ forced, onDone }: { forced: boolean; onDone: () =
       () => setError(UNREACHABLE),
     );
   };
-  return <PasswordView forced={forced} error={error} done={done} onSubmit={submit} />;
+  return (
+    <PasswordView forced={forced} error={error} done={done} onSubmit={submit} onCancel={onCancel} />
+  );
 }
