@@ -54,7 +54,9 @@ Texte sur fond : au moins 4,5:1 ; contour des contrôles : au moins 3:1.
 - **État vide** (`.empty`) : phrase claire et, au plus, un bouton d'action.
 - **Navigation** : `<nav aria-label="Navigation principale">`, entrée active en
   `aria-current="page"`, lien d'évitement « Aller au contenu ». Sous 900 px, la barre latérale
-  devient une barre repliable (bouton « Menu », `aria-expanded`).
+  devient une barre repliable (bouton « Menu », `aria-expanded`) ; Échap la referme et rend le
+  focus au bouton. Le clavier ne repose que sur des éléments natifs (`<a href>`, `<button>`),
+  dans l'ordre du document, sans `tabindex` positif.
 
 ## Navigation principale
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AccountsPage } from './AccountsPage.js';
 import { ROLE_LABELS } from './accounts.js';
 import { AuditPage } from './AuditPage.js';
@@ -88,51 +88,82 @@ export function ForbiddenView() {
   );
 }
 
-/** Navigation minimale par ancre, sans dépendance de routage. */
-export function Console({ user, onLogout }: { user: User; onLogout: () => void }) {
-  const [hash, setHash] = useState(window.location.hash);
-  useEffect(() => {
-    const onChange = () => {
-      setHash(window.location.hash);
-    };
-    window.addEventListener('hashchange', onChange);
-    return () => {
-      window.removeEventListener('hashchange', onChange);
-    };
-  }, []);
-  const admin = user.role === 'admin';
-  const screen = screenFor(hash, admin);
-  const mail = parseMailHash(hash);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const entries = navEntries(screen, admin);
-  // Le menu replié se referme à chaque changement d'écran.
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [hash]);
+/**
+ * Lien d'évitement : donne le focus au contenu. L'ancre porte la navigation, on ne la modifie
+ * donc pas.
+ */
+export function skipToContent(
+  e: { preventDefault: () => void },
+  doc: { querySelector: (selector: string) => { focus: () => void } | null } = document,
+): void {
+  e.preventDefault();
+  doc.querySelector('main')?.focus();
+}
+
+/**
+ * Échap referme le menu ouvert et rend le focus au bouton « Menu » : sans cela le focus
+ * resterait sur un lien que la fermeture vient de masquer.
+ */
+export function closeMenuOnEscape(
+  e: {
+    key: string;
+    currentTarget: { querySelector: (selector: string) => { focus: () => void } | null };
+  },
+  open: boolean,
+  close: () => void,
+): void {
+  if (e.key !== 'Escape' || !open) return;
+  close();
+  e.currentTarget.querySelector('.menu-toggle')?.focus();
+}
+
+/**
+ * Gabarit de la console, sans état : lien d'évitement, barre latérale, puis l'écran. L'ordre
+ * du document est l'ordre de tabulation. Le clavier ne repose que sur des éléments natifs
+ * (`<a href>`, `<button>`), ce qui rend chaque geste vérifiable sans navigateur.
+ */
+export function ConsoleView({
+  user,
+  entries,
+  menuOpen,
+  onToggleMenu,
+  onCloseMenu,
+  onLogout,
+  children,
+}: {
+  user: User;
+  entries: ReturnType<typeof navEntries>;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
+  onLogout: () => void;
+  children?: ReactNode;
+}) {
   return (
     <>
       <a
         className="skip-link"
         href="#/"
         onClick={(e) => {
-          // L'ancre porte la navigation : on déplace le focus sans la modifier.
-          e.preventDefault();
-          document.querySelector<HTMLElement>('main')?.focus();
+          skipToContent(e);
         }}
       >
         Aller au contenu
       </a>
       <div className="shell">
-        <aside className="sidebar">
+        <aside
+          className="sidebar"
+          onKeyDown={(e) => {
+            closeMenuOnEscape(e, menuOpen, onCloseMenu);
+          }}
+        >
           <span className="brand">backup365</span>
           <button
             type="button"
             className="menu-toggle"
             aria-expanded={menuOpen}
             aria-controls="sidebar-menu"
-            onClick={() => {
-              setMenuOpen(!menuOpen);
-            }}
+            onClick={onToggleMenu}
           >
             Menu
           </button>
@@ -157,19 +188,55 @@ export function Console({ user, onLogout }: { user: User; onLogout: () => void }
             </div>
           </div>
         </aside>
-        <div>
-          {screen === 'audit' && <AuditPage />}
-          {screen === 'search' && <SearchPage />}
-          {screen === 'accounts' && <AccountsPage />}
-          {screen === 'forbidden' && <ForbiddenView />}
-          {screen === 'password' && (
-            <PasswordPage forced={false} onDone={() => undefined} onCancel={goHome} />
-          )}
-          {screen === 'mail' && mail && <MailPage key={hash} {...mail} />}
-          {screen === 'home' && <Home />}
-        </div>
+        <div>{children}</div>
       </div>
     </>
+  );
+}
+
+/** Navigation minimale par ancre, sans dépendance de routage. */
+export function Console({ user, onLogout }: { user: User; onLogout: () => void }) {
+  const [hash, setHash] = useState(window.location.hash);
+  useEffect(() => {
+    const onChange = () => {
+      setHash(window.location.hash);
+    };
+    window.addEventListener('hashchange', onChange);
+    return () => {
+      window.removeEventListener('hashchange', onChange);
+    };
+  }, []);
+  const admin = user.role === 'admin';
+  const screen = screenFor(hash, admin);
+  const mail = parseMailHash(hash);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Le menu replié se referme à chaque changement d'écran.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [hash]);
+  return (
+    <ConsoleView
+      user={user}
+      entries={navEntries(screen, admin)}
+      menuOpen={menuOpen}
+      onToggleMenu={() => {
+        setMenuOpen((open) => !open);
+      }}
+      onCloseMenu={() => {
+        setMenuOpen(false);
+      }}
+      onLogout={onLogout}
+    >
+      {screen === 'audit' && <AuditPage />}
+      {screen === 'search' && <SearchPage />}
+      {screen === 'accounts' && <AccountsPage />}
+      {screen === 'forbidden' && <ForbiddenView />}
+      {screen === 'password' && (
+        <PasswordPage forced={false} onDone={() => undefined} onCancel={goHome} />
+      )}
+      {screen === 'mail' && mail && <MailPage key={hash} {...mail} />}
+      {screen === 'home' && <Home />}
+    </ConsoleView>
   );
 }
 
