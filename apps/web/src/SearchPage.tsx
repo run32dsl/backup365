@@ -25,11 +25,11 @@ export function SearchView({ state }: { state: SearchState }) {
       <table>
         <thead>
           <tr>
-            <th>Date (UTC)</th>
-            <th>Expéditeur</th>
-            <th>Objet</th>
-            <th>Boîte</th>
-            <th>Dossier</th>
+            <th scope="col">Date (UTC)</th>
+            <th scope="col">Expéditeur</th>
+            <th scope="col">Objet</th>
+            <th scope="col">Boîte</th>
+            <th scope="col">Dossier</th>
           </tr>
         </thead>
         <tbody>
@@ -78,8 +78,8 @@ export function SearchPage() {
     typeof state === 'object' && state !== null ? state.total : 0,
   );
   return (
-    <main>
-      <h1>Recherche de mails</h1>
+    <main tabIndex={-1}>
+      <h1>Rechercher et restaurer</h1>
       <form onSubmit={submit}>
         <label>
           Recherche <input type="search" name="q" maxLength={256} />
@@ -93,7 +93,7 @@ export function SearchPage() {
         <label>
           Au (exclu) <input type="datetime-local" name="before" />
         </label>{' '}
-        <button type="submit">Chercher</button>
+        <button type="submit">Rechercher</button>
       </form>
       {state !== null && <SearchView state={state} />}
       <p>

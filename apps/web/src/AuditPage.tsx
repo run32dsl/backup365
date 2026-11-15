@@ -37,15 +37,15 @@ export function AuditView({ state }: { state: AuditState }) {
       <table>
         <thead>
           <tr>
-            <th>N°</th>
-            <th>Date (UTC)</th>
-            <th>Acteur</th>
-            <th>Action</th>
-            <th>Ressource</th>
-            <th>Cible</th>
-            <th>Éléments</th>
-            <th>Motif</th>
-            <th>Empreinte</th>
+            <th scope="col">N°</th>
+            <th scope="col">Date (UTC)</th>
+            <th scope="col">Acteur</th>
+            <th scope="col">Action</th>
+            <th scope="col">Ressource</th>
+            <th scope="col">Cible</th>
+            <th scope="col">Éléments</th>
+            <th scope="col">Motif</th>
+            <th scope="col">Empreinte</th>
           </tr>
         </thead>
         <tbody>
@@ -97,7 +97,7 @@ export function AuditPage() {
     typeof state === 'object' ? state.total : 0,
   );
   return (
-    <main>
+    <main tabIndex={-1}>
       <h1>Journal d’audit</h1>
       <p>La consultation de ce journal est elle-même journalisée.</p>
       <form onSubmit={submit}>

@@ -239,7 +239,7 @@ export function AccountsPage() {
       ),
   };
   return (
-    <main>
+    <main tabIndex={-1}>
       <h1>Comptes de la console</h1>
       <AccountsView
         state={state}

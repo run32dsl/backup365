@@ -3,11 +3,21 @@ import type { BackupState, SourceKind, StatusReport } from '@backup365/core';
 /** État du chargement du tableau de bord. */
 export type StatusState = StatusReport | 'loading' | 'error' | 'empty';
 
-const STATE_LABELS: Record<BackupState, string> = {
-  ok: 'ok',
-  stale: 'ancien',
-  missing: 'absent',
+/** Badge d'état : icône et texte, jamais la couleur seule. */
+const STATE_BADGES: Record<BackupState, { icon: string; label: string; tone: string }> = {
+  ok: { icon: '✔', label: 'À jour', tone: 'ok' },
+  stale: { icon: '⚠', label: 'Avertissement', tone: 'warn' },
+  missing: { icon: '✖', label: 'Échec', tone: 'err' },
 };
+
+function StateBadge({ state }: { state: BackupState }) {
+  const badge = STATE_BADGES[state];
+  return (
+    <span className={`badge badge-${badge.tone}`}>
+      <span aria-hidden="true">{badge.icon}</span> {badge.label}
+    </span>
+  );
+}
 
 const KIND_LABELS: Record<SourceKind, string> = { mailbox: 'boîte', site: 'site SharePoint' };
 
@@ -27,14 +37,15 @@ export function StatusView({ state }: { state: StatusState }) {
         <p>Aucune boîte ni site sauvegardé.</p>
       ) : (
         <table>
+          <caption className="sr-only">État par boîte, site et charge</caption>
           <thead>
             <tr>
-              <th>Source</th>
-              <th>Type</th>
-              <th>Charge</th>
-              <th>Dernier instantané (UTC)</th>
-              <th>Âge (h)</th>
-              <th>État</th>
+              <th scope="col">Source</th>
+              <th scope="col">Type</th>
+              <th scope="col">Charge</th>
+              <th scope="col">Dernier instantané (UTC)</th>
+              <th scope="col">Âge (h)</th>
+              <th scope="col">État</th>
             </tr>
           </thead>
           <tbody>
@@ -45,7 +56,9 @@ export function StatusView({ state }: { state: StatusState }) {
                 <td>{row.workload}</td>
                 <td>{row.lastSnapshotAt ?? '—'}</td>
                 <td>{row.ageHours ?? '—'}</td>
-                <td>{STATE_LABELS[row.state]}</td>
+                <td>
+                  <StateBadge state={row.state} />
+                </td>
               </tr>
             ))}
           </tbody>

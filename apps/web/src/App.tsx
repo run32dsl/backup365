@@ -47,6 +47,31 @@ export function screenFor(hash: string, admin: boolean): ReturnType<typeof scree
   return screen === 'accounts' && !admin ? 'forbidden' : screen;
 }
 
+/**
+ * Entrées de la navigation principale (5 au plus) : seules les entrées livrées apparaissent.
+ * Plans de protection s'ajoutera à sa livraison ; Administration (comptes) est réservée aux
+ * administrateurs.
+ */
+export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean) {
+  const entries = [
+    { href: '#/', label: 'Tableau de bord', current: screen === 'home' },
+    {
+      href: '#/search',
+      label: 'Rechercher et restaurer',
+      current: screen === 'search' || screen === 'mail',
+    },
+    { href: '#/audit', label: 'Journal d’audit', current: screen === 'audit' },
+  ];
+  if (admin) {
+    entries.push({
+      href: '#/comptes',
+      label: 'Administration',
+      current: screen === 'accounts' || screen === 'forbidden',
+    });
+  }
+  return entries;
+}
+
 const goHome = () => {
   window.location.hash = '#/';
 };
@@ -54,7 +79,7 @@ const goHome = () => {
 /** Page des comptes refusée à un opérateur. */
 export function ForbiddenView() {
   return (
-    <main>
+    <main tabIndex={-1}>
       <p role="alert">{ADMIN_ONLY}</p>
       <p>
         <a href="#/">Retour à l’accueil</a>
@@ -78,26 +103,72 @@ export function Console({ user, onLogout }: { user: User; onLogout: () => void }
   const admin = user.role === 'admin';
   const screen = screenFor(hash, admin);
   const mail = parseMailHash(hash);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const entries = navEntries(screen, admin);
+  // Le menu replié se referme à chaque changement d'écran.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [hash]);
   return (
     <>
-      <nav>
-        <a href="#/">Accueil</a> <a href="#/search">Recherche</a>{' '}
-        <a href="#/audit">Journal d’audit</a> {admin && <a href="#/comptes">Comptes</a>}{' '}
-        <a href="#/password">Mot de passe</a>{' '}
-        <span>{`${user.username} (${ROLE_LABELS[user.role].toLowerCase()})`}</span>{' '}
-        <button type="button" onClick={onLogout}>
-          Se déconnecter
-        </button>
-      </nav>
-      {screen === 'audit' && <AuditPage />}
-      {screen === 'search' && <SearchPage />}
-      {screen === 'accounts' && <AccountsPage />}
-      {screen === 'forbidden' && <ForbiddenView />}
-      {screen === 'password' && (
-        <PasswordPage forced={false} onDone={() => undefined} onCancel={goHome} />
-      )}
-      {screen === 'mail' && mail && <MailPage key={hash} {...mail} />}
-      {screen === 'home' && <Home />}
+      <a
+        className="skip-link"
+        href="#/"
+        onClick={(e) => {
+          // L'ancre porte la navigation : on déplace le focus sans la modifier.
+          e.preventDefault();
+          document.querySelector<HTMLElement>('main')?.focus();
+        }}
+      >
+        Aller au contenu
+      </a>
+      <div className="shell">
+        <aside className="sidebar">
+          <span className="brand">backup365</span>
+          <button
+            type="button"
+            className="menu-toggle"
+            aria-expanded={menuOpen}
+            aria-controls="sidebar-menu"
+            onClick={() => {
+              setMenuOpen(!menuOpen);
+            }}
+          >
+            Menu
+          </button>
+          <div id="sidebar-menu" className="sidebar-collapsible" data-open={menuOpen}>
+            <nav aria-label="Navigation principale">
+              <ul className="nav-list">
+                {entries.map((e) => (
+                  <li key={e.href}>
+                    <a href={e.href} aria-current={e.current ? 'page' : undefined}>
+                      {e.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <div className="sidebar-footer">
+              <span>{`${user.username} (${ROLE_LABELS[user.role].toLowerCase()})`}</span>
+              <a href="#/password">Mot de passe</a>
+              <button type="button" onClick={onLogout}>
+                Se déconnecter
+              </button>
+            </div>
+          </div>
+        </aside>
+        <div>
+          {screen === 'audit' && <AuditPage />}
+          {screen === 'search' && <SearchPage />}
+          {screen === 'accounts' && <AccountsPage />}
+          {screen === 'forbidden' && <ForbiddenView />}
+          {screen === 'password' && (
+            <PasswordPage forced={false} onDone={() => undefined} onCancel={goHome} />
+          )}
+          {screen === 'mail' && mail && <MailPage key={hash} {...mail} />}
+          {screen === 'home' && <Home />}
+        </div>
+      </div>
     </>
   );
 }

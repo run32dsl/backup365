@@ -95,7 +95,7 @@ export function CredentialsView({
   const setup = mode === 'setup';
   const [typed, setTyped] = useState('');
   return (
-    <main>
+    <main tabIndex={-1}>
       <h1>{setup ? 'Créer le compte administrateur' : 'Connexion à la console'}</h1>
       {setup && (
         <p>
@@ -200,7 +200,7 @@ export function PasswordView({
   onCancel?: () => void;
 }) {
   return (
-    <main>
+    <main tabIndex={-1}>
       <h1>Choisissez un nouveau mot de passe</h1>
       {forced && (
         <p>Votre mot de passe a été réinitialisé : choisissez-en un nouveau pour continuer.</p>

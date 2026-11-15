@@ -33,8 +33,8 @@ export function Home() {
     );
   }, []);
   return (
-    <main>
-      <h1>backup365</h1>
+    <main tabIndex={-1}>
+      <h1>Tableau de bord</h1>
       <HealthView state={state} />
       <StatusView state={status} />
     </main>
