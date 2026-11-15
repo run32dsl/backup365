@@ -19,12 +19,14 @@ export function Field({
   type = 'text',
   autoComplete,
   revealed = false,
+  onValue,
 }: {
   label: string;
   name: string;
   type?: 'text' | 'password';
   autoComplete: string;
   revealed?: boolean;
+  onValue?: (value: string) => void;
 }) {
   const id = useId();
   const secret = type === 'password';
@@ -39,6 +41,7 @@ export function Field({
         type={secret && !shown ? 'password' : 'text'}
         autoComplete={autoComplete}
         required
+        onChange={onValue && ((e) => onValue(e.currentTarget.value))}
       />
       {secret && (
         <>
@@ -72,25 +75,6 @@ export function ErrorView({ message, onRetry }: { message: string; onRetry?: () 
   );
 }
 
-/** Récapitulatif du premier démarrage, avant d'entrer dans la console. */
-export function SetupRecapView({
-  username,
-  onContinue,
-}: {
-  username: string;
-  onContinue?: () => void;
-}) {
-  return (
-    <main>
-      <h1>Compte administrateur créé</h1>
-      <p role="status">{setupRecap(username)}</p>
-      <button type="button" onClick={onContinue}>
-        Continuer
-      </button>
-    </main>
-  );
-}
-
 /**
  * Formulaire de connexion ou de création du premier administrateur. `notice` annonce une session
  * perdue (expirée ou refusée).
@@ -109,13 +93,13 @@ export function CredentialsView({
   onSubmit?: (form: FormData) => void;
 }) {
   const setup = mode === 'setup';
+  const [typed, setTyped] = useState('');
   return (
     <main>
       <h1>{setup ? 'Créer le compte administrateur' : 'Connexion à la console'}</h1>
       {setup && (
         <p>
-          Aucun compte n’existe encore. Ce compte administrateur permettra de créer les autres
-          comptes.
+          Aucun compte n’existe encore. Ce compte gère les comptes, les plans et les restaurations.
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
@@ -125,7 +109,12 @@ export function CredentialsView({
           onSubmit?.(new FormData(e.currentTarget));
         }}
       >
-        <Field label="Identifiant" name="username" autoComplete="username" />
+        <Field
+          label="Identifiant"
+          name="username"
+          autoComplete="username"
+          onValue={setup ? setTyped : undefined}
+        />
         <Field
           label="Mot de passe"
           name="password"
@@ -141,6 +130,7 @@ export function CredentialsView({
               type="password"
               autoComplete="new-password"
             />
+            <p role="status">{setupRecap(typed.trim())}</p>
           </>
         )}
         {error && <p role="alert">{error}</p>}
@@ -170,7 +160,6 @@ export function CredentialsPage({
 }) {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
-  const [created, setCreated] = useState<SessionInfo>();
   const submit = (form: FormData) => {
     if (mode === 'setup' && text(form, 'password') !== text(form, 'confirm')) {
       setError('Les deux mots de passe ne correspondent pas.');
@@ -182,7 +171,6 @@ export function CredentialsPage({
       (outcome: Outcome<SessionInfo>) => {
         setBusy(false);
         if (!outcome.ok) setError(outcome.message);
-        else if (mode === 'setup') setCreated(outcome.value);
         else onSession(outcome.value);
       },
       () => {
@@ -191,16 +179,6 @@ export function CredentialsPage({
       },
     );
   };
-  if (created) {
-    return (
-      <SetupRecapView
-        username={created.user.username}
-        onContinue={() => {
-          onSession(created);
-        }}
-      />
-    );
-  }
   return (
     <CredentialsView mode={mode} error={error} notice={notice} busy={busy} onSubmit={submit} />
   );

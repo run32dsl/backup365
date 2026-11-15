@@ -70,7 +70,7 @@ répond `no_backup_found` (voir [installation.md](installation.md)).
    identifiant et un mot de passe de 12 caractères au minimum, noté dans le gestionnaire de
    mots de passe de l'équipe. La console connecte aussitôt ce compte ; l'écran n'est plus
    proposé. Les autres personnes sont créées ensuite dans « Comptes » (rôle administrateur ou
-   opérateur), avec un mot de passe provisoire qu'elles changent à leur première connexion.
+   opérateur), avec un mot de passe temporaire qu'elles changent à leur première connexion.
    Une session expire après 8 heures d'inactivité. Si le mot de passe administrateur est perdu :
    en SSH, cette commande crée un second administrateur :
 

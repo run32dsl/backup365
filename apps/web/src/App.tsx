@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AccountsPage } from './AccountsPage.js';
+import { ROLE_LABELS } from './accounts.js';
 import { AuditPage } from './AuditPage.js';
 import { Home } from './Home.js';
 import { CredentialsPage, ErrorView, PasswordPage } from './LoginPage.js';
@@ -83,8 +84,9 @@ export function Console({ user, onLogout }: { user: User; onLogout: () => void }
         <a href="#/">Accueil</a> <a href="#/search">Recherche</a>{' '}
         <a href="#/audit">Journal d’audit</a> {admin && <a href="#/comptes">Comptes</a>}{' '}
         <a href="#/password">Mot de passe</a>{' '}
+        <span>{`${user.username} (${ROLE_LABELS[user.role].toLowerCase()})`}</span>{' '}
         <button type="button" onClick={onLogout}>
-          Se déconnecter ({user.username})
+          Se déconnecter
         </button>
       </nav>
       {screen === 'audit' && <AuditPage />}

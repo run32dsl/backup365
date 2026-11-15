@@ -1,9 +1,9 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { ForbiddenView, screenFor, screenOf } from './App.js';
+import { Console, ForbiddenView, screenFor, screenOf } from './App.js';
 import { AccountsPage, AccountsView } from './AccountsPage.js';
 import { AuditPage } from './AuditPage.js';
-import { CredentialsView, ErrorView, Field, PasswordView, SetupRecapView } from './LoginPage.js';
+import { CredentialsView, ErrorView, Field, PasswordView } from './LoginPage.js';
 import { createAccount, isLastAdmin, resetPassword } from './accounts.js';
 import {
   ADMIN_ONLY,
@@ -284,14 +284,70 @@ describe('textes restants de la maquette de #22', () => {
     expect(html).toContain('consulte, exporte et restaure, avec un motif.');
   });
 
-  it('recaps the first start with the account and its audit', () => {
+  it('recaps the first start inside the form, before the validation', () => {
     expect(setupRecap('root')).toBe(
       'Compte « root », rôle administrateur. Ses actions sont inscrites au journal d’audit.',
     );
-    const html = renderToString(<SetupRecapView username="root" />);
-    expect(html).toContain('rôle administrateur. Ses actions sont inscrites au journal d’audit.');
-    expect(html).toContain('Continuer');
-    expect(renderToString(<SetupRecapView username="<b>" />)).not.toContain('<b>');
+    expect(setupRecap('')).toBe(
+      'Rôle administrateur. Ses actions sont inscrites au journal d’audit.',
+    );
+    const html = renderToString(<CredentialsView mode="setup" />);
+    expect(html).toContain('administrateur. Ses actions sont inscrites au journal d’audit.');
+    expect(html.indexOf('Ses actions sont')).toBeLessThan(html.indexOf('type="submit"'));
+    expect(html).toContain(
+      'Aucun compte n’existe encore. Ce compte gère les comptes, les plans et les restaurations.',
+    );
+    expect(renderToString(<CredentialsView mode="login" />)).not.toContain('Ses actions sont');
+  });
+
+  it('says « Mot de passe temporaire » on the account forms, never « provisoire »', () => {
+    const html = renderToString(<AccountsView state={[]} />);
+    expect(html).toContain('>Mot de passe temporaire (12 caractères au minimum)</label>');
+    expect(html).toContain('>Mot de passe temporaire</label>');
+    expect(html).not.toContain('provisoire');
+  });
+
+  it('shows the account menu as « identifiant (rôle) » then « Se déconnecter »', () => {
+    const user = { id: 1, username: 'marie', role: 'operator' as const, mustChangePassword: false };
+    vi.stubGlobal('window', { location: { hash: '' }, addEventListener: () => undefined });
+    const html = renderToString(<Console user={user} onLogout={() => undefined} />);
+    vi.unstubAllGlobals();
+    expect(html).toContain('marie (opérateur)');
+    expect(html).toContain('>Se déconnecter</button>');
+  });
+
+  it('clears an account form only when the request succeeded', async () => {
+    type El = { type?: unknown; props?: { children?: unknown; [k: string]: unknown } };
+    vi.stubGlobal('FormData', class {});
+    const submitWith = async (result: boolean) => {
+      const reset = vi.fn();
+      const tree = AccountsView({
+        state: [],
+        actions: { onCreate: () => Promise.resolve(result) },
+      });
+      const forms: El[] = [];
+      const walk = (n: unknown): void => {
+        if (Array.isArray(n)) n.forEach(walk);
+        else if (n && typeof n === 'object') {
+          const el = n as El;
+          if (el.type === 'form') forms.push(el);
+          walk(el.props?.children);
+        }
+      };
+      walk(tree);
+      (forms[0]!.props!.onSubmit as (e: unknown) => void)({
+        preventDefault: () => undefined,
+        currentTarget: { reset },
+      });
+      await new Promise((r) => setTimeout(r, 0));
+      return reset;
+    };
+    try {
+      expect(await submitWith(false)).not.toHaveBeenCalled();
+      expect(await submitWith(true)).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('offers Annuler on the account forms and on a voluntary password change', () => {

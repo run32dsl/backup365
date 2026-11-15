@@ -19,8 +19,9 @@ export type AccountsState = AccountInfo[] | 'loading' | 'error';
 export interface AccountActions {
   onRole: (id: number, role: Role) => void;
   onDisabled: (id: number, disabled: boolean) => void;
-  onCreate: (form: FormData) => void;
-  onReset: (form: FormData) => void;
+  /** Résout à `true` si la requête a réussi : le formulaire n'est vidé qu'alors. */
+  onCreate: (form: FormData) => Promise<boolean> | void;
+  onReset: (form: FormData) => Promise<boolean> | void;
 }
 
 const stateOf = (a: AccountInfo): string =>
@@ -72,11 +73,14 @@ export function AccountsView({
 }) {
   if (state === 'loading') return <p role="status">Chargement des comptes…</p>;
   if (state === 'error') return <ErrorView message="Comptes indisponibles" onRetry={onRetry} />;
-  const submit = (handler?: (form: FormData) => void) => (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    handler?.(new FormData(e.currentTarget));
-    e.currentTarget.reset();
-  };
+  const submit =
+    (handler?: (form: FormData) => Promise<boolean> | void) => (e: FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      void Promise.resolve(handler?.(new FormData(form))).then((ok) => {
+        if (ok === true) form.reset();
+      });
+    };
   return (
     <>
       {message && <p role={message.kind === 'error' ? 'alert' : 'status'}>{message.text}</p>}
@@ -141,7 +145,7 @@ export function AccountsView({
           </label>
         </p>
         <Field
-          label="Mot de passe provisoire (12 caractères au minimum)"
+          label="Mot de passe temporaire (12 caractères au minimum)"
           name="password"
           type="password"
           autoComplete="new-password"
@@ -171,7 +175,7 @@ export function AccountsView({
           </label>
         </p>
         <Field
-          label="Mot de passe provisoire"
+          label="Mot de passe temporaire"
           name="password"
           type="password"
           autoComplete="new-password"
@@ -198,14 +202,18 @@ export function AccountsPage() {
   useEffect(reload, [reload]);
 
   const run = (done: string, request: Promise<Outcome<null>>) => {
-    request.then(
+    return request.then(
       (outcome) => {
         setMessage(
           outcome.ok ? { kind: 'status', text: done } : { kind: 'error', text: outcome.message },
         );
         reload();
+        return outcome.ok;
       },
-      () => setMessage({ kind: 'error', text: UNREACHABLE }),
+      () => {
+        setMessage({ kind: 'error', text: UNREACHABLE });
+        return false;
+      },
     );
   };
 

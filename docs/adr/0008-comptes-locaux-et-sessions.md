@@ -68,7 +68,7 @@ s'authentifier simplement. Le SSO Microsoft (OIDC Entra ID) viendra dans une iss
   décision du 2026-11-12.
 - **Dernier administrateur** : le magasin refuse (409 `last_admin`), dans une transaction
   `BEGIN IMMEDIATE`, de désactiver ou rétrograder le dernier administrateur actif.
-- **Comptes créés par l'API** : mot de passe provisoire fixé par l'administrateur, à changer à la
+- **Comptes créés par l'API** : mot de passe temporaire fixé par l'administrateur, à changer à la
   première connexion (comme après une réinitialisation) ; tant que ce n'est pas fait, seules
   `/api/auth/me`, `/logout` et `/password` répondent (403 `password_change_required` ailleurs).
 - **Compte de test et dépannage** : commande locale
