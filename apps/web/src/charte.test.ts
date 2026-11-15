@@ -36,6 +36,7 @@ const PAIRS: [string, string, number][] = [
   ['text', 'surface', 4.5],
   ['text', 'border-soft', 4.5],
   ['muted', 'bg', 4.5],
+  ['muted', 'border-soft', 4.5],
   ['muted', 'surface', 4.5],
   ['accent', 'bg', 4.5],
   ['accent', 'surface', 4.5],
@@ -65,4 +66,20 @@ describe('charte.css contrast (WCAG AA)', () => {
       });
     }
   }
+});
+
+describe('charte.css collapsible menu (keyboard access)', () => {
+  const narrow = /@media \(max-width: 56\.25rem\)\s*\{([\s\S]*?)\n\}\n/.exec(css)?.[1] ?? '';
+
+  it('shows the Menu button below 900 px only', () => {
+    expect(/\.menu-toggle\s*\{\s*display:\s*none;/.test(css)).toBe(true);
+    expect(/\.menu-toggle\s*\{\s*display:\s*inline-flex;/.test(narrow)).toBe(true);
+  });
+
+  it('hides the links below 900 px until the button opens them', () => {
+    expect(/\.sidebar-collapsible\s*\{\s*display:\s*none;/.test(narrow)).toBe(true);
+    expect(/\.sidebar-collapsible\[data-open='true'\]\s*\{\s*display:\s*flex;/.test(narrow)).toBe(
+      true,
+    );
+  });
 });
