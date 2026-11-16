@@ -9,6 +9,9 @@ export const AUDIT_ACTIONS = [
   'auth.logout',
   'account.create',
   'account.update',
+  'plan.create',
+  'plan.update',
+  'plan.delete',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

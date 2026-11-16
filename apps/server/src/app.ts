@@ -15,6 +15,8 @@ import { registerAuditRoutes } from './audit-routes.js';
 import { sendError } from './errors.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
 import { registerMailRoutes } from './mail-routes.js';
+import { registerPlanRoutes } from './plan-routes.js';
+import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 import type { SearchIndexer } from './search-indexer.js';
 import { registerSearchRoutes } from './search-routes.js';
 import { registerWebRoutes } from './static-web.js';
@@ -40,6 +42,8 @@ export interface AppOptions {
    * répond 503 : jamais d'accès sans authentification.
    */
   auth?: AuthService;
+  /** Plans de protection ; absent si la base des plans est illisible (`/api/plans` répond 503). */
+  plans?: SqlitePlanStore;
   /** Derrière un proxy inverse de confiance : `X-Forwarded-Proto` et `-For` sont lus (cookie `Secure`, IP). */
   trustProxy?: string | false;
   /** Dossier de l'interface construite ; sans lui, seule l'API répond. */
@@ -84,6 +88,7 @@ export function buildApp({
   mailContent,
   audit,
   auth,
+  plans,
   trustProxy = false,
   indexer,
   status = { maxAgeHours: DEFAULT_MAX_AGE_HOURS, workloads: ['mail', 'onedrive', 'sharepoint'] },
@@ -111,6 +116,10 @@ export function buildApp({
   void app.register((scope, _opts, done) => {
     registerCatalogRoutes(scope, catalog, audit);
     registerStatusRoutes(scope, catalog, status, { index: searchIndex, indexer });
+    done();
+  });
+  void app.register((scope, _opts, done) => {
+    registerPlanRoutes(scope, plans, audit);
     done();
   });
   void app.register((scope, _opts, done) => {
