@@ -1,4 +1,4 @@
-import { randomBytes, scrypt, timingSafeEqual, type ScryptOptions } from 'node:crypto';
+import { randomBytes, randomInt, scrypt, timingSafeEqual, type ScryptOptions } from 'node:crypto';
 
 /** Coût de `scrypt` : N, r, p (OWASP : N = 2^16, r = 8, p = 1 au moins). Stocké avec chaque empreinte. */
 export interface ScryptParams {
@@ -86,4 +86,14 @@ export async function verifyPassword(password: string, stored: string): Promise<
   if (!parsed || parsed.key.length !== KEY_LENGTH) return false;
   const candidate = await derive(password, parsed.salt, parsed.params);
   return timingSafeEqual(candidate, parsed.key);
+}
+
+/** Alphabet du mot de passe temporaire : sans caractère ambigu (0/O, 1/l/I). */
+const TEMPORARY_ALPHABET = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+/** Mot de passe temporaire aléatoire (CSPRNG) : 4 groupes de 4 caractères, environ 92 bits. */
+export function generateTemporaryPassword(): string {
+  const char = () => TEMPORARY_ALPHABET[randomInt(TEMPORARY_ALPHABET.length)];
+  const group = () => Array.from({ length: 4 }, char).join('');
+  return [group(), group(), group(), group()].join('-');
 }

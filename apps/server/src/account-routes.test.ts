@@ -31,8 +31,7 @@ describe('gestion des comptes', () => {
     expect((await send(app, 'POST', '/api/accounts', body)).statusCode).toBe(403);
     expect((await send(app, 'PATCH', '/api/accounts/1', { disabled: true })).statusCode).toBe(403);
     expect(
-      (await send(app, 'POST', '/api/accounts/1/reset-password', { password: 'x'.repeat(12) }))
-        .statusCode,
+      (await send(app, 'POST', '/api/accounts/1/reset-password', { reason: 'Oubli' })).statusCode,
     ).toBe(403);
   });
 
@@ -143,6 +142,44 @@ describe('gestion des comptes', () => {
     });
     expect(res.statusCode).toBe(503);
     expect(auth.accounts.count()).toBe(1);
+  });
+
+  it('resets with a server-generated password, never written to the audit log', async () => {
+    const { app, audit, auth } = setup();
+    const id = sessionFor(auth, 'bob', 'operator').account.id;
+    const res = await send(app, 'POST', `/api/accounts/${id}/reset-password`, {
+      reason: '  Oubli du mot de passe ',
+    });
+    expect(res.statusCode).toBe(200);
+    const { password } = res.json<{ password: string }>();
+    expect(password).toHaveLength(19);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(auth.accounts.findById(id)).toMatchObject({ mustChangePassword: true });
+    const entries = await log(audit);
+    expect(entries.at(-1)).toMatchObject({
+      action: 'account.update',
+      target: 'bob',
+      reason: 'password_reset: Oubli du mot de passe',
+    });
+    expect(JSON.stringify(entries)).not.toContain(password);
+    // Deux réinitialisations ne rendent pas le même mot de passe.
+    const again = await send(app, 'POST', `/api/accounts/${id}/reset-password`, { reason: 'x' });
+    expect(again.json<{ password: string }>().password).not.toBe(password);
+  });
+
+  it('requires a reason and ignores a password sent by the client', async () => {
+    const { app, auth } = setup();
+    const id = sessionFor(auth, 'bob', 'operator').account.id;
+    const url = `/api/accounts/${id}/reset-password`;
+    expect((await send(app, 'POST', url, {})).statusCode).toBe(400);
+    expect((await send(app, 'POST', url, { reason: '   ' })).statusCode).toBe(400);
+    const sent = await send(app, 'POST', url, {
+      reason: 'Oubli',
+      password: 'un mot de passe long',
+    });
+    expect(sent.json<{ password: string }>().password).not.toBe('un mot de passe long');
+    const unknown = await send(app, 'POST', '/api/accounts/9999/reset-password', { reason: 'x' });
+    expect(unknown.statusCode).toBe(404);
   });
 });
 
