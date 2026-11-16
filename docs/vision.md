@@ -45,7 +45,7 @@ machine. Par priorité :
 2. **Plans de protection par objectifs** : RPO, RTO et conservation justifiée au regard du RGPD,
    avec sauvegarde planifiée.
 3. **Restauration** d'un mail, puis d'un fichier OneDrive, puis d'un site SharePoint.
-4. **Connexion par compte Microsoft** (OIDC Entra ID).
+4. **Connexion par compte Microsoft** (OIDC Entra ID, livrée, à valider sur le tenant de test).
 
 Déjà livré : catalogue des tenants, charges et instantanés (via le SDK d'Atlas), recherche de
 mails et export EML journalisé, tableau de bord de l'état des sauvegardes, journal d'audit

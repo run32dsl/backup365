@@ -17,6 +17,8 @@ export interface Account {
   disabled: boolean;
   /** Mot de passe réinitialisé par un administrateur : à changer à la prochaine connexion. */
   mustChangePassword: boolean;
+  /** Compte de connexion Microsoft : rôle fixé par les groupes Entra, pas de mot de passe local. */
+  oidc: boolean;
   createdAt: string;
 }
 
@@ -49,6 +51,7 @@ interface Row {
   password_hash: string;
   disabled: number;
   must_change_password: number;
+  oidc_subject: string | null;
   created_at: string;
 }
 
@@ -60,6 +63,7 @@ function toRecord(row: Row): AccountRecord {
     passwordHash: row.password_hash,
     disabled: row.disabled === 1,
     mustChangePassword: row.must_change_password === 1,
+    oidc: row.oidc_subject !== null,
     createdAt: row.created_at,
   };
 }
@@ -72,6 +76,7 @@ export function publicAccount(record: AccountRecord): Account {
     role: record.role,
     disabled: record.disabled,
     mustChangePassword: record.mustChangePassword,
+    oidc: record.oidc,
     createdAt: record.createdAt,
   };
 }
@@ -109,6 +114,32 @@ export class SqliteAccountStore {
       .prepare('SELECT * FROM accounts WHERE username = ?')
       .get(username) as unknown as Row | undefined;
     return row && toRecord(row);
+  }
+
+  findByOidcSubject(subject: string): AccountRecord | undefined {
+    const row = this.db
+      .prepare('SELECT * FROM accounts WHERE oidc_subject = ?')
+      .get(subject) as unknown as Row | undefined;
+    return row && toRecord(row);
+  }
+
+  /**
+   * Crée le compte d'une connexion Microsoft (empreinte vide : aucun mot de passe ne peut
+   * correspondre). Lève `UsernameTakenError` si le nom, casse ignorée, est déjà pris.
+   */
+  createOidc(input: { username: string; role: Role; subject: string }): AccountRecord {
+    try {
+      const row = this.db
+        .prepare(
+          `INSERT INTO accounts (username, role, password_hash, oidc_subject, created_at)
+           VALUES (?, ?, '', ?, ?) RETURNING *`,
+        )
+        .get(input.username, input.role, input.subject, new Date().toISOString()) as unknown as Row;
+      return toRecord(row);
+    } catch (err) {
+      if (/UNIQUE/i.test((err as Error).message)) throw new UsernameTakenError();
+      throw err;
+    }
   }
 
   /** Crée un compte ; lève `UsernameTakenError` si le nom (casse ignorée) existe déjà. */

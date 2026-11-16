@@ -6,6 +6,9 @@ import {
   lockedMessage,
   formatCountdown,
   UNREACHABLE,
+  MICROSOFT_LABEL,
+  MICROSOFT_LOGIN_URL,
+  loadOidcEnabled,
   authenticate,
   setupRecap,
   changePassword,
@@ -89,8 +92,11 @@ export function CredentialsView({
   lockedSec = 0,
   lockedStartSec,
   announcement = '',
+  microsoft = false,
   onSubmit,
 }: {
+  /** Connexion Microsoft configurée : le bouton s'affiche sous le formulaire local. */
+  microsoft?: boolean;
   mode: 'login' | 'setup';
   error?: string;
   notice?: string;
@@ -162,6 +168,13 @@ export function CredentialsView({
           {setup ? 'Créer le compte administrateur' : 'Se connecter'}
         </Button>
       </form>
+      {microsoft && !setup && (
+        <p>
+          <a className="btn btn-secondary" href={MICROSOFT_LOGIN_URL}>
+            {MICROSOFT_LABEL}
+          </a>
+        </p>
+      )}
       <p>{AUDIT_NOTICE}</p>
     </main>
   );
@@ -189,6 +202,10 @@ export function CredentialsPage({
   const [lockedSec, setLockedSec] = useState(0);
   const [startSec, setStartSec] = useState<number>();
   const [announcement, setAnnouncement] = useState('');
+  const [microsoft, setMicrosoft] = useState(false);
+  useEffect(() => {
+    if (mode === 'login') void loadOidcEnabled().then(setMicrosoft);
+  }, [mode]);
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (until === undefined) return;
@@ -244,6 +261,7 @@ export function CredentialsPage({
         lockedSec={lockedSec}
         lockedStartSec={startSec}
         announcement={announcement}
+        microsoft={microsoft}
         onSubmit={submit}
       />
     </div>

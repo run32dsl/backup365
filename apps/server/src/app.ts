@@ -15,6 +15,9 @@ import { registerAuthHook } from './auth-hook.js';
 import { registerAuthRoutes } from './auth-routes.js';
 import { registerAuditRoutes } from './audit-routes.js';
 import { sendError } from './errors.js';
+import type { OidcService } from './oidc.js';
+import { registerOidcRoutes } from './oidc-routes.js';
+import type { SimulatedOidcProvider } from './oidc-simulated.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
 import { registerMailRoutes } from './mail-routes.js';
 import type { DriveRestoreService } from './drive-restore-service.js';
@@ -51,6 +54,10 @@ export interface AppOptions {
    * répond 503 : jamais d'accès sans authentification.
    */
   auth?: AuthService;
+  /** Connexion avec un compte Microsoft ; absente (configuration absente), seuls les comptes locaux entrent. */
+  oidc?: OidcService;
+  /** Fournisseur simulé du mode démo : expose son écran d'autorisation. */
+  oidcSimulated?: SimulatedOidcProvider;
   /** Plans de protection ; absent si la base des plans est illisible (`/api/plans` répond 503). */
   plans?: SqlitePlanStore;
   /** Planificateur des plans ; absent, `POST /api/plans/:id/run` répond 503. */
@@ -113,6 +120,8 @@ export function buildApp({
   mailContent,
   audit,
   auth,
+  oidc,
+  oidcSimulated,
   plans,
   planScheduler,
   restore,
@@ -142,6 +151,7 @@ export function buildApp({
   app.get('/api/health', () => healthResponse(version, demo));
   void app.register((scope, _opts, done) => {
     registerAuthRoutes(scope, auth, audit);
+    registerOidcRoutes(scope, auth, audit, oidc, oidcSimulated);
     registerAccountRoutes(scope, auth, audit);
     done();
   });

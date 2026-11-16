@@ -6,6 +6,8 @@ export interface AccountInfo {
   role: Role;
   disabled: boolean;
   mustChangePassword: boolean;
+  /** Compte de connexion Microsoft : rôle fixé par les groupes Entra. */
+  oidc?: boolean;
   createdAt: string;
 }
 

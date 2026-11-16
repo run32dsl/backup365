@@ -17,6 +17,11 @@ export const PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/api/auth/login',
   '/api/auth/setup',
   '/api/auth/setup-status',
+  // Connexion Microsoft (ADR 0015) ; `demo-authorize` n'existe qu'en mode démo.
+  '/api/auth/oidc/status',
+  '/api/auth/oidc/login',
+  '/api/auth/oidc/callback',
+  '/api/auth/oidc/demo-authorize',
 ]);
 
 /** Routes permises tant que le mot de passe provisoire n'a pas été changé. */

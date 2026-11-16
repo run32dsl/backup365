@@ -37,11 +37,12 @@ const passwordBody = {
   },
 } as const;
 
-function userView(account: Pick<Account, 'username' | 'role' | 'mustChangePassword'>) {
+function userView(account: Pick<Account, 'username' | 'role' | 'mustChangePassword' | 'oidc'>) {
   return {
     username: account.username,
     role: account.role,
     ...(account.mustChangePassword ? { mustChangePassword: true } : {}),
+    ...(account.oidc ? { oidc: true } : {}),
   };
 }
 

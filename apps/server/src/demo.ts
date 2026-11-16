@@ -9,6 +9,14 @@ import type { AtlasFactory, AtlasHandle } from './atlas-sdk.js';
 import type { StorageConfig } from './config.js';
 import { parseStorageConfig } from './config.js';
 import type { AuthService } from './auth.js';
+import {
+  OIDC_CALLBACK_PATH,
+  OidcService,
+  entraEndpoints,
+  type OidcConfig,
+  type OidcEndpoints,
+} from './oidc.js';
+import { SimulatedOidcProvider } from './oidc-simulated.js';
 import type { Role } from './sqlite/sqlite-account-store.js';
 import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 
@@ -23,6 +31,33 @@ export const DEMO_ACCOUNTS: readonly { username: string; role: Role; password: s
   { username: 'admin-demo', role: 'admin', password: 'demonstration-admin' },
   { username: 'operateur-demo', role: 'operator', password: 'demonstration-operateur' },
 ];
+
+/** Compte du fournisseur Microsoft simulé de la démo (ADR 0015) ; il reçoit le rôle `operator`. */
+export const DEMO_OIDC_USERNAME = `compte-microsoft@${DEMO_DOMAIN}`;
+const DEMO_OIDC_GROUP = '00000000-0000-4000-8000-00000000d3a0';
+
+/** Connexion Microsoft de la démo : fournisseur simulé en mémoire, aucun appel réseau. */
+export function createDemoOidc(): { service: OidcService; provider: SimulatedOidcProvider } {
+  const config: OidcConfig = {
+    tenantId: '00000000-0000-4000-8000-000000000001',
+    clientId: 'demo-client',
+    clientSecret: 'demo-secret',
+    redirectUri: `http://localhost${OIDC_CALLBACK_PATH}`,
+    adminGroups: [],
+    operatorGroups: [DEMO_OIDC_GROUP],
+  };
+  const endpoints: OidcEndpoints = {
+    ...entraEndpoints(config.tenantId),
+    // Le « fournisseur » est la console elle-même (route `demo-authorize`).
+    authorization: '/api/auth/oidc/demo-authorize',
+  };
+  const provider = new SimulatedOidcProvider(config, endpoints, {
+    oid: 'demo-oid-1',
+    preferred_username: DEMO_OIDC_USERNAME,
+    groups: [DEMO_OIDC_GROUP],
+  });
+  return { service: new OidcService(config, endpoints, provider.fetch), provider };
+}
 
 /** Valeurs de façade : le faux SDK ne les lit pas, elles n'ouvrent aucun stockage. */
 export const DEMO_STORAGE: StorageConfig = {
@@ -411,7 +446,10 @@ export function onlyDemoAccounts(store: {
   count(): number;
   findByUsername(name: string): unknown;
 }): boolean {
-  const known = DEMO_ACCOUNTS.filter((a) => store.findByUsername(a.username)).length;
+  // Le compte Microsoft simulé se crée à la première connexion de démonstration.
+  const known = [...DEMO_ACCOUNTS.map((a) => a.username), DEMO_OIDC_USERNAME].filter((name) =>
+    store.findByUsername(name),
+  ).length;
   return store.count() === known;
 }
 

@@ -25,6 +25,7 @@ import {
   loadGate,
   logout,
   lossMessage,
+  oidcErrorMessage,
   requestedPage,
   onSessionExpired,
   setCsrfToken,
@@ -218,7 +219,7 @@ export function ConsoleView({
             </nav>
             <div className="sidebar-footer">
               <span>{`${user.username} (${ROLE_LABELS[user.role].toLowerCase()})`}</span>
-              <a href="#/password">Mot de passe</a>
+              {!user.oidc && <a href="#/password">Mot de passe</a>}
               <button type="button" onClick={onLogout}>
                 Se déconnecter
               </button>
@@ -332,7 +333,12 @@ function AppGate({ health }: { health: HealthState }) {
     setGate(next);
   };
   // Message affiché entre la perte d'une session et la connexion suivante.
-  const [notice, setNotice] = useState<string>();
+  // Retour refusé de Microsoft (`?oidc_error=`) : lu une fois, puis retiré de l'adresse.
+  const [notice, setNotice] = useState<string | undefined>(() => {
+    const message = oidcErrorMessage(window.location.search);
+    if (message) window.history.replaceState(null, '', window.location.pathname);
+    return message;
+  });
   // Page demandée avant la connexion, rouverte ensuite ; l'ancre vaut `#/connexion` entre-temps.
   const target = useRef<string | null>(null);
   // Incrémenté à chaque refus CSRF : une lecture de session partie avant ne doit pas le défaire.
