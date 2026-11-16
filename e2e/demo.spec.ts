@@ -98,9 +98,7 @@ test('restauration : motif obligatoire, suivi, résultat et journal', async ({
   await expect(
     page.getByRole('cell', { name: 'Ticket #4242 : mail supprimé par erreur' }).first(),
   ).toBeVisible();
-  await expect(
-    page.getByRole('cell', { name: /outcome=succeeded;duration_ms=\d+/ }).first(),
-  ).toBeVisible();
+  await expect(page.getByRole('cell', { name: /Réussie, \d+ (ms|s)/ }).first()).toBeVisible();
 });
 
 test('restauration : un échec propose de réessayer', async ({ page, context, baseURL }) => {
@@ -194,7 +192,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
     page.getByRole('cell', { name: 'Ticket #7 : version erronée' }).first(),
   ).toBeVisible();
   await expect(
-    page.getByRole('cell', { name: /outcome=succeeded;duration_ms=\d+;mode=copy/ }).first(),
+    page.getByRole('cell', { name: /Réussie, \d+ (ms|s), copie/ }).first(),
   ).toBeVisible();
 });
 
@@ -275,14 +273,14 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   await expect(
     page
       .getByRole('cell', {
-        name: 'scope=library;reason=Contrôle ou test de restauration : Ticket #9 : essai trimestriel',
+        name: 'Contrôle ou test de restauration : Ticket #9 : essai trimestriel',
       })
       .first(),
   ).toBeVisible();
   await expect(
     page
       .getByRole('cell', {
-        name: /outcome=succeeded;duration_ms=\d+;scope=library;skipped=1;errors=0/,
+        name: /Réussie, \d+ (ms|s), bibliothèque, 1 conservés, 0 erreurs/,
       })
       .first(),
   ).toBeVisible();

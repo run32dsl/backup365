@@ -89,8 +89,47 @@ export function reasonLabel(reason: string | undefined): string {
       .filter(Boolean);
     return fields.length > 0 ? `Modifié : ${fields.join(', ')}` : '';
   }
+  if (reason.startsWith('outcome=')) return restoreLabel(reason);
   const free = /(?:^|;)reason=(.*)$/s.exec(reason);
-  return free?.[1]?.trim() ?? '';
+  if (free) return free[1]?.trim() ?? '';
+  // Code système inconnu (snake_case, sans espace) : omis. Sinon, justification saisie telle quelle.
+  return /^[a-z0-9]+(?:[_.:,-][a-z0-9]+)+$/.test(reason) ? '' : reason.trim();
+}
+
+const OUTCOME_LABELS: Record<string, string> = { succeeded: 'Réussie', failed: 'Échouée' };
+const MODE_LABELS: Record<string, string> = { copy: 'copie', replace: 'remplacement' };
+const RESTORE_SCOPE_LABELS: Record<string, string> = {
+  library: 'bibliothèque',
+  site: 'site entier',
+};
+
+/** Résultat d'une restauration (`outcome=…;duration_ms=…;…;reason=<texte>`) : fait d'audit, traduit. */
+function restoreLabel(reason: string): string {
+  const at = reason.indexOf(';reason=');
+  const head = at < 0 ? reason : reason.slice(0, at);
+  const free = at < 0 ? '' : reason.slice(at + ';reason='.length).trim();
+  const fields = new Map<string, string>();
+  for (const pair of head.split(';')) {
+    const eq = pair.indexOf('=');
+    if (eq > 0) fields.set(pair.slice(0, eq), pair.slice(eq + 1));
+  }
+  const parts: string[] = [];
+  const outcome = OUTCOME_LABELS[fields.get('outcome') ?? ''];
+  if (outcome) parts.push(outcome);
+  const duration = fields.get('duration_ms');
+  if (duration !== undefined && /^\d+$/.test(duration)) {
+    const ms = Number(duration);
+    parts.push(ms < 1000 ? `${ms} ms` : `${Math.round(ms / 1000)} s`);
+  }
+  const mode = MODE_LABELS[fields.get('mode') ?? ''];
+  if (mode) parts.push(mode);
+  const scope = RESTORE_SCOPE_LABELS[fields.get('scope') ?? ''];
+  if (scope) parts.push(scope);
+  const skipped = fields.get('skipped');
+  if (skipped !== undefined && /^\d+$/.test(skipped)) parts.push(`${skipped} conservés`);
+  const errors = fields.get('errors');
+  if (errors !== undefined && /^\d+$/.test(errors)) parts.push(`${errors} erreurs`);
+  return [parts.join(', '), free].filter(Boolean).join(' : ');
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

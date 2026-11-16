@@ -19,8 +19,18 @@ describe('audit labels', () => {
     expect(reasonLabel('scope:all,rpo:24')).toBe('Création : toute l’organisation, RPO 24 h');
     expect(reasonLabel('forbidden')).toBe('Accès refusé');
     expect(reasonLabel('changed:name,rpoHours')).toBe('Modifié : nom, RPO');
-    expect(reasonLabel('outcome=ok;duration_ms=5;reason=Demande du DPO')).toBe('Demande du DPO');
+    expect(reasonLabel('outcome=succeeded;duration_ms=5;mode=copy;reason=Ticket #7')).toBe(
+      'Réussie, 5 ms, copie : Ticket #7',
+    );
+    expect(reasonLabel('outcome=failed;duration_ms=2300;reason=Essai')).toBe(
+      'Échouée, 2 s : Essai',
+    );
+    expect(reasonLabel('outcome=succeeded;duration_ms=40;scope=library;skipped=1;errors=0')).toBe(
+      'Réussie, 40 ms, bibliothèque, 1 conservés, 0 erreurs',
+    );
+    expect(reasonLabel('scope=library;reason=Ticket #9')).toBe('Ticket #9');
     expect(reasonLabel('unknown_code')).toBe('');
+    expect(reasonLabel('Ticket INC-20001')).toBe('Ticket INC-20001');
     expect(reasonLabel(undefined)).toBe('');
   });
 
