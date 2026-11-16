@@ -112,6 +112,15 @@ describe('GET /api/status', () => {
       expect(res.body).not.toContain('Échoué');
     });
 
+    it('has no mode without authentication: no auth service gives a 503 without plans', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      finished(plans, plans.create(input('Échoué')).id, 'failed');
+      const app = buildApp({ version: '1', catalog, plans });
+      const res = await app.inject({ method: 'GET', url: '/api/status' });
+      expect(res.statusCode).toBe(503);
+      expect(res.body).not.toContain('Échoué');
+    });
+
     it('hides the plans from a non-administrator even when the plan store fails', async () => {
       const plans = SqlitePlanStore.open(':memory:');
       plans.close();
