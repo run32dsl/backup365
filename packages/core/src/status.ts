@@ -1,4 +1,5 @@
 import type { BackupCatalog, Workload } from './catalog.js';
+import type { PlanComplianceReport } from './protection-plan.js';
 
 /** Seuil d'alerte par défaut : une sauvegarde nocturne doit avoir moins de 26 h. */
 export const DEFAULT_MAX_AGE_HOURS = 26;
@@ -28,6 +29,8 @@ export interface StatusReport {
   /** Nombre de lignes `stale` ou `missing`. */
   alertCount: number;
   rows: StatusRow[];
+  /** Ajouté par `GET /api/status` : conformité des plans ; `null` si leur base ne répond pas. */
+  plans?: PlanComplianceReport | null;
 }
 
 /**

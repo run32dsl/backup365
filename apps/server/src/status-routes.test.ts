@@ -3,9 +3,11 @@ import {
   FakeBackupCatalog,
   NoBackupFoundError,
   type BackupCatalog,
+  type PlanComplianceReport,
   type StatusReport,
 } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
+import { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 import { buildTestApp } from './test-support.js';
 import { parseMaxAgeHours, parseSiteCacheTtlMs, parseStatusWorkloads } from './config.js';
 
@@ -48,6 +50,61 @@ describe('GET /api/status', () => {
     const report = (await app.inject({ method: 'GET', url: '/api/status' })).json<StatusReport>();
     expect(report.rows).toMatchObject([{ kind: 'site', sourceId: 'site,1', state: 'stale' }]);
     expect(report.alertCount).toBe(1);
+  });
+
+  describe('plan compliance', () => {
+    const input = (name: string) => ({
+      name,
+      scope: 'all' as const,
+      selection: [],
+      rpoHours: 4 as const,
+      rtoHours: null,
+      retentionDays: 90,
+      gdprJustification: 'Obligation de conservation.',
+    });
+    const finished = (plans: SqlitePlanStore, planId: string, status: 'success' | 'failed') => {
+      const id = plans.startRun(planId, 'item', hoursAgo(1));
+      plans.finishRun(id!, status, hoursAgo(0.9));
+    };
+    const get = async (plans?: SqlitePlanStore) => {
+      const app = buildTestApp({ version: '1', catalog, ...(plans ? { plans } : {}) });
+      return (await app.inject({ method: 'GET', url: '/api/status' })).json<
+        StatusReport & { plans?: PlanComplianceReport | null }
+      >();
+    };
+
+    it('counts compliant, late and failed plans and lists the non-compliant ones', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      finished(plans, plans.create(input('Conforme')).id, 'success');
+      finished(plans, plans.create(input('Échoué')).id, 'failed');
+      plans.create(input('Jamais lancé'));
+      const report = await get(plans);
+      expect(report.plans?.counts).toEqual({ compliant: 1, late: 1, failed: 1 });
+      expect(report.plans?.nonCompliant.map((p) => [p.name, p.state])).toEqual([
+        ['Jamais lancé', 'late'],
+        ['Échoué', 'failed'],
+      ]);
+    });
+
+    it('reports zero everywhere when there is no plan', async () => {
+      const report = await get(SqlitePlanStore.open(':memory:'));
+      expect(report.plans).toEqual({
+        counts: { compliant: 0, late: 0, failed: 0 },
+        nonCompliant: [],
+      });
+    });
+
+    it('omits the plans without a plan store', async () => {
+      expect(await get()).not.toHaveProperty('plans');
+    });
+
+    it('answers null when the plan store fails, without failing the dashboard', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      plans.close();
+      const report = await get(plans);
+      expect(report.plans).toBeNull();
+      expect(report.rows).toHaveLength(4);
+    });
   });
 
   it('uses the configured threshold and workloads', async () => {

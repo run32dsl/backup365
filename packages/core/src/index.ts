@@ -52,6 +52,7 @@ export {
 export {
   DEFAULT_RPO_HOURS,
   RPO_HOURS,
+  buildPlanComplianceReport,
   nextRunAt,
   parseProtectionPlanInput,
   planCompliance,
@@ -59,6 +60,8 @@ export {
   staggerOffsetMinutes,
   type Compliance,
   type ComplianceState,
+  type PlanComplianceEntry,
+  type PlanComplianceReport,
   type PlanParseResult,
   type PlanRun,
   type PlanScope,

@@ -1,4 +1,5 @@
 import {
+  buildPlanComplianceReport,
   buildStatusReport,
   type BackupCatalog,
   type SearchIndex,
@@ -6,12 +7,29 @@ import {
 } from '@backup365/core';
 import type { FastifyInstance } from 'fastify';
 import type { SearchIndexer } from './search-indexer.js';
+import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
+
+/** Exécutions relues par plan : assez pour retrouver la dernière réussite après une série d'échecs. */
+const COMPLIANCE_RUNS_LIMIT = 500;
 
 export interface StatusOptions {
   maxAgeHours: number;
   workloads: readonly Workload[];
   /** Ancrage externe de la tête du journal d'audit (ADR 0004) ; absent : rien n'est exposé. */
   auditAnchor?: { configured: true } | { configured: false; reason: string };
+}
+
+/** Conformité de tous les plans ; `null` si leur base ne répond pas (le tableau reste servi). */
+function planCompliance(store: SqlitePlanStore) {
+  try {
+    return buildPlanComplianceReport(
+      store.list(),
+      (id) => store.listRuns(id, COMPLIANCE_RUNS_LIMIT),
+      new Date(),
+    );
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -23,11 +41,18 @@ export function registerStatusRoutes(
   scope: FastifyInstance,
   catalog: BackupCatalog | undefined,
   options: StatusOptions,
-  indexing?: { index?: SearchIndex | undefined; indexer?: SearchIndexer | undefined },
+  indexing?: {
+    index?: SearchIndex | undefined;
+    indexer?: SearchIndexer | undefined;
+    plans?: SqlitePlanStore | undefined;
+  },
 ) {
   scope.get('/api/status', async (_req, reply) => {
     if (!catalog) return reply.code(503).send({ error: 'catalog_unavailable' });
-    const base = await buildStatusReport(catalog, options.workloads, options.maxAgeHours);
+    const catalogReport = await buildStatusReport(catalog, options.workloads, options.maxAgeHours);
+    // Conformité des plans (ADR 0009) ; absente sans base des plans, `null` si elle ne répond pas.
+    const store = indexing?.plans;
+    const base = store ? { ...catalogReport, plans: planCompliance(store) } : catalogReport;
     const report = options.auditAnchor
       ? {
           ...base,

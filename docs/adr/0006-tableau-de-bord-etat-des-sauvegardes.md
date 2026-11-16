@@ -69,6 +69,18 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   `sharepoint.listSnapshots` fonctionne sans Graph ; c'est le cas des clés de stockage.
 - Teams reste à ajouter (issue #34).
 
+### Conformité des plans (issue #64)
+
+- `GET /api/status` ajoute `plans` : `{ counts: { compliant, late, failed }, nonCompliant: [...] }`.
+  Chaque plan est classé par `planCompliance` (ADR 0009) ; `nonCompliant` liste les plans
+  « en retard » ou « en échec » (`id`, `name`, `rpoHours`, `state`, `lastSuccessAt`).
+- `plans` est absent sans base des plans, `null` si elle ne répond pas (le reste du tableau est
+  servi). Sans plan, les trois décomptes valent 0.
+- Par plan, les 500 dernières exécutions sont relues. Les noms de plans sont visibles de tout
+  compte connecté, comme le reste du tableau de bord (la gestion reste réservée à l'administrateur).
+- Écran d'accueil : section « Plans de protection » (décompte par état, pastille icône + texte)
+  avant le tableau des sources ; tableau des plans non conformes seulement s'il y en a.
+
 ## Non vérifié
 
 Lecture réelle contre un stockage S3 : les tests n'utilisent qu'un faux du SDK. La méthode

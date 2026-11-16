@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildPlanComplianceReport,
   nextRunAt,
   parseProtectionPlanInput,
   planCompliance,
@@ -132,5 +133,42 @@ describe('planCompliance', () => {
   });
   it('is failed when the only run failed', () => {
     expect(planCompliance(24, [run('2026-11-16T11:00:00Z', 'failed')], now).state).toBe('failed');
+  });
+});
+
+describe('buildPlanComplianceReport', () => {
+  const now = new Date('2026-11-16T12:00:00Z');
+  const plans = ['a', 'b', 'c', 'd'].map((id) => ({
+    id,
+    name: id.toUpperCase(),
+    rpoHours: 4 as const,
+  }));
+  const runs: Record<string, PlanRun[]> = {
+    a: [
+      { startedAt: '2026-11-16T11:00:00Z', finishedAt: '2026-11-16T11:05:00Z', status: 'success' },
+    ],
+    b: [
+      { startedAt: '2026-11-15T01:00:00Z', finishedAt: '2026-11-15T01:05:00Z', status: 'success' },
+    ],
+    c: [
+      { startedAt: '2026-11-16T11:00:00Z', finishedAt: '2026-11-16T11:01:00Z', status: 'failed' },
+    ],
+  };
+
+  it('counts each state and lists late and failed plans', () => {
+    const report = buildPlanComplianceReport(plans, (id) => runs[id] ?? [], now);
+    expect(report.counts).toEqual({ compliant: 1, late: 2, failed: 1 });
+    expect(report.nonCompliant.map((p) => [p.id, p.state])).toEqual([
+      ['b', 'late'],
+      ['c', 'failed'],
+      ['d', 'late'],
+    ]);
+  });
+
+  it('reports nothing without plans', () => {
+    expect(buildPlanComplianceReport([], () => [], now)).toEqual({
+      counts: { compliant: 0, late: 0, failed: 0 },
+      nonCompliant: [],
+    });
   });
 });
