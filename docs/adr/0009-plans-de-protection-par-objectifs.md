@@ -118,13 +118,15 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
   `sharepoint.backup` rend un résultat par site, racine en tête : une liste vide est un échec
   (`no_result`), pas un succès. Un OneDrive ou un site sans contenu (`noSnapshotReason:
 'no_content'` dans le résumé du SDK) n'est pas distingué : l'exécution est notée en succès alors
-  qu'aucun point de restauration n'existe. C'est le comportement par défaut, pas un choix produit :
-  la question est posée au Product Manager dans la PR de l'issue #63.
+  qu'aucun point de restauration n'existe. C'est un choix du PO (2026-11-16) : un succès, car il n'y
+  avait rien à protéger, et le noter en échec ferait échouer chaque utilisateur sans fichier
+  OneDrive. Choix réversible ; le motif affiché et l'état « dernière sauvegarde » sont reportés
+  dans #80.
 - Identifiants : `BACKUP365_M365_CLIENT_ID` et `BACKUP365_M365_CLIENT_SECRET` (variante
   `_FILE`). Un seul des deux : démarrage refusé, l'erreur nomme la variable. Aucun : « sauvegarde
   non configurée » ; hors démo, aucun planificateur n'est créé, donc aucune exécution ni ligne de
-  `plan_runs`. `GET /api/plans/execution` (administrateur) répond `{ configured: true }` ou
-  `{ configured: false, label: 'sauvegarde non configurée' }` ; `POST /api/plans/:id/run` répond
+  `plan_runs`. `GET /api/plans/execution` (administrateur) répond `{ configured: true, retention: 'not_enforced' }`
+  ou `{ configured: false, label: 'sauvegarde non configurée', retention: 'not_enforced' }` ; `POST /api/plans/:id/run` répond
   503 `backup_not_configured`. Le mode démo garde l'exécuteur simulé.
 - Statut, début, fin et durée de chaque exécution sont ceux de `plan_runs` (issue #62).
 - **Limite** : avec le périmètre `all`, les éléments viennent du catalogue (boîtes déjà
@@ -134,11 +136,11 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
   une boîte et l'exécution échoue avec un code du SDK.
 - **Conservation non appliquée** : le SDK 6.2.0 n'a pas de purge par âge (seulement
   `deleteSnapshot` à l'unité, et `objectLockRequest` qui protège contre la suppression sans
-  jamais supprimer). La durée du plan reste donc affichée, sans effet : rien n'est supprimé à la
-  main. Le choix entre purge via `deleteSnapshot` et Object Lock est une décision produit, non
-  prise ici : elle est posée au Product Manager dans la PR de l'issue #63 (« Question pour le
-  PO »), avec l'issue de suivi « appliquer la conservation des plans » à créer. Tant que cette
-  issue n'existe pas, ce point du critère d'acceptation de #63 n'est pas tenu.
+  jamais supprimer). La durée du plan reste saisie, avec sa justification RGPD, car c'est un
+  objectif fixé par l'utilisateur ; elle n'est jamais présentée comme appliquée (l'API d'exécution
+  expose `retention: 'not_enforced'`). Rien n'est supprimé. Le choix entre purge via
+  `deleteSnapshot`, Object Lock, les deux ou rien est reporté dans #79 (critère de #63 reporté par
+  décision PO du 2026-11-16).
 
 ### Sécurité des identifiants
 

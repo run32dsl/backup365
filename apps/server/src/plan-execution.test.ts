@@ -119,7 +119,10 @@ describe('plans et exécution réelle', () => {
   it('runs a plan through the SDK and records status and duration', async () => {
     const { api, backup } = backupApi();
     app = await start(env(m365), () => api);
-    expect((await app.inject('/api/plans/execution')).json()).toEqual({ configured: true });
+    expect((await app.inject('/api/plans/execution')).json()).toEqual({
+      configured: true,
+      retention: 'not_enforced',
+    });
     const id = await createPlan(app);
     const res = await app.inject({
       method: 'POST',
@@ -171,6 +174,7 @@ describe('plans et exécution réelle', () => {
     expect((await app.inject('/api/plans/execution')).json()).toEqual({
       configured: false,
       label: 'sauvegarde non configurée',
+      retention: 'not_enforced',
     });
     const id = await createPlan(app);
     expect((await app.inject('/api/plans')).json<{ items: unknown[] }>().items).toHaveLength(1);

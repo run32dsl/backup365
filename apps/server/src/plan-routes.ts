@@ -85,8 +85,8 @@ export function registerPlanRoutes(
     const ctx = guard(req, reply);
     if (!ctx) return reply;
     return backupConfigured
-      ? { configured: true }
-      : { configured: false, label: 'sauvegarde non configurée' };
+      ? { configured: true, retention: 'not_enforced' }
+      : { configured: false, label: 'sauvegarde non configurée', retention: 'not_enforced' };
   });
 
   app.post('/api/plans', async (req, reply) => {
