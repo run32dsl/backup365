@@ -93,12 +93,15 @@ describe('historique et lancement manuel', () => {
   });
 
   it('answers 409 when every item is already running', async () => {
-    const { app, plan, plans } = setup();
+    const { app, plan, plans, audit } = setup();
     plans.startRun(plan.id, 'a', new Date().toISOString());
     plans.startRun(plan.id, 'b', new Date().toISOString());
     const res = await run(app, plan.id, { reason: 'Relance' });
     expect(res.statusCode).toBe(409);
     expect(res.json()).toMatchObject({ error: 'run_in_progress' });
+    const entries = (await audit.list({ limit: 10, offset: 0 })).items;
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ action: 'plan.run', target: plan.id, reason: 'Relance' });
   });
 
   it('lists runs from the most recent to the oldest', async () => {
@@ -115,7 +118,7 @@ describe('historique et lancement manuel', () => {
   });
 
   it('answers 503 when the plan items cannot be read', async () => {
-    const { app, plan, plans } = setup();
+    const { plan, plans } = setup();
     const broken = new PlanScheduler({
       plans,
       executeur: executeurSimule,
@@ -123,20 +126,18 @@ describe('historique et lancement manuel', () => {
       logger: { info: () => undefined, error: () => undefined },
     });
     const { auth } = testAuth();
+    const audit = SqliteAuditLog.open(':memory:');
     const session = sessionFor(auth, 'root', 'admin');
     const other = withHeaders(
-      buildApp({
-        version: '1',
-        auth,
-        audit: SqliteAuditLog.open(':memory:'),
-        plans,
-        planScheduler: broken,
-      }),
+      buildApp({ version: '1', auth, audit, plans, planScheduler: broken }),
       session.headers,
     );
-    const res = await run(other, plan.id, { reason: 'x' });
+    const res = await run(other, plan.id, { reason: 'Contrôle' });
     expect(res.statusCode).toBe(503);
-    expect(app).toBeDefined();
+    // L'audit est consigné avant le lancement, donc avant l'échec.
+    const entries = (await audit.list({ limit: 10, offset: 0 })).items;
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ action: 'plan.run', target: plan.id, reason: 'Contrôle' });
   });
 
   it('answers 404 for an unknown plan and 503 without scheduler', async () => {

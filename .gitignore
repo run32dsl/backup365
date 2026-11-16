@@ -6,6 +6,7 @@ coverage/
 # Secrets de compose.yaml (un fichier par secret)
 /secrets/
 .turbo/
+test-results/
 *.log
 CLAUDE.local.md
 .claude/settings.local.json

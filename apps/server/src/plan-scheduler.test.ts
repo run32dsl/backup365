@@ -69,6 +69,41 @@ describe('planificateur', () => {
     expect(plans.listRuns(plan.id, 10)).toHaveLength(4);
   });
 
+  it('lists the items of an all-scope plan once per slot, not at every tick', async () => {
+    const { plans, clock, calls, intervalMs } = setup();
+    const all = plans.create({ ...input, name: 'Tout', scope: 'all', selection: [] });
+    const listAll = vi.fn();
+    const scheduler = new PlanScheduler({
+      plans,
+      executeur: {
+        execute: (t) => {
+          calls.push(t);
+          return Promise.resolve();
+        },
+      },
+      listItems: (p) => {
+        if (p.id !== all.id) return Promise.resolve(p.selection);
+        listAll();
+        return Promise.resolve(['m1', 'm2']);
+      },
+      logger: { info: () => undefined, error: () => undefined },
+      now: () => new Date(clock.at.getTime() + 5_000),
+    });
+    const allCalls = () => calls.filter((c) => c.planId === all.id).length;
+    await scheduler.tick();
+    expect(allCalls()).toBe(2);
+    expect(listAll).toHaveBeenCalledTimes(1);
+
+    await scheduler.tick();
+    await scheduler.tick();
+    expect(listAll).toHaveBeenCalledTimes(1);
+
+    clock.at = new Date(clock.at.getTime() + intervalMs);
+    await scheduler.tick();
+    expect(listAll).toHaveBeenCalledTimes(2);
+    expect(allCalls()).toBe(4);
+  });
+
   it('does not catch up every missed slot after a long stop', async () => {
     const { plans, plan, clock, calls, make, intervalMs } = setup();
     clock.at = new Date(clock.at.getTime() + 10 * intervalMs);

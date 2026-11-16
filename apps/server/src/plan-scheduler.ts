@@ -67,6 +67,8 @@ export class PlanScheduler {
   private ticking: Promise<void> | undefined;
   private readonly background = new Set<Promise<void>>();
   private stopped = false;
+  /** Plans `all` : dernier créneau dont tous les éléments ont une exécution (évite de relister). */
+  private readonly settledSlot = new Map<string, string>();
   private readonly now: () => Date;
 
   constructor(private readonly options: SchedulerOptions) {
@@ -115,6 +117,10 @@ export class PlanScheduler {
         const slot = new Date(
           nextRunAt(plan, now).getTime() - runIntervalMinutes(plan.rpoHours) * 60_000,
         ).toISOString();
+        // Lister les boîtes interroge le stockage : on ne le refait pas pour un créneau déjà traité.
+        // Une boîte apparue en cours de créneau est donc prise au créneau suivant.
+        const memo = plan.scope === 'all';
+        if (memo && this.settledSlot.get(plan.id) === slot) continue;
         let items: string[];
         try {
           items = await this.options.listItems(plan);
@@ -122,12 +128,15 @@ export class PlanScheduler {
           logger.error({ planId: plan.id, code: errorCode(err) }, 'éléments du plan illisibles');
           continue;
         }
+        let settled = true;
         for (const itemId of items) {
           if (this.stopped) return;
           if (plans.hasRunSince(plan.id, itemId, slot)) continue;
           const runId = plans.startRun(plan.id, itemId, now.toISOString());
-          if (runId !== undefined) await this.execute(plan.id, itemId, runId);
+          if (runId === undefined) settled = false;
+          else await this.execute(plan.id, itemId, runId);
         }
+        if (memo && settled) this.settledSlot.set(plan.id, slot);
       }
     } catch (err) {
       logger.error({ code: errorCode(err) }, 'passage du planificateur en échec');
