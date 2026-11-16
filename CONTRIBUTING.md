@@ -36,6 +36,23 @@ voir [docs/installation.md](docs/installation.md) ; `BACKUP365_WEB_DIR` fait ser
 construite par le serveur, voir l'ADR 0007) et
 `pnpm --filter @backup365/web dev` (proxy `/api` vers le serveur).
 
+## Mode démo, captures et tests de navigateur
+
+`BACKUP365_DEMO=1` lance la console sans S3 ni Microsoft 365, sur un faux catalogue entièrement
+fictif (domaine `exemple.fr`, voir `apps/server/src/demo.ts`) et un bandeau « Mode démo : données
+fictives » sur tous les écrans. Comptes : `admin-demo` / `demonstration-admin` et `operateur-demo` /
+`demonstration-operateur`. Le serveur refuse de démarrer si une configuration de stockage réelle est
+présente ; utiliser un `BACKUP365_DATA_DIR` jetable.
+
+- `pnpm run captures` construit, lance le mode démo sur un port libre et écrit
+  `captures/<écran>-1280.png` et `-390.png` (dossier ignoré par git). Regarder les images avant
+  d'ouvrir la PR.
+- **Ajouter un écran** : une entrée dans `e2e/screens.mjs` (`name`, `hash`, `role`, `prepare`
+  éventuel pour les gestes préalables).
+- `pnpm run test:e2e` joue les tests Playwright (`e2e/*.spec.ts`) en mode démo. Installer le
+  navigateur une fois avec `pnpm exec playwright install chromium`, ou pointer
+  `BACKUP365_CHROMIUM` vers un exécutable Chromium existant.
+
 ## Conventions
 
 - Une issue = une branche `feat/<n>-<sujet>` ou `fix/<n>-<sujet>`, une PR vers `develop`.

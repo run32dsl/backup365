@@ -23,7 +23,8 @@ version figée). Lire `docs/vision.md` (principes non négociables) et `docs/adr
 2. Relire les critères d'acceptation ; si l'un est ambigu, choisir l'interprétation la plus
    simple et l'écrire dans la PR.
 3. Tests en même temps que le code ; aucun appel réseau dans les tests unitaires.
-4. Documentation à jour dans la même PR.
+4. Documentation à jour dans la même PR. Une PR qui touche `apps/web` ajoute ses écrans à
+   `e2e/screens.mjs` (captures, voir `CONTRIBUTING.md`).
 5. Critère de fin : `pnpm run build && pnpm run typecheck && pnpm run lint && pnpm run test`
    (commandes définies par l'ADR 0001 une fois le socle en place).
 6. Description de PR : Résumé, Changements, Critères d'acceptation (cochés avec preuve),

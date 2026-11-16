@@ -2,8 +2,10 @@
 export interface HealthResponse {
   status: 'ok';
   version: string;
+  /** Présent (`true`) seulement en mode démo : l'interface affiche alors son bandeau. */
+  demo?: true;
 }
 
-export function healthResponse(version: string): HealthResponse {
-  return { status: 'ok', version };
+export function healthResponse(version: string, demo = false): HealthResponse {
+  return demo ? { status: 'ok', version, demo: true } : { status: 'ok', version };
 }
