@@ -15,6 +15,38 @@ export const WIDTHS = [1280, 390];
 /** Premier mail fictif de la première boîte (voir apps/server/src/demo.ts). */
 export const DEMO_MAIL_HASH = `#/mail/${encodeURIComponent('claire.durand@exemple.fr')}/msg-1-004`;
 
+/** Libellé du champ motif du panneau de restauration. */
+export const RESTORE_REASON_LABEL = 'Motif de la restauration (obligatoire)';
+
+/**
+ * Fiche d'un mail fictif propre à la largeur de la capture : la démo refuse deux restaurations
+ * simultanées du même mail, et la capture « en cours » du 1280 px dure encore à l'ouverture du
+ * 390 px. Le mail n° 25 de chaque boîte échoue (voir `createDemoRestorer`).
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {number} n numéro du mail dans la boîte, de 1 à 25
+ */
+async function openMailFor(page, n) {
+  const narrow = (page.viewportSize()?.width ?? 1280) < 600;
+  const [box, index] = narrow ? ['marc.lefevre@exemple.fr', 2] : ['claire.durand@exemple.fr', 1];
+  await page.goto(`/#/mail/${encodeURIComponent(box)}/msg-${index}-${String(n).padStart(3, '0')}`);
+  await page.getByText('Expéditeur').first().waitFor();
+}
+
+/** Ouvre la fiche du mail n° `n`, puis le panneau « Restaurer ce mail ». */
+async function openRestorePanel(page, n) {
+  await openMailFor(page, n);
+  await page.getByRole('button', { name: /^Restaurer /u }).click();
+  await page.getByRole('dialog', { name: 'Restaurer ce mail' }).waitFor();
+}
+
+/** Saisit un motif et confirme la restauration. */
+async function confirmRestore(page) {
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #1234 : mail supprimé par erreur');
+  await dialog.getByRole('button', { name: 'Restaurer le mail' }).click();
+}
+
 /** @type {Screen[]} */
 export const SCREENS = [
   { name: 'connexion', hash: '', role: null },
@@ -120,6 +152,45 @@ export const SCREENS = [
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
       await page.getByRole('dialog', { name: 'Supprimer « Messagerie Direction » ?' }).waitFor();
+    },
+  },
+  {
+    name: 'restauration-formulaire',
+    hash: DEMO_MAIL_HASH,
+    role: 'operator',
+    prepare: async (page) => {
+      await openRestorePanel(page, 10);
+      await page.getByRole('dialog').getByLabel(RESTORE_REASON_LABEL).fill('Ticket #1234 : mail');
+    },
+  },
+  {
+    name: 'restauration-en-cours',
+    hash: DEMO_MAIL_HASH,
+    role: 'operator',
+    prepare: async (page) => {
+      await openRestorePanel(page, 11);
+      await confirmRestore(page);
+      await page.getByRole('dialog', { name: 'Restauration en cours' }).waitFor();
+    },
+  },
+  {
+    name: 'restauration-reussie',
+    hash: DEMO_MAIL_HASH,
+    role: 'operator',
+    prepare: async (page) => {
+      await openRestorePanel(page, 12);
+      await confirmRestore(page);
+      await page.getByText(/Mail restauré en/u).waitFor();
+    },
+  },
+  {
+    name: 'restauration-echouee',
+    hash: DEMO_MAIL_HASH,
+    role: 'operator',
+    prepare: async (page) => {
+      await openRestorePanel(page, 25);
+      await confirmRestore(page);
+      await page.getByText(/La restauration a échoué après/u).waitFor();
     },
   },
   {

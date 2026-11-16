@@ -1,4 +1,4 @@
-import type { AuditEvent } from '@backup365/core';
+import type { AuditEvent, MailRestorer } from '@backup365/core';
 import type { AtlasFactory, AtlasHandle } from './atlas-sdk.js';
 import type { StorageConfig } from './config.js';
 import { parseStorageConfig } from './config.js';
@@ -343,4 +343,22 @@ export async function seedDemo(
   if (audit && audit.head() === undefined) {
     for (const event of demoAuditEvents(now)) await audit.record(event);
   }
+}
+
+/** Durée simulée d'une restauration de démonstration. */
+export const DEMO_RESTORE_MS = 2000;
+
+/**
+ * Restaurateur factice : attend `delayMs`, puis réussit ; le dernier mail de chaque boîte
+ * (`…-025`) échoue, pour montrer l'écran d'échec. Ne touche à aucune boîte.
+ */
+export function createDemoRestorer(delayMs: number = DEMO_RESTORE_MS): MailRestorer {
+  return {
+    restoreMessage: async (_snapshotId, messageRef) => {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      return messageRef.endsWith(`-${String(MAILS_PER_MAILBOX).padStart(3, '0')}`)
+        ? { restored: 0, errors: 1 }
+        : { restored: 1, errors: 0 };
+    },
+  };
 }

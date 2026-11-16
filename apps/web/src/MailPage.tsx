@@ -8,6 +8,13 @@ import {
   MAX_REASON_LENGTH,
   MIN_REASON_LENGTH,
 } from './mail.js';
+import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
+import {
+  fetchLastRestore,
+  fetchRestoreConfigured,
+  lastRestoreLabel,
+  type RestoreJob,
+} from './restore.js';
 import { Alert, Button, FormField } from './ui/index.js';
 
 /** État de la fiche. */
@@ -84,7 +91,55 @@ export function ExportForm({
   );
 }
 
-/** Fiche d'un mail et export EML, qui exige un motif. */
+/** Restauration depuis la fiche : bouton, et l'issue de la dernière restauration. */
+export function RestoreSection({ mail }: { mail: IndexedMail }) {
+  const [configured, setConfigured] = useState(true);
+  const [last, setLast] = useState<RestoreJob | null>(null);
+  useEffect(() => {
+    let current = true;
+    void fetchRestoreConfigured().then((c) => current && setConfigured(c));
+    fetchLastRestore(mail.mailboxId, mail.messageId).then(
+      (job) => current && setLast(job),
+      () => undefined,
+    );
+    return () => {
+      current = false;
+    };
+  }, [mail.mailboxId, mail.messageId]);
+  // Une restauration lancée ailleurs (autre écran, autre session) : on suit jusqu'à son issue.
+  const running = last?.status === 'running';
+  useEffect(() => {
+    if (!running) return;
+    let current = true;
+    const timer = setInterval(() => {
+      fetchLastRestore(mail.mailboxId, mail.messageId).then(
+        (job) => current && job && setLast(job),
+        () => undefined,
+      );
+    }, 1000);
+    return () => {
+      current = false;
+      clearInterval(timer);
+    };
+  }, [running, mail.mailboxId, mail.messageId]);
+  const label = lastRestoreLabel(last);
+  return (
+    <section aria-labelledby="restore-title">
+      <h2 id="restore-title">Restauration</h2>
+      <p>Remet une copie du mail dans sa boîte d’origine, sans rien écraser.</p>
+      <RestoreAction
+        mail={mail}
+        configured={configured}
+        hintId="restore-not-configured"
+        onJob={setLast}
+      />
+      {!configured && <RestoreNotConfigured id="restore-not-configured" />}
+      {label && <p role="status">{label}</p>}
+    </section>
+  );
+}
+
+/** Fiche d'un mail, restauration et export EML (le motif est exigé pour l'un et l'autre). */
 export function MailPage({ mailboxId, messageId }: { mailboxId: string; messageId: string }) {
   const [state, setState] = useState<MailState>('loading');
   const [reason, setReason] = useState('');
@@ -124,6 +179,7 @@ export function MailPage({ mailboxId, messageId }: { mailboxId: string; messageI
         <a href="#/search">Retour à la recherche</a>
       </p>
       <MailView state={state} />
+      {typeof state === 'object' && <RestoreSection mail={state} />}
       {typeof state === 'object' && (
         <ExportForm reason={reason} exporting={exporting} onReason={setReason} onSubmit={submit} />
       )}

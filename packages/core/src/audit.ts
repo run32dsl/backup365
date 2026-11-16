@@ -13,6 +13,8 @@ export const AUDIT_ACTIONS = [
   'plan.update',
   'plan.delete',
   'plan.run',
+  'restore.request',
+  'restore.result',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

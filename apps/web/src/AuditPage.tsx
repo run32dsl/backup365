@@ -27,6 +27,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   'plan.update': 'Modification de plan',
   'plan.delete': 'Suppression de plan',
   'plan.run': 'Lancement manuel d’un plan',
+  'restore.request': 'Demande de restauration',
+  'restore.result': 'Résultat de restauration',
 };
 
 type Entry = AuditResponse['items'][number];

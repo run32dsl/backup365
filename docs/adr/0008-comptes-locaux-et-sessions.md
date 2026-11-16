@@ -20,7 +20,8 @@ s'authentifier simplement. Le SSO Microsoft (OIDC Entra ID) viendra dans une iss
   réclamer une mémoire démesurée). 12 à 256 caractères. Aucune dépendance ajoutée.
 - **Rôles** : `admin` (comptes, plans, restaurations) et `operator` (consultation, export,
   restauration avec motif). Seule la gestion des comptes est aujourd'hui réservée à
-  l'administrateur ; plans et restaurations n'existent pas encore.
+  l'administrateur ; les plans le sont depuis l'ADR 0009, la restauration d'un mail est ouverte
+  aux deux rôles (ADR 0012).
 - **Premier administrateur** : `POST /api/auth/setup`, publique, ne réussit que si aucun compte
   n'existe (une seule instruction SQL `INSERT … WHERE NOT EXISTS`, donc sans course) ; 409
   ensuite. `GET /api/auth/setup-status` indique si l'écran de création doit s'afficher. Aucun mot

@@ -40,6 +40,7 @@ export {
   type MailContent,
   type MailContentReader,
 } from './mail-content.js';
+export type { MailRestoreOutcome, MailRestorer } from './mail-restore.js';
 export {
   indexMailbox,
   type IndexedMail,
