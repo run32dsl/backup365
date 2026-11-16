@@ -50,6 +50,7 @@ export {
   type SnapshotMailReader,
 } from './search.js';
 export {
+  DATA_TYPES,
   DEFAULT_RPO_HOURS,
   RPO_HOURS,
   buildPlanComplianceReport,
@@ -62,6 +63,7 @@ export {
   type ComplianceState,
   type PlanComplianceEntry,
   type PlanComplianceReport,
+  type DataType,
   type PlanParseResult,
   type PlanRun,
   type PlanScope,

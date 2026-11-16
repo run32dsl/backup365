@@ -12,6 +12,7 @@ import { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 const input: ProtectionPlanInput = {
   name: 'Mails',
   scope: 'selection',
+  dataTypes: ['mail'],
   selection: ['a', 'b'],
   rpoHours: 4,
   rtoHours: null,

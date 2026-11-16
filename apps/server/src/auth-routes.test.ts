@@ -392,7 +392,7 @@ describe('jeton CSRF', () => {
         method,
         url: `/api/accounts/${target.id}/reset-password`,
         headers: { cookie: t.cookie, ...headers },
-        payload: { password: 'un autre mot de passe' },
+        payload: { reason: 'Oubli' },
       });
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE'] as const) {
       const none = await send(method, {});
@@ -400,7 +400,7 @@ describe('jeton CSRF', () => {
       expect(none.json()).toEqual({ error: 'csrf_invalid' });
       expect((await send(method, { 'x-csrf-token': 'faux' })).statusCode, method).toBe(403);
     }
-    expect((await send('POST', { 'x-csrf-token': t.csrfToken })).statusCode).toBe(204);
+    expect((await send('POST', { 'x-csrf-token': t.csrfToken })).statusCode).toBe(200);
   });
 
   it('does not require the token on reads', async () => {
@@ -447,14 +447,17 @@ describe('changement de son mot de passe', () => {
     const reset = await post(
       t.app,
       `/api/accounts/${target.id}/reset-password`,
-      { password: 'mot de passe provisoire' },
+      { reason: 'Oubli' },
       t.headers,
     );
-    expect(reset.statusCode).toBe(204);
+    expect(reset.statusCode).toBe(200);
+    expect(reset.headers['cache-control']).toBe('no-store');
+    const temporary = reset.json<{ password: string }>().password;
+    expect(temporary).toMatch(/^([A-Za-z2-9]{4}-){3}[A-Za-z2-9]{4}$/);
 
     const login = await post(t.app, '/api/auth/login', {
       username: 'bob',
-      password: 'mot de passe provisoire',
+      password: temporary,
     });
     expect(login.statusCode).toBe(200);
     expect(loginBody(login).user).toEqual({
@@ -481,21 +484,21 @@ describe('changement de son mot de passe', () => {
     const weak = await post(
       t.app,
       '/api/auth/password',
-      { currentPassword: 'mot de passe provisoire', newPassword: 'court' },
+      { currentPassword: temporary, newPassword: 'court' },
       headers,
     );
     expect(weak.statusCode).toBe(400);
     const same = await post(
       t.app,
       '/api/auth/password',
-      { currentPassword: 'mot de passe provisoire', newPassword: 'mot de passe provisoire' },
+      { currentPassword: temporary, newPassword: temporary },
       headers,
     );
     expect(same.statusCode).toBe(400);
     const ok = await post(
       t.app,
       '/api/auth/password',
-      { currentPassword: 'mot de passe provisoire', newPassword: 'nouveau mot de passe' },
+      { currentPassword: temporary, newPassword: 'nouveau mot de passe' },
       headers,
     );
     expect(ok.statusCode).toBe(204);
@@ -517,7 +520,7 @@ describe('changement de son mot de passe', () => {
     await post(
       t.app,
       `/api/accounts/${victim.account.id}/reset-password`,
-      { password: 'mot de passe provisoire' },
+      { reason: 'Oubli' },
       t.headers,
     );
     const res = await t.app.inject({ method: 'GET', url: '/api/status', headers: victim.headers });

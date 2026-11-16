@@ -77,6 +77,19 @@ describe('PLAN_MIGRATIONS', () => {
     });
   });
 
+  it('upgrades an existing plan to all data types and refuses an empty list', () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db, PLAN_MIGRATIONS.slice(0, 2));
+    db.prepare(
+      "INSERT INTO plans (id, name, scope, retention_days, gdpr_justification, created_at) VALUES ('old', 'N', 'all', 30, 'Finalité', 'd')",
+    ).run();
+    migrate(db, PLAN_MIGRATIONS);
+    expect(db.prepare("SELECT data_types FROM plans WHERE id = 'old'").get()).toEqual({
+      data_types: 'mail,files,calendar,contacts',
+    });
+    expect(() => db.prepare("UPDATE plans SET data_types = '' WHERE id = 'old'").run()).toThrow();
+  });
+
   it('refuses a plan without GDPR justification or with an RPO outside the list', () => {
     const db = open();
     expect(() => insert(db, { gdpr_justification: '   ' })).toThrow();

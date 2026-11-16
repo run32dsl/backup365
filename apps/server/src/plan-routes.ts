@@ -1,4 +1,4 @@
-import { parseProtectionPlanInput, type AuditLog } from '@backup365/core';
+import { parseProtectionPlanInput, planCompliance, type AuditLog } from '@backup365/core';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { auditEvent } from './audit-events.js';
 import type { PlanScheduler } from './plan-scheduler.js';
@@ -28,6 +28,7 @@ function changedFields(before: StoredPlan, after: StoredPlan): string {
   const keys = [
     'name',
     'scope',
+    'dataTypes',
     'selection',
     'rpoHours',
     'rtoHours',
@@ -50,13 +51,14 @@ export function registerPlanRoutes(
   plans: SqlitePlanStore | undefined,
   audit: AuditLog | undefined,
   scheduler?: PlanScheduler,
+  backupConfigured = true,
 ) {
-  function guard(req: FastifyRequest, reply: FastifyReply) {
+  function guard(req: FastifyRequest, reply: FastifyReply, readOnlyOk = false) {
     if (!req.session) {
       void reply.code(401).send({ error: 'unauthenticated' });
       return null;
     }
-    if (req.session.role !== 'admin') {
+    if (!readOnlyOk && req.session.role !== 'admin') {
       void reply.code(403).send({ error: 'forbidden' });
       return null;
     }
@@ -74,9 +76,45 @@ export function registerPlanRoutes(
   const notFound = (reply: FastifyReply) => reply.code(404).send({ error: 'plan_not_found' });
 
   app.get('/api/plans', (req, reply) => {
+    // Seule route ouverte à l'opérateur (lecture seule, écran des plans).
+    const ctx = guard(req, reply, true);
+    if (!ctx) return reply;
+    const now = new Date();
+    const items = ctx.plans.list().map((plan) => {
+      const runs = ctx.plans.listRuns(plan.id, RUNS_LIMIT);
+      const last = runs[0];
+      // L'opérateur ne reçoit que ce que la liste affiche : ni sélection ni justification.
+      const visible =
+        req.session?.role === 'admin'
+          ? plan
+          : {
+              id: plan.id,
+              name: plan.name,
+              scope: plan.scope,
+              dataTypes: plan.dataTypes,
+              rpoHours: plan.rpoHours,
+              retentionDays: plan.retentionDays,
+              createdAt: plan.createdAt,
+            };
+      return {
+        ...visible,
+        compliance: planCompliance(plan.rpoHours, runs, now),
+        running: runs.some((r) => r.status === 'running'),
+        lastRun: last
+          ? { status: last.status, startedAt: last.startedAt, finishedAt: last.finishedAt }
+          : null,
+      };
+    });
+    return { items };
+  });
+
+  /** Les plans existent sans identifiants Microsoft 365, mais rien ne s'exécute (ADR 0009). */
+  app.get('/api/plans/execution', (req, reply) => {
     const ctx = guard(req, reply);
     if (!ctx) return reply;
-    return { items: ctx.plans.list() };
+    return backupConfigured
+      ? { configured: true, retention: 'not_enforced' }
+      : { configured: false, label: 'sauvegarde non configurée', retention: 'not_enforced' };
   });
 
   app.post('/api/plans', async (req, reply) => {
@@ -159,6 +197,12 @@ export function registerPlanRoutes(
         return reply.code(400).send({
           error: 'reason_required',
           message: `Le motif du lancement est obligatoire (${REASON_MAX} caractères au plus).`,
+        });
+      }
+      if (!backupConfigured) {
+        return reply.code(503).send({
+          error: 'backup_not_configured',
+          message: 'Sauvegarde non configurée : identifiants Microsoft 365 absents.',
         });
       }
       if (!scheduler) return reply.code(503).send({ error: 'scheduler_unavailable' });

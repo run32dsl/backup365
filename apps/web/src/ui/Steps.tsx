@@ -1,9 +1,24 @@
-/** Indicateur d'étapes : liste ordonnée, `aria-current="step"` sur l'étape en cours. */
-export function Steps({ steps, current }: { steps: string[]; current: number }) {
+import type { Ref } from 'react';
+
+/**
+ * Indicateur d'étapes : liste ordonnée, `aria-current="step"` sur l'étape en cours. Avec
+ * `titleRef`, le titre peut recevoir le focus (changement d'étape d'un parcours).
+ */
+export function Steps({
+  steps,
+  current,
+  titleRef,
+}: {
+  steps: string[];
+  current: number;
+  titleRef?: Ref<HTMLParagraphElement>;
+}) {
   const label = steps[current - 1] ?? '';
   return (
     <div className="steps">
-      <p className="steps-title">{`Étape ${current} sur ${steps.length} : ${label}`}</p>
+      <p ref={titleRef} tabIndex={titleRef ? -1 : undefined} className="steps-title">
+        {`Étape ${current} sur ${steps.length} : ${label}`}
+      </p>
       <ol>
         {steps.map((name, i) => {
           const n = i + 1;

@@ -132,6 +132,7 @@ const SECRET_FILE_TARGETS = [
   'BACKUP365_S3_ACCESS_KEY_ID',
   'BACKUP365_S3_SECRET_ACCESS_KEY',
   'BACKUP365_ENCRYPTION_PASSPHRASE',
+  'BACKUP365_M365_CLIENT_SECRET',
 ] as const;
 
 /**
@@ -182,4 +183,31 @@ export function parseStorageConfig(
     secretAccessKey: given('BACKUP365_S3_SECRET_ACCESS_KEY')!,
     encryptionPassphrase: given('BACKUP365_ENCRYPTION_PASSPHRASE')!,
   };
+}
+
+export interface M365Config {
+  /** Application Entra (identifiant du client) autorisée à lire le tenant pour la sauvegarde. */
+  clientId: string;
+  /** Secret de l'application. Ne doit jamais être journalisé, stocké ni renvoyé par l'API. */
+  clientSecret: string;
+}
+
+/**
+ * Identifiants Microsoft 365 de la sauvegarde (`BACKUP365_M365_CLIENT_ID`,
+ * `BACKUP365_M365_CLIENT_SECRET` ou `BACKUP365_M365_CLIENT_SECRET_FILE`). Renvoie `undefined` si
+ * aucune n'est définie (sauvegarde non configurée) ; lève une erreur qui nomme la variable
+ * manquante si une seule des deux est donnée. Aucune valeur n'apparaît dans les messages.
+ */
+export function parseM365Config(env: Record<string, string | undefined>): M365Config | undefined {
+  const clientId = env['BACKUP365_M365_CLIENT_ID'] || undefined;
+  const clientSecret = env['BACKUP365_M365_CLIENT_SECRET'] || undefined;
+  if (!clientId && !clientSecret) return undefined;
+  const missing = [
+    ...(clientId ? [] : ['BACKUP365_M365_CLIENT_ID']),
+    ...(clientSecret ? [] : ['BACKUP365_M365_CLIENT_SECRET']),
+  ];
+  if (missing.length > 0) {
+    throw new Error(`Identifiants Microsoft 365 incomplets : ${missing.join(', ')} manquant(s)`);
+  }
+  return { clientId: clientId!, clientSecret: clientSecret! };
 }

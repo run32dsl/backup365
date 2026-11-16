@@ -2,7 +2,7 @@ import type { AuditLog } from '@backup365/core';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { AuthService } from './auth.js';
 import { usernameSchema } from './auth-routes.js';
-import { passwordProblem } from './password.js';
+import { generateTemporaryPassword, passwordProblem } from './password.js';
 import {
   LastAdminError,
   ROLES,
@@ -144,28 +144,30 @@ export function registerAccountRoutes(
     },
   );
 
-  app.post<{ Params: { id: number }; Body: { password: string } }>(
+  app.post<{ Params: { id: number }; Body: { reason: string } }>(
     '/api/accounts/:id/reset-password',
     {
       schema: {
         params: idParams,
         body: {
           type: 'object',
-          required: ['password'],
+          required: ['reason'],
           additionalProperties: false,
-          properties: { password: { type: 'string', maxLength: 1024 } },
+          properties: { reason: { type: 'string', maxLength: 200 } },
         },
       },
     },
     async (req, reply) => {
       const ctx = guard(req, reply);
       if (!ctx) return reply;
-      const problem = passwordProblem(req.body.password);
-      if (problem) return reply.code(400).send({ error: problem });
-      const account = await ctx.auth.resetPassword(req.params.id, req.body.password);
+      const reason = req.body.reason.trim();
+      if (!reason) return reply.code(400).send({ error: 'reason_required' });
+      // Mot de passe généré ici et rendu une seule fois ; seul le motif entre au journal.
+      const password = generateTemporaryPassword();
+      const account = await ctx.auth.resetPassword(req.params.id, password);
       if (!account) return reply.code(404).send({ error: 'account_not_found' });
-      await record(ctx, account.username, 'account.update', 'password_reset');
-      return reply.code(204).send();
+      await record(ctx, account.username, 'account.update', `password_reset: ${reason}`);
+      return reply.header('cache-control', 'no-store').send({ password });
     },
   );
 }
