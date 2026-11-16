@@ -8,6 +8,8 @@ import {
   type AuditQuery,
   type AuditResponse,
 } from './audit.js';
+import { auditDate, reasonLabel, resourceLabel, targetLabel } from './auditLabels.js';
+import { fetchPlans } from './plans.js';
 import { Alert, Button, DataTable, EmptyState, FormField, type Column } from './ui/index.js';
 
 /** État de la consultation du journal. */
@@ -33,27 +35,40 @@ const ACTION_LABELS: Record<AuditAction, string> = {
 
 type Entry = AuditResponse['items'][number];
 
-const COLUMNS: Column<Entry>[] = [
-  { header: 'N°', cell: (e) => e.seq },
-  { header: 'Date (UTC)', cell: (e) => e.at },
-  { header: 'Acteur', cell: (e) => e.actor },
-  { header: 'Action', cell: (e) => ACTION_LABELS[e.action] },
-  { header: 'Ressource', cell: (e) => e.resource },
-  { header: 'Cible', cell: (e) => e.target ?? '' },
-  { header: 'Éléments', cell: (e) => e.count ?? '' },
-  { header: 'Motif', cell: (e) => e.reason ?? '' },
-  {
-    header: 'Empreinte',
-    cell: (e) => (
-      <span title={e.hash}>
-        <code>{e.hash.slice(0, 12)}</code>
-      </span>
-    ),
-  },
-];
+/** Colonnes du tableau ; l'empreinte n'y figure pas (elle reste dans l'infobulle du numéro et dans l'API). */
+function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[] {
+  return [
+    {
+      header: 'N°',
+      className: 'card-hidden',
+      cell: (e) => <span title={`Empreinte : ${e.hash}`}>{e.seq}</span>,
+    },
+    {
+      header: 'Date',
+      className: 'nowrap',
+      cell: (e) => <span title={e.at}>{auditDate(e.at)}</span>,
+    },
+    { header: 'Acteur', className: 'keep-words', cell: (e) => e.actor },
+    { header: 'Action', cell: (e) => ACTION_LABELS[e.action] },
+    {
+      header: 'Ressource',
+      className: 'keep-words card-hidden',
+      cell: (e) => resourceLabel(e.resource),
+    },
+    { header: 'Cible', cell: (e) => targetLabel(e.target, e.resource, planNames) },
+    { header: 'Éléments', className: 'card-hidden', cell: (e) => e.count ?? '' },
+    { header: 'Motif', className: 'card-wide', cell: (e) => reasonLabel(e.reason) },
+  ];
+}
 
 /** Tableau des entrées du journal, du plus récent au plus ancien. */
-export function AuditView({ state }: { state: AuditState }) {
+export function AuditView({
+  state,
+  planNames = null,
+}: {
+  state: AuditState;
+  planNames?: ReadonlyMap<string, string> | null;
+}) {
   if (state === 'loading') return <p role="status">Chargement du journal…</p>;
   if (state === 'error') return <Alert tone="error">Journal d’audit indisponible</Alert>;
   if (state.items.length === 0) return <EmptyState>Aucune entrée.</EmptyState>;
@@ -65,7 +80,8 @@ export function AuditView({ state }: { state: AuditState }) {
       <DataTable
         caption="Entrées du journal d’audit"
         hideCaption
-        columns={COLUMNS}
+        columns={columns(planNames)}
+        compact
         rows={state.items}
         rowKey={(e) => e.seq}
       />
@@ -88,6 +104,14 @@ export function AuditPage() {
       current = false;
     };
   }, [query]);
+
+  const [planNames, setPlanNames] = useState<ReadonlyMap<string, string> | null>(null);
+  useEffect(() => {
+    fetchPlans().then(
+      (plans) => setPlanNames(new Map(plans.map((p) => [p.id, p.name]))),
+      () => undefined,
+    );
+  }, []);
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -120,7 +144,7 @@ export function AuditPage() {
         </label>
         <Button type="submit">Filtrer</Button>
       </form>
-      <AuditView state={state} />
+      <AuditView state={state} planNames={planNames} />
       <div className="button-row">
         <Button
           variant="secondary"
