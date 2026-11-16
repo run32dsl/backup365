@@ -20,14 +20,16 @@ export interface StatusOptions {
 }
 
 /** Conformité de tous les plans ; `null` si leur base ne répond pas (le tableau reste servi). */
-function planCompliance(store: SqlitePlanStore) {
+function planCompliance(store: SqlitePlanStore, log: { warn(obj: object, msg: string): void }) {
   try {
     return buildPlanComplianceReport(
       store.list(),
       (id) => store.listRuns(id, COMPLIANCE_RUNS_LIMIT),
       new Date(),
     );
-  } catch {
+  } catch (err) {
+    // Code technique seul : jamais de message ni de nom de plan.
+    log.warn({ code: (err as NodeJS.ErrnoException).code }, 'conformité des plans indisponible');
     return null;
   }
 }
@@ -47,12 +49,14 @@ export function registerStatusRoutes(
     plans?: SqlitePlanStore | undefined;
   },
 ) {
-  scope.get('/api/status', async (_req, reply) => {
+  scope.get('/api/status', async (req, reply) => {
     if (!catalog) return reply.code(503).send({ error: 'catalog_unavailable' });
     const catalogReport = await buildStatusReport(catalog, options.workloads, options.maxAgeHours);
     // Conformité des plans (ADR 0009) ; absente sans base des plans, `null` si elle ne répond pas.
     const store = indexing?.plans;
-    const base = store ? { ...catalogReport, plans: planCompliance(store) } : catalogReport;
+    const base = store
+      ? { ...catalogReport, plans: planCompliance(store, req.log) }
+      : catalogReport;
     const report = options.auditAnchor
       ? {
           ...base,

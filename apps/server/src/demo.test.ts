@@ -69,6 +69,13 @@ describe('mode démo', () => {
 
     const audit = await app.inject({ url: '/api/audit', headers });
     expect(audit.statusCode).toBe(200);
+
+    const status = await app.inject({ url: '/api/status', headers });
+    expect(status.json<{ plans: { counts: object } }>().plans.counts).toEqual({
+      compliant: 1,
+      late: 0,
+      failed: 1,
+    });
   });
 
   it('ne signale pas le mode démo hors démo', async () => {
