@@ -124,6 +124,10 @@ export function registerAccountRoutes(
     async (req, reply) => {
       const ctx = guard(req, reply);
       if (!ctx) return reply;
+      // Le rôle d'un compte Microsoft vient des groupes Entra : le changer ici serait écrasé.
+      if (req.body.role !== undefined && ctx.auth.accounts.findById(req.params.id)?.oidc) {
+        return reply.code(409).send({ error: 'managed_by_oidc' });
+      }
       try {
         const account = ctx.auth.accounts.update(req.params.id, req.body);
         if (!account) return reply.code(404).send({ error: 'account_not_found' });
@@ -162,6 +166,10 @@ export function registerAccountRoutes(
       if (!ctx) return reply;
       const reason = req.body.reason.trim();
       if (!reason) return reply.code(400).send({ error: 'reason_required' });
+      // Un compte Microsoft n'a pas de mot de passe local : en créer un ouvrirait une seconde porte.
+      if (ctx.auth.accounts.findById(req.params.id)?.oidc) {
+        return reply.code(409).send({ error: 'managed_by_oidc' });
+      }
       // Mot de passe généré ici et rendu une seule fois ; seul le motif entre au journal.
       const password = generateTemporaryPassword();
       const account = await ctx.auth.resetPassword(req.params.id, password);

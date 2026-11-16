@@ -6,6 +6,8 @@ export interface User {
   role: Role;
   /** Mot de passe temporaire : à changer avant toute autre action. */
   mustChangePassword?: boolean;
+  /** Connecté avec un compte Microsoft : pas de mot de passe local à changer. */
+  oidc?: boolean;
 }
 
 export interface SessionInfo {
@@ -36,6 +38,8 @@ const MESSAGES: Record<string, string> = {
   already_configured: 'Un administrateur existe déjà : connectez-vous.',
   username_taken: 'Cet identifiant est déjà utilisé.',
   last_admin: 'Impossible : c’est le dernier administrateur actif.',
+  managed_by_oidc:
+    'Ce compte Microsoft tient son rôle de ses groupes Entra : à modifier dans Entra ID.',
   audit_unavailable: 'Journal d’audit indisponible : action refusée.',
   auth_unavailable: 'Base des comptes indisponible.',
   bad_request:
@@ -214,4 +218,35 @@ export function installSessionFetch(): void {
       expiredListener(reason);
     },
   );
+}
+
+/** Connexion avec un compte Microsoft : lien de départ (le navigateur quitte la console). */
+export const MICROSOFT_LOGIN_URL = '/api/auth/oidc/login';
+export const MICROSOFT_LABEL = 'Se connecter avec un compte Microsoft';
+
+const OIDC_MESSAGES: Record<string, string> = {
+  no_group:
+    'Ce compte Microsoft n’a pas accès à la console : il n’appartient à aucun groupe autorisé. Demandez à un administrateur.',
+  disabled: 'Ce compte a été désactivé par un administrateur.',
+  account_conflict: 'Un compte local porte déjà ce nom. Demandez à un administrateur.',
+  invalid_request: 'La connexion Microsoft a expiré ou a été interrompue. Réessayez.',
+  provider_error: 'Microsoft n’a pas confirmé la connexion. Réessayez.',
+  invalid_token: 'La réponse de Microsoft n’a pas pu être vérifiée. Réessayez.',
+  unavailable: 'Journal d’audit ou base des comptes indisponible : connexion refusée.',
+};
+
+/** Message de l'écran de connexion après un retour de Microsoft refusé (`?oidc_error=<code>`). */
+export function oidcErrorMessage(search: string): string | undefined {
+  const code = new URLSearchParams(search).get('oidc_error');
+  return code === null ? undefined : (OIDC_MESSAGES[code] ?? 'La connexion Microsoft a échoué.');
+}
+
+/** La connexion Microsoft est-elle configurée ? Faux en cas d'erreur : seul le formulaire local reste. */
+export async function loadOidcEnabled(fetchFn: typeof fetch = fetch): Promise<boolean> {
+  try {
+    const res = await fetchFn('/api/auth/oidc/status');
+    return res.ok && ((await res.json()) as { enabled?: unknown }).enabled === true;
+  } catch {
+    return false;
+  }
 }

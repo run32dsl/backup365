@@ -16,6 +16,8 @@ import {
   withSecretFiles,
 } from './config.js';
 import { AuthService } from './auth.js';
+import { entraEndpoints, OidcService, parseOidcConfig } from './oidc.js';
+import type { SimulatedOidcProvider } from './oidc-simulated.js';
 import { DriveRestoreService } from './drive-restore-service.js';
 import { RestoreService } from './restore-service.js';
 import { SiteRestoreService } from './site-restore-service.js';
@@ -31,6 +33,7 @@ import { createAtlasCatalog } from './atlas-sdk.js';
 import {
   assertNoRealStorage,
   createDemoDriveRestorer,
+  createDemoOidc,
   createDemoRestorer,
   createDemoSiteRestorer,
   DEMO_STORAGE,
@@ -87,8 +90,19 @@ export function createServer(
   let startup: ReturnType<typeof startAtlas>;
   let secretEnv: Record<string, string | undefined>;
   let backup: { api: AtlasBackupApi; executeur: AtlasExecuteur } | undefined;
+  let oidc: OidcService | undefined;
+  let oidcSimulated: SimulatedOidcProvider | undefined;
   try {
     secretEnv = withSecretFiles(env, readFile);
+    // Connexion Microsoft : désactivée tant qu'aucune variable BACKUP365_OIDC_* n'est donnée.
+    if (demo) {
+      const simulated = createDemoOidc();
+      oidc = simulated.service;
+      oidcSimulated = simulated.provider;
+    } else {
+      const oidcConfig = parseOidcConfig(secretEnv);
+      if (oidcConfig) oidc = new OidcService(oidcConfig, entraEndpoints(oidcConfig.tenantId));
+    }
     startup = demo
       ? { status: 'ready', atlas: createAtlasCatalog(DEMO_STORAGE, demoFactory()) }
       : startAtlas(secretEnv, factory);
@@ -223,6 +237,8 @@ export function createServer(
     ...(opened.index ? { searchIndex: opened.index } : {}),
     ...(openedAudit.audit ? { audit: openedAudit.audit } : {}),
     ...(auth ? { auth } : {}),
+    ...(oidc ? { oidc } : {}),
+    ...(oidcSimulated ? { oidcSimulated } : {}),
     ...(openedPlans.store ? { plans: openedPlans.store } : {}),
     ...(planScheduler ? { planScheduler } : {}),
     ...(restoreService ? { restore: restoreService } : {}),

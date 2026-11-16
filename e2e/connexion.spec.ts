@@ -29,6 +29,15 @@ test('401 en cours de navigation : #/connexion avec message, puis retour à la p
   await expect(page.getByText(EXPIRED)).toHaveCount(0);
 });
 
+test('connexion Microsoft (fournisseur simulé de la démo) : le bouton ouvre la console', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Se connecter avec un compte Microsoft' }).click();
+  await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
+  await expect(page.getByText('compte-microsoft@exemple.fr').first()).toBeVisible();
+});
+
 test('connexion verrouillée : décompte, bouton inactif, puis le champ reprend le focus', async ({
   page,
 }) => {

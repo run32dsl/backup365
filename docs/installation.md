@@ -79,6 +79,8 @@ passe ; les deux premiers secrets sont alors l'identifiant et le mot de passe ra
 | `BACKUP365_INDEX_INTERVAL_MINUTES`                                                                | intervalle d'indexation de la recherche (60 min)                                                      |
 | `BACKUP365_AUDIT_ANCHOR_DIR`, `BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN`                               | ancres du journal d'audit : dossier (`/anchors` dans `compose.yaml`), intervalle (60 min)             |
 | `BACKUP365_TRUST_PROXY`                                                                           | adresse(s) du proxy inverse HTTPS devant la console (`false` par défaut, voir ci-dessous)             |
+| `BACKUP365_OIDC_TENANT_ID`, `_CLIENT_ID`, `_CLIENT_SECRET`, `_REDIRECT_URI`                       | connexion avec un compte Microsoft (secret : variante `…_FILE`) ; voir ci-dessous                     |
+| `BACKUP365_OIDC_ADMIN_GROUPS`, `BACKUP365_OIDC_OPERATOR_GROUPS`                                   | identifiants d'objet des groupes Entra (séparés par des virgules) qui donnent chaque rôle             |
 | `BACKUP365_PORT`, `LOG_LEVEL`                                                                     | port publié sur 127.0.0.1 (3000), journal (`info`)                                                    |
 | `BACKUP365_DATA_DIR`, `BACKUP365_WEB_DIR`                                                         | fixés par l'image (`/data`, `/app/web`)                                                               |
 | `BACKUP365_DEMO`                                                                                  | `1` : mode démo, données fictives, développement seulement (ADR 0010) ; jamais en production          |
@@ -165,6 +167,56 @@ la parade est de ne pas exposer le port.
 
 **Perte du mot de passe administrateur.** Créer un autre administrateur en ligne de commande
 (ci-dessous), puis réinitialiser l'ancien depuis l'écran « Administration ».
+
+### Connexion avec un compte Microsoft (optionnelle)
+
+Décisions : [ADR 0015](adr/0015-connexion-microsoft-oidc.md). **Désactivée tant qu'aucune variable
+`BACKUP365_OIDC_*` n'est donnée** ; les comptes locaux restent toujours disponibles, y compris pour
+le secours si Microsoft est injoignable. Cette application Entra est **distincte** de celle de la
+sauvegarde (`BACKUP365_M365_*`) : elle ne lit aucune donnée du tenant, elle ne sert qu'à
+authentifier.
+
+**Inscrire l'application dans Entra ID** (à faire par le PM sur le tenant de test, avec un rôle
+d'administrateur d'applications) :
+
+1. Centre d'administration Entra → _Identité_ → _Applications_ → _Inscriptions d'applications_ →
+   _Nouvelle inscription_. Nom libre (par exemple « backup365 console »), types de comptes pris en
+   charge : **comptes de cet annuaire uniquement** (un seul tenant).
+2. _URI de redirection_, plateforme **Web** : `https://<hôte de la console>/api/auth/oidc/callback`
+   (pour un essai local : `http://localhost:3000/api/auth/oidc/callback`). Cette adresse doit être
+   identique, au caractère près, à `BACKUP365_OIDC_REDIRECT_URI`.
+3. Sur la page de l'application, noter _ID de l'application (client)_ (`BACKUP365_OIDC_CLIENT_ID`)
+   et _ID de l'annuaire (tenant)_ (`BACKUP365_OIDC_TENANT_ID`).
+4. _Certificats et secrets_ → _Nouveau secret client_ : copier la **valeur** (affichée une fois)
+   dans un fichier monté (`BACKUP365_OIDC_CLIENT_SECRET_FILE`), jamais dans le dépôt ni dans une
+   variable visible. Noter son échéance : à renouveler avant.
+5. _Autorisations d'API_ : `openid` et `profile` (Microsoft Graph, déléguées) suffisent ; aucun
+   consentement administrateur n'est nécessaire pour elles.
+6. _Configuration des jetons_ → _Ajouter une revendication de groupes_ : choisir **Groupes affectés
+   à l'application** (sinon, _Groupes de sécurité_), format **ID de groupe**, pour le jeton
+   d'**identité**. « Affectés à l'application » évite le dépassement de 200 groupes, que la console
+   refuse.
+7. Créer deux groupes de sécurité (par exemple « backup365-admins » et « backup365-operateurs »),
+   y mettre les personnes, puis _Applications d'entreprise_ → l'application → _Utilisateurs et
+   groupes_ → y affecter ces deux groupes. Copier l'_ID d'objet_ de chacun.
+8. Dans l'application d'entreprise, _Propriétés_ → _Affectation requise_ : **Oui** (seuls les
+   groupes affectés peuvent s'y connecter).
+
+**Configurer la console** : `BACKUP365_OIDC_TENANT_ID`, `BACKUP365_OIDC_CLIENT_ID`,
+`BACKUP365_OIDC_CLIENT_SECRET_FILE`, `BACKUP365_OIDC_REDIRECT_URI`, et au moins l'une de
+`BACKUP365_OIDC_ADMIN_GROUPS` / `BACKUP365_OIDC_OPERATOR_GROUPS` (identifiants d'objet des
+groupes, séparés par des virgules). Une valeur manquante ou mal formée arrête le démarrage, avec le
+nom de la variable. Un membre des deux listes est administrateur ; **quelqu'un qui n'est dans
+aucun groupe reconnu est refusé** et le refus est inscrit au journal d'audit. Le rôle est relu à
+chaque connexion ; le retrait d'un groupe ne ferme pas une session déjà ouverte avant sa prochaine
+connexion (8 h d'inactivité au plus) : pour couper tout de suite, désactiver le compte dans
+« Administration ». L'adresse de retour doit être en HTTPS (sauf `localhost`) : voir
+`BACKUP365_TRUST_PROXY` ci-dessus.
+
+**Vérifier** : sur l'écran de connexion, le bouton « Se connecter avec un compte Microsoft »
+apparaît sous le formulaire local ; un membre d'un groupe arrive sur le tableau de bord avec le
+rôle attendu ; un compte hors groupe revient à l'écran de connexion avec un message, et une ligne
+`auth.login_failed` (`oidc_no_group`) apparaît dans le journal d'audit.
 
 ### Créer un compte en ligne de commande (tests de bout en bout, dépannage)
 

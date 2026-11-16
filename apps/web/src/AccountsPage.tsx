@@ -66,7 +66,7 @@ const columns = (
   state: AccountInfo[],
   actions?: Partial<AccountActions>,
 ): Column<AccountInfo>[] => [
-  { header: 'Identifiant', cell: (a) => a.username },
+  { header: 'Identifiant', cell: (a) => (a.oidc ? `${a.username} (Microsoft)` : a.username) },
   {
     header: 'Rôle',
     cell: (a) => (

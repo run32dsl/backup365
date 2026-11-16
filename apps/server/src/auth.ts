@@ -32,6 +32,7 @@ export interface Session {
   username: string;
   role: Role;
   mustChangePassword: boolean;
+  oidc: boolean;
   csrfToken: string;
 }
 
@@ -217,9 +218,12 @@ export class AuthService {
     this.throttle.begin(keys);
     try {
       // Compte inconnu : même travail qu'un compte connu, pour ne pas révéler son existence.
-      const stored = account?.passwordHash ?? (await this.dummyHash);
-      const matches =
+      const stored = account?.passwordHash || (await this.dummyHash);
+      const computed =
         password.length <= MAX_PASSWORD_LENGTH && (await verifyPassword(password, stored));
+      // Compte Microsoft : l'empreinte factice (publique) sert au temps de calcul seulement ;
+      // aucun mot de passe ne doit l'ouvrir.
+      const matches = computed && !account?.oidc;
       if (!account || !matches) {
         this.throttle.fail(keys);
         return { ok: false, reason: 'bad_credentials', ...(account ? { account } : {}) };
@@ -263,6 +267,7 @@ export class AuthService {
       username: account.username,
       role: account.role,
       mustChangePassword: account.mustChangePassword,
+      oidc: account.oidc,
       csrfToken: session.csrfToken,
     };
   }

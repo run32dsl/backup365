@@ -155,6 +155,27 @@ export const SCREENS = [
       await page.getByRole('alert').waitFor();
     },
   },
+  {
+    // Le bouton « Se connecter avec un compte Microsoft » figure déjà sur `connexion` (fournisseur
+    // simulé de la démo) ; ici le clic aboutit à la console, sous le compte Microsoft simulé.
+    name: 'connexion-microsoft',
+    hash: '',
+    role: null,
+    prepare: async (page) => {
+      await page.getByRole('link', { name: 'Se connecter avec un compte Microsoft' }).click();
+      await page.getByRole('heading', { name: 'Tableau de bord' }).waitFor();
+    },
+  },
+  {
+    // Retour refusé (aucun groupe reconnu) : l'adresse d'arrivée porte le code, simulé ici.
+    name: 'connexion-microsoft-refusee',
+    hash: '',
+    role: null,
+    prepare: async (page) => {
+      await page.goto('/?oidc_error=no_group');
+      await page.getByRole('status').filter({ hasText: 'aucun groupe autorisé' }).waitFor();
+    },
+  },
   { name: 'tableau-de-bord', hash: '#/', role: 'admin' },
   {
     name: 'recherche',

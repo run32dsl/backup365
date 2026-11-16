@@ -96,6 +96,16 @@ export const ACCOUNT_MIGRATIONS: readonly Migration[] = [
       );
     `,
   },
+  {
+    version: 2,
+    name: 'oidc-accounts',
+    // Compte de connexion Microsoft : identifiant d'objet Entra, sans mot de passe local.
+    sql: `
+      ALTER TABLE accounts ADD COLUMN oidc_subject TEXT;
+      CREATE UNIQUE INDEX accounts_oidc_subject ON accounts (oidc_subject)
+        WHERE oidc_subject IS NOT NULL;
+    `,
+  },
 ];
 
 /**
