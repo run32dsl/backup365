@@ -15,15 +15,25 @@ export function DemoBanner({ demo }: { demo: boolean }) {
 }
 
 /** Interroge `/api/health` une fois : seul le serveur sait s'il est en mode démo, et sa version. */
-export function useHealth(): HealthResponse | null {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
+export type HealthState = HealthResponse | null | 'failed';
+
+/** `null` : réponse pas encore reçue (état inconnu), à ne pas confondre avec « hors démo ». */
+export function demoOf(health: HealthState): boolean | null {
+  if (health === null) return null;
+  return health !== 'failed' && health.demo === true;
+}
+
+export function useHealth(): HealthState {
+  const [health, setHealth] = useState<HealthState>(null);
   useEffect(() => {
     let current = true;
     fetchHealth().then(
       (h) => {
         if (current) setHealth(h);
       },
-      () => undefined,
+      () => {
+        if (current) setHealth('failed');
+      },
     );
     return () => {
       current = false;

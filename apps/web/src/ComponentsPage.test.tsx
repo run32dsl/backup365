@@ -1,6 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { screenFor, screenOf } from './App.js';
+import { demoOf } from './DemoBanner.js';
 import { ComponentsPage, SECTIONS, UnavailableView, goToSection } from './ComponentsPage.js';
 
 describe('#/composants', () => {
@@ -10,6 +11,17 @@ describe('#/composants', () => {
     expect(screenFor('#/composants', false, true)).toBe('components');
     expect(screenFor('#/composants', true, false)).toBe('unavailable');
     expect(screenFor('#/composants', true)).toBe('unavailable');
+  });
+
+  it('shows nothing until the server has said whether it is in demo mode', () => {
+    expect(screenFor('#/composants', true, null)).toBe('pending');
+    expect(screenFor('#/comptes', true, null)).toBe('accounts');
+  });
+
+  it('keeps the page unavailable when the health request failed', () => {
+    expect(demoOf('failed')).toBe(false);
+    expect(demoOf(null)).toBeNull();
+    expect(screenFor('#/composants', true, demoOf('failed'))).toBe('unavailable');
   });
 
   it('shows the page unavailable outside demo mode, with a way home', () => {

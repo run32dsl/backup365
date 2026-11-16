@@ -38,8 +38,8 @@ export function DataTable<T>({
       <caption className={hideCaption ? 'sr-only' : 'table-caption'}>{caption}</caption>
       <thead role="rowgroup">
         <tr role="row">
-          {columns.map((c) => (
-            <th key={c.header} scope="col" role="columnheader">
+          {columns.map((c, i) => (
+            <th key={i} scope="col" role="columnheader">
               {c.header}
             </th>
           ))}
@@ -48,8 +48,8 @@ export function DataTable<T>({
       <tbody role="rowgroup">
         {rows.map((row) => (
           <tr key={rowKey(row)} role="row">
-            {columns.map((c) => (
-              <td key={c.header} role="cell" data-label={c.header}>
+            {columns.map((c, i) => (
+              <td key={i} role="cell" data-label={c.header}>
                 {c.cell(row)}
               </td>
             ))}

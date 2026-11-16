@@ -2,10 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AccountsPage } from './AccountsPage.js';
 import { ROLE_LABELS } from './accounts.js';
 import { AuditPage } from './AuditPage.js';
-import type { HealthResponse } from '@backup365/core';
 import { ComponentsPage, UnavailableView } from './ComponentsPage.js';
 import { ConsoleFooter } from './ConsoleFooter.js';
-import { DemoBanner, useHealth } from './DemoBanner.js';
+import { DemoBanner, demoOf, useHealth, type HealthState } from './DemoBanner.js';
 import { Home } from './Home.js';
 import { CredentialsPage, ErrorView, PasswordPage } from './LoginPage.js';
 import { MailPage } from './MailPage.js';
@@ -52,10 +51,11 @@ export function screenOf(
 export function screenFor(
   hash: string,
   admin: boolean,
-  demo = false,
-): ReturnType<typeof screenOf> | 'forbidden' | 'unavailable' {
+  demo: boolean | null = false,
+): ReturnType<typeof screenOf> | 'forbidden' | 'unavailable' | 'pending' {
   const screen = screenOf(hash);
-  if (screen === 'components') return demo ? screen : 'unavailable';
+  // `null` : le serveur n'a pas encore dit s'il est en démo ; rien n'est affiché plutôt qu'un avis faux.
+  if (screen === 'components') return demo === null ? 'pending' : demo ? screen : 'unavailable';
   return screen === 'accounts' && !admin ? 'forbidden' : screen;
 }
 
@@ -215,13 +215,13 @@ export function ConsoleView({
 export function Console({
   user,
   onLogout,
-  health = null,
+  health = 'failed',
 }: {
   user: User;
   onLogout: () => void;
-  health?: HealthResponse | null;
+  health?: HealthState;
 }) {
-  const demo = health?.demo === true;
+  const demo = demoOf(health);
   const [hash, setHash] = useState(window.location.hash);
   useEffect(() => {
     const onChange = () => {
@@ -252,7 +252,12 @@ export function Console({
         setMenuOpen(false);
       }}
       onLogout={onLogout}
-      footer={<ConsoleFooter version={health?.version} demo={demo} />}
+      footer={
+        <ConsoleFooter
+          version={typeof health === 'object' ? health?.version : undefined}
+          demo={demo === true}
+        />
+      }
     >
       {screen === 'components' && <ComponentsPage />}
       {screen === 'unavailable' && <UnavailableView />}
@@ -278,13 +283,13 @@ export function App() {
   const health = useHealth();
   return (
     <>
-      <DemoBanner demo={health?.demo === true} />
+      <DemoBanner demo={demoOf(health) === true} />
       <AppGate health={health} />
     </>
   );
 }
 
-function AppGate({ health }: { health: HealthResponse | null }) {
+function AppGate({ health }: { health: HealthState }) {
   const [gate, setGate] = useState<Gate>({ status: 'loading' });
   const apply = (next: Gate) => {
     setCsrfToken(next.status === 'ready' ? next.session.csrfToken : null);

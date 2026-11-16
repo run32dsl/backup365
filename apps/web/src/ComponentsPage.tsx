@@ -1,6 +1,4 @@
 import { useState, type MouseEvent, type ReactNode } from 'react';
-const RGPD_REMINDER =
-  'Chaque consultation, export ou restauration est inscrite au journal d’audit.';
 import {
   Alert,
   Button,
@@ -13,6 +11,9 @@ import {
   type Column,
   type PillStatus,
 } from './ui/index.js';
+
+const RGPD_REMINDER =
+  'Chaque consultation, export ou restauration est inscrite au journal d’audit.';
 
 /** Sections de la page, dans l'ordre du sommaire. */
 export const SECTIONS = [

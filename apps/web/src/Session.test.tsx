@@ -317,6 +317,23 @@ describe('textes restants de la maquette de #22', () => {
     expect(html).toContain('>Se déconnecter</button>');
   });
 
+  it('passes the health response to the footer and shows nothing on #/composants while it is unknown', () => {
+    const user = { id: 1, username: 'marie', role: 'operator' as const, mustChangePassword: false };
+    const render = (hash: string, health: Parameters<typeof Console>[0]['health']) => {
+      vi.stubGlobal('window', { location: { hash }, addEventListener: () => undefined });
+      const html = renderToString(
+        <Console user={user} onLogout={() => undefined} health={health} />,
+      );
+      vi.unstubAllGlobals();
+      return html;
+    };
+    const demo = render('', { demo: true, version: '1.2.3' } as never);
+    expect(demo.replaceAll('<!-- -->', '')).toContain('Version 1.2.3');
+    expect(demo).toContain('Composants</a>');
+    expect(render('#/composants', null)).not.toContain('Page non disponible');
+    expect(render('#/composants', 'failed')).toContain('Page non disponible');
+  });
+
   it('renders a labelled main navigation with one current entry and a closed menu', () => {
     const user = { id: 1, username: 'marie', role: 'operator' as const, mustChangePassword: false };
     vi.stubGlobal('window', { location: { hash: '' }, addEventListener: () => undefined });
