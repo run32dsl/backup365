@@ -3,6 +3,7 @@ import {
   nextRunAt,
   type ComplianceState,
   type DataType,
+  type NoSnapshotReason,
   type PlanScope,
   type RpoHours,
   type RunStatus,
@@ -22,9 +23,18 @@ export interface PlanItem {
   retentionDays: number;
   gdprJustification: string;
   createdAt: string;
-  compliance: { state: ComplianceState; lastSuccessAt: string | null };
+  compliance: {
+    state: ComplianceState;
+    lastSuccessAt: string | null;
+    lastRestorePointAt: string | null;
+  };
   running: boolean;
-  lastRun: { status: RunStatus; startedAt: string; finishedAt: string | null } | null;
+  lastRun: {
+    status: RunStatus;
+    startedAt: string;
+    finishedAt: string | null;
+    noSnapshotReason: NoSnapshotReason | null;
+  } | null;
 }
 
 export interface Mailbox {
@@ -245,8 +255,12 @@ export const timeOf = (date: Date): string => `${pad(date.getHours())}:${pad(dat
 
 /** Conformité en pastille : jamais la couleur seule (icône et texte dans `StatusPill`). */
 export function complianceView(plan: PlanItem): { status: PillStatus; label: string } {
-  const { state, lastSuccessAt } = plan.compliance;
-  if (state === 'compliant') return { status: 'compliant', label: 'Conforme' };
+  const { state, lastSuccessAt, lastRestorePointAt } = plan.compliance;
+  if (state === 'compliant') {
+    // Réussi, mais sans point de restauration : rien n'était à sauvegarder (issue #80).
+    const label = lastRestorePointAt === null ? 'Conforme : rien à restaurer' : 'Conforme';
+    return { status: 'compliant', label };
+  }
   if (lastSuccessAt === null) {
     return { status: 'failed', label: 'Non conforme : aucune sauvegarde réussie' };
   }
@@ -259,6 +273,9 @@ export function lastRunLabel(plan: PlanItem): string {
   const run = plan.lastRun;
   if (!run) return 'Pas encore sauvegardé';
   const at = shortDate(run.finishedAt ?? run.startedAt);
+  if (run.status === 'success' && run.noSnapshotReason === 'no_content') {
+    return `Succès, aucun contenu à sauvegarder, ${at}`;
+  }
   return `${run.status === 'success' ? 'Réussie' : 'Échec'}, ${at}`;
 }
 

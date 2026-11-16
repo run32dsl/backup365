@@ -98,10 +98,20 @@ export function registerPlanRoutes(
             };
       return {
         ...visible,
-        compliance: planCompliance(plan.rpoHours, runs, now),
+        // Le point de restauration se lit sur tout l'historique : 200 réussites vides de suite
+        // ne doivent pas faire oublier un vrai point plus ancien.
+        compliance: {
+          ...planCompliance(plan.rpoHours, runs, now),
+          lastRestorePointAt: ctx.plans.lastRestorePointAt(plan.id),
+        },
         running: runs.some((r) => r.status === 'running'),
         lastRun: last
-          ? { status: last.status, startedAt: last.startedAt, finishedAt: last.finishedAt }
+          ? {
+              status: last.status,
+              startedAt: last.startedAt,
+              finishedAt: last.finishedAt,
+              noSnapshotReason: last.noSnapshotReason,
+            }
           : null,
       };
     });

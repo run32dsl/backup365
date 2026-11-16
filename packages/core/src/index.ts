@@ -61,6 +61,7 @@ export {
   type Compliance,
   type ComplianceState,
   type DataType,
+  type NoSnapshotReason,
   type PlanParseResult,
   type PlanRun,
   type PlanScope,

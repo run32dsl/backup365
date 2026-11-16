@@ -1,4 +1,4 @@
-import { nextRunAt, runIntervalMinutes } from '@backup365/core';
+import { nextRunAt, runIntervalMinutes, type NoSnapshotReason } from '@backup365/core';
 import type { SqlitePlanStore, StoredPlan } from './sqlite/sqlite-plan-store.js';
 
 /** Ce que le planificateur demande à l'exécuteur : un plan sur un élément, rien d'autre. */
@@ -12,7 +12,12 @@ export interface ExecutionTarget {
  * technique est conservé (jamais le message, qui pourrait citer un contenu ou un secret).
  */
 export interface Executeur {
-  execute(target: ExecutionTarget): Promise<void>;
+  execute(target: ExecutionTarget): Promise<ExecutionResult | void>;
+}
+
+/** Issue d'une exécution réussie. `no_content` : rien à sauvegarder, donc aucun point de restauration. */
+export interface ExecutionResult {
+  noSnapshotReason?: NoSnapshotReason;
 }
 
 /** Exécuteur simulé : réussit aussitôt. L'exécution réelle vient avec la sous-issue 4 de #49. */
@@ -191,8 +196,14 @@ export class PlanScheduler {
   private async execute(planId: string, itemId: string, runId: number): Promise<void> {
     const { plans, executeur, logger } = this.options;
     try {
-      await executeur.execute({ planId, itemId });
-      plans.finishRun(runId, 'success', this.now().toISOString());
+      const result = await executeur.execute({ planId, itemId });
+      plans.finishRun(
+        runId,
+        'success',
+        this.now().toISOString(),
+        undefined,
+        result?.noSnapshotReason,
+      );
       logger.info({ planId, itemId, runId }, 'exécution terminée');
     } catch (err) {
       const code = errorCode(err);

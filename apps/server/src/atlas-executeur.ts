@@ -1,6 +1,6 @@
 import { createAtlasInstance, type AtlasInstanceConfig } from '@wisecom/atlas-sdk';
 import type { M365Config, StorageConfig } from './config.js';
-import type { Executeur, ExecutionTarget } from './plan-scheduler.js';
+import type { Executeur, ExecutionResult, ExecutionTarget } from './plan-scheduler.js';
 
 /** Ce que l'exécuteur lit d'un résultat du SDK : l'interruption et la santé du résumé. */
 export interface MailOutcome {
@@ -10,7 +10,11 @@ export interface MailOutcome {
 /** OneDrive et SharePoint : `healthy` est faux si une erreur a été rencontrée. */
 export interface DriveOutcome {
   readonly interrupted: boolean;
-  readonly summary: { readonly healthy: boolean };
+  readonly summary: {
+    readonly healthy: boolean;
+    /** Présent quand une exécution saine n'a créé aucun point de restauration. */
+    readonly noSnapshotReason?: string | undefined;
+  };
 }
 type BackupOutcome = MailOutcome | DriveOutcome;
 
@@ -41,7 +45,8 @@ export interface AtlasExecuteurOptions {
   isSite: (itemId: string) => Promise<boolean>;
 }
 
-function check(outcomes: readonly BackupOutcome[]): void {
+/** Lève sur un échec ; rend `true` si aucun résultat n'a créé de point de restauration. */
+function check(outcomes: readonly BackupOutcome[]): boolean {
   // Le SDK rend un résultat par site sauvegardé, racine en tête : aucun résultat veut dire que
   // rien n'a été sauvegardé, ce n'est pas un succès.
   if (outcomes.length === 0) throw new BackupRunError('no_result');
@@ -51,7 +56,13 @@ function check(outcomes: readonly BackupOutcome[]): void {
     const unhealthy = 'healthy' in summary ? !summary.healthy : summary.folderErrors.length > 0;
     if (unhealthy) throw new BackupRunError('backup_errors');
   }
+  // La messagerie ne dit pas pourquoi elle n'a pas de point : elle compte comme en ayant un.
+  return outcomes.every(
+    (o) => 'healthy' in o.summary && o.summary.noSnapshotReason === 'no_content',
+  );
 }
+
+const NO_CONTENT: ExecutionResult = { noSnapshotReason: 'no_content' };
 
 /**
  * Exécuteur réel (ADR 0009) : un site est sauvegardé par `sharepoint.backup` ; un propriétaire par
@@ -63,25 +74,26 @@ function check(outcomes: readonly BackupOutcome[]): void {
 export class AtlasExecuteur implements Executeur {
   constructor(private readonly options: AtlasExecuteurOptions) {}
 
-  async execute(target: ExecutionTarget): Promise<void> {
+  async execute(target: ExecutionTarget): Promise<ExecutionResult> {
     const { api, isSite } = this.options;
     if (await isSite(target.itemId)) {
-      check(await api.sharepoint.backup(target.itemId));
-      return;
+      return check(await api.sharepoint.backup(target.itemId)) ? NO_CONTENT : {};
     }
     const steps = [
       () => api.outlook.backup(target.itemId),
       () => api.onedrive.backup(target.itemId),
     ];
     let failure: unknown;
+    let empty = true;
     for (const step of steps) {
       try {
-        check([await step()]);
+        empty = check([await step()]) && empty;
       } catch (err) {
         failure ??= err;
       }
     }
     if (failure !== undefined) throw failure;
+    return empty ? NO_CONTENT : {};
   }
 }
 

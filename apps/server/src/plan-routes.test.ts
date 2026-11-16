@@ -66,7 +66,7 @@ describe('API des plans', () => {
     );
     expect(before.items[0]).toMatchObject({
       dataTypes: ['mail', 'contacts'],
-      compliance: { state: 'late', lastSuccessAt: null },
+      compliance: { state: 'late', lastSuccessAt: null, lastRestorePointAt: null },
       running: false,
       lastRun: null,
     });
@@ -77,7 +77,17 @@ describe('API des plans', () => {
     }>();
     expect(after.items[0]).toMatchObject({
       compliance: { state: 'compliant' },
-      lastRun: { status: 'success' },
+      lastRun: { status: 'success', noSnapshotReason: null },
+    });
+    const emptyId = plans.startRun(plan.id, 'b', new Date().toISOString()) as number;
+    plans.finishRun(emptyId, 'success', new Date().toISOString(), undefined, 'no_content');
+    const empty = (await send(app, 'GET', '/api/plans')).json<{
+      items: Record<string, unknown>[];
+    }>();
+    expect(empty.items[0]).toMatchObject({
+      // Le premier succès (ordinaire) reste le dernier point de restauration.
+      compliance: { state: 'compliant', lastRestorePointAt: expect.any(String) },
+      lastRun: { status: 'success', noSnapshotReason: 'no_content' },
     });
   });
 

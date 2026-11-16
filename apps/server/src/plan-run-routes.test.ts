@@ -118,6 +118,26 @@ describe('historique et lancement manuel', () => {
     expect(items.map((r) => r.itemId)).toEqual(['b', 'a']);
   });
 
+  it('exposes the no_content reason of a run', async () => {
+    const { app, plan, plans } = setup();
+    const at = '2026-03-01T10:00:00.000Z';
+    plans.finishRun(
+      plans.startRun(plan.id, 'a', at) as number,
+      'success',
+      at,
+      undefined,
+      'no_content',
+    );
+    plans.finishRun(plans.startRun(plan.id, 'b', at) as number, 'success', at);
+    const items = (await runs(app, plan.id)).json<{
+      items: { itemId: string; noSnapshotReason: string | null }[];
+    }>().items;
+    expect(items.map((r) => [r.itemId, r.noSnapshotReason])).toEqual([
+      ['b', null],
+      ['a', 'no_content'],
+    ]);
+  });
+
   it('answers 503 when the plan items cannot be read', async () => {
     const { plan, plans } = setup();
     const broken = new PlanScheduler({

@@ -137,6 +137,33 @@ describe('planificateur', () => {
     expect(calls.map((c) => c.itemId)).toEqual(['b', 'a', 'b']);
   });
 
+  it('stores the no_content reason with a successful run', async () => {
+    const { plans, plan, make } = setup({
+      selection: ['a'],
+      executeur: { execute: () => Promise.resolve({ noSnapshotReason: 'no_content' }) },
+    });
+    await make().tick();
+    expect(plans.listRuns(plan.id, 10)[0]).toMatchObject({
+      status: 'success',
+      noSnapshotReason: 'no_content',
+    });
+  });
+
+  it('stores no reason for an ordinary success or a failure', async () => {
+    const ok = setup({ selection: ['a'] });
+    await ok.make().tick();
+    expect(ok.plans.listRuns(ok.plan.id, 10)[0]?.noSnapshotReason).toBeNull();
+    const ko = setup({
+      selection: ['a'],
+      executeur: { execute: () => Promise.reject(new Error('x')) },
+    });
+    await ko.make().tick();
+    expect(ko.plans.listRuns(ko.plan.id, 10)[0]).toMatchObject({
+      status: 'failed',
+      noSnapshotReason: null,
+    });
+  });
+
   it('never runs twice at once on the same item', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => (release = resolve));

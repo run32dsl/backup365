@@ -110,6 +110,33 @@ export const SCREENS = [
     },
   },
   {
+    // Le mode démo simule l'exécution : la réponse est modifiée pour montrer une réussite sans
+    // point de restauration (ressource vide, issue #80).
+    name: 'plans-liste-aucun-contenu',
+    hash: '#/plans',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/plans', async (route) => {
+        const res = await route.fetch();
+        const body = await res.json();
+        for (const plan of body.items) {
+          const at = new Date().toISOString();
+          plan.running = false;
+          plan.compliance = { state: 'compliant', lastSuccessAt: at, lastRestorePointAt: null };
+          plan.lastRun = {
+            status: 'success',
+            startedAt: at,
+            finishedAt: at,
+            noSnapshotReason: 'no_content',
+          };
+        }
+        await route.fulfill({ response: res, json: body });
+      });
+      await page.reload();
+      await page.getByRole('table').waitFor();
+    },
+  },
+  {
     name: 'plans-liste-operateur',
     hash: '#/plans',
     role: 'operator',
