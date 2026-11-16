@@ -812,3 +812,82 @@ a.btn-secondary {
     width: 100%;
   }
 }
+
+/* Restauration SharePoint : arborescence du site, barre de progression */
+.site-tree {
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+  max-height: 20rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.site-node {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--border-soft);
+  cursor: pointer;
+}
+.site-node:last-child {
+  border-bottom: 0;
+}
+.button-row + .field-help {
+  margin-top: var(--space-3);
+}
+.btn.is-inactive {
+  opacity: 0.6;
+}
+.site-node[aria-disabled='true'] {
+  color: var(--muted);
+  cursor: default;
+}
+.site-node.is-selected {
+  background: var(--info-bg);
+  color: var(--info-fg);
+  font-weight: 600;
+}
+.site-node-meta {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.site-node.is-selected .site-node-meta {
+  color: inherit;
+}
+.progress {
+  height: 0.75rem;
+  margin: 0 0 var(--space-3);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.progress-bar {
+  display: block;
+  width: 35%;
+  height: 100%;
+  background: var(--accent);
+  animation: slide 1.4s ease-in-out infinite alternate;
+}
+@keyframes slide {
+  to {
+    transform: translateX(185%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar {
+    width: 100%;
+    animation: none;
+  }
+}
+@media (max-width: 40rem) {
+  .site-node-meta {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+}

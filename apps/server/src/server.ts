@@ -18,6 +18,7 @@ import {
 import { AuthService } from './auth.js';
 import { DriveRestoreService } from './drive-restore-service.js';
 import { RestoreService } from './restore-service.js';
+import { SiteRestoreService } from './site-restore-service.js';
 import { PlanScheduler, executeurSimule } from './plan-scheduler.js';
 import {
   AtlasExecuteur,
@@ -31,6 +32,7 @@ import {
   assertNoRealStorage,
   createDemoDriveRestorer,
   createDemoRestorer,
+  createDemoSiteRestorer,
   DEMO_STORAGE,
   demoFactory,
   isDemo,
@@ -189,6 +191,16 @@ export function createServer(
         })
       : undefined;
 
+  const siteRestoreService =
+    demo && openedAudit.audit
+      ? new SiteRestoreService({
+          restorer: createDemoSiteRestorer(),
+          audit: openedAudit.audit,
+          onError: (code) =>
+            app.log.error({ code }, 'restauration SharePoint : consignation en échec'),
+        })
+      : undefined;
+
   const app = buildApp({
     version,
     logger: {
@@ -216,6 +228,8 @@ export function createServer(
     ...(restoreService ? { restore: restoreService } : {}),
     ...(startup.status === 'ready' ? { drive: startup.atlas.drive } : {}),
     ...(driveRestoreService ? { driveRestore: driveRestoreService } : {}),
+    ...(startup.status === 'ready' ? { site: startup.atlas.site } : {}),
+    ...(siteRestoreService ? { siteRestore: siteRestoreService } : {}),
     backupConfigured: executeur !== undefined,
     trustProxy,
     ...(demo ? { demo } : {}),

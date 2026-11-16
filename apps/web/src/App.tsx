@@ -10,6 +10,8 @@ import { CredentialsPage, ErrorView, PasswordPage } from './LoginPage.js';
 import { MailPage } from './MailPage.js';
 import { OneDrivePage } from './OneDrivePage.js';
 import { parseOneDriveHash } from './onedrive.js';
+import { SharePointPage } from './SharePointPage.js';
+import { parseSharePointHash } from './sharepoint.js';
 import { SearchPage } from './SearchPage.js';
 import { parseMailHash } from './mail.js';
 import { PlansPage } from './PlansPage.js';
@@ -35,7 +37,8 @@ import {
 /**
  * Écran demandé par l'ancre de l'URL : `#/audit` le journal, `#/search` la recherche,
  * `#/comptes` les comptes, `#/password` le changement de mot de passe, `#/mail/<boîte>/<message>`
- * la fiche d'un mail, `#/onedrive/<compte>/<chemin>` la restauration OneDrive, tout le reste
+ * la fiche d'un mail, `#/onedrive/<compte>/<chemin>` la restauration OneDrive,
+ * `#/sharepoint/<site>/<granularité>` la restauration SharePoint, tout le reste
  * l'accueil.
  */
 export function screenOf(
@@ -49,9 +52,11 @@ export function screenOf(
   | 'components'
   | 'mail'
   | 'onedrive'
+  | 'sharepoint'
   | 'home' {
   if (parsePlansHash(hash)) return 'plans';
   if (parseOneDriveHash(hash)) return 'onedrive';
+  if (parseSharePointHash(hash)) return 'sharepoint';
   if (hash === '#/audit') return 'audit';
   if (hash === '#/search') return 'search';
   if (hash === '#/comptes') return 'accounts';
@@ -76,7 +81,7 @@ export function screenFor(
 }
 
 /**
- * Entrées de la navigation principale (6 au plus) : seules les entrées livrées apparaissent.
+ * Entrées de la navigation principale (7 au plus) : seules les entrées livrées apparaissent.
  * Administration (comptes) est réservée aux administrateurs.
  */
 export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean) {
@@ -88,6 +93,7 @@ export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean)
       current: screen === 'search' || screen === 'mail',
     },
     { href: '#/onedrive', label: 'OneDrive', current: screen === 'onedrive' },
+    { href: '#/sharepoint', label: 'SharePoint', current: screen === 'sharepoint' },
     { href: '#/plans', label: 'Plans de protection', current: screen === 'plans' },
     { href: '#/audit', label: 'Journal d’audit', current: screen === 'audit' },
   ];
@@ -289,6 +295,13 @@ export function Console({
         <PasswordPage forced={false} onDone={() => undefined} onCancel={goHome} />
       )}
       {screen === 'mail' && mail && <MailPage key={hash} {...mail} />}
+      {screen === 'sharepoint' && (
+        <SharePointPage
+          key={hash}
+          route={parseSharePointHash(hash) ?? { site: '', scope: null }}
+          admin={admin}
+        />
+      )}
       {screen === 'onedrive' && (
         <OneDrivePage route={parseOneDriveHash(hash) ?? { account: '', path: '/' }} />
       )}

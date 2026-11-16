@@ -20,8 +20,8 @@ s'authentifier simplement. Le SSO Microsoft (OIDC Entra ID) viendra dans une iss
   réclamer une mémoire démesurée). 12 à 256 caractères. Aucune dépendance ajoutée.
 - **Rôles** : `admin` (comptes, plans, restaurations) et `operator` (consultation, export,
   restauration avec motif). Seule la gestion des comptes est aujourd'hui réservée à
-  l'administrateur ; les plans le sont depuis l'ADR 0009, la restauration d'un mail et celle d'un
-  fichier OneDrive sont ouvertes aux deux rôles (ADR 0012 et 0013).
+  l'administrateur ; les plans le sont depuis l'ADR 0009, la restauration d'un mail, d'un fichier
+  OneDrive et d'une partie d'un site SharePoint sont ouvertes aux deux rôles (ADR 0012, 0013 et 0014) ; celle du site SharePoint entier est réservée à l'administrateur (ADR 0014).
 - **Premier administrateur** : `POST /api/auth/setup`, publique, ne réussit que si aucun compte
   n'existe (une seule instruction SQL `INSERT … WHERE NOT EXISTS`, donc sans course) ; 409
   ensuite. `GET /api/auth/setup-status` indique si l'écran de création doit s'afficher. Aucun mot

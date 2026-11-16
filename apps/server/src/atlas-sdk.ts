@@ -1,5 +1,6 @@
 import { createAtlasInstance, type AtlasInstanceConfig } from '@wisecom/atlas-sdk';
 import { AtlasSdkDriveBrowser, type AtlasDriveReader } from './atlas-drive.js';
+import { AtlasSdkSiteBrowser, type AtlasSiteReader } from './atlas-site.js';
 import { AtlasSdkCatalog, type AtlasCatalogOptions, type AtlasSdkReader } from './atlas-catalog.js';
 import { AtlasSdkMailContentReader, type AtlasMessageReader } from './atlas-mail-content.js';
 import { AtlasSdkSnapshotMailReader, type AtlasManifestReader } from './atlas-mail-index.js';
@@ -18,6 +19,7 @@ export interface AtlasHandle extends AtlasSdkReader {
     AtlasMessageReader['outlook'] &
     AtlasManifestReader['outlook'];
   onedrive: AtlasSdkReader['onedrive'] & AtlasDriveReader['onedrive'];
+  sharepoint: AtlasSdkReader['sharepoint'] & AtlasSiteReader['sharepoint'];
   dispose(): Promise<void>;
 }
 
@@ -51,12 +53,14 @@ export function createAtlasCatalog(
   content: AtlasSdkMailContentReader;
   reader: AtlasSdkSnapshotMailReader;
   drive: AtlasSdkDriveBrowser;
+  site: AtlasSdkSiteBrowser;
   dispose: () => Promise<void>;
 } {
   const atlas = factory(toAtlasConfig(storage));
   return {
     catalog: new AtlasSdkCatalog(atlas, options),
     drive: new AtlasSdkDriveBrowser(atlas),
+    site: new AtlasSdkSiteBrowser(atlas),
     content: new AtlasSdkMailContentReader(atlas),
     reader: new AtlasSdkSnapshotMailReader(atlas),
     dispose: () => atlas.dispose(),

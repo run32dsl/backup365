@@ -79,6 +79,60 @@ export async function launchDriveRestore(page) {
   await page.getByRole('button', { name: 'Lancer la restauration' }).click();
 }
 
+/** Libellé du champ de précision du motif de l'écran SharePoint. */
+export const SITE_DETAIL_LABEL = 'Précision (obligatoire)';
+
+/** Sites fictifs (voir `DEMO_SITES` de apps/server/src/demo.ts). */
+export const SITES = {
+  commerce: 'site-equipe-commerciale',
+  rh: 'site-ressources-humaines',
+  atelier: 'site-projet-atelier',
+};
+
+/**
+ * Ouvre l'écran « Restaurer SharePoint » d'un site, pour une granularité. La démo refuse deux
+ * restaurations simultanées d'un même site : une capture « en cours » laisse la restauration
+ * tourner 2 s, les captures qui lancent une restauration utilisent donc des sites distincts.
+ * `plan-b.pdf` échoue dans la démo (voir `createDemoSiteRestorer`).
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} site identifiant du site (`SITES`)
+ * @param {'item' | 'folder' | 'library' | 'site'} scope
+ */
+export async function openSite(page, site, scope = 'item') {
+  await page.goto(`/#/sharepoint/${site}/${scope}`);
+  await page.getByRole('heading', { name: 'Restaurer SharePoint' }).waitFor();
+  await page.getByText('Étape 1 sur 3').waitFor();
+}
+
+/** Ouvre, dans l'arborescence, les dossiers de la liste, puis (facultatif) choisit le fichier. */
+export async function browseSite(page, ...names) {
+  for (const name of names) {
+    await page.getByRole('treeitem', { name: new RegExp(name, 'u') }).click();
+  }
+}
+
+/** Passe à l'étape suivante. */
+export async function continueStep(page) {
+  await page.getByRole('button', { name: 'Continuer' }).click();
+}
+
+/** Étape « Motif » : liste par défaut et précision saisie. */
+export async function giveSiteReason(page) {
+  await page.getByRole('heading', { name: 'Pourquoi cette restauration ?' }).waitFor();
+  await page.getByLabel(SITE_DETAIL_LABEL).fill('Dossier supprimé par erreur');
+}
+
+/** Choisit un chemin, donne le motif et arrive au récapitulatif. */
+export async function reachSiteSummary(page, site, scope, ...names) {
+  await openSite(page, site, scope);
+  await browseSite(page, ...names);
+  await continueStep(page);
+  await giveSiteReason(page);
+  await continueStep(page);
+  await page.getByRole('heading', { name: 'Vérifiez avant de restaurer' }).waitFor();
+}
+
 /** @type {Screen[]} */
 export const SCREENS = [
   { name: 'connexion', hash: '', role: null },
@@ -370,6 +424,97 @@ export const SCREENS = [
       await chooseDriveFile(page, 'previsions.xlsx');
       await launchDriveRestore(page);
       await page.getByText(/La restauration a échoué/u).waitFor();
+    },
+  },
+  {
+    name: 'sharepoint-choisir',
+    hash: '#/sharepoint',
+    role: 'operator',
+    prepare: async (page) => {
+      await openSite(page, SITES.commerce, 'item');
+      await browseSite(page, 'Documents partagés', 'Plans 2024', 'plan-a.pdf');
+    },
+  },
+  {
+    name: 'sharepoint-motif',
+    hash: '#/sharepoint',
+    role: 'operator',
+    prepare: async (page) => {
+      await openSite(page, SITES.commerce, 'library');
+      await browseSite(page, 'Documents partagés');
+      await continueStep(page);
+      await giveSiteReason(page);
+    },
+  },
+  {
+    name: 'sharepoint-recapitulatif',
+    hash: '#/sharepoint',
+    role: 'operator',
+    prepare: async (page) => {
+      await reachSiteSummary(page, SITES.commerce, 'library', 'Documents partagés');
+      await page.getByText(/\d+ éléments?, /u).waitFor();
+    },
+  },
+  {
+    name: 'sharepoint-site-entier',
+    hash: '#/sharepoint',
+    role: 'admin',
+    prepare: async (page) => {
+      await reachSiteSummary(page, SITES.commerce, 'site');
+      await page.getByRole('heading', { name: 'Vérifiez avant de restaurer' }).waitFor();
+    },
+  },
+  {
+    name: 'sharepoint-droits',
+    hash: '#/sharepoint',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.goto(`/#/sharepoint/${SITES.commerce}/site`);
+      await page.getByText(/Vous n’avez pas le droit de restaurer ce site/u).waitFor();
+    },
+  },
+  {
+    name: 'sharepoint-en-cours',
+    hash: '#/sharepoint',
+    role: 'operator',
+    prepare: async (page) => {
+      // Largeur étroite : un autre site, la restauration du 1280 px dure encore (voir `openSite`).
+      const narrow = (page.viewportSize()?.width ?? 1280) < 600;
+      await reachSiteSummary(
+        page,
+        narrow ? SITES.rh : SITES.commerce,
+        'library',
+        'Documents partagés',
+      );
+      await page.getByRole('button', { name: 'Restaurer la bibliothèque' }).click();
+      await page.getByRole('progressbar').waitFor();
+    },
+  },
+  {
+    name: 'sharepoint-terminee',
+    hash: '#/sharepoint',
+    role: 'operator',
+    prepare: async (page) => {
+      await reachSiteSummary(page, SITES.atelier, 'folder', 'Documents partagés', 'Contrats');
+      await page.getByRole('button', { name: 'Restaurer le dossier' }).click();
+      await page.getByText(/Restauration terminée en/u).waitFor();
+    },
+  },
+  {
+    name: 'sharepoint-echouee',
+    hash: '#/sharepoint',
+    role: 'operator',
+    prepare: async (page) => {
+      await reachSiteSummary(
+        page,
+        SITES.atelier,
+        'item',
+        'Documents partagés',
+        'Plans 2024',
+        'plan-b.pdf',
+      );
+      await page.getByRole('button', { name: 'Restaurer l’élément' }).click();
+      await page.getByText(/La restauration a échoué après/u).waitFor();
     },
   },
   {
