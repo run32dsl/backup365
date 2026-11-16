@@ -8,6 +8,7 @@ import {
 } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
 import { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
+import { ROLES, type Role } from './sqlite/sqlite-account-store.js';
 import { buildTestApp } from './test-support.js';
 import { parseMaxAgeHours, parseSiteCacheTtlMs, parseStatusWorkloads } from './config.js';
 
@@ -66,8 +67,8 @@ describe('GET /api/status', () => {
       const id = plans.startRun(planId, 'item', hoursAgo(1));
       plans.finishRun(id!, status, hoursAgo(0.9));
     };
-    const get = async (plans?: SqlitePlanStore) => {
-      const app = buildTestApp({ version: '1', catalog, ...(plans ? { plans } : {}) });
+    const get = async (plans?: SqlitePlanStore, role: Role = 'admin') => {
+      const app = buildTestApp({ version: '1', catalog, role, ...(plans ? { plans } : {}) });
       return (await app.inject({ method: 'GET', url: '/api/status' })).json<
         StatusReport & { plans?: PlanComplianceReport | null }
       >();
@@ -84,6 +85,26 @@ describe('GET /api/status', () => {
         ['Jamais lancé', 'late'],
         ['Échoué', 'failed'],
       ]);
+    });
+
+    it.each(ROLES.filter((role) => role !== 'admin'))(
+      'hides plan counts and names from the %s role, like /api/plans',
+      async (role) => {
+        const plans = SqlitePlanStore.open(':memory:');
+        finished(plans, plans.create(input('Échoué')).id, 'failed');
+        const app = buildTestApp({ version: '1', catalog, role, plans });
+        const res = await app.inject({ method: 'GET', url: '/api/status' });
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).not.toHaveProperty('plans');
+        expect(res.body).not.toContain('Échoué');
+        expect(res.json<StatusReport>().rows).toHaveLength(4);
+      },
+    );
+
+    it('hides the plans from a non-administrator even when the plan store fails', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      plans.close();
+      expect(await get(plans, 'operator')).not.toHaveProperty('plans');
     });
 
     it('reports zero everywhere when there is no plan', async () => {

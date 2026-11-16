@@ -52,8 +52,9 @@ export function registerStatusRoutes(
   scope.get('/api/status', async (req, reply) => {
     if (!catalog) return reply.code(503).send({ error: 'catalog_unavailable' });
     const catalogReport = await buildStatusReport(catalog, options.workloads, options.maxAgeHours);
-    // Conformité des plans (ADR 0009) ; absente sans base des plans, `null` si elle ne répond pas.
-    const store = indexing?.plans;
+    // Conformité des plans : réservée aux administrateurs comme `/api/plans` (ADR 0009), donc
+    // absente pour tout autre rôle ; absente sans base des plans, `null` si elle ne répond pas.
+    const store = req.session?.role === 'admin' ? indexing?.plans : undefined;
     const base = store
       ? { ...catalogReport, plans: planCompliance(store, req.log) }
       : catalogReport;
