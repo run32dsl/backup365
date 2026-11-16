@@ -34,19 +34,36 @@ plus solide, n'a pas d'interface d'exploitation.
 | 4         | SharePoint (bibliothèques de documents) |
 | 5         | Canaux Teams                            |
 | 6         | Agenda                                  |
-| plus tard | Chats Teams (opt-in), Entra ID          |
+| plus tard | Chats Teams (opt-in), annuaire Entra ID |
 
 ## MVP (10 décembre 2026)
 
-Une console web, sur une seule machine, qui :
+Périmètre revu par le Product Manager le 14 novembre 2026. Une console web, sur une seule
+machine. Par priorité :
 
-1. liste les tenants, les charges et les instantanés de sauvegarde (via le SDK d'Atlas) ;
-2. permet de **chercher un mail** par expéditeur, objet ou date et de l'**exporter en EML** ;
-3. affiche l'état de la dernière sauvegarde par charge (succès, avertissements, âge) ;
-4. journalise chaque consultation et export dans un journal d'audit ;
-5. s'installe avec un `compose.yaml` et une documentation d'une page.
+1. **Comptes locaux et rôles** (livré).
+2. **Plans de protection par objectifs** : RPO, RTO et conservation justifiée au regard du RGPD,
+   avec sauvegarde planifiée.
+3. **Restauration** d'un mail, puis d'un fichier OneDrive, puis d'un site SharePoint.
+4. **Connexion par compte Microsoft** (OIDC Entra ID).
 
-Hors MVP : restauration vers le tenant, authentification Entra, multi-tenant, rétention.
+Déjà livré : catalogue des tenants, charges et instantanés (via le SDK d'Atlas), recherche de
+mails et export EML journalisé, tableau de bord de l'état des sauvegardes, journal d'audit
+chaîné, installation avec un `compose.yaml`.
+
+Approche « objectifs » : l'utilisateur fixe ses objectifs et la configuration technique en
+découle. Interface légère, valeurs par défaut sûres, pas de forêt de réglages.
+
+Hors MVP : multi-tenant, SAML, chats Teams, sauvegarde d'Entra ID (l'annuaire, à ne pas
+confondre avec la connexion de la priorité 4).
+
+La restauration respecte le principe 3 : elle est désactivable et le mode lecture seule reste
+possible.
+
+## Organisation
+
+Deux voies de développement en parallèle ; chaque PR passe une revue automatique qui s'appuie
+sur des captures d'écran en mode démo.
 
 ## Rôles
 
