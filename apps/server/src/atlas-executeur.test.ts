@@ -53,6 +53,18 @@ describe('AtlasExecuteur', () => {
     expect(calls).toEqual(['sharepoint:site-1']);
   });
 
+  it('fails the run without calling the SDK when the catalog lookup throws', async () => {
+    const { api } = fakeApi();
+    const executeur = new AtlasExecuteur({
+      api,
+      isSite: () => Promise.reject(new Error('catalog unavailable')),
+    });
+    const err = await executeur.execute({ planId: 'p', itemId: 'x' }).catch((e: unknown) => e);
+    expect(errorCode(err)).toBe('Error');
+    expect(api.outlook.backup).not.toHaveBeenCalled();
+    expect(api.sharepoint.backup).not.toHaveBeenCalled();
+  });
+
   it('still tries OneDrive when mail fails, then rejects with the first error code', async () => {
     const { calls, executeur } = fakeApi({
       mail: () =>
