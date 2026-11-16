@@ -1,4 +1,4 @@
-import type { AuditEvent, DataType, MailRestorer } from '@backup365/core';
+import type { AuditEvent, DataType, DriveRestorer, MailRestorer } from '@backup365/core';
 import type { AtlasFactory, AtlasHandle } from './atlas-sdk.js';
 import type { StorageConfig } from './config.js';
 import { parseStorageConfig } from './config.js';
@@ -150,6 +150,36 @@ function eml(mail: DemoMail, to: string): Uint8Array {
   return Buffer.from(lines.join('\r\n'), 'utf8');
 }
 
+/** Arborescence OneDrive fictive, la même pour chaque compte (heures de modification : plus récent d'abord). */
+const DEMO_DRIVE = [
+  {
+    parent: '/Documents/Budget',
+    name: 'budget.xlsx',
+    sizeBytes: 84_000,
+    versionHours: [30, 130, 250],
+  },
+  { parent: '/Documents/Budget', name: 'previsions.xlsx', sizeBytes: 41_000, versionHours: [60] },
+  {
+    parent: '/Documents/Budget/2025',
+    name: 'bilan-2025.xlsx',
+    sizeBytes: 66_000,
+    versionHours: [300],
+  },
+  { parent: '/Documents', name: 'notes.docx', sizeBytes: 12_000, versionHours: [90, 200] },
+  { parent: '/Images', name: 'logo.png', sizeBytes: 23_000, versionHours: [500] },
+] as const;
+
+function driveEntries(now: number, backupHoursAgo: number) {
+  return DEMO_DRIVE.map((f) => ({
+    fileName: f.name,
+    parentPath: f.parent,
+    sizeBytes: f.sizeBytes,
+    lastModifiedAt: new Date(now - f.versionHours[0] * HOUR).toISOString(),
+    backupAt: new Date(now - backupHoursAgo * HOUR).toISOString(),
+    changeType: 'updated',
+  }));
+}
+
 /**
  * Faux SDK Atlas : trois instantanés mail par boîte (le plus ancien est incomplet), un instantané
  * OneDrive (périmé pour une boîte, ce qui allume une alerte sur le tableau de bord) et quelques
@@ -221,13 +251,34 @@ export function createDemoHandle(now: number = Date.now()): AtlasHandle {
         if (i < 0) return Promise.resolve([]);
         // La dernière boîte n'a pas été sauvegardée depuis trois jours.
         const age = i === DEMO_MAILBOXES.length - 1 ? 75 : 4;
-        return Promise.resolve([
-          {
-            snapshotId: `snap-od-${i + 1}-1`,
-            createdAt: new Date(now - age * HOUR),
-            totalFiles: 120 + i * 40,
-          },
-        ]);
+        return Promise.resolve(
+          [age, age + 30].map((hours, k) => ({
+            snapshotId: `snap-od-${i + 1}-${k + 1}`,
+            createdAt: new Date(now - hours * HOUR),
+            totalFiles: 120 + i * 40 - k * 5,
+            // Le plus ancien instantané n'a pas encore le dossier 2025.
+            entries: driveEntries(now, hours).filter(
+              (e) => k === 0 || !e.parentPath.includes('2025'),
+            ),
+          })),
+        );
+      },
+      listFileVersions: (ownerId, fileRef) => {
+        const i = DEMO_MAILBOXES.findIndex((m) => m.id === ownerId);
+        const file = DEMO_DRIVE.find((f) => `${f.parent}/${f.name}` === fileRef);
+        if (i < 0 || !file) return Promise.resolve([]);
+        const age = i === DEMO_MAILBOXES.length - 1 ? 75 : 4;
+        // Une version par instantané, plus une version antérieure propre à Microsoft 365.
+        return Promise.resolve(
+          file.versionHours.map((hours, k) => ({
+            snapshotId: `snap-od-${i + 1}-${Math.min(k + 1, 2)}`,
+            backupAt: new Date(now - (age + k * 30) * HOUR).toISOString(),
+            ...(k === 0 ? {} : { versionId: `v${k + 1}` }),
+            sizeBytes: file.sizeBytes - k * 3_000,
+            lastModifiedAt: new Date(now - hours * HOUR).toISOString(),
+            changeType: 'updated',
+          })),
+        );
       },
     },
     sharepoint: {
@@ -360,6 +411,21 @@ export function createDemoRestorer(delayMs: number = DEMO_RESTORE_MS): MailResto
     restoreMessage: async (_snapshotId, messageRef) => {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
       return messageRef.endsWith(`-${String(MAILS_PER_MAILBOX).padStart(3, '0')}`)
+        ? { restored: 0, errors: 1 }
+        : { restored: 1, errors: 0 };
+    },
+  };
+}
+
+/**
+ * Restaurateur OneDrive factice : attend `delayMs`, puis réussit ; `previsions.xlsx` échoue, pour
+ * montrer l'écran d'échec. Ne touche à aucun OneDrive.
+ */
+export function createDemoDriveRestorer(delayMs: number = DEMO_RESTORE_MS): DriveRestorer {
+  return {
+    restore: async (req) => {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      return req.path.endsWith('/previsions.xlsx')
         ? { restored: 0, errors: 1 }
         : { restored: 1, errors: 0 };
     },

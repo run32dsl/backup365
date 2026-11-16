@@ -122,7 +122,11 @@ Ensuite, toute l'API sauf `/api/health` exige une session. Deux rôles : **admin
 motif ; il lit la liste des plans sans la modifier). Les deux peuvent restaurer un mail dans sa
 boîte d'origine (« Restaurer » depuis la recherche ou la fiche, motif obligatoire, demande et
 résultat inscrits au journal d'audit). Cette restauration passe par Graph : tant qu'aucun tenant
-n'est relié avec des identifiants en écriture (ADR 0012), le bouton est désactivé. Les
+n'est relié avec des identifiants en écriture (ADR 0012), le bouton est désactivé. L'écran
+« OneDrive » (`#/onedrive/<compte>/<chemin>`) fait de même pour un fichier, un dossier ou une
+version antérieure : on parcourt la sauvegarde (lecture seule, journalisée), puis la
+restauration se fait par défaut en copie `nom (restauré jj-mm-aaaa).ext`, le remplacement d'un
+fichier exigeant une confirmation (ADR 0013, même réserve sur le tenant). Les
 plans se créent en trois étapes dans « Plans de protection » (`#/plans`) : quoi protéger,
 objectifs (RPO, RTO, conservation et justification RGPD), récapitulatif ; « Lancer maintenant »
 demande un motif, inscrit au journal d'audit. L'administrateur crée, désactive et change le rôle des comptes dans l'écran « Comptes »

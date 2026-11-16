@@ -47,6 +47,38 @@ async function confirmRestore(page) {
   await dialog.getByRole('button', { name: 'Restaurer le mail' }).click();
 }
 
+/** Libellé du champ motif de l'écran OneDrive. */
+export const DRIVE_REASON_LABEL = 'Motif de la restauration (obligatoire)';
+
+/**
+ * Ouvre un dossier de la sauvegarde OneDrive. Le compte dépend de la largeur de la capture : la
+ * démo refuse deux restaurations simultanées du même fichier (voir `openMailFor`). Le fichier
+ * `previsions.xlsx` échoue dans la démo (voir `createDemoDriveRestorer`).
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} folder dossier, ex. `/Documents/Budget`
+ */
+export async function openDrive(page, folder = '/Documents/Budget') {
+  const narrow = (page.viewportSize()?.width ?? 1280) < 600;
+  const account = narrow ? 'marc.lefevre@exemple.fr' : 'claire.durand@exemple.fr';
+  const path = folder.split('/').filter(Boolean).map(encodeURIComponent).join('/');
+  await page.goto(`/#/onedrive/${encodeURIComponent(account)}/${path}`);
+  await page.getByRole('table').waitFor();
+}
+
+/** Choisit un fichier du dossier ouvert et passe à l'étape « Motif et récapitulatif ». */
+export async function chooseDriveFile(page, name) {
+  await page.getByLabel(`Sélectionner ${name}`).check();
+  await page.getByRole('button', { name: 'Restaurer la sélection' }).click();
+  await page.getByRole('heading', { name: 'Motif et récapitulatif' }).waitFor();
+}
+
+/** Saisit un motif et lance la restauration. */
+export async function launchDriveRestore(page) {
+  await page.getByLabel(DRIVE_REASON_LABEL).fill('Suppression accidentelle par l’utilisateur');
+  await page.getByRole('button', { name: 'Lancer la restauration' }).click();
+}
+
 /** @type {Screen[]} */
 export const SCREENS = [
   { name: 'connexion', hash: '', role: null },
@@ -265,6 +297,79 @@ export const SCREENS = [
       await openRestorePanel(page, 25);
       await confirmRestore(page);
       await page.getByText(/La restauration a échoué après/u).waitFor();
+    },
+  },
+  {
+    name: 'onedrive-parcourir',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await openDrive(page);
+      await page.getByLabel('Sélectionner budget.xlsx').check();
+    },
+  },
+  {
+    name: 'onedrive-versions',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await openDrive(page);
+      await page.getByRole('button', { name: 'Versions de budget.xlsx' }).click();
+      await page.getByRole('dialog', { name: 'Versions de budget.xlsx' }).waitFor();
+    },
+  },
+  {
+    name: 'onedrive-recapitulatif',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await openDrive(page);
+      await chooseDriveFile(page, 'budget.xlsx');
+      await page.getByLabel(DRIVE_REASON_LABEL).fill('Suppression accidentelle par l’utilisateur');
+    },
+  },
+  {
+    name: 'onedrive-remplacer',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await openDrive(page);
+      await chooseDriveFile(page, 'budget.xlsx');
+      await page.getByLabel(DRIVE_REASON_LABEL).fill('Suppression accidentelle par l’utilisateur');
+      await page.getByLabel('Remplacer le fichier actuel').check();
+    },
+  },
+  {
+    name: 'onedrive-en-cours',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await openDrive(page, '/Documents');
+      await chooseDriveFile(page, 'notes.docx');
+      await launchDriveRestore(page);
+      await page.getByRole('heading', { name: 'Restauration en cours' }).waitFor();
+    },
+  },
+  {
+    name: 'onedrive-terminee',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await openDrive(page, '/Images');
+      await chooseDriveFile(page, 'logo.png');
+      await launchDriveRestore(page);
+      await page.getByText(/Restauration terminée en/u).waitFor();
+    },
+  },
+  {
+    name: 'onedrive-echouee',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await openDrive(page);
+      await chooseDriveFile(page, 'previsions.xlsx');
+      await launchDriveRestore(page);
+      await page.getByText(/La restauration a échoué/u).waitFor();
     },
   },
   {

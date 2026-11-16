@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { DEMO_LOGINS } from './demo-server.mjs';
 import { expect, test } from './fixtures.js';
-import { RESTORE_REASON_LABEL, SCREENS } from './screens.mjs';
+import { DRIVE_REASON_LABEL, RESTORE_REASON_LABEL, SCREENS } from './screens.mjs';
 import { signInAs } from './browser.mjs';
 
 const BANNER = 'Mode démo : données fictives';
@@ -114,6 +114,102 @@ test('restauration : un échec propose de réessayer', async ({ page, context, b
   await expect(page.getByLabel(RESTORE_REASON_LABEL)).toHaveValue('Ticket #1 : essai');
 });
 
+test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, suivi et journal', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'operator');
+  await page.goto('/#/');
+  await page.getByRole('link', { name: 'OneDrive', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Restaurer depuis OneDrive' })).toBeVisible();
+  await expect(
+    page.getByText(/Chaque consultation et chaque restauration sont enregistrées/),
+  ).toBeVisible();
+
+  // Navigation par dossiers : le fil d'Ariane suit, les versions sont datées.
+  await page
+    .getByRole('link', { name: /Documents/ })
+    .first()
+    .click();
+  await page
+    .getByRole('link', { name: /Budget/ })
+    .first()
+    .click();
+  const path = page.getByRole('navigation', { name: 'Chemin' });
+  await expect(path.getByText('Budget')).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('columnheader', { name: 'Version du' })).toBeVisible();
+  await expect(
+    page.getByRole('cell', { name: /\d\d\/\d\d\/\d{4} \d\d:\d\d/ }).first(),
+  ).toBeVisible();
+
+  // Sélection annoncée ; le panneau des versions rend le focus à son bouton.
+  await page.getByLabel('Sélectionner budget.xlsx').check();
+  await expect(page.getByText('1 élément sélectionné')).toBeVisible();
+  const versions = page.getByRole('button', { name: 'Versions de budget.xlsx' });
+  await versions.click();
+  const panel = page.getByRole('dialog', { name: 'Versions de budget.xlsx' });
+  await expect(panel.getByText(/Actuelle sauvegardée/)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+  await expect(versions).toBeFocused();
+
+  // Une version antérieure : récapitulatif en copie, motif obligatoire.
+  await versions.click();
+  await panel.getByRole('radio').nth(1).check();
+  await panel.getByRole('button', { name: 'Restaurer cette version' }).click();
+  await expect(page.getByRole('heading', { name: 'Motif et récapitulatif' })).toBeVisible();
+  await expect(page.getByText(/Étape 2 sur 3/)).toBeVisible();
+  await expect(page.getByText(/version du \d\d\/\d\d\/\d{4} \d\d:\d\d/)).toBeVisible();
+  await expect(page.getByText(/en copie, sous un nom choisi par OneDrive/)).toBeVisible();
+  await page.getByRole('button', { name: 'Lancer la restauration' }).click();
+  await expect(page.getByText('Indiquez un motif pour continuer.')).toBeVisible();
+  await expect(page.getByLabel(DRIVE_REASON_LABEL)).toHaveAttribute('aria-invalid', 'true');
+
+  // Remplacer exige une confirmation explicite.
+  await page.getByLabel(DRIVE_REASON_LABEL).fill('Ticket #7 : version erronée');
+  await page.getByLabel('Remplacer le fichier actuel').check();
+  await expect(
+    page.getByText(/La version actuelle reste dans l’historique OneDrive/),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Lancer la restauration' }).click();
+  await expect(page.getByRole('alert').getByText(/Cochez la case/)).toBeVisible();
+  // Revenir à la copie défait la confirmation et le mode.
+  await page.getByLabel('Restaurer en copie (recommandé)').check();
+  await page.getByRole('button', { name: 'Lancer la restauration' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Restauration en cours' })).toBeVisible();
+  await expect(page.getByRole('status').getByText('En cours')).toBeVisible();
+  await expect(page.getByText(/Restauration terminée en \d+ s\./)).toBeVisible();
+  await expect(page.getByText('Emplacement : Documents > Budget')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Ouvrir le journal d’audit' }).click();
+  await expect(
+    page.getByRole('cell', { name: 'Ticket #7 : version erronée' }).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('cell', { name: /outcome=succeeded;duration_ms=\d+;mode=copy/ }).first(),
+  ).toBeVisible();
+});
+
+test('OneDrive : un échec propose de réessayer, rien n’est modifié', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  await page.goto(`/#/onedrive/${encodeURIComponent('paul.moreau@exemple.fr')}/Documents/Budget`);
+  await page.getByLabel('Sélectionner previsions.xlsx').check();
+  await page.getByRole('button', { name: 'Restaurer la sélection' }).click();
+  await page.getByLabel(DRIVE_REASON_LABEL).fill('Ticket #8 : essai');
+  await page.getByRole('button', { name: 'Lancer la restauration' }).click();
+  const failed = page.getByRole('alert').getByText(/La restauration a échoué/);
+  await expect(failed).toBeVisible();
+  await expect(page.getByText(/Rien n’a été modifié/)).toBeVisible();
+  await page.getByRole('button', { name: 'Réessayer' }).click();
+  await expect(page.getByLabel(DRIVE_REASON_LABEL)).toBeVisible();
+});
+
 test('navigation au clavier du menu replié à 390 px', async ({ page, context, baseURL }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await signInAs(context, baseURL!, 'admin');
@@ -127,6 +223,7 @@ test('navigation au clavier du menu replié à 390 px', async ({ page, context, 
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Tableau de bord' })).toBeFocused();
+  await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
