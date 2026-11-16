@@ -9,7 +9,9 @@ contrôlez. Console open source construite sur le moteur
 
 ## Statut : MVP, ne pas utiliser en production
 
-Développement en cours, MVP visé le 10 décembre 2026. Rien ici n'est prêt pour la production :
+Développement en cours, MVP visé le 10 décembre 2026. Priorités du MVP : comptes locaux et
+rôles (livré), plans de protection par objectifs avec sauvegarde planifiée, restauration (mail,
+puis fichier OneDrive, puis site SharePoint), connexion par compte Microsoft (OIDC). Rien ici n'est prêt pour la production :
 voir [docs/vision.md](docs/vision.md) et le dossier de validation
 [docs/mise-en-production.md](docs/mise-en-production.md).
 
@@ -35,11 +37,14 @@ Disponibles :
 - consultation des boîtes aux lettres et de leurs instantanés de sauvegarde ;
 - recherche de mails (texte, expéditeur, date) et export en EML ;
 - tableau de bord de l'état de la dernière sauvegarde par charge ;
+- comptes locaux et rôles ;
 - journal d'audit chaîné de chaque consultation et export ;
 - installation avec compose.
 
-À venir : restauration granulaire (un mail, un fichier, un dossier), contacts, OneDrive,
-SharePoint, Teams, agenda, planification, alertes, rétention et effacement RGPD. Priorités :
+Au programme du MVP : plans de protection par objectifs (RPO, RTO, conservation justifiée RGPD)
+avec sauvegarde planifiée, restauration (un mail, puis un fichier OneDrive, puis un site
+SharePoint), connexion par compte Microsoft (OIDC). Ensuite : contacts, Teams, agenda, alertes,
+effacement RGPD. Hors MVP : multi-tenant, SAML, chats Teams. Priorités :
 [docs/vision.md](docs/vision.md).
 
 ## Démarrage rapide
@@ -70,7 +75,7 @@ s'utilise en ligne de commande. backup365 ajoute ce qu'il faut pour qu'une équi
 au quotidien :
 
 - **catalogue et recherche** dans les sauvegardes ;
-- **export** d'un élément et, à terme, **restauration granulaire** (un mail, un fichier, un dossier) ;
+- **export** d'un élément et **restauration granulaire** (un mail, un fichier, un site : au programme du MVP) ;
 - **planification, supervision et alertes** ;
 - **RGPD** : journal d'audit des accès, rétention par charge, effacement, registre ;
 - **mode lecture seule** pour les tenants où la restauration n'est pas autorisée.
