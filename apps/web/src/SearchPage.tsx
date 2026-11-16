@@ -8,6 +8,8 @@ import {
   type SearchQuery,
   type SearchResponse,
 } from './mail.js';
+import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
+import { fetchRestoreConfigured } from './restore.js';
 import { Alert, Button, DataTable, EmptyState, FormField, type Column } from './ui/index.js';
 
 /** État de la recherche. */
@@ -26,20 +28,44 @@ const COLUMNS: Column<Hit>[] = [
   { header: 'Dossier', cell: (m) => m.folder },
 ];
 
-/** Résultats de recherche : métadonnées seulement, chaque ligne mène à la fiche du mail. */
-export function SearchView({ state }: { state: SearchState }) {
+const RESTORE_HINT_ID = 'restore-not-configured';
+
+/**
+ * Résultats de recherche : métadonnées seulement, chaque ligne mène à la fiche du mail. Avec
+ * `restoreConfigured`, chaque ligne propose « Restaurer » (désactivé si aucun tenant n'est relié).
+ */
+export function SearchView({
+  state,
+  restoreConfigured,
+}: {
+  state: SearchState;
+  restoreConfigured?: boolean;
+}) {
   if (state === 'loading') return <p role="status">Recherche en cours…</p>;
   if (state === 'error') return <Alert tone="error">Recherche indisponible</Alert>;
   if (state.items.length === 0) return <EmptyState>Aucun résultat.</EmptyState>;
+  const columns: Column<Hit>[] =
+    restoreConfigured === undefined
+      ? COLUMNS
+      : [
+          ...COLUMNS,
+          {
+            header: 'Action',
+            cell: (m) => (
+              <RestoreAction mail={m} configured={restoreConfigured} hintId={RESTORE_HINT_ID} />
+            ),
+          },
+        ];
   return (
     <>
       <p role="status">
         {state.total} résultat(s), {state.offset + 1} à {state.offset + state.items.length}
       </p>
+      {restoreConfigured === false && <RestoreNotConfigured id={RESTORE_HINT_ID} />}
       <DataTable
         caption="Résultats de la recherche"
         hideCaption
-        columns={COLUMNS}
+        columns={columns}
         rows={state.items}
         rowKey={(m) => `${m.mailboxId}/${m.messageId}`}
       />
@@ -51,6 +77,16 @@ export function SearchView({ state }: { state: SearchState }) {
 export function SearchPage() {
   const [query, setQuery] = useState<SearchQuery | null>(null);
   const [state, setState] = useState<SearchState | null>(null);
+  const [restoreConfigured, setRestoreConfigured] = useState<boolean | undefined>();
+  useEffect(() => {
+    let current = true;
+    void fetchRestoreConfigured().then((configured) => {
+      if (current) setRestoreConfigured(configured);
+    });
+    return () => {
+      current = false;
+    };
+  }, []);
   useEffect(() => {
     if (!query) return;
     let current = true;
@@ -84,7 +120,7 @@ export function SearchPage() {
         <FormField label="Au (exclu)" type="datetime-local" name="before" />
         <Button type="submit">Rechercher</Button>
       </form>
-      {state !== null && <SearchView state={state} />}
+      {state !== null && <SearchView state={state} restoreConfigured={restoreConfigured} />}
       <div className="button-row">
         <Button
           variant="secondary"

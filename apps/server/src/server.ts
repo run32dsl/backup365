@@ -16,6 +16,7 @@ import {
   withSecretFiles,
 } from './config.js';
 import { AuthService } from './auth.js';
+import { RestoreService } from './restore-service.js';
 import { PlanScheduler, executeurSimule } from './plan-scheduler.js';
 import {
   AtlasExecuteur,
@@ -27,6 +28,7 @@ import {
 import { createAtlasCatalog } from './atlas-sdk.js';
 import {
   assertNoRealStorage,
+  createDemoRestorer,
   DEMO_STORAGE,
   demoFactory,
   isDemo,
@@ -164,6 +166,17 @@ export function createServer(
         })
       : undefined;
 
+  // La restauration passe par Graph (identifiants réels), que la console n'a pas (ADR 0002) :
+  // seule la démo la simule ; ailleurs elle reste non configurée (docs/adr/0012).
+  const restoreService =
+    demo && openedAudit.audit
+      ? new RestoreService({
+          restorer: createDemoRestorer(),
+          audit: openedAudit.audit,
+          onError: (code) => app.log.error({ code }, 'restauration : consignation en échec'),
+        })
+      : undefined;
+
   const app = buildApp({
     version,
     logger: {
@@ -188,6 +201,7 @@ export function createServer(
     ...(auth ? { auth } : {}),
     ...(openedPlans.store ? { plans: openedPlans.store } : {}),
     ...(planScheduler ? { planScheduler } : {}),
+    ...(restoreService ? { restore: restoreService } : {}),
     backupConfigured: executeur !== undefined,
     trustProxy,
     ...(demo ? { demo } : {}),

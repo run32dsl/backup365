@@ -15,6 +15,8 @@ import { registerAuditRoutes } from './audit-routes.js';
 import { sendError } from './errors.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
 import { registerMailRoutes } from './mail-routes.js';
+import { registerRestoreRoutes } from './restore-routes.js';
+import type { RestoreService } from './restore-service.js';
 import { registerPlanRoutes } from './plan-routes.js';
 import type { PlanScheduler } from './plan-scheduler.js';
 import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
@@ -47,6 +49,8 @@ export interface AppOptions {
   plans?: SqlitePlanStore;
   /** Planificateur des plans ; absent, `POST /api/plans/:id/run` répond 503. */
   planScheduler?: PlanScheduler;
+  /** Restauration de mails ; absente, elle n'est pas configurée (503, bouton désactivé). */
+  restore?: RestoreService;
   /** Sauvegarde réelle configurée (identifiants Microsoft 365) ? Faux : aucun plan ne s'exécute (ADR 0009). */
   backupConfigured?: boolean;
   /** Derrière un proxy inverse de confiance : `X-Forwarded-Proto` et `-For` sont lus (cookie `Secure`, IP). */
@@ -97,6 +101,7 @@ export function buildApp({
   auth,
   plans,
   planScheduler,
+  restore,
   backupConfigured = true,
   trustProxy = false,
   indexer,
@@ -142,6 +147,7 @@ export function buildApp({
   });
   void app.register((scope, _opts, done) => {
     registerMailRoutes(scope, searchIndex, mailContent, audit);
+    registerRestoreRoutes(scope, searchIndex, restore, audit);
     done();
   });
   if (webDir) registerWebRoutes(app, webDir);
