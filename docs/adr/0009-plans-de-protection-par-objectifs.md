@@ -52,6 +52,29 @@ en `failed` (erreur `interrupted`) les exécutions restées `running`, puis lanc
 exécution par plan dont le dernier créneau n'a pas d'exécution, sans rattraper chaque créneau
 manqué.
 
+### API `/api/plans` (issue #61)
+
+Réservée aux administrateurs : sans session 401, rôle autre qu'administrateur 403, base des plans
+ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme le reste de l'API.
+
+| Route                   | Effet                                                     | Réponses           |
+| ----------------------- | --------------------------------------------------------- | ------------------ |
+| `GET /api/plans`        | `{ items }` : les plans, triés par nom                    | 200                |
+| `POST /api/plans`       | crée un plan (corps = `ProtectionPlanInput`)              | 201, 400, 409      |
+| `PUT /api/plans/:id`    | remplace le plan en entier (mêmes règles que la création) | 200, 400, 404, 409 |
+| `DELETE /api/plans/:id` | supprime le plan, sa sélection et son historique          | 204, 404           |
+
+- Un plan : `id` (UUID), `name`, `scope`, `selection`, `rpoHours`, `rtoHours`, `retentionDays`,
+  `gdprJustification`, `createdAt`.
+- 400 : `{ error: 'invalid_plan', message, errors }`, `errors` listant chaque règle violée (RPO hors
+  de 4, 12, 24 ; justification absente ; périmètre ou sélection incohérents ; etc.), sans reprendre
+  la valeur reçue. 409 : `plan_name_taken` (nom déjà pris, casse ignorée).
+- Audit : `plan.create`, `plan.update`, `plan.delete` (ressource `plan`, cible = identifiant du
+  plan). Le motif ne porte que des codes (`scope:all,rpo:4`, `changed:rpoHours,name`), jamais le nom
+  ni la justification.
+- La suppression d'un plan emporte son historique d'exécutions (cascade) ; la purge n'est donc pas
+  rejouable : l'écran de l'issue suivante devra demander une confirmation.
+
 ### Sécurité des identifiants
 
 Les identifiants Graph et les secrets viennent des variables d'environnement ou de fichiers montés

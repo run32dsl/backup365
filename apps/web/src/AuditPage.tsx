@@ -22,6 +22,9 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   'auth.logout': 'Déconnexion',
   'account.create': 'Création de compte',
   'account.update': 'Modification de compte',
+  'plan.create': 'Création de plan',
+  'plan.update': 'Modification de plan',
+  'plan.delete': 'Suppression de plan',
 };
 
 /** Tableau des entrées du journal, du plus récent au plus ancien. */

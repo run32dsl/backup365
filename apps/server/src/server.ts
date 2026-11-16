@@ -17,6 +17,7 @@ import { AuthService } from './auth.js';
 import { SearchIndexer } from './search-indexer.js';
 import { tryOpenAccountStore } from './sqlite/open-account-store.js';
 import { tryOpenAuditLog } from './sqlite/open-audit-log.js';
+import { tryOpenPlanStore } from './sqlite/open-plan-store.js';
 import { tryOpenSearchIndex } from './sqlite/open-search-index.js';
 
 /**
@@ -38,7 +39,9 @@ export function createServer(
   const opened = tryOpenSearchIndex(join(dataDir, 'search.sqlite'));
   const openedAudit = tryOpenAuditLog(join(dataDir, 'audit.sqlite'));
   const openedAccounts = tryOpenAccountStore(join(dataDir, 'accounts.sqlite'));
+  const openedPlans = tryOpenPlanStore(join(dataDir, 'plans.sqlite'));
   const closeDatabases = (): void => {
+    openedPlans.store?.close();
     opened.index?.close();
     openedAudit.audit?.close();
     openedAccounts.store?.close();
@@ -104,6 +107,7 @@ export function createServer(
     ...(opened.index ? { searchIndex: opened.index } : {}),
     ...(openedAudit.audit ? { audit: openedAudit.audit } : {}),
     ...(auth ? { auth } : {}),
+    ...(openedPlans.store ? { plans: openedPlans.store } : {}),
     trustProxy,
     ...(indexer ? { indexer } : {}),
     ...(webDir ? { webDir } : {}),
@@ -117,6 +121,10 @@ export function createServer(
     app.log.error({ code }, 'base des comptes indisponible, toute l’API hors santé répond 503');
   } else if (auth?.needsSetup()) {
     app.log.warn('aucun compte : ouvrir la console pour créer le compte administrateur');
+  }
+  if (openedPlans.error) {
+    const code = (openedPlans.error as NodeJS.ErrnoException).code;
+    app.log.error({ code }, 'base des plans indisponible, /api/plans répond 503');
   }
   if (!anchor.configured) {
     app.log.warn(
