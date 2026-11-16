@@ -66,7 +66,7 @@ describe('API des plans', () => {
     );
     expect(before.items[0]).toMatchObject({
       dataTypes: ['mail', 'contacts'],
-      compliance: { state: 'late', lastSuccessAt: null },
+      compliance: { state: 'late', lastSuccessAt: null, lastRestorePointAt: null },
       running: false,
       lastRun: null,
     });
@@ -77,7 +77,57 @@ describe('API des plans', () => {
     }>();
     expect(after.items[0]).toMatchObject({
       compliance: { state: 'compliant' },
-      lastRun: { status: 'success' },
+      lastRun: { status: 'success', noSnapshotReason: null },
+    });
+    const emptyId = plans.startRun(plan.id, 'b', new Date().toISOString()) as number;
+    plans.finishRun(emptyId, 'success', new Date().toISOString(), undefined, 'no_content');
+    const empty = (await send(app, 'GET', '/api/plans')).json<{
+      items: Record<string, unknown>[];
+    }>();
+    expect(empty.items[0]).toMatchObject({
+      // Le premier succès (ordinaire) reste le dernier point de restauration.
+      compliance: { state: 'compliant', lastRestorePointAt: expect.any(String) },
+      lastRun: { status: 'success', noSnapshotReason: 'no_content' },
+    });
+  });
+
+  it('reads the last restore point over the whole history, not only the listed runs', async () => {
+    const { app, plans } = setup();
+    const plan = plans.create({
+      name: 'Site vide',
+      scope: 'all',
+      dataTypes: ['mail'],
+      selection: [],
+      rpoHours: 4,
+      rtoHours: null,
+      retentionDays: 30,
+      gdprJustification: 'Obligation légale.',
+    });
+    const compliance = async () =>
+      (await send(app, 'GET', '/api/plans')).json<{
+        items: { compliance: Record<string, unknown> }[];
+      }>().items[0]!.compliance;
+    const finish = (at: string, reason?: 'no_content', status: 'success' | 'failed' = 'success') =>
+      plans.finishRun(plans.startRun(plan.id, 'a', at) as number, status, at, undefined, reason);
+    const base = Date.now() - 3_600_000;
+    const at = (seconds: number) => new Date(base + seconds * 1000).toISOString();
+
+    finish(at(0), 'no_content');
+    finish(at(1), undefined, 'failed');
+    // Ni une réussite vide ni un échec ne sont un point de restauration.
+    expect(await compliance()).toEqual({
+      state: 'compliant',
+      lastSuccessAt: at(0),
+      lastRestorePointAt: null,
+    });
+
+    finish(at(2));
+    // Plus de réussites vides que la route ne relit d'exécutions (200) : le vrai point reste connu.
+    for (let i = 0; i < 201; i++) finish(at(3 + i), 'no_content');
+    expect(await compliance()).toEqual({
+      state: 'compliant',
+      lastSuccessAt: at(203),
+      lastRestorePointAt: at(2),
     });
   });
 

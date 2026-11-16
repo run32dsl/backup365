@@ -120,8 +120,17 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
 'no_content'` dans le résumé du SDK) n'est pas distingué : l'exécution est notée en succès alors
   qu'aucun point de restauration n'existe. C'est un choix du PO (2026-11-16) : un succès, car il n'y
   avait rien à protéger, et le noter en échec ferait échouer chaque utilisateur sans fichier
-  OneDrive. Choix réversible ; le motif affiché et l'état « dernière sauvegarde » sont reportés
-  dans #80.
+  OneDrive. Choix réversible. Le motif est désormais enregistré (issue #80) : `plan_runs` a une
+  colonne `no_snapshot_reason` (`no_content` ou vide, migration 4), exposée par
+  `GET /api/plans/:id/runs` et par `lastRun` de `GET /api/plans`. Le statut reste `success` ; un
+  site est `no_content` si tous ses résultats le sont. Pour un propriétaire (boîte + OneDrive), la
+  messagerie ne rend pas de motif et compte comme ayant un point de restauration : l'exécution
+  n'est `no_content` que si chaque charge l'est. `compliance.lastRestorePointAt` de
+  `GET /api/plans` est la fin de la dernière réussite qui a créé un point, lue par le magasin sur
+  tout l'historique ; ce champ est propre à cette route, le type `Compliance` du core (partagé
+  avec le tableau de bord) ne change pas. `lastSuccessAt` (qui fonde la conformité) compte
+  toujours une réussite vide. L'écran des plans écrit « Succès, aucun contenu à sauvegarder » et,
+  si aucune réussite n'a créé de point, « Conforme : rien à restaurer ».
 - Identifiants : `BACKUP365_M365_CLIENT_ID` et `BACKUP365_M365_CLIENT_SECRET` (variante
   `_FILE`). Un seul des deux : démarrage refusé, l'erreur nomme la variable. Aucun : « sauvegarde
   non configurée » ; hors démo, aucun planificateur n'est créé, donc aucune exécution ni ligne de

@@ -3,6 +3,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import {
   DATA_TYPES,
   type DataType,
+  type NoSnapshotReason,
   type PlanScope,
   type ProtectionPlanInput,
   type RpoHours,
@@ -27,6 +28,8 @@ export interface StoredRun {
   durationMs: number | null;
   /** Code technique (200 caractères au plus) : jamais un message ni un contenu. */
   error: string | null;
+  /** Succès sans point de restauration : la ressource était vide. `null` sinon. */
+  noSnapshotReason: NoSnapshotReason | null;
 }
 
 interface RunRow {
@@ -38,6 +41,7 @@ interface RunRow {
   status: RunStatus;
   duration_ms: number | null;
   error: string | null;
+  no_snapshot_reason: NoSnapshotReason | null;
 }
 
 /** Un autre plan porte déjà ce nom (casse ignorée). */
@@ -178,14 +182,27 @@ export class SqlitePlanStore {
   }
 
   /** Clôt une exécution en cours ; sans effet si elle n'est plus `running` (plan supprimé…). */
-  finishRun(id: number, status: 'success' | 'failed', finishedAt: string, error?: string): void {
+  finishRun(
+    id: number,
+    status: 'success' | 'failed',
+    finishedAt: string,
+    error?: string,
+    noSnapshotReason?: NoSnapshotReason,
+  ): void {
     this.db
       .prepare(
-        `UPDATE plan_runs SET status = ?, finished_at = ?, error = ?,
+        `UPDATE plan_runs SET status = ?, finished_at = ?, error = ?, no_snapshot_reason = ?,
            duration_ms = MAX(0, CAST(ROUND((julianday(?) - julianday(started_at)) * 86400000) AS INTEGER))
          WHERE id = ? AND status = 'running'`,
       )
-      .run(status, finishedAt, error?.slice(0, 200) ?? null, finishedAt, id);
+      .run(
+        status,
+        finishedAt,
+        error?.slice(0, 200) ?? null,
+        status === 'success' ? (noSnapshotReason ?? null) : null,
+        finishedAt,
+        id,
+      );
   }
 
   /** Au démarrage : les exécutions restées `running` n'ont pas fini, elles passent en `failed`. */
@@ -212,6 +229,20 @@ export class SqlitePlanStore {
     );
   }
 
+  /**
+   * Fin de la dernière réussite qui a créé un point de restauration, sur tout l'historique (pas
+   * seulement les dernières exécutions listées) ; `null` s'il n'y en a aucune.
+   */
+  lastRestorePointAt(planId: string): string | null {
+    const row = this.db
+      .prepare(
+        `SELECT MAX(finished_at) AS at FROM plan_runs
+         WHERE plan_id = ? AND status = 'success' AND no_snapshot_reason IS NULL`,
+      )
+      .get(planId) as { at: string | null } | undefined;
+    return row?.at ?? null;
+  }
+
   /** Historique d'un plan, du plus récent au plus ancien. */
   listRuns(planId: string, limit: number): StoredRun[] {
     const rows = this.db
@@ -228,6 +259,7 @@ export class SqlitePlanStore {
       status: r.status,
       durationMs: r.duration_ms,
       error: r.error,
+      noSnapshotReason: r.no_snapshot_reason,
     }));
   }
 

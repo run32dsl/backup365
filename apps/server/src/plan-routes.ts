@@ -98,10 +98,21 @@ export function registerPlanRoutes(
             };
       return {
         ...visible,
-        compliance: planCompliance(plan.rpoHours, runs, now),
+        // Le point de restauration se lit sur tout l'historique : 200 réussites vides de suite
+        // ne doivent pas faire oublier un vrai point plus ancien. Champ propre à cette route :
+        // le type `Compliance` du core, partagé avec le tableau de bord, ne le porte pas.
+        compliance: {
+          ...planCompliance(plan.rpoHours, runs, now),
+          lastRestorePointAt: ctx.plans.lastRestorePointAt(plan.id),
+        },
         running: runs.some((r) => r.status === 'running'),
         lastRun: last
-          ? { status: last.status, startedAt: last.startedAt, finishedAt: last.finishedAt }
+          ? {
+              status: last.status,
+              startedAt: last.startedAt,
+              finishedAt: last.finishedAt,
+              noSnapshotReason: last.noSnapshotReason,
+            }
           : null,
       };
     });

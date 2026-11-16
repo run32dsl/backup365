@@ -38,7 +38,26 @@ function fakeApi(over: Partial<Record<'mail' | 'drive' | 'site', () => Promise<u
   return { api, calls, executeur };
 }
 
+const driveEmpty: DriveOutcome = {
+  interrupted: false,
+  summary: { healthy: true, noSnapshotReason: 'no_content' },
+};
+
 describe('AtlasExecuteur', () => {
+  it('reports no_content for an empty SharePoint site, and only then', async () => {
+    const empty = fakeApi({ site: () => Promise.resolve([driveEmpty, driveEmpty]) });
+    await expect(empty.executeur.execute({ planId: 'p', itemId: 'site-1' })).resolves.toEqual({
+      noSnapshotReason: 'no_content',
+    });
+    const mixed = fakeApi({ site: () => Promise.resolve([driveEmpty, driveOk]) });
+    await expect(mixed.executeur.execute({ planId: 'p', itemId: 'site-1' })).resolves.toEqual({});
+  });
+
+  it('does not report no_content for an owner whose mailbox was backed up', async () => {
+    const { executeur } = fakeApi({ drive: () => Promise.resolve(driveEmpty) });
+    await expect(executeur.execute({ planId: 'p', itemId: 'owner-1' })).resolves.toEqual({});
+  });
+
   it('backs up mail then OneDrive for an owner, without forcing a full backup', async () => {
     const { calls, executeur, api } = fakeApi();
     await executeur.execute({ planId: 'p', itemId: 'owner-1' });

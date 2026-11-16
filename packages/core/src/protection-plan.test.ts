@@ -122,6 +122,17 @@ describe('planCompliance', () => {
       lastSuccessAt: '2026-11-16T08:30:00Z',
     });
   });
+  it('counts a no_content success and keeps the shape the dashboard shares', () => {
+    const empty: PlanRun = {
+      ...run('2026-11-16T10:00:00Z', 'success'),
+      noSnapshotReason: 'no_content',
+    };
+    // Forme exacte : un champ obligatoire de plus casserait les autres producteurs de `Compliance`.
+    expect(planCompliance(4, [empty], now)).toEqual({
+      state: 'compliant',
+      lastSuccessAt: '2026-11-16T10:00:00Z',
+    });
+  });
   it('is late exactly at the RPO', () => {
     expect(planCompliance(4, [run('2026-11-16T08:00:00Z', 'success')], now).state).toBe('late');
   });
