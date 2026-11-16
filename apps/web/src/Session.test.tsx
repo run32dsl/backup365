@@ -82,6 +82,12 @@ describe('AccountsView', () => {
   it('shows loading and error states', () => {
     expect(renderToString(<AccountsView state="loading" />)).toContain('Chargement');
     expect(renderToString(<AccountsView state="error" />)).toContain('indisponibles');
+    // La boîte du mot de passe temporaire survit à un rechargement en erreur ou en cours.
+    for (const state of ['error', 'loading'] as const) {
+      expect(renderToString(<AccountsView state={state} dialog={<p>BOITE-MDP</p>} />)).toContain(
+        'BOITE-MDP',
+      );
+    }
   });
 });
 

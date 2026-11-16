@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   LAST_ADMIN_NOTICE,
   RESET_TEXTS,
@@ -122,8 +122,22 @@ export function AccountsView({
   actions?: Partial<AccountActions>;
   onRetry?: () => void;
 }) {
-  if (state === 'loading') return <p role="status">Chargement des comptes…</p>;
-  if (state === 'error') return <ErrorView message="Comptes indisponibles" onRetry={onRetry} />;
+  // La boîte reste montée même si la liste charge ou échoue : elle porte le mot de passe
+  // temporaire, qui ne peut pas être relu.
+  if (state === 'loading')
+    return (
+      <>
+        <p role="status">Chargement des comptes…</p>
+        {dialog}
+      </>
+    );
+  if (state === 'error')
+    return (
+      <>
+        <ErrorView message="Comptes indisponibles" onRetry={onRetry} />
+        {dialog}
+      </>
+    );
   const submit =
     (handler?: (form: FormData) => Promise<boolean> | void) => (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -215,6 +229,7 @@ export function AccountsPage() {
   const [state, setState] = useState<AccountsState>('loading');
   const [message, setMessage] = useState<{ kind: 'error' | 'status'; text: string }>();
   const [reset, setReset] = useState<{ id: number; username: string } | null>(null);
+  const resetDone = useRef(false);
   const reload = useCallback(() => {
     fetchAccounts().then(setState, () => setState('error'));
   }, []);
@@ -262,7 +277,7 @@ export function AccountsPage() {
     try {
       const outcome = await resetPassword(reset.id, reason);
       if (outcome.ok) {
-        reload();
+        resetDone.current = true;
         return { password: outcome.value };
       }
       return { error: outcome.message };
@@ -283,6 +298,9 @@ export function AccountsPage() {
             run={runReset}
             onClose={() => {
               setReset(null);
+              // Rechargement après la lecture du mot de passe : la session du compte est révoquée.
+              if (resetDone.current) reload();
+              resetDone.current = false;
             }}
           />
         }
