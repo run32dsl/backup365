@@ -68,6 +68,12 @@ s'authentifier simplement. Le SSO Microsoft (OIDC Entra ID) viendra dans une iss
   décision du 2026-11-12.
 - **Dernier administrateur** : le magasin refuse (409 `last_admin`), dans une transaction
   `BEGIN IMMEDIATE`, de désactiver ou rétrograder le dernier administrateur actif.
+- **Réinitialisation par un administrateur** (issue #56) : `POST /api/accounts/:id/reset-password`
+  prend un `reason` obligatoire (200 caractères au plus) et **aucun mot de passe**. Le serveur
+  génère un mot de passe temporaire (16 caractères d'un alphabet sans ambiguïté, `randomInt`, soit
+  environ 92 bits), le rend une seule fois dans la réponse (`Cache-Control: no-store`) et impose le
+  changement à la connexion suivante. L'audit consigne `password_reset: <motif>`, jamais le mot de
+  passe. Remplace l'ancienne route où l'administrateur choisissait le mot de passe.
 - **Comptes créés par l'API** : mot de passe temporaire fixé par l'administrateur, à changer à la
   première connexion (comme après une réinitialisation) ; tant que ce n'est pas fait, seules
   `/api/auth/me`, `/logout` et `/password` répondent (403 `password_change_required` ailleurs).

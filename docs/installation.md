@@ -126,6 +126,13 @@ demande un motif, inscrit au journal d'audit. L'administrateur crée, désactive
 (`#/comptes`) ; il ne peut pas désactiver ni rétrograder le dernier administrateur actif. Un mot
 de passe provisoire (création ou réinitialisation) est à changer à la connexion suivante.
 
+Pour réinitialiser un mot de passe, l'administrateur choisit le compte, saisit un motif
+obligatoire, puis lit le mot de passe temporaire que la console a généré : il s'affiche une seule
+fois (bouton « Copier »), et la boîte ne se ferme qu'une fois la case « J'ai transmis le mot de
+passe » cochée. Le journal d'audit garde le motif, jamais le mot de passe. Après trop d'échecs de
+connexion, l'écran de connexion affiche le temps restant avant un nouvel essai ; le message est le
+même que l'identifiant existe ou non.
+
 La session tient dans un cookie `b365_session` (`HttpOnly`, `SameSite=Strict`, et `Secure` quand
 la requête arrive en HTTPS) et expire après 8 heures sans activité ; un redémarrage de la console
 déconnecte tout le monde. Après 5 échecs de connexion, une temporisation croissante (30 s, puis le

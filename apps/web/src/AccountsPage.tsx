@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
   LAST_ADMIN_NOTICE,
+  RESET_TEXTS,
   NO_OPERATOR,
   ROLE_DESCRIPTIONS,
   ROLE_LABELS,
@@ -12,6 +13,7 @@ import {
   type AccountInfo,
 } from './accounts.js';
 import { ErrorView, Field } from './LoginPage.js';
+import { ResetPasswordDialog } from './ResetPassword.js';
 import { AUDIT_NOTICE, UNREACHABLE, type Outcome, type Role } from './session.js';
 import { Alert, Button, DataTable, type Column } from './ui/index.js';
 
@@ -110,8 +112,11 @@ export function AccountsView({
   state,
   message,
   actions,
+  dialog,
   onRetry,
 }: {
+  /** Boîte de réinitialisation (étapes 2 et 3). */
+  dialog?: ReactNode;
   state: AccountsState;
   message?: { kind: 'error' | 'status'; text: string };
   actions?: Partial<AccountActions>;
@@ -173,7 +178,10 @@ export function AccountsView({
         </div>
       </form>
       <h2>Réinitialiser un mot de passe</h2>
-      <p>L’utilisateur devra le changer à sa prochaine connexion.</p>
+      <p>
+        Un mot de passe temporaire est généré et affiché une seule fois ; l’utilisateur devra le
+        changer à sa prochaine connexion.
+      </p>
       <form onSubmit={submit(actions?.onReset)}>
         <p>
           <label>
@@ -187,19 +195,11 @@ export function AccountsView({
             </select>
           </label>
         </p>
-        <Field
-          label="Mot de passe temporaire"
-          name="password"
-          type="password"
-          autoComplete="new-password"
-        />
         <div className="button-row">
-          <Button type="submit">Réinitialiser</Button>
-          <Button type="reset" variant="secondary">
-            Annuler
-          </Button>
+          <Button type="submit">{RESET_TEXTS.title}</Button>
         </div>
       </form>
+      {dialog}
       <p>{AUDIT_NOTICE}</p>
     </>
   );
@@ -214,6 +214,7 @@ const text = (form: FormData, name: string): string => {
 export function AccountsPage() {
   const [state, setState] = useState<AccountsState>('loading');
   const [message, setMessage] = useState<{ kind: 'error' | 'status'; text: string }>();
+  const [reset, setReset] = useState<{ id: number; username: string } | null>(null);
   const reload = useCallback(() => {
     fetchAccounts().then(setState, () => setState('error'));
   }, []);
@@ -250,11 +251,24 @@ export function AccountsPage() {
           text(form, 'role') as Role,
         ),
       ),
-    onReset: (form) =>
-      run(
-        `Mot de passe réinitialisé : ${nameOf(Number(text(form, 'id')))} devra le changer à sa prochaine connexion.`,
-        resetPassword(Number(text(form, 'id')), text(form, 'password')),
-      ),
+    // Étape 1 : ouvre la boîte du compte choisi (étapes 2 et 3).
+    onReset: (form) => {
+      const id = Number(text(form, 'id'));
+      setReset({ id, username: nameOf(id) });
+    },
+  };
+  const runReset = async (reason: string) => {
+    if (!reset) return { error: UNREACHABLE };
+    try {
+      const outcome = await resetPassword(reset.id, reason);
+      if (outcome.ok) {
+        reload();
+        return { password: outcome.value };
+      }
+      return { error: outcome.message };
+    } catch {
+      return { error: UNREACHABLE };
+    }
   };
   return (
     <main tabIndex={-1}>
@@ -263,6 +277,15 @@ export function AccountsPage() {
         state={state}
         message={message}
         actions={actions}
+        dialog={
+          <ResetPasswordDialog
+            username={reset?.username ?? null}
+            run={runReset}
+            onClose={() => {
+              setReset(null);
+            }}
+          />
+        }
         onRetry={() => {
           setState('loading');
           reload();

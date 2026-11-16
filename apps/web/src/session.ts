@@ -21,10 +21,12 @@ export type Gate =
   | { status: 'login' }
   | { status: 'ready'; session: SessionInfo };
 
-export type Outcome<T> = { ok: true; value: T } | { ok: false; message: string };
+export type Outcome<T> =
+  { ok: true; value: T } | { ok: false; message: string; retryAfterSec?: number };
 
 const MESSAGES: Record<string, string> = {
   invalid_credentials: 'Identifiant ou mot de passe incorrect.',
+  reason_required: 'Indiquez un motif.',
   too_many_attempts: 'Trop de tentatives. Réessayez dans quelques instants.',
   password_too_short: 'Le mot de passe doit comporter au moins 12 caractères.',
   password_too_long: 'Le mot de passe ne doit pas dépasser 256 caractères.',
@@ -53,7 +55,8 @@ export const setupRecap = (username: string): string =>
   `${username ? `Compte « ${username} », rôle` : 'Rôle'} administrateur. Ses actions sont inscrites au journal d’audit.`;
 
 /** Écran de connexion après un 401 d'une requête alors qu'une session existait. */
-export const SESSION_EXPIRED = 'Votre session a expiré. Reconnectez-vous.';
+export const SESSION_EXPIRED =
+  'Votre session a expiré. Reconnectez-vous pour revenir à la page demandée.';
 /** Écran de connexion après un refus CSRF (jeton absent ou périmé). */
 export const SESSION_INVALID = 'Votre session n’est plus valide. Reconnectez-vous.';
 
@@ -69,6 +72,31 @@ export async function errorMessage(res: Response): Promise<string> {
   }
   return MESSAGES[code] ?? `Erreur inattendue (HTTP ${res.status}).`;
 }
+
+/** Secondes avant un nouvel essai, d'après une réponse 429 (corps, sinon en-tête `Retry-After`). */
+export async function retryAfterOf(res: Response): Promise<number | undefined> {
+  const body = (await res
+    .clone()
+    .json()
+    .catch(() => null)) as { retryAfterSec?: unknown } | null;
+  const sec =
+    typeof body?.retryAfterSec === 'number'
+      ? body.retryAfterSec
+      : Number(res.headers.get('retry-after'));
+  return Number.isFinite(sec) && sec > 0 ? Math.ceil(sec) : undefined;
+}
+
+/** Décompte « mm:ss » (« 04:32 »). */
+export const formatCountdown = (seconds: number): string => {
+  const s = Math.max(0, Math.ceil(seconds));
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+};
+
+/** Message de verrouillage : identique que le compte existe ou non. */
+export const lockedMessage = (seconds: number): string =>
+  `Connexion impossible pour le moment. Nouvel essai possible dans ${formatCountdown(seconds)}.`;
+/** Annoncé à la fin du décompte. */
+export const RETRY_NOW = 'Vous pouvez réessayer.';
 
 const json = (payload: unknown): RequestInit => ({
   method: 'POST',
@@ -95,7 +123,14 @@ export async function authenticate(
   fetchFn: typeof fetch = fetch,
 ): Promise<Outcome<SessionInfo>> {
   const res = await fetchFn(`/api/auth/${kind}`, json({ username, password }));
-  if (!res.ok) return { ok: false, message: await errorMessage(res) };
+  if (!res.ok) {
+    const retryAfterSec = res.status === 429 ? await retryAfterOf(res) : undefined;
+    return {
+      ok: false,
+      message: await errorMessage(res),
+      ...(retryAfterSec ? { retryAfterSec } : {}),
+    };
+  }
   return { ok: true, value: (await res.json()) as SessionInfo };
 }
 

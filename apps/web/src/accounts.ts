@@ -67,5 +67,32 @@ export const updateAccount = (
   fetchFn: typeof fetch = fetch,
 ) => send(fetchFn, 'PATCH', `/api/accounts/${id}`, patch);
 
-export const resetPassword = (id: number, password: string, fetchFn: typeof fetch = fetch) =>
-  send(fetchFn, 'POST', `/api/accounts/${id}/reset-password`, { password });
+/**
+ * Réinitialise un mot de passe : le serveur en génère un temporaire et le rend ici, une seule
+ * fois. La valeur ne doit être ni journalisée ni stockée.
+ */
+export async function resetPassword(
+  id: number,
+  reason: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<Outcome<string>> {
+  const res = await fetchFn(`/api/accounts/${id}/reset-password`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) return { ok: false, message: await errorMessage(res) };
+  return { ok: true, value: ((await res.json()) as { password: string }).password };
+}
+
+/** Textes de la réinitialisation (maquette de #56). */
+export const RESET_TEXTS = {
+  title: 'Réinitialiser le mot de passe',
+  reasonLabel: 'Motif (obligatoire)',
+  reasonMissing: 'Indiquez un motif.',
+  audit: 'Cette action sera journalisée (sans le mot de passe).',
+  resultTitle: 'Mot de passe temporaire',
+  once: 'Affiché une seule fois. Il ne pourra plus être consulté.',
+  copyFailed: 'Copie impossible. Sélectionnez le mot de passe et copiez-le manuellement.',
+  handed: 'J’ai transmis le mot de passe',
+} as const;

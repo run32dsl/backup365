@@ -1,7 +1,10 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Alert, Button, FormField } from './ui/index.js';
 import {
   AUDIT_NOTICE,
+  RETRY_NOW,
+  lockedMessage,
+  formatCountdown,
   UNREACHABLE,
   authenticate,
   setupRecap,
@@ -83,19 +86,38 @@ export function CredentialsView({
   error,
   notice,
   busy = false,
+  lockedSec = 0,
+  announcement = '',
   onSubmit,
 }: {
   mode: 'login' | 'setup';
   error?: string;
   notice?: string;
   busy?: boolean;
+  /** Secondes restantes de verrouillage (0 : pas verrouillé). */
+  lockedSec?: number;
+  /** Texte lu par la région `status` du décompte (début, toutes les 30 s, fin). */
+  announcement?: string;
   onSubmit?: (form: FormData) => void;
 }) {
   const setup = mode === 'setup';
+  const locked = lockedSec > 0;
   const [typed, setTyped] = useState('');
   return (
     <main tabIndex={-1}>
       <h1>{setup ? 'Créer le compte administrateur' : 'Connexion à la console'}</h1>
+      {locked && (
+        <Alert tone="warning">
+          <span className="sr-only">{lockedMessage(lockedSec)}</span>
+          <span aria-hidden="true">
+            Connexion impossible pour le moment. Nouvel essai possible dans{' '}
+            <span className="countdown">{formatCountdown(lockedSec)}</span>.
+          </span>
+        </Alert>
+      )}
+      <p className="sr-only" role="status">
+        {announcement}
+      </p>
       {setup && (
         <p>
           Aucun compte n’existe encore. Ce compte gère les comptes, les plans et les restaurations.
@@ -132,8 +154,8 @@ export function CredentialsView({
             <p role="status">{setupRecap(typed.trim())}</p>
           </>
         )}
-        {error && <Alert tone="error">{error}</Alert>}
-        <Button type="submit" busy={busy}>
+        {error && !locked && <Alert tone="error">{error}</Alert>}
+        <Button type="submit" busy={busy} disabled={locked}>
           {setup ? 'Créer le compte administrateur' : 'Se connecter'}
         </Button>
       </form>
@@ -159,18 +181,47 @@ export function CredentialsPage({
 }) {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  // Fin du verrouillage (horloge murale) et secondes restantes, recalculées chaque seconde.
+  const [until, setUntil] = useState<number>();
+  const [lockedSec, setLockedSec] = useState(0);
+  const [announcement, setAnnouncement] = useState('');
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (until === undefined) return;
+    const timer = setInterval(() => {
+      const left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+      setLockedSec(left);
+      if (left === 0) {
+        clearInterval(timer);
+        setUntil(undefined);
+        setAnnouncement(RETRY_NOW);
+        // Le bouton se réactive au rendu suivant ; le champ identifiant reprend le focus.
+        setTimeout(() => {
+          root.current?.querySelector<HTMLInputElement>('input[name="username"]')?.focus();
+        }, 0);
+      } else if (left % 30 === 0) setAnnouncement(lockedMessage(left));
+    }, 1000);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [until]);
   const submit = (form: FormData) => {
+    if (lockedSec > 0) return;
     if (mode === 'setup' && text(form, 'password') !== text(form, 'confirm')) {
       setError('Les deux mots de passe ne correspondent pas.');
       return;
     }
     setBusy(true);
     setError(undefined);
+    setAnnouncement('');
     authenticate(mode, text(form, 'username').trim(), text(form, 'password')).then(
       (outcome: Outcome<SessionInfo>) => {
         setBusy(false);
-        if (!outcome.ok) setError(outcome.message);
-        else onSession(outcome.value);
+        if (outcome.ok) onSession(outcome.value);
+        else if (outcome.retryAfterSec) {
+          setUntil(Date.now() + outcome.retryAfterSec * 1000);
+          setLockedSec(outcome.retryAfterSec);
+        } else setError(outcome.message);
       },
       () => {
         setBusy(false);
@@ -179,7 +230,17 @@ export function CredentialsPage({
     );
   };
   return (
-    <CredentialsView mode={mode} error={error} notice={notice} busy={busy} onSubmit={submit} />
+    <div ref={root}>
+      <CredentialsView
+        mode={mode}
+        error={error}
+        notice={notice}
+        busy={busy}
+        lockedSec={lockedSec}
+        announcement={announcement}
+        onSubmit={submit}
+      />
+    </div>
   );
 }
 
@@ -201,9 +262,7 @@ export function PasswordView({
   return (
     <main tabIndex={-1}>
       <h1>Choisissez un nouveau mot de passe</h1>
-      {forced && (
-        <p>Votre mot de passe a été réinitialisé : choisissez-en un nouveau pour continuer.</p>
-      )}
+      {forced && <p>Votre mot de passe est temporaire. Choisissez-en un nouveau pour continuer.</p>}
       <form
         onSubmit={(e: FormEvent<HTMLFormElement>) => {
           e.preventDefault();
