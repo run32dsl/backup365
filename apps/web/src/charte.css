@@ -93,6 +93,15 @@ a {
   top: var(--space-2);
 }
 
+.demo-banner {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  border-bottom: 1px solid var(--warn-fg);
+  padding: var(--space-2) var(--space-3);
+  font-weight: 600;
+  text-align: center;
+}
+
 .shell {
   display: grid;
   grid-template-columns: 15rem 1fr;

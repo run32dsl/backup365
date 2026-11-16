@@ -48,6 +48,8 @@ export interface AppOptions {
   trustProxy?: string | false;
   /** Dossier de l'interface construite ; sans lui, seule l'API répond. */
   webDir?: string;
+  /** Mode démo : `/api/health` l'annonce, l'interface affiche un bandeau. */
+  demo?: boolean;
 }
 
 /** Champs jamais écrits dans le journal (secrets, jetons, cookies). */
@@ -93,6 +95,7 @@ export function buildApp({
   indexer,
   status = { maxAgeHours: DEFAULT_MAX_AGE_HOURS, workloads: ['mail', 'onedrive', 'sharepoint'] },
   webDir,
+  demo = false,
 }: AppOptions): FastifyInstance {
   const app = Fastify({ logger, trustProxy, routerOptions: { maxParamLength: 512 } });
   app.addHook('onSend', (_req, reply, payload, done) => {
@@ -106,7 +109,7 @@ export function buildApp({
   // Aucun message d'erreur interne (moteur SQLite, chemin) ne sort : 500 générique.
   app.setErrorHandler((err, _req, reply) => sendError(err, reply));
   registerAuthHook(app, auth);
-  app.get('/api/health', () => healthResponse(version));
+  app.get('/api/health', () => healthResponse(version, demo));
   void app.register((scope, _opts, done) => {
     registerAuthRoutes(scope, auth, audit);
     registerAccountRoutes(scope, auth, audit);

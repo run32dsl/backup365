@@ -14,6 +14,15 @@ import {
   withSecretFiles,
 } from './config.js';
 import { AuthService } from './auth.js';
+import { createAtlasCatalog } from './atlas-sdk.js';
+import {
+  assertNoRealStorage,
+  DEMO_STORAGE,
+  demoFactory,
+  isDemo,
+  onlyDemoAccounts,
+  seedDemo,
+} from './demo.js';
 import { SearchIndexer } from './search-indexer.js';
 import { tryOpenAccountStore } from './sqlite/open-account-store.js';
 import { tryOpenAuditLog } from './sqlite/open-audit-log.js';
@@ -32,6 +41,9 @@ export function createServer(
   factory?: AtlasFactory,
   logStream?: { write(msg: string): void },
 ): FastifyInstance {
+  const demo = isDemo(env);
+  // Avant d'ouvrir quoi que ce soit : le mode démo ne se mélange jamais à un vrai stockage.
+  if (demo) assertNoRealStorage(env);
   const indexIntervalMs = parseIndexIntervalMs(env['BACKUP365_INDEX_INTERVAL_MINUTES']);
   const anchorIntervalMs = parseAnchorIntervalMs(env['BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN']);
   const trustProxy = parseTrustProxy(env['BACKUP365_TRUST_PROXY']);
@@ -48,11 +60,20 @@ export function createServer(
   };
   const auth = openedAccounts.store ? new AuthService({ store: openedAccounts.store }) : undefined;
 
+  if (demo && openedAccounts.store && !onlyDemoAccounts(openedAccounts.store)) {
+    closeDatabases();
+    throw new Error(
+      'BACKUP365_DEMO=1 refusé : le dossier de données contient des comptes réels (utiliser un BACKUP365_DATA_DIR jetable)',
+    );
+  }
+
   let startup: ReturnType<typeof startAtlas>;
   let secretEnv: Record<string, string | undefined>;
   try {
     secretEnv = withSecretFiles(env, readFile);
-    startup = startAtlas(secretEnv, factory);
+    startup = demo
+      ? { status: 'ready', atlas: createAtlasCatalog(DEMO_STORAGE, demoFactory()) }
+      : startAtlas(secretEnv, factory);
   } catch (err) {
     closeDatabases();
     throw err;
@@ -109,6 +130,7 @@ export function createServer(
     ...(auth ? { auth } : {}),
     ...(openedPlans.store ? { plans: openedPlans.store } : {}),
     trustProxy,
+    ...(demo ? { demo } : {}),
     ...(indexer ? { indexer } : {}),
     ...(webDir ? { webDir } : {}),
   });
@@ -143,6 +165,12 @@ export function createServer(
     );
   } else if (startup.status === 'unconfigured') {
     app.log.warn('stockage non configuré, les routes du catalogue répondent 503');
+  }
+  if (demo) {
+    app.log.warn('MODE DÉMO : données fictives, aucun stockage réel (comptes de démonstration)');
+    app.addHook('onReady', async () => {
+      if (auth) await seedDemo(auth, openedAudit.audit);
+    });
   }
   if (indexer || anchorer) {
     // Au démarrage de l'application, sans retarder l'écoute ni /api/health.

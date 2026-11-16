@@ -68,18 +68,19 @@ passe ; les deux premiers secrets sont alors l'identifiant et le mot de passe ra
 
 ## Variables d'environnement
 
-| Variable                                                                                          | Rôle                                                                                      |
-| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `BACKUP365_TENANT_ID`, `BACKUP365_S3_ENDPOINT`                                                    | tenant et URL du stockage S3 (obligatoires)                                               |
-| `BACKUP365_S3_REGION`                                                                             | région S3 (`eu-west-3`)                                                                   |
-| `BACKUP365_S3_ACCESS_KEY_ID`, `BACKUP365_S3_SECRET_ACCESS_KEY`, `BACKUP365_ENCRYPTION_PASSPHRASE` | secrets, **fournis par fichier** : variante `…_FILE`                                      |
-| `BACKUP365_STATUS_MAX_AGE_HOURS`, `BACKUP365_STATUS_WORKLOADS`                                    | tableau de bord : seuil d'alerte (26 h), charges                                          |
-| `BACKUP365_CATALOG_CACHE_MINUTES`                                                                 | cache du recensement des sites SharePoint (60 min)                                        |
-| `BACKUP365_INDEX_INTERVAL_MINUTES`                                                                | intervalle d'indexation de la recherche (60 min)                                          |
-| `BACKUP365_AUDIT_ANCHOR_DIR`, `BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN`                               | ancres du journal d'audit : dossier (`/anchors` dans `compose.yaml`), intervalle (60 min) |
-| `BACKUP365_TRUST_PROXY`                                                                           | adresse(s) du proxy inverse HTTPS devant la console (`false` par défaut, voir ci-dessous) |
-| `BACKUP365_PORT`, `LOG_LEVEL`                                                                     | port publié sur 127.0.0.1 (3000), journal (`info`)                                        |
-| `BACKUP365_DATA_DIR`, `BACKUP365_WEB_DIR`                                                         | fixés par l'image (`/data`, `/app/web`)                                                   |
+| Variable                                                                                          | Rôle                                                                                         |
+| ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `BACKUP365_TENANT_ID`, `BACKUP365_S3_ENDPOINT`                                                    | tenant et URL du stockage S3 (obligatoires)                                                  |
+| `BACKUP365_S3_REGION`                                                                             | région S3 (`eu-west-3`)                                                                      |
+| `BACKUP365_S3_ACCESS_KEY_ID`, `BACKUP365_S3_SECRET_ACCESS_KEY`, `BACKUP365_ENCRYPTION_PASSPHRASE` | secrets, **fournis par fichier** : variante `…_FILE`                                         |
+| `BACKUP365_STATUS_MAX_AGE_HOURS`, `BACKUP365_STATUS_WORKLOADS`                                    | tableau de bord : seuil d'alerte (26 h), charges                                             |
+| `BACKUP365_CATALOG_CACHE_MINUTES`                                                                 | cache du recensement des sites SharePoint (60 min)                                           |
+| `BACKUP365_INDEX_INTERVAL_MINUTES`                                                                | intervalle d'indexation de la recherche (60 min)                                             |
+| `BACKUP365_AUDIT_ANCHOR_DIR`, `BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN`                               | ancres du journal d'audit : dossier (`/anchors` dans `compose.yaml`), intervalle (60 min)    |
+| `BACKUP365_TRUST_PROXY`                                                                           | adresse(s) du proxy inverse HTTPS devant la console (`false` par défaut, voir ci-dessous)    |
+| `BACKUP365_PORT`, `LOG_LEVEL`                                                                     | port publié sur 127.0.0.1 (3000), journal (`info`)                                           |
+| `BACKUP365_DATA_DIR`, `BACKUP365_WEB_DIR`                                                         | fixés par l'image (`/data`, `/app/web`)                                                      |
+| `BACKUP365_DEMO`                                                                                  | `1` : mode démo, données fictives, développement seulement (ADR 0010) ; jamais en production |
 
 Un secret se donne soit en variable, soit par `<NOM>_FILE` (chemin d'un fichier monté), jamais les
 deux. `compose.yaml` utilise les fichiers de `./secrets/` montés dans `/run/secrets/`.
