@@ -12,7 +12,7 @@ export interface RestoreJob {
   finishedAt: string | null;
   durationMs: number | null;
   folder: string;
-  error: 'restore_error' | 'restore_unreachable' | null;
+  error: 'restore_error' | 'restore_unreachable' | 'restore_lost' | null;
 }
 
 export type RestoreResult = { ok: true; job: RestoreJob } | { ok: false; message: string };
@@ -31,6 +31,8 @@ export const RESTORE_MESSAGES = {
   succeededTitle: 'Restauration réussie',
   failedTitle: 'Restauration échouée',
   untouched: 'Rien n’a été modifié dans la boîte.',
+  uncertain:
+    'L’état de la boîte est incertain : la restauration a peut-être abouti. Vérifiez le dossier daté avant de réessayer.',
   notAvailable: 'Ce mail n’est plus disponible dans la sauvegarde.',
   forbidden: 'Vous n’avez plus le droit de restaurer.',
   notConfigured: 'La restauration nécessite un tenant relié.',
@@ -78,9 +80,15 @@ export function announcement(elapsedMs: number): string {
 
 /** Cause d'un échec, en une phrase. */
 export function failureCause(error: RestoreJob['error']): string {
-  return error === 'restore_unreachable'
-    ? 'boîte injoignable pour le moment.'
-    : 'le service de restauration a signalé une erreur.';
+  if (error === 'restore_unreachable') return 'boîte injoignable pour le moment.';
+  if (error === 'restore_lost')
+    return 'le suivi de la restauration a été perdu (service redémarré).';
+  return 'le service de restauration a signalé une erreur.';
+}
+
+/** Vrai si l'appel a pu aboutir malgré l'échec affiché : la boîte n'est alors pas garantie intacte. */
+export function isOutcomeUncertain(error: RestoreJob['error']): boolean {
+  return error === 'restore_unreachable' || error === 'restore_lost';
 }
 
 /** Indication de la fiche : `Dernière restauration : réussie, 18 s`. */

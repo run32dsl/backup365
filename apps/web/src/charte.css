@@ -432,6 +432,12 @@ th {
   border-width: 2px;
 }
 
+/* Les en-têtes et les boutons d'action d'un tableau ne se coupent pas en deux lignes. */
+.data-table th,
+.data-table td .btn {
+  white-space: nowrap;
+}
+
 .table-caption {
   text-align: left;
   font-weight: 600;

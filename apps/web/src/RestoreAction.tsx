@@ -5,6 +5,7 @@ import {
   RESTORE_MESSAGES as T,
   announcement,
   failureCause,
+  isOutcomeUncertain,
   fetchLastRestore,
   formatClock,
   formatDuration,
@@ -83,13 +84,19 @@ export function RestoreAction({
   const running = job?.status === 'running';
   const jobId = job?.id;
   useEffect(() => {
-    if (!running) return;
+    if (!running || !job) return;
+    const runningJob = job;
     let current = true;
     const timer = setInterval(() => {
       setNow(Date.now());
       fetchLastRestore(mail.mailboxId, mail.messageId).then(
         (last) => {
-          if (current && last && last.id === jobId && last.status !== 'running') update(last);
+          if (!current) return;
+          if (last && last.id === jobId && last.status !== 'running') update(last);
+          else if (!last || last.id !== jobId) {
+            // Le serveur a perdu la trace (redémarrage) : on n'attend pas indéfiniment.
+            update({ ...runningJob, status: 'failed', error: 'restore_lost', durationMs: null });
+          }
         },
         () => undefined,
       );
@@ -239,7 +246,7 @@ export function RestoreAction({
               La restauration a échoué après {formatDuration(job.durationMs ?? 0)}.
             </Alert>
             <p>Cause : {failureCause(job.error)}</p>
-            <p>{T.untouched}</p>
+            <p>{isOutcomeUncertain(job.error) ? T.uncertain : T.untouched}</p>
             <div className="button-row dialog-actions primary-first">
               <Button
                 onClick={() => {

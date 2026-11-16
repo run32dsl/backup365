@@ -9,7 +9,9 @@ import {
   fetchRestoreConfigured,
   formatClock,
   formatDuration,
+  isOutcomeUncertain,
   lastRestoreLabel,
+  RESTORE_MESSAGES,
   restoreFolderName,
   startRestore,
   type RestoreJob,
@@ -81,6 +83,14 @@ describe('restore helpers', () => {
     expect(dialogTitle(job())).toBe('Restauration réussie');
     expect(dialogTitle(job({ status: 'failed' }))).toBe('Restauration échouée');
     expect(failureCause('restore_unreachable')).toBe('boîte injoignable pour le moment.');
+    expect(failureCause('restore_lost')).toContain('perdu');
+  });
+
+  it('does not claim the mailbox is untouched when the outcome is uncertain', () => {
+    expect(isOutcomeUncertain('restore_unreachable')).toBe(true);
+    expect(isOutcomeUncertain('restore_lost')).toBe(true);
+    expect(isOutcomeUncertain('restore_error')).toBe(false);
+    expect(RESTORE_MESSAGES.uncertain).toContain('incertain');
   });
 });
 
