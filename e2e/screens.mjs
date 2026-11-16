@@ -12,7 +12,7 @@
 
 export const WIDTHS = [1280, 390];
 
-/** Premier mail fictif de la première boîte (voir apps/server/src/demo.ts). */
+/** Quatrième mail fictif de la première boîte (voir apps/server/src/demo.ts). */
 export const DEMO_MAIL_HASH = `#/mail/${encodeURIComponent('claire.durand@exemple.fr')}/msg-1-004`;
 
 /** @type {Screen[]} */
