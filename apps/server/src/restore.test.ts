@@ -118,6 +118,21 @@ describe('RestoreService', () => {
     expect(events.at(-1)?.reason).toMatch(/^outcome=failed;duration_ms=\d+;reason=Ticket #1$/);
   });
 
+  it('fails a restoration that never returns', async () => {
+    const c = controlledRestorer();
+    const service = new RestoreService({
+      restorer: c.restorer,
+      audit: auditLog().audit,
+      timeoutMs: 20,
+    });
+    await service.start('alice', target, 'Ticket #1');
+    await service.idle();
+    expect(service.last('mbx-1', 'm1')).toMatchObject({
+      status: 'failed',
+      error: 'restore_unreachable',
+    });
+  });
+
   it('refuses a second restoration of the same mail while one runs', async () => {
     const c = controlledRestorer();
     const service = new RestoreService({ restorer: c.restorer, audit: auditLog().audit });

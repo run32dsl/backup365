@@ -28,6 +28,7 @@ export interface RestoreTarget {
 }
 
 const MAX_JOBS = 1000;
+const RESTORE_TIMEOUT_MS = 10 * 60_000;
 
 const pad = (n: number): string => String(n).padStart(2, '0');
 
@@ -53,6 +54,8 @@ export class RestoreService {
       audit: AuditLog;
       now?: () => number;
       onError?: (code: string) => void;
+      /** Délai maximal d'une restauration, en ms (10 min par défaut). */
+      timeoutMs?: number;
     },
   ) {
     this.now = options.now ?? Date.now;
@@ -125,15 +128,23 @@ export class RestoreService {
     reason: string,
   ): Promise<void> {
     let error: RestoreFailure | null = null;
+    let timer: NodeJS.Timeout | undefined;
     try {
-      const outcome = await this.options.restorer.restoreMessage(
-        mail.snapshotId,
-        mail.messageId,
-        job.folder,
-      );
+      // Délai maximal : un appel du SDK qui ne rend jamais la main ne bloque pas le mail.
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error('timeout'));
+        }, this.options.timeoutMs ?? RESTORE_TIMEOUT_MS);
+      });
+      const outcome = await Promise.race([
+        this.options.restorer.restoreMessage(mail.snapshotId, mail.messageId, job.folder),
+        timeout,
+      ]);
       if (outcome.errors > 0 || outcome.restored < 1) error = 'restore_error';
     } catch {
       error = 'restore_unreachable';
+    } finally {
+      clearTimeout(timer);
     }
     const finishedMs = this.now();
     const done: RestoreJob = {

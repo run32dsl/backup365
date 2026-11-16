@@ -44,7 +44,9 @@ Graph et exige donc de vrais identifiants avec droit d'écriture.
 - **Audit**, ressource `mail.restore`, cible `boîte/message` : `restore.request` (motif = le motif)
   consigné **avant** le lancement (s'il échoue, rien ne part) ; `restore.result` à la fin, avec
   `count` (1 réussie, 0 échouée) et un motif de la forme
-  `outcome=<succeeded|failed>;duration_ms=<n>;reason=<motif>`. Jamais l'objet, l'expéditeur ni le
+  `outcome=<succeeded|failed>;duration_ms=<n>;reason=<motif>` (le motif, texte libre, est
+  toujours le dernier champ : couper aux deux premiers `;` seulement). Une restauration qui ne
+  rend pas la main en 10 minutes passe en échec (`restore_unreachable`). Jamais l'objet, l'expéditeur ni le
   contenu du mail. Un résultat qui ne peut pas être consigné est signalé dans les journaux
   applicatifs par un code, la restauration n'est pas annulée pour autant.
 - Interface : bouton « Restaurer » sur chaque résultat de recherche et sur la fiche ; panneau
