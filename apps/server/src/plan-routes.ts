@@ -51,6 +51,7 @@ export function registerPlanRoutes(
   plans: SqlitePlanStore | undefined,
   audit: AuditLog | undefined,
   scheduler?: PlanScheduler,
+  backupConfigured = true,
 ) {
   function guard(req: FastifyRequest, reply: FastifyReply, readOnlyOk = false) {
     if (!req.session) {
@@ -105,6 +106,15 @@ export function registerPlanRoutes(
       };
     });
     return { items };
+  });
+
+  /** Les plans existent sans identifiants Microsoft 365, mais rien ne s'exécute (ADR 0009). */
+  app.get('/api/plans/execution', (req, reply) => {
+    const ctx = guard(req, reply);
+    if (!ctx) return reply;
+    return backupConfigured
+      ? { configured: true, retention: 'not_enforced' }
+      : { configured: false, label: 'sauvegarde non configurée', retention: 'not_enforced' };
   });
 
   app.post('/api/plans', async (req, reply) => {
@@ -187,6 +197,12 @@ export function registerPlanRoutes(
         return reply.code(400).send({
           error: 'reason_required',
           message: `Le motif du lancement est obligatoire (${REASON_MAX} caractères au plus).`,
+        });
+      }
+      if (!backupConfigured) {
+        return reply.code(503).send({
+          error: 'backup_not_configured',
+          message: 'Sauvegarde non configurée : identifiants Microsoft 365 absents.',
         });
       }
       if (!scheduler) return reply.code(503).send({ error: 'scheduler_unavailable' });

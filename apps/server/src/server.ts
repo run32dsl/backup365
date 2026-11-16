@@ -8,13 +8,22 @@ import {
   parseDataDir,
   parseIndexIntervalMs,
   parseLogLevel,
+  parseM365Config,
   parseMaxAgeHours,
   parseStatusWorkloads,
+  parseStorageConfig,
   parseTrustProxy,
   withSecretFiles,
 } from './config.js';
 import { AuthService } from './auth.js';
 import { PlanScheduler, executeurSimule } from './plan-scheduler.js';
+import {
+  AtlasExecuteur,
+  createBackupInstance,
+  toBackupConfig,
+  type AtlasBackupApi,
+  type BackupFactory,
+} from './atlas-executeur.js';
 import { createAtlasCatalog } from './atlas-sdk.js';
 import {
   assertNoRealStorage,
@@ -41,6 +50,7 @@ export function createServer(
   readFile: (path: string) => string,
   factory?: AtlasFactory,
   logStream?: { write(msg: string): void },
+  backupFactory?: BackupFactory,
 ): FastifyInstance {
   const demo = isDemo(env);
   // Avant d'ouvrir quoi que ce soit : le mode démo ne se mélange jamais à un vrai stockage.
@@ -70,11 +80,38 @@ export function createServer(
 
   let startup: ReturnType<typeof startAtlas>;
   let secretEnv: Record<string, string | undefined>;
+  let backup: { api: AtlasBackupApi; executeur: AtlasExecuteur } | undefined;
   try {
     secretEnv = withSecretFiles(env, readFile);
     startup = demo
       ? { status: 'ready', atlas: createAtlasCatalog(DEMO_STORAGE, demoFactory()) }
       : startAtlas(secretEnv, factory);
+    // Deuxième instance du SDK, avec les identifiants Graph réels : seulement hors démo, avec un
+    // stockage prêt et les deux variables BACKUP365_M365_*.
+    const m365 = demo ? undefined : parseM365Config(secretEnv);
+    const storage = startup.status === 'ready' && !demo ? parseStorageConfig(secretEnv) : undefined;
+    if (m365 && storage && startup.status === 'ready') {
+      const catalog = startup.atlas.catalog;
+      let api: AtlasBackupApi | undefined;
+      let refusedCode: unknown;
+      try {
+        api = (backupFactory ?? createBackupInstance)(toBackupConfig(storage, m365));
+      } catch (err) {
+        refusedCode = (err as { code?: unknown }).code;
+      }
+      if (!api) {
+        // Le message du SDK peut citer une valeur de configuration : seul le code est gardé.
+        const safe = typeof refusedCode === 'string' ? ` (${refusedCode})` : '';
+        throw new Error(`Configuration Microsoft 365 refusée par le SDK${safe}`);
+      }
+      backup = {
+        api,
+        executeur: new AtlasExecuteur({
+          api,
+          isSite: async (id) => (await catalog.listSites()).some((site) => site.id === id),
+        }),
+      };
+    }
   } catch (err) {
     closeDatabases();
     throw err;
@@ -107,13 +144,14 @@ export function createServer(
         })
       : undefined;
 
-  // Exécuteur simulé tant que l'exécution réelle n'existe pas (sous-issue 4 de #49).
+  // Sans identifiants Microsoft 365 (hors démo), pas de planificateur : aucune exécution.
   const catalogForPlans = startup.status === 'ready' ? startup.atlas.catalog : undefined;
+  const executeur = demo ? executeurSimule : backup?.executeur;
   const planScheduler =
-    openedPlans.store && openedAudit.audit
+    openedPlans.store && openedAudit.audit && executeur
       ? new PlanScheduler({
           plans: openedPlans.store,
-          executeur: executeurSimule,
+          executeur,
           listItems: async (plan) =>
             plan.scope === 'selection'
               ? plan.selection
@@ -150,6 +188,7 @@ export function createServer(
     ...(auth ? { auth } : {}),
     ...(openedPlans.store ? { plans: openedPlans.store } : {}),
     ...(planScheduler ? { planScheduler } : {}),
+    backupConfigured: executeur !== undefined,
     trustProxy,
     ...(demo ? { demo } : {}),
     ...(indexer ? { indexer } : {}),
@@ -187,6 +226,9 @@ export function createServer(
   } else if (startup.status === 'unconfigured') {
     app.log.warn('stockage non configuré, les routes du catalogue répondent 503');
   }
+  if (!demo && !executeur) {
+    app.log.warn('sauvegarde non configurée (BACKUP365_M365_*) : aucun plan ne s’exécute');
+  }
   if (demo) {
     app.log.warn('MODE DÉMO : données fictives, aucun stockage réel (comptes de démonstration)');
     app.addHook('onReady', async () => {
@@ -204,6 +246,9 @@ export function createServer(
   app.addHook('onClose', async () => {
     await indexer?.stop();
     await planScheduler?.stop();
+    await backup?.api.dispose().catch(() => {
+      app.log.error('libération du SDK de sauvegarde en échec');
+    });
     anchorer?.stop();
     closeDatabases();
     if (startup.status === 'ready') {
