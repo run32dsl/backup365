@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AccountsPage } from './AccountsPage.js';
 import { ROLE_LABELS } from './accounts.js';
 import { AuditPage } from './AuditPage.js';
@@ -47,6 +47,31 @@ export function screenFor(hash: string, admin: boolean): ReturnType<typeof scree
   return screen === 'accounts' && !admin ? 'forbidden' : screen;
 }
 
+/**
+ * Entrées de la navigation principale (5 au plus) : seules les entrées livrées apparaissent.
+ * Plans de protection s'ajoutera à sa livraison ; Administration (comptes) est réservée aux
+ * administrateurs.
+ */
+export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean) {
+  const entries = [
+    { href: '#/', label: 'Tableau de bord', current: screen === 'home' },
+    {
+      href: '#/search',
+      label: 'Rechercher et restaurer',
+      current: screen === 'search' || screen === 'mail',
+    },
+    { href: '#/audit', label: 'Journal d’audit', current: screen === 'audit' },
+  ];
+  if (admin) {
+    entries.push({
+      href: '#/comptes',
+      label: 'Administration',
+      current: screen === 'accounts' || screen === 'forbidden',
+    });
+  }
+  return entries;
+}
+
 const goHome = () => {
   window.location.hash = '#/';
 };
@@ -54,12 +79,118 @@ const goHome = () => {
 /** Page des comptes refusée à un opérateur. */
 export function ForbiddenView() {
   return (
-    <main>
+    <main tabIndex={-1}>
       <p role="alert">{ADMIN_ONLY}</p>
       <p>
         <a href="#/">Retour à l’accueil</a>
       </p>
     </main>
+  );
+}
+
+/**
+ * Lien d'évitement : donne le focus au contenu. L'ancre porte la navigation, on ne la modifie
+ * donc pas.
+ */
+export function skipToContent(
+  e: { preventDefault: () => void },
+  doc: { querySelector: (selector: string) => { focus: () => void } | null } = document,
+): void {
+  e.preventDefault();
+  doc.querySelector('main')?.focus();
+}
+
+/**
+ * Échap referme le menu ouvert et rend le focus au bouton « Menu » : sans cela le focus
+ * resterait sur un lien que la fermeture vient de masquer.
+ */
+export function closeMenuOnEscape(
+  e: {
+    key: string;
+    currentTarget: { querySelector: (selector: string) => { focus: () => void } | null };
+  },
+  open: boolean,
+  close: () => void,
+): void {
+  if (e.key !== 'Escape' || !open) return;
+  close();
+  e.currentTarget.querySelector('.menu-toggle')?.focus();
+}
+
+/**
+ * Gabarit de la console, sans état : lien d'évitement, barre latérale, puis l'écran. L'ordre
+ * du document est l'ordre de tabulation. Le clavier ne repose que sur des éléments natifs
+ * (`<a href>`, `<button>`), ce qui rend chaque geste vérifiable sans navigateur.
+ */
+export function ConsoleView({
+  user,
+  entries,
+  menuOpen,
+  onToggleMenu,
+  onCloseMenu,
+  onLogout,
+  children,
+}: {
+  user: User;
+  entries: ReturnType<typeof navEntries>;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
+  onLogout: () => void;
+  children?: ReactNode;
+}) {
+  return (
+    <>
+      <a
+        className="skip-link"
+        href="#/"
+        onClick={(e) => {
+          skipToContent(e);
+        }}
+      >
+        Aller au contenu
+      </a>
+      <div className="shell">
+        <aside
+          className="sidebar"
+          onKeyDown={(e) => {
+            closeMenuOnEscape(e, menuOpen, onCloseMenu);
+          }}
+        >
+          <span className="brand">backup365</span>
+          <button
+            type="button"
+            className="menu-toggle"
+            aria-expanded={menuOpen}
+            aria-controls="sidebar-menu"
+            onClick={onToggleMenu}
+          >
+            Menu
+          </button>
+          <div id="sidebar-menu" className="sidebar-collapsible" data-open={menuOpen}>
+            <nav aria-label="Navigation principale">
+              <ul className="nav-list">
+                {entries.map((e) => (
+                  <li key={e.href}>
+                    <a href={e.href} aria-current={e.current ? 'page' : undefined}>
+                      {e.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <div className="sidebar-footer">
+              <span>{`${user.username} (${ROLE_LABELS[user.role].toLowerCase()})`}</span>
+              <a href="#/password">Mot de passe</a>
+              <button type="button" onClick={onLogout}>
+                Se déconnecter
+              </button>
+            </div>
+          </div>
+        </aside>
+        <div>{children}</div>
+      </div>
+    </>
   );
 }
 
@@ -78,17 +209,24 @@ export function Console({ user, onLogout }: { user: User; onLogout: () => void }
   const admin = user.role === 'admin';
   const screen = screenFor(hash, admin);
   const mail = parseMailHash(hash);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Le menu replié se referme à chaque changement d'écran.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [hash]);
   return (
-    <>
-      <nav>
-        <a href="#/">Accueil</a> <a href="#/search">Recherche</a>{' '}
-        <a href="#/audit">Journal d’audit</a> {admin && <a href="#/comptes">Comptes</a>}{' '}
-        <a href="#/password">Mot de passe</a>{' '}
-        <span>{`${user.username} (${ROLE_LABELS[user.role].toLowerCase()})`}</span>{' '}
-        <button type="button" onClick={onLogout}>
-          Se déconnecter
-        </button>
-      </nav>
+    <ConsoleView
+      user={user}
+      entries={navEntries(screen, admin)}
+      menuOpen={menuOpen}
+      onToggleMenu={() => {
+        setMenuOpen((open) => !open);
+      }}
+      onCloseMenu={() => {
+        setMenuOpen(false);
+      }}
+      onLogout={onLogout}
+    >
       {screen === 'audit' && <AuditPage />}
       {screen === 'search' && <SearchPage />}
       {screen === 'accounts' && <AccountsPage />}
@@ -98,7 +236,7 @@ export function Console({ user, onLogout }: { user: User; onLogout: () => void }
       )}
       {screen === 'mail' && mail && <MailPage key={hash} {...mail} />}
       {screen === 'home' && <Home />}
-    </>
+    </ConsoleView>
   );
 }
 

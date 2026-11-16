@@ -130,7 +130,7 @@ Limite connue : le verrou par compte permet à qui atteint le port de bloquer un
 la parade est de ne pas exposer le port.
 
 **Perte du mot de passe administrateur.** Créer un autre administrateur en ligne de commande
-(ci-dessous), puis réinitialiser l'ancien depuis l'écran « Comptes ».
+(ci-dessous), puis réinitialiser l'ancien depuis l'écran « Administration ».
 
 ### Créer un compte en ligne de commande (tests de bout en bout, dépannage)
 

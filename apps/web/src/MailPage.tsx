@@ -120,7 +120,7 @@ export function MailPage({ mailboxId, messageId }: { mailboxId: string; messageI
   }
 
   return (
-    <main>
+    <main tabIndex={-1}>
       <h1>Fiche d’un mail</h1>
       <p>
         <a href="#/search">Retour à la recherche</a>
