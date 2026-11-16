@@ -54,6 +54,7 @@ describe('keyboard path of the console', () => {
       'Tableau de bord',
       'Rechercher et restaurer',
       'OneDrive',
+      'SharePoint',
       'Plans de protection',
       'Journal d’audit',
       'Mot de passe',
@@ -144,11 +145,12 @@ describe('navEntries', () => {
       'Tableau de bord',
       'Rechercher et restaurer',
       'OneDrive',
+      'SharePoint',
       'Plans de protection',
       'Journal d’audit',
     ]);
     const admin = navEntries('home', true).map((e) => e.label);
-    expect(admin).toHaveLength(6);
+    expect(admin).toHaveLength(7);
     expect(admin.at(-1)).toBe('Administration');
   });
 

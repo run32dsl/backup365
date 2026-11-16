@@ -1,4 +1,10 @@
-import type { AuditEvent, DataType, DriveRestorer, MailRestorer } from '@backup365/core';
+import type {
+  AuditEvent,
+  DataType,
+  DriveRestorer,
+  MailRestorer,
+  SiteRestorer,
+} from '@backup365/core';
 import type { AtlasFactory, AtlasHandle } from './atlas-sdk.js';
 import type { StorageConfig } from './config.js';
 import { parseStorageConfig } from './config.js';
@@ -169,6 +175,33 @@ const DEMO_DRIVE = [
   { parent: '/Images', name: 'logo.png', sizeBytes: 23_000, versionHours: [500] },
 ] as const;
 
+/** Bibliothèques fictives, les mêmes pour chaque site (`plan-b.pdf` échoue à la restauration). */
+const DEMO_SITE_FILES = [
+  { library: 'Documents partagés', parent: '/Plans 2024', name: 'plan-a.pdf', sizeBytes: 820_000 },
+  { library: 'Documents partagés', parent: '/Plans 2024', name: 'plan-b.pdf', sizeBytes: 640_000 },
+  { library: 'Documents partagés', parent: '/Plans 2024', name: 'notice.docx', sizeBytes: 31_000 },
+  {
+    library: 'Documents partagés',
+    parent: '/Contrats',
+    name: 'contrat-type.docx',
+    sizeBytes: 52_000,
+  },
+  { library: 'Documents partagés', parent: '/', name: 'accueil.docx', sizeBytes: 18_000 },
+  { library: 'Archives', parent: '/2023', name: 'rapport-annuel.pdf', sizeBytes: 1_900_000 },
+] as const;
+
+function siteEntries(now: number, backupHoursAgo: number) {
+  return DEMO_SITE_FILES.map((f, i) => ({
+    libraryName: f.library,
+    fileName: f.name,
+    parentPath: f.parent,
+    sizeBytes: f.sizeBytes,
+    lastModifiedAt: new Date(now - (40 + i * 20) * HOUR).toISOString(),
+    backupAt: new Date(now - backupHoursAgo * HOUR).toISOString(),
+    changeType: 'updated',
+  }));
+}
+
 function driveEntries(now: number, backupHoursAgo: number) {
   return DEMO_DRIVE.map((f) => ({
     fileName: f.name,
@@ -293,6 +326,10 @@ export function createDemoHandle(now: number = Date.now()): AtlasHandle {
             snapshotId: `snap-sp-${i + 1}-${k + 1}`,
             createdAt: new Date(now - age * HOUR),
             totalFiles: 300 + i * 90 - k * 10,
+            // Le plus ancien instantané n'a pas encore la bibliothèque Archives.
+            entries: siteEntries(now, k === 0 ? 5 : 29).filter(
+              (e) => k === 0 || e.libraryName !== 'Archives',
+            ),
           })),
         );
       },
@@ -428,6 +465,23 @@ export function createDemoDriveRestorer(delayMs: number = DEMO_RESTORE_MS): Driv
       return req.path.endsWith('/previsions.xlsx')
         ? { restored: 0, errors: 1 }
         : { restored: 1, errors: 0 };
+    },
+  };
+}
+
+/**
+ * Restaurateur SharePoint factice : attend `delayMs`, puis réussit (un fichier : 1 restauré ; plus
+ * large : 3 restaurés, 1 conservé) ; `plan-b.pdf` échoue, pour montrer l'écran d'échec. Ne touche
+ * à aucun site.
+ */
+export function createDemoSiteRestorer(delayMs: number = DEMO_RESTORE_MS): SiteRestorer {
+  return {
+    restore: async (req) => {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      if (req.path.endsWith('/plan-b.pdf')) return { restored: 0, skipped: 0, errors: 1 };
+      return req.scope === 'item'
+        ? { restored: 1, skipped: 0, errors: 0 }
+        : { restored: 3, skipped: 1, errors: 0 };
     },
   };
 }

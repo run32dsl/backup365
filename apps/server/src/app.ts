@@ -6,6 +6,7 @@ import {
   type DriveBrowser,
   type MailContentReader,
   type SearchIndex,
+  type SiteBrowser,
 } from '@backup365/core';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { registerAccountRoutes } from './account-routes.js';
@@ -18,6 +19,8 @@ import { registerCatalogRoutes } from './catalog-routes.js';
 import { registerMailRoutes } from './mail-routes.js';
 import type { DriveRestoreService } from './drive-restore-service.js';
 import { registerOneDriveRoutes } from './onedrive-routes.js';
+import { registerSharePointRoutes } from './sharepoint-routes.js';
+import type { SiteRestoreService } from './site-restore-service.js';
 import { registerRestoreRoutes } from './restore-routes.js';
 import type { RestoreService } from './restore-service.js';
 import { registerPlanRoutes } from './plan-routes.js';
@@ -58,6 +61,10 @@ export interface AppOptions {
   drive?: DriveBrowser;
   /** Restauration de fichiers OneDrive ; absente, elle n'est pas configurée (503, boutons désactivés). */
   driveRestore?: DriveRestoreService;
+  /** Parcours des sites SharePoint sauvegardés ; absent tant que le stockage n'est pas configuré. */
+  site?: SiteBrowser;
+  /** Restauration SharePoint ; absente, elle n'est pas configurée (503, boutons désactivés). */
+  siteRestore?: SiteRestoreService;
   /** Sauvegarde réelle configurée (identifiants Microsoft 365) ? Faux : aucun plan ne s'exécute (ADR 0009). */
   backupConfigured?: boolean;
   /** Derrière un proxy inverse de confiance : `X-Forwarded-Proto` et `-For` sont lus (cookie `Secure`, IP). */
@@ -111,6 +118,8 @@ export function buildApp({
   restore,
   drive,
   driveRestore,
+  site,
+  siteRestore,
   backupConfigured = true,
   trustProxy = false,
   indexer,
@@ -161,6 +170,10 @@ export function buildApp({
   });
   void app.register((scope, _opts, done) => {
     registerOneDriveRoutes(scope, drive, driveRestore, audit);
+    done();
+  });
+  void app.register((scope, _opts, done) => {
+    registerSharePointRoutes(scope, catalog, site, siteRestore, audit);
     done();
   });
   if (webDir) registerWebRoutes(app, webDir);

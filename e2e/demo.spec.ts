@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { DEMO_LOGINS } from './demo-server.mjs';
 import { expect, test } from './fixtures.js';
-import { DRIVE_REASON_LABEL, RESTORE_REASON_LABEL, SCREENS } from './screens.mjs';
+import {
+  DRIVE_REASON_LABEL,
+  RESTORE_REASON_LABEL,
+  SCREENS,
+  SITES,
+  SITE_DETAIL_LABEL,
+} from './screens.mjs';
 import { signInAs } from './browser.mjs';
 
 const BANNER = 'Mode démo : données fictives';
@@ -210,6 +216,143 @@ test('OneDrive : un échec propose de réessayer, rien n’est modifié', async 
   await expect(page.getByLabel(DRIVE_REASON_LABEL)).toBeVisible();
 });
 
+test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et journal', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'operator');
+  await page.goto('/#/');
+  await page.getByRole('link', { name: 'SharePoint', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Restaurer SharePoint' })).toBeVisible();
+  await expect(page.getByText('Étape 1 sur 3')).toBeVisible();
+  await expect(page.getByText(/Cette restauration est tracée/)).toBeVisible();
+
+  // Un opérateur ne peut pas restaurer le site entier : l'option dit pourquoi, en texte.
+  await expect(page.getByLabel('Le site entier')).toBeDisabled();
+  await expect(page.getByText('(Réservé aux administrateurs)')).toBeVisible();
+
+  // Bibliothèque : « Continuer » reste inactif tant qu'aucune n'est ouverte.
+  await page.getByLabel('Une bibliothèque').check();
+  const next = page.getByRole('button', { name: 'Continuer' });
+  await expect(next).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByText('Ouvrez la bibliothèque à restaurer pour continuer.')).toBeVisible();
+  // Arborescence au clavier : flèche, Entrée.
+  const tree = page.getByRole('tree');
+  await tree.getByRole('treeitem').first().focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(tree.getByRole('treeitem').nth(1)).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Sélection : Documents partagés')).toBeVisible();
+  await next.click();
+
+  // Motif : la précision est obligatoire.
+  await expect(page.getByRole('heading', { name: 'Pourquoi cette restauration ?' })).toBeVisible();
+  await expect(page.getByText('Étape 2 sur 3')).toBeVisible();
+  await page.getByRole('button', { name: 'Continuer' }).click();
+  await expect(page.getByText('Indiquez un motif pour continuer.')).toBeVisible();
+  await page.getByLabel('Motif', { exact: true }).selectOption('Contrôle ou test de restauration');
+  await page.getByLabel(SITE_DETAIL_LABEL).fill('Ticket #9 : essai trimestriel');
+  await page.getByRole('button', { name: 'Continuer' }).click();
+
+  // Récapitulatif en langage clair, sans écrasement.
+  await expect(page.getByRole('heading', { name: 'Vérifiez avant de restaurer' })).toBeVisible();
+  await expect(
+    page.getByText(/Vous allez restaurer la bibliothèque « Documents partagés »/),
+  ).toBeVisible();
+  await expect(page.getByText(/Les fichiers existants ne seront pas remplacés/)).toBeVisible();
+  await expect(
+    page.getByText('Motif : Contrôle ou test de restauration – « Ticket #9 : essai trimestriel »'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Restaurer la bibliothèque' }).click();
+
+  await expect(page.getByRole('progressbar')).toBeVisible();
+  await expect(
+    page.getByText(/Restauration terminée en \d+ s : 3 restaurés, 1 conservés, 0 erreurs/),
+  ).toBeVisible();
+
+  await page.getByRole('link', { name: 'Voir dans le journal d’audit' }).click();
+  await expect(
+    page
+      .getByRole('cell', {
+        name: 'scope=library;reason=Contrôle ou test de restauration : Ticket #9 : essai trimestriel',
+      })
+      .first(),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole('cell', {
+        name: /outcome=succeeded;duration_ms=\d+;scope=library;skipped=1;errors=0/,
+      })
+      .first(),
+  ).toBeVisible();
+});
+
+test('SharePoint : le site entier exige la case, puis le nom exact du site (administrateur)', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  await page.goto(`/#/sharepoint/${SITES.rh}`);
+  await page.getByLabel('Le site entier').check();
+  await page.getByRole('button', { name: 'Continuer' }).click();
+  await page.getByLabel(SITE_DETAIL_LABEL).fill('Ticket #10 : reprise après incident');
+  await page.getByRole('button', { name: 'Continuer' }).click();
+
+  await expect(
+    page.getByText('Restauration du site entier : action de grande ampleur'),
+  ).toBeVisible();
+  const go = page.getByRole('button', { name: 'Restaurer le site entier' });
+  await expect(go).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByText(/inactif tant que la case n’est pas cochée/)).toBeVisible();
+  await page.getByLabel('Tapez le nom du site pour confirmer').fill('Ressources humaine');
+  await page.getByLabel(/Je comprends/).check();
+  await expect(go).toHaveAttribute('aria-disabled', 'true');
+  await page.getByLabel('Tapez le nom du site pour confirmer').fill('Ressources humaines');
+  await expect(go).not.toHaveAttribute('aria-disabled', 'true');
+  await go.click();
+  await expect(page.getByText(/Restauration terminée en/)).toBeVisible();
+});
+
+test('SharePoint : un accès direct au site entier est refusé à un opérateur', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'operator');
+  await page.goto(`/#/sharepoint/${SITES.rh}/site`);
+  await expect(
+    page.getByText('Vous n’avez pas le droit de restaurer ce site. Contactez un administrateur.'),
+  ).toBeVisible();
+});
+
+test('SharePoint : un échec affiche le résultat partiel et propose de réessayer', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'operator');
+  await page.goto(`/#/sharepoint/${SITES.atelier}/item`);
+  await page.getByRole('treeitem', { name: /Documents partagés/ }).click();
+  await page.getByRole('treeitem', { name: /Plans 2024/ }).click();
+  await page.getByRole('treeitem', { name: /plan-b\.pdf/ }).click();
+  await page.getByRole('button', { name: 'Continuer' }).click();
+  await page.getByLabel(SITE_DETAIL_LABEL).fill('Ticket #11 : essai');
+  await page.getByRole('button', { name: 'Continuer' }).click();
+  await page.getByRole('button', { name: 'Restaurer l’élément' }).click();
+  await expect(
+    page
+      .getByRole('alert')
+      .getByText('La restauration a échoué après 0 éléments. Rien n’a été écrasé.'),
+  ).toBeVisible();
+  await expect(page.getByText('0 restaurés, 0 non traités, 1 erreurs.')).toBeVisible();
+  // Réessayer ramène au récapitulatif, motif et choix conservés.
+  await page.getByRole('button', { name: 'Réessayer' }).click();
+  await expect(page.getByRole('heading', { name: 'Vérifiez avant de restaurer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Restaurer l’élément' })).toBeVisible();
+});
+
 test('navigation au clavier du menu replié à 390 px', async ({ page, context, baseURL }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await signInAs(context, baseURL!, 'admin');
@@ -223,6 +366,7 @@ test('navigation au clavier du menu replié à 390 px', async ({ page, context, 
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Tableau de bord' })).toBeFocused();
+  await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');

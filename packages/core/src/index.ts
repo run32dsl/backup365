@@ -61,6 +61,20 @@ export {
   type DriveVersion,
 } from './drive.js';
 export {
+  SITE_SCOPES,
+  isPathOfScope,
+  listSiteFolderOf,
+  summarizeSite,
+  type SiteBrowser,
+  type SiteEntry,
+  type SiteManifestEntry,
+  type SiteRestoreOutcome,
+  type SiteRestoreRequest,
+  type SiteRestorer,
+  type SiteScope,
+  type SiteScopeSummary,
+} from './sharepoint.js';
+export {
   indexMailbox,
   type IndexedMail,
   type MailMetadata,
