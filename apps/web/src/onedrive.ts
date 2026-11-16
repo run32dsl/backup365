@@ -2,6 +2,9 @@ import type { DriveEntry, DriveSnapshot, DriveVersion } from '@backup365/core';
 import { UNREACHABLE } from './session.js';
 
 export type { DriveEntry, DriveSnapshot, DriveVersion };
+import { dayOf, dateTimeOf, sizeOf } from './format.js';
+
+export { dayOf, dateTimeOf, sizeOf };
 
 export type DriveMode = 'copy' | 'replace';
 export type DriveKind = 'file' | 'folder';
@@ -52,33 +55,6 @@ const SERVER_MESSAGES: Record<string, string> = {
   audit_unavailable: ONEDRIVE_MESSAGES.auditUnavailable,
   item_not_found: ONEDRIVE_MESSAGES.notInBackup,
 };
-
-const pad = (n: number): string => String(n).padStart(2, '0');
-
-/** `jj/mm/aaaa` (UTC), ou chaîne vide si la date est illisible. */
-export function dayOf(iso: string | null): string {
-  const d = iso === null ? new Date(Number.NaN) : new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? ''
-    : `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
-}
-
-/** `jj/mm/aaaa hh:mm` (UTC). */
-export function dateTimeOf(iso: string | null): string {
-  if (iso === null) return '';
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? ''
-    : `${dayOf(iso)} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
-}
-
-/** `84 Ko`, `1,2 Mo` ; `-` pour un dossier. */
-export function sizeOf(bytes: number | null): string {
-  if (bytes === null) return '-';
-  if (bytes < 1000) return `${bytes} o`;
-  if (bytes < 1_000_000) return `${Math.round(bytes / 1000)} Ko`;
-  return `${(bytes / 1_000_000).toFixed(1).replace('.', ',')} Mo`;
-}
 
 export interface OneDriveRoute {
   /** Compte OneDrive ; vide : le premier de la liste. */

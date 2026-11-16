@@ -444,7 +444,8 @@ th {
 
 /* Les en-têtes et les boutons d'action d'un tableau ne se coupent pas en deux lignes. */
 .data-table th,
-.data-table td .btn {
+.data-table td .btn,
+.data-table .nowrap {
   white-space: nowrap;
 }
 

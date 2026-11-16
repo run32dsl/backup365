@@ -35,7 +35,10 @@ describe('SearchView', () => {
       <SearchView state={{ total: 40, limit: 25, offset: 0, items: [mail] }} />,
     );
     expect(html).toContain('Facture 1');
-    expect(html.replace(/<!-- -->/g, '')).toContain('40 résultat(s), 1 à 1');
+    expect(html).toContain('01/01/2026 10:00');
+    expect(html).toContain('Boîte de réception');
+    expect(html).not.toContain('T10:00');
+    expect(html.replace(/<!-- -->/g, '')).toContain('40 résultats, 1 à 1');
     expect(html).toContain(`href="${mailHref(mail)}"`);
   });
 
@@ -62,7 +65,7 @@ describe('MailPage', () => {
     const html = renderToString(<MailView state={mail} />);
     expect(html).toContain('bob@example.test, carol@example.test');
     expect(html).toContain('facture.pdf');
-    expect(html).toContain('1234');
+    expect(html).toContain('1,2 Ko');
   });
 
   it('shows loading and error states, and the export form only once the sheet is loaded', () => {
