@@ -213,6 +213,13 @@ connexion (8 h d'inactivité au plus) : pour couper tout de suite, désactiver l
 « Administration ». L'adresse de retour doit être en HTTPS (sauf `localhost`) : voir
 `BACKUP365_TRUST_PROXY` ci-dessus.
 
+Avec `compose.yaml`, renseigner les variables `BACKUP365_OIDC_*` (sauf le secret) dans `.env`
+(modèle : `.env.example`). Le secret reste à ajouter, comme celui de la sauvegarde : un secret
+`oidc_client_secret` (fichier `./secrets/oidc_client_secret`) listé dans les `secrets` du service
+`console` et déclaré en bas du fichier, plus
+`BACKUP365_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret` dans son environnement. Sans
+ces valeurs, la connexion reste désactivée.
+
 **Vérifier** : sur l'écran de connexion, le bouton « Se connecter avec un compte Microsoft »
 apparaît sous le formulaire local ; un membre d'un groupe arrive sur le tableau de bord avec le
 rôle attendu ; un compte hors groupe revient à l'écran de connexion avec un message, et une ligne
