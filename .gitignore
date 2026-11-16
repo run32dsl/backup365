@@ -15,6 +15,10 @@ CLAUDE.local.md
 .pr/
 # Base de recherche (données personnelles)
 /data/
+# Captures d'écran du mode démo (pnpm run captures) et résultats de Playwright
+/captures/
+/test-results/
+/playwright-report/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm

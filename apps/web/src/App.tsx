@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AccountsPage } from './AccountsPage.js';
 import { ROLE_LABELS } from './accounts.js';
 import { AuditPage } from './AuditPage.js';
+import { DemoBanner, useDemo } from './DemoBanner.js';
 import { Home } from './Home.js';
 import { CredentialsPage, ErrorView, PasswordPage } from './LoginPage.js';
 import { MailPage } from './MailPage.js';
@@ -246,6 +247,16 @@ export function Console({ user, onLogout }: { user: User; onLogout: () => void }
  * session expirée (401 d'une requête) ramène à la connexion.
  */
 export function App() {
+  const demo = useDemo();
+  return (
+    <>
+      <DemoBanner demo={demo} />
+      <AppGate />
+    </>
+  );
+}
+
+function AppGate() {
   const [gate, setGate] = useState<Gate>({ status: 'loading' });
   const apply = (next: Gate) => {
     setCsrfToken(next.status === 'ready' ? next.session.csrfToken : null);
