@@ -18,6 +18,7 @@ mkdir -m 700 secrets            # un fichier par secret, sans fin de ligne utile
 for s in s3_access_key_id s3_secret_access_key encryption_passphrase; do
   read -rsp "$s : " v && printf '%s' "$v" > "secrets/$s" && echo   # hors historique du shell
 done
+: > secrets/m365_client_secret  # vide : sauvegarde non configurée (voir « Exécution des plans »)
 ```
 
 Droits des secrets. Phrase de chiffrement : console seule (uid 1000, utilisateur `node` du
@@ -29,7 +30,7 @@ propriétaire (`chown`).
 
 ```sh
 chmod 400 secrets/encryption_passphrase
-chmod 444 secrets/s3_access_key_id secrets/s3_secret_access_key
+chmod 444 secrets/s3_access_key_id secrets/s3_secret_access_key secrets/m365_client_secret
 sudo chown 1000:1000 secrets/encryption_passphrase
 ```
 
@@ -39,7 +40,7 @@ utilisateur de Podman :
 
 ```sh
 chmod 400 secrets/encryption_passphrase
-chmod 444 secrets/s3_access_key_id secrets/s3_secret_access_key
+chmod 444 secrets/s3_access_key_id secrets/s3_secret_access_key secrets/m365_client_secret
 podman unshare chown 1000:1000 secrets/encryption_passphrase
 ```
 
@@ -96,9 +97,13 @@ lire le mail, OneDrive et SharePoint du tenant) : la console répond alors « sa
 configurée » (`GET /api/plans/execution`), le lancement manuel d'un plan répond 503
 `backup_not_configured` et le serveur le signale au démarrage. Donner une seule des deux
 variables refuse le démarrage. Les identifiants ne sont jamais stockés, journalisés ni renvoyés.
-Pour `compose.yaml`, ajouter un secret `m365_client_secret` (fichier `./secrets/`) et
-`BACKUP365_M365_CLIENT_SECRET_FILE: /run/secrets/m365_client_secret`, plus
-`BACKUP365_M365_CLIENT_ID` dans l'environnement du service.
+Avec `compose.yaml`, `BACKUP365_M365_CLIENT_ID` se renseigne dans `.env` et le secret dans le
+fichier `secrets/m365_client_secret` (monté par `BACKUP365_M365_CLIENT_SECRET_FILE`). Ce fichier
+doit exister, car Compose refuse de démarrer sans lui : la commande `: >` de la section
+« Lancement » le crée vide, et un secret vide vaut « non défini ». Pour activer la sauvegarde,
+mettre l'identifiant dans `.env`, écrire le secret dans ce fichier (comme les autres secrets),
+puis `docker compose up -d`. Donner l'identifiant sans le secret (ou l'inverse) arrête le démarrage, avec le nom de la variable manquante. Avec un identifiant et un fichier vides, la console démarre et
+répond `backup_not_configured`.
 
 ## Premier accès
 

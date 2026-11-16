@@ -3,6 +3,7 @@ import {
   parseDataDir,
   parseIndexIntervalMs,
   parseLogLevel,
+  parseM365Config,
   parsePort,
   parseStorageConfig,
   parseTrustProxy,
@@ -119,6 +120,36 @@ describe('parseStorageConfig', () => {
       });
     expect(run).toThrow('BACKUP365_S3_ACCESS_KEY_ID, BACKUP365_ENCRYPTION_PASSPHRASE');
     expect(run).not.toThrow('topsecret');
+  });
+});
+
+describe('parseM365Config (compose.yaml par défaut)', () => {
+  it('treats an empty client id and an empty secret file as not configured', () => {
+    const env = withSecretFiles(
+      {
+        BACKUP365_M365_CLIENT_ID: '',
+        BACKUP365_M365_CLIENT_SECRET_FILE: '/run/secrets/m365_client_secret',
+      },
+      () => '',
+    );
+    expect(parseM365Config(env)).toBeUndefined();
+  });
+
+  it('refuses a client id without a secret, and the reverse, naming the variable', () => {
+    expect(() => parseM365Config({ BACKUP365_M365_CLIENT_ID: 'id' })).toThrow(
+      'BACKUP365_M365_CLIENT_SECRET',
+    );
+    expect(() => parseM365Config({ BACKUP365_M365_CLIENT_SECRET: 's' })).toThrow(
+      'BACKUP365_M365_CLIENT_ID',
+    );
+  });
+
+  it('reads the secret from the mounted file', () => {
+    const env = withSecretFiles(
+      { BACKUP365_M365_CLIENT_ID: 'id', BACKUP365_M365_CLIENT_SECRET_FILE: '/f' },
+      () => 's\n',
+    );
+    expect(parseM365Config(env)).toEqual({ clientId: 'id', clientSecret: 's' });
   });
 });
 

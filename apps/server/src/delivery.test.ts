@@ -68,6 +68,12 @@ describe('compose.yaml', () => {
         expect(block, `${name} : ${secret}`).toMatch(new RegExp(`^ {6}- ${secret}$`, 'm'));
       }
     }
+    // Identifiants Microsoft 365 : l'identifiant par variable, le secret par fichier monté.
+    const consoleBlock = service(compose, 'console');
+    expect(consoleBlock).toContain('BACKUP365_M365_CLIENT_ID: ${BACKUP365_M365_CLIENT_ID:-}');
+    expect(consoleBlock).toContain(
+      'BACKUP365_M365_CLIENT_SECRET_FILE: /run/secrets/m365_client_secret',
+    );
     expect(compose).not.toMatch(/^\s+\w*(SECRET_ACCESS_KEY|PASSPHRASE|PASSWORD|ACCESS_KEY_ID):/m);
   });
 });

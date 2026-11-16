@@ -26,6 +26,8 @@ services:
       BACKUP365_CATALOG_CACHE_MINUTES: ${BACKUP365_CATALOG_CACHE_MINUTES:-}
       BACKUP365_INDEX_INTERVAL_MINUTES: ${BACKUP365_INDEX_INTERVAL_MINUTES:-}
       BACKUP365_TRUST_PROXY: ${BACKUP365_TRUST_PROXY:-}
+      # Application Entra de la sauvegarde : vide, aucun plan ne s'exécute (« sauvegarde non configurée »).
+      BACKUP365_M365_CLIENT_ID: ${BACKUP365_M365_CLIENT_ID:-}
       # Connexion avec un compte Microsoft : désactivée tant que tout est vide.
       BACKUP365_OIDC_TENANT_ID: ${BACKUP365_OIDC_TENANT_ID:-}
       BACKUP365_OIDC_CLIENT_ID: ${BACKUP365_OIDC_CLIENT_ID:-}
@@ -39,10 +41,12 @@ services:
       BACKUP365_S3_ACCESS_KEY_ID_FILE: /run/secrets/s3_access_key_id
       BACKUP365_S3_SECRET_ACCESS_KEY_FILE: /run/secrets/s3_secret_access_key
       BACKUP365_ENCRYPTION_PASSPHRASE_FILE: /run/secrets/encryption_passphrase
+      BACKUP365_M365_CLIENT_SECRET_FILE: /run/secrets/m365_client_secret
     secrets:
       - s3_access_key_id
       - s3_secret_access_key
       - encryption_passphrase
+      - m365_client_secret
     volumes:
       - console-data:/data
       # Par défaut un volume nommé ; pour une vraie protection, le remplacer par un montage vers
@@ -82,6 +86,9 @@ secrets:
     file: ./secrets/s3_secret_access_key
   encryption_passphrase:
     file: ./secrets/encryption_passphrase
+  # Fichier vide tant que la sauvegarde n'est pas configurée (Compose exige que le fichier existe).
+  m365_client_secret:
+    file: ./secrets/m365_client_secret
 
 volumes:
   console-data:

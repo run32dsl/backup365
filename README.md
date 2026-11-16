@@ -51,7 +51,7 @@ effacement RGPD. Hors MVP : multi-tenant, SAML, chats Teams. Priorités :
 
 ```sh
 cp .env.example .env     # renseigner le tenant et l'URL du stockage S3
-# créer le dossier secrets/ (3 fichiers), voir docs/installation.md
+# créer le dossier secrets/ (4 fichiers), voir docs/installation.md
 docker compose up -d --build
 ```
 
