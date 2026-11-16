@@ -91,6 +91,46 @@ describe('API des plans', () => {
     });
   });
 
+  it('reads the last restore point over the whole history, not only the listed runs', async () => {
+    const { app, plans } = setup();
+    const plan = plans.create({
+      name: 'Site vide',
+      scope: 'all',
+      dataTypes: ['mail'],
+      selection: [],
+      rpoHours: 4,
+      rtoHours: null,
+      retentionDays: 30,
+      gdprJustification: 'Obligation légale.',
+    });
+    const compliance = async () =>
+      (await send(app, 'GET', '/api/plans')).json<{
+        items: { compliance: Record<string, unknown> }[];
+      }>().items[0]!.compliance;
+    const finish = (at: string, reason?: 'no_content', status: 'success' | 'failed' = 'success') =>
+      plans.finishRun(plans.startRun(plan.id, 'a', at) as number, status, at, undefined, reason);
+    const base = Date.now() - 3_600_000;
+    const at = (seconds: number) => new Date(base + seconds * 1000).toISOString();
+
+    finish(at(0), 'no_content');
+    finish(at(1), undefined, 'failed');
+    // Ni une réussite vide ni un échec ne sont un point de restauration.
+    expect(await compliance()).toEqual({
+      state: 'compliant',
+      lastSuccessAt: at(0),
+      lastRestorePointAt: null,
+    });
+
+    finish(at(2));
+    // Plus de réussites vides que la route ne relit d'exécutions (200) : le vrai point reste connu.
+    for (let i = 0; i < 201; i++) finish(at(3 + i), 'no_content');
+    expect(await compliance()).toEqual({
+      state: 'compliant',
+      lastSuccessAt: at(203),
+      lastRestorePointAt: at(2),
+    });
+  });
+
   it('answers 403 to a non-administrator on the write routes', async () => {
     const { app } = setup('operator');
     expect((await send(app, 'POST', '/api/plans', valid)).statusCode).toBe(403);

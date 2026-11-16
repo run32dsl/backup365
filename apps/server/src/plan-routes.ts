@@ -99,7 +99,8 @@ export function registerPlanRoutes(
       return {
         ...visible,
         // Le point de restauration se lit sur tout l'historique : 200 réussites vides de suite
-        // ne doivent pas faire oublier un vrai point plus ancien.
+        // ne doivent pas faire oublier un vrai point plus ancien. Champ propre à cette route :
+        // le type `Compliance` du core, partagé avec le tableau de bord, ne le porte pas.
         compliance: {
           ...planCompliance(plan.rpoHours, runs, now),
           lastRestorePointAt: ctx.plans.lastRestorePointAt(plan.id),

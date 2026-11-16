@@ -125,10 +125,12 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
   `GET /api/plans/:id/runs` et par `lastRun` de `GET /api/plans`. Le statut reste `success` ; un
   site est `no_content` si tous ses résultats le sont. Pour un propriétaire (boîte + OneDrive), la
   messagerie ne rend pas de motif et compte comme ayant un point de restauration : l'exécution
-  n'est `no_content` que si chaque charge l'est. `Compliance.lastRestorePointAt` est la fin de la
-  dernière réussite qui a créé un point ; `lastSuccessAt` (qui fonde la conformité) la compte
-  toujours. L'écran des plans écrit « Succès, aucun contenu à sauvegarder » et, si aucune
-  réussite n'a créé de point, « Conforme : rien à restaurer ».
+  n'est `no_content` que si chaque charge l'est. `compliance.lastRestorePointAt` de
+  `GET /api/plans` est la fin de la dernière réussite qui a créé un point, lue par le magasin sur
+  tout l'historique ; ce champ est propre à cette route, le type `Compliance` du core (partagé
+  avec le tableau de bord) ne change pas. `lastSuccessAt` (qui fonde la conformité) compte
+  toujours une réussite vide. L'écran des plans écrit « Succès, aucun contenu à sauvegarder » et,
+  si aucune réussite n'a créé de point, « Conforme : rien à restaurer ».
 - Identifiants : `BACKUP365_M365_CLIENT_ID` et `BACKUP365_M365_CLIENT_SECRET` (variante
   `_FILE`). Un seul des deux : démarrage refusé, l'erreur nomme la variable. Aucun : « sauvegarde
   non configurée » ; hors démo, aucun planificateur n'est créé, donc aucune exécution ni ligne de

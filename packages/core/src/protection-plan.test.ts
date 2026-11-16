@@ -119,23 +119,18 @@ describe('planCompliance', () => {
     expect(planCompliance(4, [run('2026-11-16T08:30:00Z', 'success')], now)).toEqual({
       state: 'compliant',
       lastSuccessAt: '2026-11-16T08:30:00Z',
-      lastRestorePointAt: '2026-11-16T08:30:00Z',
     });
   });
-  it('does not present a no_content success as a restore point', () => {
+  it('counts a no_content success and keeps the shape the dashboard shares', () => {
     const empty: PlanRun = {
       ...run('2026-11-16T10:00:00Z', 'success'),
       noSnapshotReason: 'no_content',
     };
+    // Forme exacte : un champ obligatoire de plus casserait les autres producteurs de `Compliance`.
     expect(planCompliance(4, [empty], now)).toEqual({
       state: 'compliant',
       lastSuccessAt: '2026-11-16T10:00:00Z',
-      lastRestorePointAt: null,
     });
-    const earlier = run('2026-11-16T09:00:00Z', 'success');
-    expect(planCompliance(4, [earlier, empty], now).lastRestorePointAt).toBe(
-      '2026-11-16T09:00:00Z',
-    );
   });
   it('is late exactly at the RPO', () => {
     expect(planCompliance(4, [run('2026-11-16T08:00:00Z', 'success')], now).state).toBe('late');
@@ -157,11 +152,7 @@ describe('planCompliance', () => {
     expect(planCompliance(4, [run('2026-11-16T13:00:00Z', 'success')], now).state).toBe('late');
   });
   it('is late with no run at all', () => {
-    expect(planCompliance(24, [], now)).toEqual({
-      state: 'late',
-      lastSuccessAt: null,
-      lastRestorePointAt: null,
-    });
+    expect(planCompliance(24, [], now)).toEqual({ state: 'late', lastSuccessAt: null });
   });
   it('is failed when the only run failed', () => {
     expect(planCompliance(24, [run('2026-11-16T11:00:00Z', 'failed')], now).state).toBe('failed');

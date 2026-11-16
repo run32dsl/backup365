@@ -184,8 +184,6 @@ export interface Compliance {
   state: ComplianceState;
   /** Fin de la dernière exécution réussie ; `null` s'il n'y en a aucune. */
   lastSuccessAt: string | null;
-  /** Fin de la dernière exécution réussie qui a créé un point de restauration ; `null` sinon. */
-  lastRestorePointAt: string | null;
 }
 
 /** Une fin située dans le futur (horloge décalée) ne prouve rien : elle n'est pas « récente ». */
@@ -197,6 +195,8 @@ function isFresh(ageMs: number, rpoHours: RpoHours): boolean {
  * Conforme si la dernière exécution réussie finit depuis moins que le RPO. Sinon « en échec » si
  * l'exécution la plus récente a échoué, « en retard » dans les autres cas (y compris sans aucune
  * exécution : rien n'est protégé). Une date illisible ne compte pas comme une réussite.
+ * Une réussite `no_content` compte : il n'y avait rien à protéger. Le dernier point de
+ * restauration ne se lit pas ici (liste d'exécutions bornée) mais dans le magasin des plans.
  */
 export function planCompliance(
   rpoHours: RpoHours,
@@ -204,7 +204,6 @@ export function planCompliance(
   now: Date,
 ): Compliance {
   let lastSuccess: { at: string; ms: number } | null = null;
-  let restorePoint: { at: string; ms: number } | null = null;
   let latest: { run: PlanRun; ms: number } | null = null;
   for (const run of runs) {
     const startMs = Date.parse(run.startedAt);
@@ -216,22 +215,10 @@ export function planCompliance(
     if (!Number.isNaN(endMs) && (lastSuccess === null || endMs > lastSuccess.ms)) {
       lastSuccess = { at: run.finishedAt, ms: endMs };
     }
-    if (
-      !Number.isNaN(endMs) &&
-      !run.noSnapshotReason &&
-      (restorePoint === null || endMs > restorePoint.ms)
-    ) {
-      restorePoint = { at: run.finishedAt, ms: endMs };
-    }
   }
   const lastSuccessAt = lastSuccess?.at ?? null;
-  const lastRestorePointAt = restorePoint?.at ?? null;
   if (lastSuccess !== null && isFresh(now.getTime() - lastSuccess.ms, rpoHours)) {
-    return { state: 'compliant', lastSuccessAt, lastRestorePointAt };
+    return { state: 'compliant', lastSuccessAt };
   }
-  return {
-    state: latest?.run.status === 'failed' ? 'failed' : 'late',
-    lastSuccessAt,
-    lastRestorePointAt,
-  };
+  return { state: latest?.run.status === 'failed' ? 'failed' : 'late', lastSuccessAt };
 }
