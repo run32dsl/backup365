@@ -98,6 +98,46 @@ export const ACCOUNT_MIGRATIONS: readonly Migration[] = [
   },
 ];
 
+/**
+ * Migrations des plans de protection (plans.sqlite, base distincte : les plans et leur historique
+ * ne se reconstruisent pas depuis le catalogue). `error` ne reçoit qu'un code ou un message
+ * technique court, jamais un contenu de mail.
+ */
+export const PLAN_MIGRATIONS: readonly Migration[] = [
+  {
+    version: 1,
+    name: 'protection-plans',
+    sql: `
+      CREATE TABLE plans (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE COLLATE NOCASE CHECK (length(trim(name)) BETWEEN 1 AND 100),
+        scope TEXT NOT NULL CHECK (scope IN ('all', 'selection')),
+        rpo_hours INTEGER NOT NULL DEFAULT 24 CHECK (rpo_hours IN (4, 12, 24)),
+        rto_hours INTEGER CHECK (rto_hours IS NULL OR rto_hours > 0),
+        retention_days INTEGER NOT NULL CHECK (retention_days > 0),
+        gdpr_justification TEXT NOT NULL CHECK (length(trim(gdpr_justification)) BETWEEN 1 AND 1000),
+        created_at TEXT NOT NULL
+      );
+      CREATE TABLE plan_items (
+        plan_id TEXT NOT NULL REFERENCES plans (id) ON DELETE CASCADE,
+        item_id TEXT NOT NULL CHECK (length(item_id) > 0),
+        PRIMARY KEY (plan_id, item_id)
+      );
+      CREATE TABLE plan_runs (
+        id INTEGER PRIMARY KEY,
+        plan_id TEXT NOT NULL REFERENCES plans (id) ON DELETE CASCADE,
+        item_id TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        finished_at TEXT,
+        status TEXT NOT NULL CHECK (status IN ('running', 'success', 'failed')),
+        duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),
+        error TEXT CHECK (error IS NULL OR length(error) <= 200)
+      );
+      CREATE INDEX plan_runs_plan_start ON plan_runs (plan_id, started_at);
+    `,
+  },
+];
+
 /** Applique les migrations manquantes, chacune dans une transaction. */
 export function migrate(db: DatabaseSync, migrations: readonly Migration[]): void {
   db.exec(

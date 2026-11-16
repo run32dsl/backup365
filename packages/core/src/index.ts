@@ -49,3 +49,20 @@ export {
   type SearchQuery,
   type SnapshotMailReader,
 } from './search.js';
+export {
+  DEFAULT_RPO_HOURS,
+  RPO_HOURS,
+  nextRunAt,
+  parseProtectionPlanInput,
+  planCompliance,
+  runIntervalMinutes,
+  staggerOffsetMinutes,
+  type Compliance,
+  type ComplianceState,
+  type PlanParseResult,
+  type PlanRun,
+  type PlanScope,
+  type ProtectionPlanInput,
+  type RpoHours,
+  type RunStatus,
+} from './protection-plan.js';
