@@ -16,7 +16,7 @@ if (process.env['BACKUP365_SKIP_BUILD'] !== '1') {
 }
 mkdirSync(outDir, { recursive: true });
 
-const server = await startDemoServer();
+const server = await startDemoServer({ settled: true });
 const browser = await chromium.launch(launchOptions());
 const written = [];
 try {

@@ -43,9 +43,46 @@ describe('API des plans', () => {
     expect((await send(raw, 'DELETE', '/api/plans/x')).statusCode).toBe(401);
   });
 
-  it('answers 403 to a non-administrator on the four routes', async () => {
+  it('lets an operator read the list with compliance and last run, nothing else', async () => {
+    const { app, plans } = setup('operator');
+    const plan = plans.create({
+      name: 'Mails',
+      scope: 'all',
+      dataTypes: ['mail', 'contacts'],
+      selection: [],
+      rpoHours: 4,
+      rtoHours: null,
+      retentionDays: 30,
+      gdprJustification: 'Obligation légale.',
+    });
+    const before = (await send(app, 'GET', '/api/plans')).json<{
+      items: Record<string, unknown>[];
+    }>();
+    expect(before.items[0]).not.toHaveProperty('gdprJustification');
+    expect(before.items[0]).not.toHaveProperty('selection');
+    expect((await send(app, 'GET', `/api/plans/${plan.id}/runs`)).statusCode).toBe(403);
+    expect((await send(app, 'POST', `/api/plans/${plan.id}/run`, { reason: 'x' })).statusCode).toBe(
+      403,
+    );
+    expect(before.items[0]).toMatchObject({
+      dataTypes: ['mail', 'contacts'],
+      compliance: { state: 'late', lastSuccessAt: null },
+      running: false,
+      lastRun: null,
+    });
+    const runId = plans.startRun(plan.id, 'a', new Date().toISOString()) as number;
+    plans.finishRun(runId, 'success', new Date().toISOString());
+    const after = (await send(app, 'GET', '/api/plans')).json<{
+      items: Record<string, unknown>[];
+    }>();
+    expect(after.items[0]).toMatchObject({
+      compliance: { state: 'compliant' },
+      lastRun: { status: 'success' },
+    });
+  });
+
+  it('answers 403 to a non-administrator on the write routes', async () => {
     const { app } = setup('operator');
-    expect((await send(app, 'GET', '/api/plans')).statusCode).toBe(403);
     expect((await send(app, 'POST', '/api/plans', valid)).statusCode).toBe(403);
     expect((await send(app, 'PUT', '/api/plans/x', valid)).statusCode).toBe(403);
     expect((await send(app, 'DELETE', '/api/plans/x')).statusCode).toBe(403);
@@ -71,7 +108,9 @@ describe('API des plans', () => {
     });
 
     const list = await send(app, 'GET', '/api/plans');
-    expect(list.json<{ items: unknown[] }>().items).toEqual([created.json()]);
+    expect(list.json<{ items: unknown[] }>().items).toEqual([
+      expect.objectContaining(created.json<object>()),
+    ]);
 
     const replaced = await send(app, 'PUT', `/api/plans/${plan.id}`, {
       ...valid,

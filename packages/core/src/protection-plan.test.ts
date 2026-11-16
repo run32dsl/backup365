@@ -25,6 +25,19 @@ describe('parseProtectionPlanInput', () => {
       plan: { rpoHours: 24, rtoHours: null, selection: [] },
     });
   });
+  it('protects every data type by default and orders a given list', () => {
+    expect(parseProtectionPlanInput(valid)).toMatchObject({
+      plan: { dataTypes: ['mail', 'files', 'calendar', 'contacts'] },
+    });
+    expect(
+      parseProtectionPlanInput({ ...valid, dataTypes: ['contacts', 'mail', 'mail'] }),
+    ).toMatchObject({ ok: true, plan: { dataTypes: ['mail', 'contacts'] } });
+  });
+  it('refuses an empty or unknown list of data types', () => {
+    for (const dataTypes of [[], ['teams'], 'mail', [1], null]) {
+      expect(parseProtectionPlanInput({ ...valid, dataTypes }).ok).toBe(false);
+    }
+  });
   it('refuses a missing, blank or oversized GDPR justification', () => {
     for (const gdprJustification of [undefined, '', '   ', 'x'.repeat(1001), 42]) {
       expect(parseProtectionPlanInput({ ...valid, gdprJustification }).ok).toBe(false);

@@ -55,6 +55,74 @@ export const SCREENS = [
   },
   { name: 'page-reservee', hash: '#/comptes', role: 'operator' },
   {
+    name: 'plans-liste',
+    hash: '#/plans',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+    },
+  },
+  {
+    name: 'plans-liste-operateur',
+    hash: '#/plans',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+    },
+  },
+  {
+    name: 'plans-etape-1',
+    hash: '#/plans/nouveau',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Nom du plan').fill('Messagerie Direction');
+    },
+  },
+  {
+    name: 'plans-etape-2',
+    hash: '#/plans/nouveau',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Nom du plan').fill('Messagerie Direction');
+      await page.getByRole('button', { name: 'Suivant' }).click();
+      await page.getByText('Étape 2 sur 3 : Objectifs').waitFor();
+    },
+  },
+  {
+    name: 'plans-etape-3',
+    hash: '#/plans/nouveau',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Nom du plan').fill('Messagerie Direction');
+      await page.getByRole('button', { name: 'Suivant' }).click();
+      await page
+        .getByLabel('Justification de cette durée')
+        .selectOption({ label: 'Obligation légale' });
+      await page.getByRole('button', { name: 'Suivant' }).click();
+      await page.getByText('Étape 3 sur 3 : Récapitulatif').waitFor();
+    },
+  },
+  {
+    name: 'plans-lancer',
+    hash: '#/plans',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
+      await page
+        .getByRole('dialog', { name: 'Lancer « Messagerie Direction » maintenant' })
+        .waitFor();
+    },
+  },
+  {
+    name: 'plans-supprimer',
+    hash: '#/plans',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
+      await page.getByRole('dialog', { name: 'Supprimer « Messagerie Direction » ?' }).waitFor();
+    },
+  },
+  {
     name: 'composants',
     hash: '#/composants',
     role: 'admin',
