@@ -87,6 +87,7 @@ export function CredentialsView({
   notice,
   busy = false,
   lockedSec = 0,
+  lockedStartSec,
   announcement = '',
   onSubmit,
 }: {
@@ -96,6 +97,8 @@ export function CredentialsView({
   busy?: boolean;
   /** Secondes restantes de verrouillage (0 : pas verrouillé). */
   lockedSec?: number;
+  /** Durée au début du verrouillage : l'alerte la lit une fois, sans suivre le décompte. */
+  lockedStartSec?: number;
   /** Texte lu par la région `status` du décompte (début, toutes les 30 s, fin). */
   announcement?: string;
   onSubmit?: (form: FormData) => void;
@@ -108,7 +111,7 @@ export function CredentialsView({
       <h1>{setup ? 'Créer le compte administrateur' : 'Connexion à la console'}</h1>
       {locked && (
         <Alert tone="warning">
-          <span className="sr-only">{lockedMessage(lockedSec)}</span>
+          <span className="sr-only">{lockedMessage(lockedStartSec ?? lockedSec)}</span>
           <span aria-hidden="true">
             Connexion impossible pour le moment. Nouvel essai possible dans{' '}
             <span className="countdown">{formatCountdown(lockedSec)}</span>.
@@ -184,6 +187,7 @@ export function CredentialsPage({
   // Fin du verrouillage (horloge murale) et secondes restantes, recalculées chaque seconde.
   const [until, setUntil] = useState<number>();
   const [lockedSec, setLockedSec] = useState(0);
+  const [startSec, setStartSec] = useState<number>();
   const [announcement, setAnnouncement] = useState('');
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -221,6 +225,7 @@ export function CredentialsPage({
         else if (outcome.retryAfterSec) {
           setUntil(Date.now() + outcome.retryAfterSec * 1000);
           setLockedSec(outcome.retryAfterSec);
+          setStartSec(outcome.retryAfterSec);
         } else setError(outcome.message);
       },
       () => {
@@ -237,6 +242,7 @@ export function CredentialsPage({
         notice={notice}
         busy={busy}
         lockedSec={lockedSec}
+        lockedStartSec={startSec}
         announcement={announcement}
         onSubmit={submit}
       />

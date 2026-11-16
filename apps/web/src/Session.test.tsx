@@ -181,6 +181,14 @@ describe('connexion verrouillée (#56)', () => {
     expect(html).toContain('role="status"');
   });
 
+  it('keeps the alert text fixed while the countdown runs', () => {
+    const at = (left: number) =>
+      renderToString(<CredentialsView mode="login" lockedSec={left} lockedStartSec={272} />);
+    const sr = (html: string) => /class="sr-only">(Connexion impossible[^<]*)</.exec(html)?.[1];
+    expect(sr(at(272))).toBe(sr(at(100)));
+    expect(sr(at(100))).toContain('04:32');
+  });
+
   it('is a plain login form when not locked', () => {
     const html = renderToString(<CredentialsView mode="login" announcement={RETRY_NOW} />);
     expect(html).not.toContain('disabled');

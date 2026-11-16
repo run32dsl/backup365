@@ -100,6 +100,7 @@ export function TemporaryPasswordView({
         </span>
       </div>
       {copyFailed && <Alert tone="warning">{RESET_TEXTS.copyFailed}</Alert>}
+      <p className="field-help">La boîte ne se ferme qu’après avoir coché la case ci-dessous.</p>
       <p>
         <input
           id={checkId}
