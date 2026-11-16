@@ -54,6 +54,11 @@ export const RTO_CHOICES: readonly number[] = [24, 8, 72];
 /** Durées de conservation proposées, en jours. */
 export const RETENTION_CHOICES: readonly number[] = [365, 1095, 180];
 
+/** Les choix proposés, plus la valeur courante si elle n'en fait pas partie (plan créé par l'API). */
+export function withCurrent(choices: readonly number[], current: number): number[] {
+  return choices.includes(current) ? [...choices] : [...choices, current];
+}
+
 export function retentionLabel(days: number): string {
   if (days === 180) return '6 mois';
   if (days === 365) return '1 an';

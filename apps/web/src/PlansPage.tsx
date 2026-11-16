@@ -22,6 +22,7 @@ import {
   justificationText,
   lastRunLabel,
   retentionLabel,
+  withCurrent,
   rpoHelp,
   rtoSentence,
   runPlan,
@@ -318,7 +319,10 @@ export function PlanWizard({
             legend="Remise en service souhaitée (RTO)"
             name="rto"
             value={form.rtoHours}
-            options={RTO_CHOICES.map((h) => ({ value: h, label: `${h} h` }))}
+            options={withCurrent(RTO_CHOICES, form.rtoHours).map((h) => ({
+              value: h,
+              label: `${h} h`,
+            }))}
             onChange={(rtoHours) => {
               patch({ rtoHours });
             }}
@@ -327,7 +331,10 @@ export function PlanWizard({
             legend="Durée de conservation"
             name="retention"
             value={form.retentionDays}
-            options={RETENTION_CHOICES.map((d) => ({ value: d, label: retentionLabel(d) }))}
+            options={withCurrent(RETENTION_CHOICES, form.retentionDays).map((d) => ({
+              value: d,
+              label: retentionLabel(d),
+            }))}
             onChange={(retentionDays) => {
               patch({ retentionDays });
             }}

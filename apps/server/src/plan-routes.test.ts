@@ -224,6 +224,37 @@ describe('API des plans', () => {
     ).toBe(409);
   });
 
+  it('stores dataTypes on creation and replacement and audits the change', async () => {
+    const { app, audit } = setup();
+    const created = await send(app, 'POST', '/api/plans', {
+      ...valid,
+      dataTypes: ['mail', 'contacts'],
+    });
+    expect(created.statusCode).toBe(201);
+    const { id } = created.json<{ id: string }>();
+    expect(created.json<{ dataTypes: string[] }>().dataTypes).toEqual(['mail', 'contacts']);
+
+    const replaced = await send(app, 'PUT', `/api/plans/${id}`, { ...valid, dataTypes: ['files'] });
+    expect(replaced.statusCode).toBe(200);
+    expect(replaced.json<{ dataTypes: string[] }>().dataTypes).toEqual(['files']);
+    const list = await send(app, 'GET', '/api/plans');
+    expect(list.json<{ items: { dataTypes: string[] }[] }>().items[0]?.dataTypes).toEqual([
+      'files',
+    ]);
+
+    const entries = await log(audit);
+    expect(entries[1]?.reason).toContain('dataTypes');
+  });
+
+  it('refuses an empty or unknown dataTypes list (400)', async () => {
+    const { app } = setup();
+    for (const dataTypes of [[], ['teams']]) {
+      const res = await send(app, 'POST', '/api/plans', { ...valid, dataTypes });
+      expect(res.statusCode).toBe(400);
+    }
+    expect((await send(app, 'GET', '/api/plans')).json<{ items: unknown[] }>().items).toEqual([]);
+  });
+
   it('audits each creation, modification and deletion without content', async () => {
     const { app, audit } = setup();
     const { id } = (await send(app, 'POST', '/api/plans', valid)).json<{ id: string }>();
