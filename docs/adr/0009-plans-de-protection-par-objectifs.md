@@ -115,6 +115,11 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
 - Première exécution complète, suivantes incrémentales : c'est le choix du SDK, `forceFull` n'est
   jamais passé. Une exécution interrompue (`interrupted`) ou dont le résumé signale des erreurs
   (`backup_errors`) est un échec ; sinon `error` reçoit le code d'erreur du SDK, jamais son message.
+  `sharepoint.backup` rend un résultat par site, racine en tête : une liste vide est un échec
+  (`no_result`), pas un succès. Un OneDrive ou un site sans contenu (`noSnapshotReason:
+'no_content'` dans le résumé du SDK) n'est pas distingué : l'exécution est notée en succès alors
+  qu'aucun point de restauration n'existe. C'est le comportement par défaut, pas un choix produit :
+  la question est posée au Product Manager dans la PR de l'issue #63.
 - Identifiants : `BACKUP365_M365_CLIENT_ID` et `BACKUP365_M365_CLIENT_SECRET` (variante
   `_FILE`). Un seul des deux : démarrage refusé, l'erreur nomme la variable. Aucun : « sauvegarde
   non configurée » ; hors démo, aucun planificateur n'est créé, donc aucune exécution ni ligne de
@@ -130,8 +135,10 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
 - **Conservation non appliquée** : le SDK 6.2.0 n'a pas de purge par âge (seulement
   `deleteSnapshot` à l'unité, et `objectLockRequest` qui protège contre la suppression sans
   jamais supprimer). La durée du plan reste donc affichée, sans effet : rien n'est supprimé à la
-  main. Une issue de suivi est à ouvrir par le Product Manager (« appliquer la conservation des
-  plans »), à décider entre purge via `deleteSnapshot` et Object Lock.
+  main. Le choix entre purge via `deleteSnapshot` et Object Lock est une décision produit, non
+  prise ici : elle est posée au Product Manager dans la PR de l'issue #63 (« Question pour le
+  PO »), avec l'issue de suivi « appliquer la conservation des plans » à créer. Tant que cette
+  issue n'existe pas, ce point du critère d'acceptation de #63 n'est pas tenu.
 
 ### Sécurité des identifiants
 

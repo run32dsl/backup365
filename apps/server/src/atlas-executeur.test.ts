@@ -65,6 +65,13 @@ describe('AtlasExecuteur', () => {
     expect(api.sharepoint.backup).not.toHaveBeenCalled();
   });
 
+  it('fails a SharePoint run that returns no result instead of recording a success', async () => {
+    const { calls, executeur } = fakeApi({ site: () => Promise.resolve([]) });
+    const err = await executeur.execute({ planId: 'p', itemId: 'site-1' }).catch((e: unknown) => e);
+    expect(calls).toEqual(['sharepoint:site-1']);
+    expect(errorCode(err)).toBe('no_result');
+  });
+
   it('still tries OneDrive when mail fails, then rejects with the first error code', async () => {
     const { calls, executeur } = fakeApi({
       mail: () =>

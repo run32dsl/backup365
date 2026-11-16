@@ -42,6 +42,9 @@ export interface AtlasExecuteurOptions {
 }
 
 function check(outcomes: readonly BackupOutcome[]): void {
+  // Le SDK rend un résultat par site sauvegardé, racine en tête : aucun résultat veut dire que
+  // rien n'a été sauvegardé, ce n'est pas un succès.
+  if (outcomes.length === 0) throw new BackupRunError('no_result');
   for (const outcome of outcomes) {
     if (outcome.interrupted) throw new BackupRunError('interrupted');
     const { summary } = outcome;
