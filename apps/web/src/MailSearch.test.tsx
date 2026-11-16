@@ -68,6 +68,29 @@ describe('MailPage', () => {
     expect(html).toContain('1,2 Ko');
   });
 
+  it('omits empty metadata, titles the two sections and never mentions JSON', () => {
+    const html = renderToString(<MailView state={{ ...mail, recipients: [] }} />);
+    expect(html).not.toContain('Destinataires');
+    expect(html).toContain('Expéditeur');
+    const form = renderToString(
+      <ExportForm
+        reason=""
+        exporting="idle"
+        onReason={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+    expect(form).toContain('<h2');
+    expect(form).toContain('Saisissez un motif pour exporter');
+    expect(form).toContain('aria-describedby="export-disabled-help"');
+    expect(form).not.toContain('JSON');
+  });
+
+  it('keeps the generic title while the sheet is loading', () => {
+    const html = renderToString(<MailPage mailboxId="mbx-1" messageId="m1" />);
+    expect(html).toContain('<h1>Fiche d’un mail</h1>');
+  });
+
   it('shows loading and error states, and the export form only once the sheet is loaded', () => {
     expect(renderToString(<MailView state="error" />)).toContain('indisponible');
     const html = renderToString(<MailPage mailboxId="mbx-1" messageId="m1" />);

@@ -25,24 +25,25 @@ export type MailState = IndexedMail | 'loading' | 'error';
 export function MailView({ state }: { state: MailState }) {
   if (state === 'loading') return <p role="status">Chargement de la fiche…</p>;
   if (state === 'error') return <Alert tone="error">Fiche indisponible</Alert>;
+  const rows: [string, string][] = [
+    ['Expéditeur', state.sender],
+    ['Destinataires', state.recipients.join(', ')],
+    ['Date (UTC)', dateTimeOrDash(state.date)],
+    ['Boîte', state.mailboxId],
+    ['Dossier', folderLabel(state.folder)],
+    ['Taille', sizeOf(state.size)],
+    ['Pièces jointes', state.attachments.length === 0 ? 'aucune' : state.attachments.join(', ')],
+  ];
   return (
-    <dl>
-      <dt>Objet</dt>
-      <dd>{state.subject}</dd>
-      <dt>Expéditeur</dt>
-      <dd>{state.sender}</dd>
-      <dt>Destinataires</dt>
-      <dd>{state.recipients.join(', ')}</dd>
-      <dt>Date (UTC)</dt>
-      <dd>{dateTimeOrDash(state.date)}</dd>
-      <dt>Boîte</dt>
-      <dd>{state.mailboxId}</dd>
-      <dt>Dossier</dt>
-      <dd>{folderLabel(state.folder)}</dd>
-      <dt>Taille</dt>
-      <dd>{sizeOf(state.size)}</dd>
-      <dt>Pièces jointes</dt>
-      <dd>{state.attachments.length === 0 ? 'aucune' : state.attachments.join(', ')}</dd>
+    <dl className="meta-list">
+      {rows
+        .filter(([, value]) => value.trim() !== '')
+        .map(([label, value]) => (
+          <div key={label} className="meta-row">
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
     </dl>
   );
 }
@@ -63,32 +64,47 @@ export function ExportForm({
   onReason: (value: string) => void;
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
 }) {
+  const valid = isReasonValid(reason);
   return (
-    <form onSubmit={onSubmit}>
-      <FormField
-        label="Motif de l’export"
-        type="text"
-        name="reason"
-        required
-        minLength={MIN_REASON_LENGTH}
-        counterMax={MAX_REASON_LENGTH}
-        placeholder={REASON_PLACEHOLDER}
-        help={REASON_GUIDANCE}
-        value={reason}
-        onChange={(e) => {
-          onReason(e.currentTarget.value);
-        }}
-      />
-      <Button type="submit" busy={exporting === 'busy'} disabled={!isReasonValid(reason)}>
-        Exporter en EML
-      </Button>
-      <p>
-        Le motif est inscrit au journal d’audit avec l’export. Pour les sauvegardes anciennes
-        (format JSON), le fichier est reconstruit sans les pièces jointes.
-      </p>
-      {exporting === 'done' && <Alert tone="success">Export inscrit au journal.</Alert>}
-      {exporting === 'error' && <Alert tone="error">Export refusé ou indisponible</Alert>}
-    </form>
+    <section aria-labelledby="export-title" className="mail-section">
+      <h2 id="export-title">Exporter en EML</h2>
+      <form onSubmit={onSubmit}>
+        <FormField
+          label="Motif de l’export"
+          type="text"
+          name="reason"
+          required
+          minLength={MIN_REASON_LENGTH}
+          counterMax={MAX_REASON_LENGTH}
+          placeholder={REASON_PLACEHOLDER}
+          help={REASON_GUIDANCE}
+          value={reason}
+          onChange={(e) => {
+            onReason(e.currentTarget.value);
+          }}
+        />
+        <Button
+          type="submit"
+          variant="secondary"
+          busy={exporting === 'busy'}
+          disabled={!valid}
+          aria-describedby={valid ? undefined : 'export-disabled-help'}
+        >
+          Exporter en EML
+        </Button>
+        {!valid && (
+          <p id="export-disabled-help" className="field-help">
+            Saisissez un motif pour exporter
+          </p>
+        )}
+        <p>
+          Le motif est inscrit au journal d’audit avec l’export. Pour les anciennes sauvegardes, les
+          pièces jointes ne sont pas incluses dans le fichier.
+        </p>
+        {exporting === 'done' && <Alert tone="success">Export inscrit au journal.</Alert>}
+        {exporting === 'error' && <Alert tone="error">Export refusé ou indisponible</Alert>}
+      </form>
+    </section>
   );
 }
 
@@ -125,8 +141,8 @@ export function RestoreSection({ mail }: { mail: IndexedMail }) {
   }, [running, mail.mailboxId, mail.messageId]);
   const label = lastRestoreLabel(last);
   return (
-    <section aria-labelledby="restore-title">
-      <h2 id="restore-title">Restauration</h2>
+    <section aria-labelledby="restore-title" className="mail-section">
+      <h2 id="restore-title">Restaurer dans la boîte d’origine</h2>
       <p>Remet une copie du mail dans sa boîte d’origine, sans rien écraser.</p>
       <RestoreAction
         mail={mail}
@@ -175,10 +191,12 @@ export function MailPage({ mailboxId, messageId }: { mailboxId: string; messageI
 
   return (
     <main tabIndex={-1}>
-      <h1>Fiche d’un mail</h1>
       <p>
         <a href="#/search">Retour à la recherche</a>
       </p>
+      <h1>
+        {typeof state === 'object' ? state.subject.trim() || '(sans objet)' : 'Fiche d’un mail'}
+      </h1>
       <MailView state={state} />
       {typeof state === 'object' && <RestoreSection mail={state} />}
       {typeof state === 'object' && (
