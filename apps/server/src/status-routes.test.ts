@@ -58,6 +58,7 @@ describe('GET /api/status', () => {
       name,
       scope: 'all' as const,
       selection: [],
+      dataTypes: ['mail' as const],
       rpoHours: 4 as const,
       rtoHours: null,
       retentionDays: 90,

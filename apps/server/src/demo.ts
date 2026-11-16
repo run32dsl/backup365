@@ -1,4 +1,4 @@
-import type { AuditEvent } from '@backup365/core';
+import type { AuditEvent, DataType } from '@backup365/core';
 import type { AtlasFactory, AtlasHandle } from './atlas-sdk.js';
 import type { StorageConfig } from './config.js';
 import { parseStorageConfig } from './config.js';
@@ -354,10 +354,12 @@ export async function seedDemo(
  */
 function seedDemoPlans(plans: SqlitePlanStore, now: number): void {
   const base = { rtoHours: null, gdprJustification: 'Démonstration : données fictives.' } as const;
+  const dataTypes: DataType[] = ['mail'];
   const at = new Date(now).toISOString();
   const [first, second] = DEMO_MAILBOXES;
   const compliant = plans.create({
     ...base,
+    dataTypes,
     name: 'Boîtes mail, quotidien',
     scope: 'selection',
     selection: [first!.id],
@@ -366,6 +368,7 @@ function seedDemoPlans(plans: SqlitePlanStore, now: number): void {
   });
   const failing = plans.create({
     ...base,
+    dataTypes,
     name: 'Boîte direction, quotidien',
     scope: 'selection',
     selection: [second!.id],
