@@ -78,8 +78,8 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
 ### Planificateur, historique et lancement manuel (issue #62)
 
 - `PlanScheduler` (`apps/server`) démarre avec le serveur (hook `onReady`) : une minuterie de 30 s,
-  l'état en base. L'`Executeur` est injecté ; `executeurSimule` réussit aussitôt, l'exécution réelle
-  vient en sous-issue 4. Les éléments d'un plan sont sa sélection, ou toutes les boîtes du catalogue
+  l'état en base. L'`Executeur` est injecté ; `executeurSimule` réussit aussitôt (mode démo seulement
+  depuis l'issue #63, voir plus bas). Les éléments d'un plan sont sa sélection, ou toutes les boîtes du catalogue
   si le périmètre est `all`.
 - À chaque passage, pour chaque plan et chaque élément : si aucune exécution (quel qu'en soit le
   statut) n'a débuté depuis le dernier créneau, une exécution est lancée. Un échec n'est donc pas
@@ -103,6 +103,53 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
   sont, `no_items` si le plan ne couvre rien ; 400 `reason_required` sans motif.
 - Audit : `plan.run` (ressource `plan`, cible = identifiant du plan, motif = le motif saisi), consigné
   avant le lancement. Le motif est du texte libre : il ne doit pas contenir de contenu de mail.
+
+### Exécution réelle via le SDK (issue #63)
+
+- `AtlasExecuteur` (`apps/server/src/atlas-executeur.ts`) implémente `Executeur`. Il utilise une
+  **seconde instance du SDK**, avec les identifiants Graph réels ; l'instance du catalogue reste
+  en lecture seule, avec ses valeurs factices (ADR 0002). Elle est libérée à l'arrêt.
+- Un élément du plan est un propriétaire (boîte) ou un site SharePoint déjà connu du catalogue :
+  un site → `sharepoint.backup` ; sinon `outlook.backup` puis `onedrive.backup`, les deux tentées
+  même si la première échoue (la première erreur est relancée).
+- Première exécution complète, suivantes incrémentales : c'est le choix du SDK, `forceFull` n'est
+  jamais passé. Une exécution interrompue (`interrupted`) ou dont le résumé signale des erreurs
+  (`backup_errors`) est un échec ; sinon `error` reçoit le code d'erreur du SDK, jamais son message.
+  `sharepoint.backup` rend un résultat par site, racine en tête : une liste vide est un échec
+  (`no_result`), pas un succès. Un OneDrive ou un site sans contenu (`noSnapshotReason:
+'no_content'` dans le résumé du SDK) n'est pas distingué : l'exécution est notée en succès alors
+  qu'aucun point de restauration n'existe. C'est un choix du PO (2026-11-16) : un succès, car il n'y
+  avait rien à protéger, et le noter en échec ferait échouer chaque utilisateur sans fichier
+  OneDrive. Choix réversible. Le motif est désormais enregistré (issue #80) : `plan_runs` a une
+  colonne `no_snapshot_reason` (`no_content` ou vide, migration 4), exposée par
+  `GET /api/plans/:id/runs` et par `lastRun` de `GET /api/plans`. Le statut reste `success` ; un
+  site est `no_content` si tous ses résultats le sont. Pour un propriétaire (boîte + OneDrive), la
+  messagerie ne rend pas de motif et compte comme ayant un point de restauration : l'exécution
+  n'est `no_content` que si chaque charge l'est. `compliance.lastRestorePointAt` de
+  `GET /api/plans` est la fin de la dernière réussite qui a créé un point, lue par le magasin sur
+  tout l'historique ; ce champ est propre à cette route, le type `Compliance` du core (partagé
+  avec le tableau de bord) ne change pas. `lastSuccessAt` (qui fonde la conformité) compte
+  toujours une réussite vide. L'écran des plans écrit « Succès, aucun contenu à sauvegarder » et,
+  si aucune réussite n'a créé de point, « Conforme : rien à restaurer ».
+- Identifiants : `BACKUP365_M365_CLIENT_ID` et `BACKUP365_M365_CLIENT_SECRET` (variante
+  `_FILE`). Un seul des deux : démarrage refusé, l'erreur nomme la variable. Aucun : « sauvegarde
+  non configurée » ; hors démo, aucun planificateur n'est créé, donc aucune exécution ni ligne de
+  `plan_runs`. `GET /api/plans/execution` (administrateur) répond `{ configured: true, retention: 'not_enforced' }`
+  ou `{ configured: false, label: 'sauvegarde non configurée', retention: 'not_enforced' }` ; `POST /api/plans/:id/run` répond
+  503 `backup_not_configured`. Le mode démo garde l'exécuteur simulé.
+- Statut, début, fin et durée de chaque exécution sont ceux de `plan_runs` (issue #62).
+- **Limite** : avec le périmètre `all`, les éléments viennent du catalogue (boîtes déjà
+  sauvegardées) ; une première sauvegarde d'un propriétaire inconnu du catalogue passe par une
+  sélection. La découverte des boîtes du tenant (`outlook.listAvailableMailboxes`) n'est pas faite.
+  De même, un site SharePoint jamais sauvegardé (ou absent du cache du catalogue) est traité comme
+  une boîte et l'exécution échoue avec un code du SDK.
+- **Conservation non appliquée** : le SDK 6.2.0 n'a pas de purge par âge (seulement
+  `deleteSnapshot` à l'unité, et `objectLockRequest` qui protège contre la suppression sans
+  jamais supprimer). La durée du plan reste saisie, avec sa justification RGPD, car c'est un
+  objectif fixé par l'utilisateur ; elle n'est jamais présentée comme appliquée (l'API d'exécution
+  expose `retention: 'not_enforced'`). Rien n'est supprimé. Le choix entre purge via
+  `deleteSnapshot`, Object Lock, les deux ou rien est reporté dans #79 (critère de #63 reporté par
+  décision PO du 2026-11-16).
 
 ### Sécurité des identifiants
 

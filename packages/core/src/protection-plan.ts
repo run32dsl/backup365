@@ -167,7 +167,15 @@ export interface PlanRun {
   /** `null` tant que l'exécution tourne. */
   finishedAt: string | null;
   status: RunStatus;
+  /**
+   * Motif pour lequel une exécution réussie n'a créé aucun point de restauration : la ressource
+   * ne contenait rien à sauvegarder. `null` ou absent : un point de restauration existe.
+   */
+  noSnapshotReason?: NoSnapshotReason | null;
 }
+
+/** Seul motif noté : `no_changes` laisse le point de restauration précédent valable. */
+export type NoSnapshotReason = 'no_content';
 
 /** `compliant` : conforme ; `late` : en retard ; `failed` : en échec. */
 export type ComplianceState = 'compliant' | 'late' | 'failed';
@@ -187,6 +195,8 @@ function isFresh(ageMs: number, rpoHours: RpoHours): boolean {
  * Conforme si la dernière exécution réussie finit depuis moins que le RPO. Sinon « en échec » si
  * l'exécution la plus récente a échoué, « en retard » dans les autres cas (y compris sans aucune
  * exécution : rien n'est protégé). Une date illisible ne compte pas comme une réussite.
+ * Une réussite `no_content` compte : il n'y avait rien à protéger. Le dernier point de
+ * restauration ne se lit pas ici (liste d'exécutions bornée) mais dans le magasin des plans.
  */
 export function planCompliance(
   rpoHours: RpoHours,
@@ -211,4 +221,34 @@ export function planCompliance(
     return { state: 'compliant', lastSuccessAt };
   }
   return { state: latest?.run.status === 'failed' ? 'failed' : 'late', lastSuccessAt };
+}
+
+export interface PlanComplianceEntry extends Compliance {
+  id: string;
+  name: string;
+  rpoHours: RpoHours;
+}
+
+/** Conformité des plans pour le tableau de bord : décompte par état et plans non conformes. */
+export interface PlanComplianceReport {
+  counts: Record<ComplianceState, number>;
+  /** Plans « en retard » ou « en échec », dans l'ordre reçu. */
+  nonCompliant: PlanComplianceEntry[];
+}
+
+export function buildPlanComplianceReport(
+  plans: readonly { id: string; name: string; rpoHours: RpoHours }[],
+  runsOf: (planId: string) => readonly PlanRun[],
+  now: Date,
+): PlanComplianceReport {
+  const counts: Record<ComplianceState, number> = { compliant: 0, late: 0, failed: 0 };
+  const nonCompliant: PlanComplianceEntry[] = [];
+  for (const plan of plans) {
+    const compliance = planCompliance(plan.rpoHours, runsOf(plan.id), now);
+    counts[compliance.state] += 1;
+    if (compliance.state !== 'compliant') {
+      nonCompliant.push({ id: plan.id, name: plan.name, rpoHours: plan.rpoHours, ...compliance });
+    }
+  }
+  return { counts, nonCompliant };
 }

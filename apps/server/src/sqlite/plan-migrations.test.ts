@@ -124,6 +124,21 @@ describe('PLAN_MIGRATIONS', () => {
     ).toThrow();
   });
 
+  it('adds no_snapshot_reason, null by default and restricted to no_content', () => {
+    const db = open();
+    insert(db);
+    const run = db.prepare(
+      "INSERT INTO plan_runs (plan_id, item_id, started_at, status, no_snapshot_reason) VALUES ('p1', 'i', 's', 'success', ?)",
+    );
+    run.run(null);
+    run.run('no_content');
+    expect(() => run.run('no_changes')).toThrow();
+    expect(db.prepare('SELECT no_snapshot_reason AS r FROM plan_runs ORDER BY id').all()).toEqual([
+      { r: null },
+      { r: 'no_content' },
+    ]);
+  });
+
   it('refuses a run with an unknown status or a long error', () => {
     const db = open();
     insert(db);

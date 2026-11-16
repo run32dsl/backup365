@@ -51,6 +51,7 @@ export function registerPlanRoutes(
   plans: SqlitePlanStore | undefined,
   audit: AuditLog | undefined,
   scheduler?: PlanScheduler,
+  backupConfigured = true,
 ) {
   function guard(req: FastifyRequest, reply: FastifyReply, readOnlyOk = false) {
     if (!req.session) {
@@ -97,14 +98,34 @@ export function registerPlanRoutes(
             };
       return {
         ...visible,
-        compliance: planCompliance(plan.rpoHours, runs, now),
+        // Le point de restauration se lit sur tout l'historique : 200 réussites vides de suite
+        // ne doivent pas faire oublier un vrai point plus ancien. Champ propre à cette route :
+        // le type `Compliance` du core, partagé avec le tableau de bord, ne le porte pas.
+        compliance: {
+          ...planCompliance(plan.rpoHours, runs, now),
+          lastRestorePointAt: ctx.plans.lastRestorePointAt(plan.id),
+        },
         running: runs.some((r) => r.status === 'running'),
         lastRun: last
-          ? { status: last.status, startedAt: last.startedAt, finishedAt: last.finishedAt }
+          ? {
+              status: last.status,
+              startedAt: last.startedAt,
+              finishedAt: last.finishedAt,
+              noSnapshotReason: last.noSnapshotReason,
+            }
           : null,
       };
     });
     return { items };
+  });
+
+  /** Les plans existent sans identifiants Microsoft 365, mais rien ne s'exécute (ADR 0009). */
+  app.get('/api/plans/execution', (req, reply) => {
+    const ctx = guard(req, reply);
+    if (!ctx) return reply;
+    return backupConfigured
+      ? { configured: true, retention: 'not_enforced' }
+      : { configured: false, label: 'sauvegarde non configurée', retention: 'not_enforced' };
   });
 
   app.post('/api/plans', async (req, reply) => {
@@ -187,6 +208,12 @@ export function registerPlanRoutes(
         return reply.code(400).send({
           error: 'reason_required',
           message: `Le motif du lancement est obligatoire (${REASON_MAX} caractères au plus).`,
+        });
+      }
+      if (!backupConfigured) {
+        return reply.code(503).send({
+          error: 'backup_not_configured',
+          message: 'Sauvegarde non configurée : identifiants Microsoft 365 absents.',
         });
       }
       if (!scheduler) return reply.code(503).send({ error: 'scheduler_unavailable' });

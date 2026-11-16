@@ -254,6 +254,14 @@ th {
   font-weight: 600;
   white-space: nowrap;
 }
+.plan-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
 .badge-ok {
   background: var(--ok-bg);
   color: var(--ok-fg);
@@ -726,6 +734,30 @@ a.btn-secondary {
   .row-actions .btn,
   .wizard-actions .btn,
   .page-header .btn {
+    width: 100%;
+  }
+}
+
+/* Connexion verrouillée et mot de passe temporaire */
+.temp-password {
+  padding: var(--space-2) var(--space-3);
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 1.125rem;
+  letter-spacing: 0.05em;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.countdown {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+@media (max-width: 30rem) {
+  .dialog-actions .btn,
+  form > .btn {
     width: 100%;
   }
 }

@@ -8,6 +8,9 @@ import { createAccount, isLastAdmin, resetPassword } from './accounts.js';
 import { Button, DataTable } from './ui/index.js';
 import {
   ADMIN_ONLY,
+  RETRY_NOW,
+  formatCountdown,
+  lockedMessage,
   AUDIT_NOTICE,
   setupRecap,
   UNREACHABLE,
@@ -43,8 +46,8 @@ describe('CredentialsView', () => {
 
 describe('PasswordView', () => {
   it('explains the forced change after a reset', () => {
-    expect(renderToString(<PasswordView forced />)).toContain('réinitialisé');
-    expect(renderToString(<PasswordView forced={false} />)).not.toContain('réinitialisé');
+    expect(renderToString(<PasswordView forced />)).toContain('temporaire');
+    expect(renderToString(<PasswordView forced={false} />)).not.toContain('temporaire');
   });
 });
 
@@ -79,6 +82,12 @@ describe('AccountsView', () => {
   it('shows loading and error states', () => {
     expect(renderToString(<AccountsView state="loading" />)).toContain('Chargement');
     expect(renderToString(<AccountsView state="error" />)).toContain('indisponibles');
+    // La boîte du mot de passe temporaire survit à un rechargement en erreur ou en cours.
+    for (const state of ['error', 'loading'] as const) {
+      expect(renderToString(<AccountsView state={state} dialog={<p>BOITE-MDP</p>} />)).toContain(
+        'BOITE-MDP',
+      );
+    }
   });
 });
 
@@ -133,7 +142,64 @@ describe('authenticate', () => {
     const locked = (() =>
       reply({ error: 'too_many_attempts', retryAfterSec: 30 }, 429)) as typeof fetch;
     const out = await authenticate('login', 'a', 'b', locked);
-    expect(out).toMatchObject({ ok: false, message: expect.stringContaining('30 secondes') });
+    expect(out).toMatchObject({
+      ok: false,
+      message: expect.stringContaining('30 secondes'),
+      retryAfterSec: 30,
+    });
+  });
+
+  it('falls back on the Retry-After header for the lock delay', async () => {
+    const locked = (() =>
+      Promise.resolve(
+        new Response('{}', { status: 429, headers: { 'retry-after': '12' } }),
+      )) as typeof fetch;
+    expect(await authenticate('login', 'a', 'b', locked)).toMatchObject({ retryAfterSec: 12 });
+  });
+});
+
+describe('connexion verrouillée (#56)', () => {
+  it('formats the countdown as mm:ss', () => {
+    expect(formatCountdown(272)).toBe('04:32');
+    expect(formatCountdown(0)).toBe('00:00');
+    expect(formatCountdown(61.2)).toBe('01:02');
+    expect(lockedMessage(272)).toBe(
+      'Connexion impossible pour le moment. Nouvel essai possible dans 04:32.',
+    );
+  });
+
+  it('shows the countdown, disables the button and keeps the typed fields', () => {
+    const html = renderToString(
+      <CredentialsView
+        mode="login"
+        error="Identifiant ou mot de passe incorrect."
+        lockedSec={272}
+      />,
+    );
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('04:32');
+    expect(html).toContain(
+      'Connexion impossible pour le moment. Nouvel essai possible dans 04:32.',
+    );
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>[^<]*Se connecter/);
+    expect(html).not.toContain('Identifiant ou mot de passe incorrect.');
+    // L'annonce périodique vit dans une région `status` distincte de l'alerte.
+    expect(html).toContain('role="status"');
+  });
+
+  it('keeps the alert text fixed while the countdown runs', () => {
+    const at = (left: number) =>
+      renderToString(<CredentialsView mode="login" lockedSec={left} lockedStartSec={272} />);
+    const sr = (html: string) => /class="sr-only">(Connexion impossible[^<]*)</.exec(html)?.[1];
+    expect(sr(at(272))).toBe(sr(at(100)));
+    expect(sr(at(100))).toContain('04:32');
+  });
+
+  it('is a plain login form when not locked', () => {
+    const html = renderToString(<CredentialsView mode="login" announcement={RETRY_NOW} />);
+    expect(html).not.toContain('disabled');
+    expect(html).not.toContain('Connexion impossible');
+    expect(html).toContain('Vous pouvez réessayer.');
   });
 });
 
@@ -170,10 +236,12 @@ describe('maquette de l’issue #22', () => {
   });
 
   it('gives each lost session its message on the login screen', () => {
-    expect(lossMessage('expired')).toBe('Votre session a expiré. Reconnectez-vous.');
+    expect(lossMessage('expired')).toBe(
+      'Votre session a expiré. Reconnectez-vous pour revenir à la page demandée.',
+    );
     expect(lossMessage('invalid')).toBe('Votre session n’est plus valide. Reconnectez-vous.');
     const html = renderToString(<CredentialsView mode="login" notice={lossMessage('expired')} />);
-    expect(html).toContain('<p role="status">Votre session a expiré. Reconnectez-vous.</p>');
+    expect(html).toContain(`<p role="status">${lossMessage('expired')}</p>`);
     expect(renderToString(<CredentialsView mode="login" />)).not.toContain('expiré');
   });
 
@@ -186,22 +254,23 @@ describe('maquette de l’issue #22', () => {
     expect(requestedPage('#autre')).toBeNull();
   });
 
-  it('sends the typed passwords to the unchanged account routes', async () => {
-    const fetchFn = vi.fn<typeof fetch>(() => reply({}));
+  it('sends the typed password on creation and only a reason on reset', async () => {
+    const fetchFn = vi.fn<typeof fetch>(() => reply({ password: 'Tz7k-Qp3m-Vx9d-Lw2h' }));
     await createAccount('bob', 'un mot de passe long', 'operator', fetchFn);
-    await resetPassword(2, 'un autre mot de passe', fetchFn);
+    const reset = await resetPassword(2, 'Oubli', fetchFn);
+    expect(reset).toEqual({ ok: true, value: 'Tz7k-Qp3m-Vx9d-Lw2h' });
     expect(fetchFn.mock.calls.map(([url, init]) => [url, init?.body])).toEqual([
       [
         '/api/accounts',
         JSON.stringify({ username: 'bob', password: 'un mot de passe long', role: 'operator' }),
       ],
-      ['/api/accounts/2/reset-password', JSON.stringify({ password: 'un autre mot de passe' })],
+      ['/api/accounts/2/reset-password', JSON.stringify({ reason: 'Oubli' })],
     ]);
   });
 
-  it('gives the account forms an Afficher / Masquer button on every password', () => {
+  it('gives the account creation form an Afficher / Masquer button', () => {
     const html = renderToString(<AccountsView state={[]} />);
-    expect(html.match(/Afficher</g)).toHaveLength(2);
+    expect(html.match(/Afficher</g)).toHaveLength(1);
     expect(html).toContain('Identifiant');
   });
 
@@ -304,7 +373,6 @@ describe('textes restants de la maquette de #22', () => {
   it('says « Mot de passe temporaire » on the account forms, never « provisoire »', () => {
     const html = renderToString(<AccountsView state={[]} />);
     expect(html).toContain('>Mot de passe temporaire (12 caractères au minimum)</label>');
-    expect(html).toContain('>Mot de passe temporaire</label>');
     expect(html).not.toContain('provisoire');
   });
 
@@ -380,7 +448,7 @@ describe('textes restants de la maquette de #22', () => {
   });
 
   it('offers Annuler on the account forms and on a voluntary password change', () => {
-    expect(renderToString(<AccountsView state={[]} />).match(/>Annuler</g)).toHaveLength(2);
+    expect(renderToString(<AccountsView state={[]} />).match(/>Annuler</g)).toHaveLength(1);
     expect(renderToString(<PasswordView forced={false} />)).toContain('>Annuler</button>');
     expect(renderToString(<PasswordView forced />)).not.toContain('Annuler');
   });

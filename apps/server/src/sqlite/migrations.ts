@@ -148,6 +148,12 @@ export const PLAN_MIGRATIONS: readonly Migration[] = [
     // Liste séparée par des virgules, jamais vide ; les plans existants protègent tout.
     sql: `ALTER TABLE plans ADD COLUMN data_types TEXT NOT NULL DEFAULT 'mail,files,calendar,contacts' CHECK (length(data_types) > 0);`,
   },
+  {
+    version: 4,
+    name: 'plan-runs-no-snapshot-reason',
+    // Réussite sans point de restauration : la ressource était vide (ADR 0009, issue #80).
+    sql: `ALTER TABLE plan_runs ADD COLUMN no_snapshot_reason TEXT CHECK (no_snapshot_reason IS NULL OR no_snapshot_reason IN ('no_content'));`,
+  },
 ];
 
 /** Applique les migrations manquantes, chacune dans une transaction. */

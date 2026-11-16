@@ -50,6 +50,25 @@ async function confirmRestore(page) {
 /** @type {Screen[]} */
 export const SCREENS = [
   { name: 'connexion', hash: '', role: null },
+  {
+    // Réponse 429 simulée : un vrai verrouillage bloquerait l'adresse des captures suivantes.
+    name: 'connexion-verrouillee',
+    hash: '',
+    role: null,
+    prepare: async (page) => {
+      await page.route('**/api/auth/login', (route) =>
+        route.fulfill({
+          status: 429,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'too_many_attempts', retryAfterSec: 272 }),
+        }),
+      );
+      await page.getByLabel('Identifiant').fill('marie.exemple');
+      await page.getByLabel('Mot de passe', { exact: true }).fill('un mot de passe quelconque');
+      await page.getByRole('button', { name: 'Se connecter' }).click();
+      await page.getByRole('alert').waitFor();
+    },
+  },
   { name: 'tableau-de-bord', hash: '#/', role: 'admin' },
   {
     name: 'recherche',
@@ -85,12 +104,67 @@ export const SCREENS = [
       await page.getByRole('table').first().waitFor();
     },
   },
+  {
+    name: 'reinitialisation-motif',
+    hash: '#/comptes',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').first().waitFor();
+      await page.getByLabel('Compte').selectOption({ label: 'operateur-demo' });
+      await page.getByRole('button', { name: 'Réinitialiser le mot de passe' }).click();
+      await page.getByLabel('Motif (obligatoire)').fill('Oubli du mot de passe');
+    },
+  },
+  {
+    // Réponse simulée : réinitialiser le vrai compte fermerait ses sessions de démonstration.
+    name: 'mot-de-passe-temporaire',
+    hash: '#/comptes',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/accounts/*/reset-password', (route) =>
+        route.fulfill({ status: 200, json: { password: 'Tz7k-Qp3m-Vx9d-Lw2h' } }),
+      );
+      await page.getByRole('table').first().waitFor();
+      await page.getByLabel('Compte').selectOption({ label: 'operateur-demo' });
+      await page.getByRole('button', { name: 'Réinitialiser le mot de passe' }).click();
+      await page.getByLabel('Motif (obligatoire)').fill('Oubli du mot de passe');
+      await page.getByRole('button', { name: 'Réinitialiser', exact: true }).click();
+      await page.getByRole('dialog').getByLabel('Mot de passe temporaire').waitFor();
+    },
+  },
   { name: 'page-reservee', hash: '#/comptes', role: 'operator' },
   {
     name: 'plans-liste',
     hash: '#/plans',
     role: 'admin',
     prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+    },
+  },
+  {
+    // Le mode démo simule l'exécution : la réponse est modifiée pour montrer une réussite sans
+    // point de restauration (ressource vide, issue #80).
+    name: 'plans-liste-aucun-contenu',
+    hash: '#/plans',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/plans', async (route) => {
+        const res = await route.fetch();
+        const body = await res.json();
+        for (const plan of body.items) {
+          const at = new Date().toISOString();
+          plan.running = false;
+          plan.compliance = { state: 'compliant', lastSuccessAt: at, lastRestorePointAt: null };
+          plan.lastRun = {
+            status: 'success',
+            startedAt: at,
+            finishedAt: at,
+            noSnapshotReason: 'no_content',
+          };
+        }
+        await route.fulfill({ response: res, json: body });
+      });
+      await page.reload();
       await page.getByRole('table').waitFor();
     },
   },

@@ -69,6 +69,28 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   `sharepoint.listSnapshots` fonctionne sans Graph ; c'est le cas des clés de stockage.
 - Teams reste à ajouter (issue #34).
 
+### Conformité des plans (issue #64)
+
+- `GET /api/status` ajoute `plans` : `{ counts: { compliant, late, failed }, nonCompliant: [...] }`.
+  Chaque plan est classé par `planCompliance` (ADR 0009) ; `nonCompliant` liste les plans
+  « en retard » ou « en échec » (`id`, `name`, `rpoHours`, `state`, `lastSuccessAt`).
+- `plans` est absent sans base des plans, `null` si elle ne répond pas (le reste du tableau est
+  servi). Sans plan, les trois décomptes valent 0.
+- Par plan, les 500 dernières exécutions sont relues.
+- `plans` n'est servi qu'aux administrateurs : réservé aux administrateurs par décision du PO
+  du 2026-11-16, en attente de #86. Pour tout autre rôle, et sans session, le champ est absent et
+  la section n'est pas affichée. Élargir cet accès relève du PM (#86).
+- L'authentification ne peut pas être désactivée (`auth-hook.ts`) : sans service d'authentification,
+  tout `/api` hors santé répond 503 ; avec lui, une session valide est exigée. Le cas « sans
+  session » ne se présente donc pas sur `/api/status` ; le refus par défaut du champ `plans` est
+  une défense en profondeur. Testé (`status-routes.test.ts`).
+- Coût (issue #88), mesuré en mémoire avec 500 exécutions par plan, médiane de 7 appels :
+  10 plans 12 ms, 50 plans 51 ms, 200 plans 201 ms (3 à 4 ms par plan, SQLite synchrone). Sous le
+  seuil de 300 ms à 50 plans (seuil fixé par l'issue #88) : pas de cache. Ordre de grandeur,
+  mesuré avec un banc jetable et non commité ; un disque plus lent allongerait ces temps. À reprendre si l'on dépasse environ 70 plans.
+- Écran d'accueil : section « Plans de protection » (décompte par état, pastille icône + texte)
+  avant le tableau des sources ; tableau des plans non conformes seulement s'il y en a.
+
 ## Non vérifié
 
 Lecture réelle contre un stockage S3 : les tests n'utilisent qu'un faux du SDK. La méthode

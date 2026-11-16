@@ -1,9 +1,10 @@
-import type { AuditEvent, MailRestorer } from '@backup365/core';
+import type { AuditEvent, DataType, MailRestorer } from '@backup365/core';
 import type { AtlasFactory, AtlasHandle } from './atlas-sdk.js';
 import type { StorageConfig } from './config.js';
 import { parseStorageConfig } from './config.js';
 import type { AuthService } from './auth.js';
 import type { Role } from './sqlite/sqlite-account-store.js';
+import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 
 /**
  * Mode démo (`BACKUP365_DEMO=1`) : un faux SDK Atlas en mémoire et un jeu de données entièrement
@@ -334,7 +335,9 @@ export async function seedDemo(
   auth: AuthService,
   audit: { record(event: AuditEvent): Promise<void>; head(): unknown } | undefined,
   now: number = Date.now(),
+  plans?: SqlitePlanStore,
 ): Promise<void> {
+  if (plans && plans.list().length === 0) seedDemoPlans(plans, now);
   for (const { username, role, password } of DEMO_ACCOUNTS) {
     if (!auth.accounts.findByUsername(username)) {
       auth.accounts.create({ username, role, passwordHash: await auth.hash(password) });
@@ -361,4 +364,37 @@ export function createDemoRestorer(delayMs: number = DEMO_RESTORE_MS): MailResto
         : { restored: 1, errors: 0 };
     },
   };
+}
+
+/**
+ * Deux plans fictifs avec une exécution déjà inscrite dans le créneau courant (le planificateur
+ * ne la relance donc pas) : l'un conforme, l'autre en échec, pour peupler le tableau de bord.
+ */
+function seedDemoPlans(plans: SqlitePlanStore, now: number): void {
+  const base = { rtoHours: null, gdprJustification: 'Démonstration : données fictives.' } as const;
+  const dataTypes: DataType[] = ['mail'];
+  const at = new Date(now).toISOString();
+  const [first, second] = DEMO_MAILBOXES;
+  const compliant = plans.create({
+    ...base,
+    dataTypes,
+    name: 'Boîtes mail, quotidien',
+    scope: 'selection',
+    selection: [first!.id],
+    rpoHours: 24,
+    retentionDays: 90,
+  });
+  const failing = plans.create({
+    ...base,
+    dataTypes,
+    name: 'Boîte direction, quotidien',
+    scope: 'selection',
+    selection: [second!.id],
+    rpoHours: 24,
+    retentionDays: 365,
+  });
+  const ok = plans.startRun(compliant.id, first!.id, at);
+  if (ok !== undefined) plans.finishRun(ok, 'success', at);
+  const ko = plans.startRun(failing.id, second!.id, at);
+  if (ko !== undefined) plans.finishRun(ko, 'failed', at, 'demo_failure');
 }

@@ -29,12 +29,17 @@ const plan: PlanItem = {
   retentionDays: 365,
   gdprJustification: 'Obligation légale',
   createdAt: '2026-11-01T08:00:00.000Z',
-  compliance: { state: 'compliant', lastSuccessAt: '2026-11-14T06:00:00.000Z' },
+  compliance: {
+    state: 'compliant',
+    lastSuccessAt: '2026-11-14T06:00:00.000Z',
+    lastRestorePointAt: '2026-11-14T06:00:00.000Z',
+  },
   running: false,
   lastRun: {
     status: 'success',
     startedAt: '2026-11-14T05:59:00.000Z',
     finishedAt: '2026-11-14T06:00:00.000Z',
+    noSnapshotReason: null,
   },
 };
 
@@ -127,11 +132,18 @@ describe('list labels', () => {
     expect(
       complianceView({
         ...plan,
-        compliance: { state: 'late', lastSuccessAt: '2026-11-13T00:00:00Z' },
+        compliance: {
+          state: 'late',
+          lastSuccessAt: '2026-11-13T00:00:00Z',
+          lastRestorePointAt: '2026-11-13T00:00:00Z',
+        },
       }).label,
     ).toBe('À vérifier : RPO dépassé');
     expect(
-      complianceView({ ...plan, compliance: { state: 'failed', lastSuccessAt: null } }).label,
+      complianceView({
+        ...plan,
+        compliance: { state: 'failed', lastSuccessAt: null, lastRestorePointAt: null },
+      }).label,
     ).toBe('Non conforme : aucune sauvegarde réussie');
   });
 
@@ -140,6 +152,13 @@ describe('list labels', () => {
     expect(lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, status: 'failed' } })).toMatch(
       /^Échec,/,
     );
+    expect(
+      lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, noSnapshotReason: 'no_content' } }),
+    ).toMatch(/^Succès, aucun contenu à sauvegarder, \d\d\/\d\d \d\d:\d\d$/);
+    expect(
+      complianceView({ ...plan, compliance: { ...plan.compliance, lastRestorePointAt: null } })
+        .label,
+    ).toBe('Conforme : rien à restaurer');
     expect(lastRunLabel({ ...plan, running: true })).toBe('En cours…');
     expect(lastRunLabel({ ...plan, lastRun: null })).toBe('Pas encore sauvegardé');
   });

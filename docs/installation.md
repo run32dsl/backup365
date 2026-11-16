@@ -68,22 +68,35 @@ passe ; les deux premiers secrets sont alors l'identifiant et le mot de passe ra
 
 ## Variables d'environnement
 
-| Variable                                                                                          | Rôle                                                                                         |
-| ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `BACKUP365_TENANT_ID`, `BACKUP365_S3_ENDPOINT`                                                    | tenant et URL du stockage S3 (obligatoires)                                                  |
-| `BACKUP365_S3_REGION`                                                                             | région S3 (`eu-west-3`)                                                                      |
-| `BACKUP365_S3_ACCESS_KEY_ID`, `BACKUP365_S3_SECRET_ACCESS_KEY`, `BACKUP365_ENCRYPTION_PASSPHRASE` | secrets, **fournis par fichier** : variante `…_FILE`                                         |
-| `BACKUP365_STATUS_MAX_AGE_HOURS`, `BACKUP365_STATUS_WORKLOADS`                                    | tableau de bord : seuil d'alerte (26 h), charges                                             |
-| `BACKUP365_CATALOG_CACHE_MINUTES`                                                                 | cache du recensement des sites SharePoint (60 min)                                           |
-| `BACKUP365_INDEX_INTERVAL_MINUTES`                                                                | intervalle d'indexation de la recherche (60 min)                                             |
-| `BACKUP365_AUDIT_ANCHOR_DIR`, `BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN`                               | ancres du journal d'audit : dossier (`/anchors` dans `compose.yaml`), intervalle (60 min)    |
-| `BACKUP365_TRUST_PROXY`                                                                           | adresse(s) du proxy inverse HTTPS devant la console (`false` par défaut, voir ci-dessous)    |
-| `BACKUP365_PORT`, `LOG_LEVEL`                                                                     | port publié sur 127.0.0.1 (3000), journal (`info`)                                           |
-| `BACKUP365_DATA_DIR`, `BACKUP365_WEB_DIR`                                                         | fixés par l'image (`/data`, `/app/web`)                                                      |
-| `BACKUP365_DEMO`                                                                                  | `1` : mode démo, données fictives, développement seulement (ADR 0010) ; jamais en production |
+| Variable                                                                                          | Rôle                                                                                                  |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `BACKUP365_TENANT_ID`, `BACKUP365_S3_ENDPOINT`                                                    | tenant et URL du stockage S3 (obligatoires)                                                           |
+| `BACKUP365_S3_REGION`                                                                             | région S3 (`eu-west-3`)                                                                               |
+| `BACKUP365_S3_ACCESS_KEY_ID`, `BACKUP365_S3_SECRET_ACCESS_KEY`, `BACKUP365_ENCRYPTION_PASSPHRASE` | secrets, **fournis par fichier** : variante `…_FILE`                                                  |
+| `BACKUP365_M365_CLIENT_ID`, `BACKUP365_M365_CLIENT_SECRET`                                        | application Entra de la sauvegarde (secret : variante `…_FILE`) ; sans elles, aucun plan ne s'exécute |
+| `BACKUP365_STATUS_MAX_AGE_HOURS`, `BACKUP365_STATUS_WORKLOADS`                                    | tableau de bord : seuil d'alerte (26 h), charges                                                      |
+| `BACKUP365_CATALOG_CACHE_MINUTES`                                                                 | cache du recensement des sites SharePoint (60 min)                                                    |
+| `BACKUP365_INDEX_INTERVAL_MINUTES`                                                                | intervalle d'indexation de la recherche (60 min)                                                      |
+| `BACKUP365_AUDIT_ANCHOR_DIR`, `BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN`                               | ancres du journal d'audit : dossier (`/anchors` dans `compose.yaml`), intervalle (60 min)             |
+| `BACKUP365_TRUST_PROXY`                                                                           | adresse(s) du proxy inverse HTTPS devant la console (`false` par défaut, voir ci-dessous)             |
+| `BACKUP365_PORT`, `LOG_LEVEL`                                                                     | port publié sur 127.0.0.1 (3000), journal (`info`)                                                    |
+| `BACKUP365_DATA_DIR`, `BACKUP365_WEB_DIR`                                                         | fixés par l'image (`/data`, `/app/web`)                                                               |
+| `BACKUP365_DEMO`                                                                                  | `1` : mode démo, données fictives, développement seulement (ADR 0010) ; jamais en production          |
 
 Un secret se donne soit en variable, soit par `<NOM>_FILE` (chemin d'un fichier monté), jamais les
 deux. `compose.yaml` utilise les fichiers de `./secrets/` montés dans `/run/secrets/`.
+
+### Exécution des plans de protection (identifiants Microsoft 365)
+
+Les plans de protection n'ont besoin d'aucun identifiant pour exister, mais **rien ne s'exécute**
+sans `BACKUP365_M365_CLIENT_ID` et `BACKUP365_M365_CLIENT_SECRET` (application Entra autorisée à
+lire le mail, OneDrive et SharePoint du tenant) : la console répond alors « sauvegarde non
+configurée » (`GET /api/plans/execution`), le lancement manuel d'un plan répond 503
+`backup_not_configured` et le serveur le signale au démarrage. Donner une seule des deux
+variables refuse le démarrage. Les identifiants ne sont jamais stockés, journalisés ni renvoyés.
+Pour `compose.yaml`, ajouter un secret `m365_client_secret` (fichier `./secrets/`) et
+`BACKUP365_M365_CLIENT_SECRET_FILE: /run/secrets/m365_client_secret`, plus
+`BACKUP365_M365_CLIENT_ID` dans l'environnement du service.
 
 ## Premier accès
 
@@ -115,6 +128,13 @@ objectifs (RPO, RTO, conservation et justification RGPD), récapitulatif ; « La
 demande un motif, inscrit au journal d'audit. L'administrateur crée, désactive et change le rôle des comptes dans l'écran « Comptes »
 (`#/comptes`) ; il ne peut pas désactiver ni rétrograder le dernier administrateur actif. Un mot
 de passe provisoire (création ou réinitialisation) est à changer à la connexion suivante.
+
+Pour réinitialiser un mot de passe, l'administrateur choisit le compte, saisit un motif
+obligatoire, puis lit le mot de passe temporaire que la console a généré : il s'affiche une seule
+fois (bouton « Copier »), et la boîte ne se ferme qu'une fois la case « J'ai transmis le mot de
+passe » cochée. Le journal d'audit garde le motif, jamais le mot de passe. Après trop d'échecs de
+connexion, l'écran de connexion affiche le temps restant avant un nouvel essai ; le message est le
+même que l'identifiant existe ou non.
 
 La session tient dans un cookie `b365_session` (`HttpOnly`, `SameSite=Strict`, et `Secure` quand
 la requête arrive en HTTPS) et expire après 8 heures sans activité ; un redémarrage de la console

@@ -51,6 +51,8 @@ export interface AppOptions {
   planScheduler?: PlanScheduler;
   /** Restauration de mails ; absente, elle n'est pas configurée (503, bouton désactivé). */
   restore?: RestoreService;
+  /** Sauvegarde réelle configurée (identifiants Microsoft 365) ? Faux : aucun plan ne s'exécute (ADR 0009). */
+  backupConfigured?: boolean;
   /** Derrière un proxy inverse de confiance : `X-Forwarded-Proto` et `-For` sont lus (cookie `Secure`, IP). */
   trustProxy?: string | false;
   /** Dossier de l'interface construite ; sans lui, seule l'API répond. */
@@ -100,6 +102,7 @@ export function buildApp({
   plans,
   planScheduler,
   restore,
+  backupConfigured = true,
   trustProxy = false,
   indexer,
   status = { maxAgeHours: DEFAULT_MAX_AGE_HOURS, workloads: ['mail', 'onedrive', 'sharepoint'] },
@@ -127,11 +130,11 @@ export function buildApp({
   // Plugin encapsulé : son gestionnaire d'erreurs ne touche pas le reste de l'application.
   void app.register((scope, _opts, done) => {
     registerCatalogRoutes(scope, catalog, audit);
-    registerStatusRoutes(scope, catalog, status, { index: searchIndex, indexer });
+    registerStatusRoutes(scope, catalog, status, { index: searchIndex, indexer, plans });
     done();
   });
   void app.register((scope, _opts, done) => {
-    registerPlanRoutes(scope, plans, audit, planScheduler);
+    registerPlanRoutes(scope, plans, audit, planScheduler, backupConfigured);
     done();
   });
   void app.register((scope, _opts, done) => {
