@@ -3,10 +3,14 @@ import {
   FakeBackupCatalog,
   NoBackupFoundError,
   type BackupCatalog,
+  type PlanComplianceReport,
   type StatusReport,
 } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
-import { buildTestApp } from './test-support.js';
+import { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
+import { ROLES, type Role } from './sqlite/sqlite-account-store.js';
+import { buildApp } from './app.js';
+import { buildTestApp, testAuth } from './test-support.js';
 import { parseMaxAgeHours, parseSiteCacheTtlMs, parseStatusWorkloads } from './config.js';
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
@@ -48,6 +52,91 @@ describe('GET /api/status', () => {
     const report = (await app.inject({ method: 'GET', url: '/api/status' })).json<StatusReport>();
     expect(report.rows).toMatchObject([{ kind: 'site', sourceId: 'site,1', state: 'stale' }]);
     expect(report.alertCount).toBe(1);
+  });
+
+  describe('plan compliance', () => {
+    const input = (name: string) => ({
+      name,
+      scope: 'all' as const,
+      selection: [],
+      dataTypes: ['mail' as const],
+      rpoHours: 4 as const,
+      rtoHours: null,
+      retentionDays: 90,
+      gdprJustification: 'Obligation de conservation.',
+    });
+    const finished = (plans: SqlitePlanStore, planId: string, status: 'success' | 'failed') => {
+      const id = plans.startRun(planId, 'item', hoursAgo(1));
+      plans.finishRun(id!, status, hoursAgo(0.9));
+    };
+    const get = async (plans?: SqlitePlanStore, role: Role = 'admin') => {
+      const app = buildTestApp({ version: '1', catalog, role, ...(plans ? { plans } : {}) });
+      return (await app.inject({ method: 'GET', url: '/api/status' })).json<
+        StatusReport & { plans?: PlanComplianceReport | null }
+      >();
+    };
+
+    it('counts compliant, late and failed plans and lists the non-compliant ones', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      finished(plans, plans.create(input('Conforme')).id, 'success');
+      finished(plans, plans.create(input('Échoué')).id, 'failed');
+      plans.create(input('Jamais lancé'));
+      const report = await get(plans);
+      expect(report.plans?.counts).toEqual({ compliant: 1, late: 1, failed: 1 });
+      expect(report.plans?.nonCompliant.map((p) => [p.name, p.state])).toEqual([
+        ['Jamais lancé', 'late'],
+        ['Échoué', 'failed'],
+      ]);
+    });
+
+    it.each(ROLES.filter((role) => role !== 'admin'))(
+      'hides plan counts and names from the %s role (PO decision, pending PM)',
+      async (role) => {
+        const plans = SqlitePlanStore.open(':memory:');
+        finished(plans, plans.create(input('Échoué')).id, 'failed');
+        const app = buildTestApp({ version: '1', catalog, role, plans });
+        const res = await app.inject({ method: 'GET', url: '/api/status' });
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).not.toHaveProperty('plans');
+        expect(res.body).not.toContain('Échoué');
+        expect(res.json<StatusReport>().rows).toHaveLength(4);
+      },
+    );
+
+    it('omits the plans without a session', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      finished(plans, plans.create(input('Échoué')).id, 'failed');
+      const app = buildApp({ version: '1', catalog, plans, auth: testAuth().auth });
+      const res = await app.inject({ method: 'GET', url: '/api/status' });
+      expect(res.json()).not.toHaveProperty('plans');
+      expect(res.body).not.toContain('Échoué');
+    });
+
+    it('hides the plans from a non-administrator even when the plan store fails', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      plans.close();
+      expect(await get(plans, 'operator')).not.toHaveProperty('plans');
+    });
+
+    it('reports zero everywhere when there is no plan', async () => {
+      const report = await get(SqlitePlanStore.open(':memory:'));
+      expect(report.plans).toEqual({
+        counts: { compliant: 0, late: 0, failed: 0 },
+        nonCompliant: [],
+      });
+    });
+
+    it('omits the plans without a plan store', async () => {
+      expect(await get()).not.toHaveProperty('plans');
+    });
+
+    it('answers null when the plan store fails, without failing the dashboard', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      plans.close();
+      const report = await get(plans);
+      expect(report.plans).toBeNull();
+      expect(report.rows).toHaveLength(4);
+    });
   });
 
   it('uses the configured threshold and workloads', async () => {

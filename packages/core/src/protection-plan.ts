@@ -212,3 +212,33 @@ export function planCompliance(
   }
   return { state: latest?.run.status === 'failed' ? 'failed' : 'late', lastSuccessAt };
 }
+
+export interface PlanComplianceEntry extends Compliance {
+  id: string;
+  name: string;
+  rpoHours: RpoHours;
+}
+
+/** Conformité des plans pour le tableau de bord : décompte par état et plans non conformes. */
+export interface PlanComplianceReport {
+  counts: Record<ComplianceState, number>;
+  /** Plans « en retard » ou « en échec », dans l'ordre reçu. */
+  nonCompliant: PlanComplianceEntry[];
+}
+
+export function buildPlanComplianceReport(
+  plans: readonly { id: string; name: string; rpoHours: RpoHours }[],
+  runsOf: (planId: string) => readonly PlanRun[],
+  now: Date,
+): PlanComplianceReport {
+  const counts: Record<ComplianceState, number> = { compliant: 0, late: 0, failed: 0 };
+  const nonCompliant: PlanComplianceEntry[] = [];
+  for (const plan of plans) {
+    const compliance = planCompliance(plan.rpoHours, runsOf(plan.id), now);
+    counts[compliance.state] += 1;
+    if (compliance.state !== 'compliant') {
+      nonCompliant.push({ id: plan.id, name: plan.name, rpoHours: plan.rpoHours, ...compliance });
+    }
+  }
+  return { counts, nonCompliant };
+}

@@ -125,7 +125,7 @@ export function buildApp({
   // Plugin encapsulé : son gestionnaire d'erreurs ne touche pas le reste de l'application.
   void app.register((scope, _opts, done) => {
     registerCatalogRoutes(scope, catalog, audit);
-    registerStatusRoutes(scope, catalog, status, { index: searchIndex, indexer });
+    registerStatusRoutes(scope, catalog, status, { index: searchIndex, indexer, plans });
     done();
   });
   void app.register((scope, _opts, done) => {

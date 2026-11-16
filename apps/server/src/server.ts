@@ -232,7 +232,7 @@ export function createServer(
   if (demo) {
     app.log.warn('MODE DÉMO : données fictives, aucun stockage réel (comptes de démonstration)');
     app.addHook('onReady', async () => {
-      if (auth) await seedDemo(auth, openedAudit.audit);
+      if (auth) await seedDemo(auth, openedAudit.audit, undefined, openedPlans.store);
     });
   }
   if (indexer || anchorer || planScheduler) {

@@ -67,6 +67,59 @@ describe('StatusView', () => {
     expect(html).toContain('Aucune boîte ni site sauvegardé');
   });
 
+  describe('plan compliance', () => {
+    const plans = {
+      counts: { compliant: 2, late: 1, failed: 1 },
+      nonCompliant: [
+        {
+          id: 'p1',
+          name: 'Direction',
+          rpoHours: 4 as const,
+          state: 'late' as const,
+          lastSuccessAt: null,
+        },
+        {
+          id: 'p2',
+          name: 'Finance',
+          rpoHours: 24 as const,
+          state: 'failed' as const,
+          lastSuccessAt: '2026-11-10T06:00:00Z',
+        },
+      ],
+    };
+
+    it('shows the count per state and the non-compliant plans', () => {
+      const html = renderToString(<StatusView state={{ ...report, plans }} />);
+      expect(html).toContain('Plans de protection');
+      expect(html).toContain('Conforme</span> <strong>2</strong>');
+      expect(html).toContain('En retard</span> <strong>1</strong>');
+      expect(html).toContain('En échec</span> <strong>1</strong>');
+      expect(html).toContain('Direction');
+      expect(html).toContain('Finance');
+      expect(html).toContain('2026-11-10T06:00:00Z');
+    });
+
+    it('lists no table when every plan is compliant', () => {
+      const all = { counts: { compliant: 3, late: 0, failed: 0 }, nonCompliant: [] };
+      const html = renderToString(<StatusView state={{ ...report, plans: all }} />);
+      expect(html).toContain('Conforme</span> <strong>3</strong>');
+      expect(html).not.toContain('Plans non conformes');
+    });
+
+    it('says so when there is no plan', () => {
+      const none = { counts: { compliant: 0, late: 0, failed: 0 }, nonCompliant: [] };
+      const html = renderToString(<StatusView state={{ ...report, plans: none }} />);
+      expect(html).toContain('Aucun plan de protection.');
+    });
+
+    it('shows an error when the plans are unavailable, and nothing without the field', () => {
+      expect(renderToString(<StatusView state={{ ...report, plans: null }} />)).toContain(
+        'Conformité des plans indisponible',
+      );
+      expect(renderToString(<StatusView state={report} />)).not.toContain('Plans de protection');
+    });
+  });
+
   it('shows loading and error states', () => {
     expect(renderToString(<StatusView state="loading" />)).toContain('Chargement');
     expect(renderToString(<StatusView state="error" />)).toContain('indisponible');
