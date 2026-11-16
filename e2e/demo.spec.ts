@@ -79,3 +79,21 @@ test('le bandeau du mode démo est présent sur chaque écran', async ({ browser
     await context.close();
   }
 });
+
+test('dialogue : focus piégé, Échap, retour du focus', async ({ page, context, baseURL }) => {
+  await signInAs(context, baseURL!, 'admin');
+  await page.goto('/#/composants');
+  const trigger = page.getByRole('button', { name: 'Ouvrir l’exemple de dialogue' });
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: 'Exporter cette boîte ?' });
+  await expect(dialog.getByLabel('Motif')).toBeFocused();
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press('Tab');
+    await expect(dialog.locator(':focus')).toHaveCount(1);
+  }
+  await page.keyboard.press('Shift+Tab');
+  await expect(dialog.locator(':focus')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+});

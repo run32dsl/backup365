@@ -1,22 +1,36 @@
 import type { BackupState, SourceKind, StatusReport } from '@backup365/core';
+import {
+  Alert,
+  DataTable,
+  EmptyState,
+  StatusPill,
+  type Column,
+  type PillStatus,
+} from './ui/index.js';
+
+type Row = StatusReport['rows'][number];
+
+const COLUMNS: Column<Row>[] = [
+  { header: 'Source', cell: (r) => r.displayName },
+  { header: 'Type', cell: (r) => KIND_LABELS[r.kind] },
+  { header: 'Charge', cell: (r) => r.workload },
+  { header: 'Dernier instantané (UTC)', cell: (r) => r.lastSnapshotAt ?? '—' },
+  { header: 'Âge (h)', cell: (r) => r.ageHours ?? '—' },
+  { header: 'État', cell: (r) => <StateBadge state={r.state} /> },
+];
 
 /** État du chargement du tableau de bord. */
 export type StatusState = StatusReport | 'loading' | 'error' | 'empty';
 
-/** Badge d'état : icône et texte, jamais la couleur seule. */
-const STATE_BADGES: Record<BackupState, { icon: string; label: string; tone: string }> = {
-  ok: { icon: '✔', label: 'À jour', tone: 'ok' },
-  stale: { icon: '⚠', label: 'Avertissement', tone: 'warn' },
-  missing: { icon: '✖', label: 'Échec', tone: 'err' },
+/** Pastille d'état : icône et texte, jamais la couleur seule. */
+const STATE_BADGES: Record<BackupState, { status: PillStatus; label: string }> = {
+  ok: { status: 'compliant', label: 'À jour' },
+  stale: { status: 'late', label: 'Avertissement' },
+  missing: { status: 'failed', label: 'Échec' },
 };
 
 function StateBadge({ state }: { state: BackupState }) {
-  const badge = STATE_BADGES[state];
-  return (
-    <span className={`badge badge-${badge.tone}`}>
-      <span aria-hidden="true">{badge.icon}</span> {badge.label}
-    </span>
-  );
+  return <StatusPill {...STATE_BADGES[state]} />;
 }
 
 const KIND_LABELS: Record<SourceKind, string> = { mailbox: 'boîte', site: 'site SharePoint' };
@@ -25,45 +39,24 @@ const KIND_LABELS: Record<SourceKind, string> = { mailbox: 'boîte', site: 'site
 export function StatusView({ state }: { state: StatusState }) {
   if (state === 'loading') return <p role="status">Chargement de l’état des sauvegardes…</p>;
   if (state === 'empty')
-    return <p role="status">Aucune sauvegarde trouvée : lancez une première sauvegarde Atlas.</p>;
-  if (state === 'error') return <p role="alert">État des sauvegardes indisponible</p>;
+    return (
+      <EmptyState>Aucune sauvegarde trouvée : lancez une première sauvegarde Atlas.</EmptyState>
+    );
+  if (state === 'error') return <Alert tone="error">État des sauvegardes indisponible</Alert>;
   return (
     <section aria-label="État des sauvegardes">
       <p role="status">
         {state.alertCount === 0 ? 'Aucune alerte' : `${state.alertCount} élément(s) en alerte`}{' '}
         (seuil : {state.maxAgeHours} h)
       </p>
-      {state.rows.length === 0 ? (
-        <p>Aucune boîte ni site sauvegardé.</p>
-      ) : (
-        <table>
-          <caption className="sr-only">État par boîte, site et charge</caption>
-          <thead>
-            <tr>
-              <th scope="col">Source</th>
-              <th scope="col">Type</th>
-              <th scope="col">Charge</th>
-              <th scope="col">Dernier instantané (UTC)</th>
-              <th scope="col">Âge (h)</th>
-              <th scope="col">État</th>
-            </tr>
-          </thead>
-          <tbody>
-            {state.rows.map((row) => (
-              <tr key={`${row.kind}/${row.sourceId}/${row.workload}`}>
-                <td>{row.displayName}</td>
-                <td>{KIND_LABELS[row.kind]}</td>
-                <td>{row.workload}</td>
-                <td>{row.lastSnapshotAt ?? '—'}</td>
-                <td>{row.ageHours ?? '—'}</td>
-                <td>
-                  <StateBadge state={row.state} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <DataTable
+        caption="État par boîte, site et charge"
+        hideCaption
+        columns={COLUMNS}
+        rows={state.rows}
+        rowKey={(r) => `${r.kind}/${r.sourceId}/${r.workload}`}
+        empty={{ message: 'Aucune boîte ni site sauvegardé.' }}
+      />
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { HealthResponse } from '@backup365/core';
 import { fetchHealth } from './health.js';
 
 export const DEMO_BANNER_TEXT = 'Mode démo : données fictives';
@@ -13,20 +14,30 @@ export function DemoBanner({ demo }: { demo: boolean }) {
   );
 }
 
-/** Interroge `/api/health` une fois : seul le serveur sait s'il est en mode démo. */
-export function useDemo(): boolean {
-  const [demo, setDemo] = useState(false);
+/** Interroge `/api/health` une fois : seul le serveur sait s'il est en mode démo, et sa version. */
+export type HealthState = HealthResponse | null | 'failed';
+
+/** `null` : réponse pas encore reçue (état inconnu), à ne pas confondre avec « hors démo ». */
+export function demoOf(health: HealthState): boolean | null {
+  if (health === null) return null;
+  return health !== 'failed' && health.demo === true;
+}
+
+export function useHealth(): HealthState {
+  const [health, setHealth] = useState<HealthState>(null);
   useEffect(() => {
     let current = true;
     fetchHealth().then(
       (h) => {
-        if (current) setDemo(h.demo === true);
+        if (current) setHealth(h);
       },
-      () => undefined,
+      () => {
+        if (current) setHealth('failed');
+      },
     );
     return () => {
       current = false;
     };
   }, []);
-  return demo;
+  return health;
 }

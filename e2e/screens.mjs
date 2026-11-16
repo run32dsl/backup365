@@ -54,4 +54,21 @@ export const SCREENS = [
     },
   },
   { name: 'page-reservee', hash: '#/comptes', role: 'operator' },
+  {
+    name: 'composants',
+    hash: '#/composants',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('heading', { name: 'Composants', level: 1 }).waitFor();
+    },
+  },
+  {
+    name: 'composants-dialogue',
+    hash: '#/composants',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('button', { name: 'Ouvrir l’exemple de dialogue' }).click();
+      await page.getByRole('dialog', { name: 'Exporter cette boîte ?' }).waitFor();
+    },
+  },
 ];

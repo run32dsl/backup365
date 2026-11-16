@@ -8,44 +8,41 @@ import {
   type SearchQuery,
   type SearchResponse,
 } from './mail.js';
+import { Alert, Button, DataTable, EmptyState, FormField, type Column } from './ui/index.js';
 
 /** État de la recherche. */
 export type SearchState = SearchResponse | 'loading' | 'error';
 
+type Hit = SearchResponse['items'][number];
+
+const COLUMNS: Column<Hit>[] = [
+  { header: 'Date (UTC)', cell: (m) => m.date },
+  { header: 'Expéditeur', cell: (m) => m.sender },
+  {
+    header: 'Objet',
+    cell: (m) => <a href={mailHref(m)}>{m.subject === '' ? '(sans objet)' : m.subject}</a>,
+  },
+  { header: 'Boîte', cell: (m) => m.mailboxId },
+  { header: 'Dossier', cell: (m) => m.folder },
+];
+
 /** Résultats de recherche : métadonnées seulement, chaque ligne mène à la fiche du mail. */
 export function SearchView({ state }: { state: SearchState }) {
   if (state === 'loading') return <p role="status">Recherche en cours…</p>;
-  if (state === 'error') return <p role="alert">Recherche indisponible</p>;
-  if (state.items.length === 0) return <p role="status">Aucun résultat.</p>;
+  if (state === 'error') return <Alert tone="error">Recherche indisponible</Alert>;
+  if (state.items.length === 0) return <EmptyState>Aucun résultat.</EmptyState>;
   return (
     <>
       <p role="status">
         {state.total} résultat(s), {state.offset + 1} à {state.offset + state.items.length}
       </p>
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">Date (UTC)</th>
-            <th scope="col">Expéditeur</th>
-            <th scope="col">Objet</th>
-            <th scope="col">Boîte</th>
-            <th scope="col">Dossier</th>
-          </tr>
-        </thead>
-        <tbody>
-          {state.items.map((m) => (
-            <tr key={`${m.mailboxId}/${m.messageId}`}>
-              <td>{m.date}</td>
-              <td>{m.sender}</td>
-              <td>
-                <a href={mailHref(m)}>{m.subject === '' ? '(sans objet)' : m.subject}</a>
-              </td>
-              <td>{m.mailboxId}</td>
-              <td>{m.folder}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable
+        caption="Résultats de la recherche"
+        hideCaption
+        columns={COLUMNS}
+        rows={state.items}
+        rowKey={(m) => `${m.mailboxId}/${m.messageId}`}
+      />
     </>
   );
 }
@@ -80,42 +77,34 @@ export function SearchPage() {
   return (
     <main tabIndex={-1}>
       <h1>Rechercher et restaurer</h1>
-      <form onSubmit={submit}>
-        <label>
-          Recherche <input type="search" name="q" maxLength={256} />
-        </label>{' '}
-        <label>
-          Boîte <input type="text" name="mailbox" maxLength={256} />
-        </label>{' '}
-        <label>
-          Du <input type="datetime-local" name="after" />
-        </label>{' '}
-        <label>
-          Au (exclu) <input type="datetime-local" name="before" />
-        </label>{' '}
-        <button type="submit">Rechercher</button>
+      <form onSubmit={submit} className="form-row">
+        <FormField label="Recherche" type="search" name="q" maxLength={256} />
+        <FormField label="Boîte" type="text" name="mailbox" maxLength={256} />
+        <FormField label="Du" type="datetime-local" name="after" />
+        <FormField label="Au (exclu)" type="datetime-local" name="before" />
+        <Button type="submit">Rechercher</Button>
       </form>
       {state !== null && <SearchView state={state} />}
-      <p>
-        <button
-          type="button"
+      <div className="button-row">
+        <Button
+          variant="secondary"
           disabled={pages.previous === null}
           onClick={() => {
             if (query && pages.previous !== null) setQuery({ ...query, offset: pages.previous });
           }}
         >
           Précédent
-        </button>{' '}
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="secondary"
           disabled={pages.next === null}
           onClick={() => {
             if (query && pages.next !== null) setQuery({ ...query, offset: pages.next });
           }}
         >
           Suivant
-        </button>
-      </p>
+        </Button>
+      </div>
     </main>
   );
 }

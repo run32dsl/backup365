@@ -5,6 +5,7 @@ import { AccountsPage, AccountsView } from './AccountsPage.js';
 import { AuditPage } from './AuditPage.js';
 import { CredentialsView, ErrorView, Field, PasswordView } from './LoginPage.js';
 import { createAccount, isLastAdmin, resetPassword } from './accounts.js';
+import { Button, DataTable } from './ui/index.js';
 import {
   ADMIN_ONLY,
   AUDIT_NOTICE,
@@ -316,6 +317,23 @@ describe('textes restants de la maquette de #22', () => {
     expect(html).toContain('>Se déconnecter</button>');
   });
 
+  it('passes the health response to the footer and shows nothing on #/composants while it is unknown', () => {
+    const user = { id: 1, username: 'marie', role: 'operator' as const, mustChangePassword: false };
+    const render = (hash: string, health: Parameters<typeof Console>[0]['health']) => {
+      vi.stubGlobal('window', { location: { hash }, addEventListener: () => undefined });
+      const html = renderToString(
+        <Console user={user} onLogout={() => undefined} health={health} />,
+      );
+      vi.unstubAllGlobals();
+      return html;
+    };
+    const demo = render('', { demo: true, version: '1.2.3' } as never);
+    expect(demo.replaceAll('<!-- -->', '')).toContain('Version 1.2.3');
+    expect(demo).toContain('Composants</a>');
+    expect(render('#/composants', null)).not.toContain('Page non disponible');
+    expect(render('#/composants', 'failed')).toContain('Page non disponible');
+  });
+
   it('renders a labelled main navigation with one current entry and a closed menu', () => {
     const user = { id: 1, username: 'marie', role: 'operator' as const, mustChangePassword: false };
     vi.stubGlobal('window', { location: { hash: '' }, addEventListener: () => undefined });
@@ -369,35 +387,46 @@ describe('textes restants de la maquette de #22', () => {
 
   it('wires the handlers: a locked account does nothing, Réessayer and Annuler call back', () => {
     type El = { type?: unknown; props?: { children?: unknown; [k: string]: unknown } };
+    // Les boutons sont désormais le composant commun `Button`, et les cellules du tableau sont
+    // produites par `DataTable` : le parcours les développe, les assertions restent les mêmes.
     const find = (node: unknown, match: (e: El) => boolean, out: El[] = []): El[] => {
       if (Array.isArray(node)) node.forEach((n) => find(n, match, out));
       else if (node && typeof node === 'object') {
         const el = node as El;
         if (match(el)) out.push(el);
+        if (el.type === DataTable) {
+          const { rows, columns } = el.props as unknown as {
+            rows: unknown[];
+            columns: { cell: (row: unknown) => unknown }[];
+          };
+          for (const row of rows) for (const c of columns) find(c.cell(row), match, out);
+        }
         find(el.props?.children, match, out);
+        find(el.props?.['action'], match, out);
       }
       return out;
     };
+    const isButton = (e: El) => e.type === Button;
     const onDisabled = vi.fn();
     const only = [account(1, 'admin'), account(2, 'operator')];
     const tree = AccountsView({ state: only, actions: { onDisabled } });
-    const disable = find(tree, (e) => e.type === 'button' && e.props?.['aria-disabled'] === true);
+    const disable = find(tree, (e) => isButton(e) && e.props?.['aria-disabled'] === true);
     expect(disable).toHaveLength(1);
     (disable[0]!.props!.onClick as () => void)();
     expect(onDisabled).not.toHaveBeenCalled();
-    const other = find(tree, (e) => e.type === 'button' && e.props?.children === 'Désactiver');
+    const other = find(tree, (e) => isButton(e) && e.props?.children === 'Désactiver');
     (other.find((e) => e.props?.['aria-disabled'] === undefined)!.props!.onClick as () => void)();
     expect(onDisabled).toHaveBeenCalledWith(2, true);
 
     const onRetry = vi.fn();
-    const retry = find(ErrorView({ message: 'x', onRetry }), (e) => e.type === 'button');
+    const retry = find(ErrorView({ message: 'x', onRetry }), isButton);
     (retry[0]!.props!.onClick as () => void)();
     expect(onRetry).toHaveBeenCalledOnce();
 
     const onCancel = vi.fn();
     const cancel = find(
       PasswordView({ forced: false, onCancel }),
-      (e) => e.type === 'button' && e.props?.children === 'Annuler',
+      (e) => isButton(e) && e.props?.children === 'Annuler',
     );
     (cancel[0]!.props!.onClick as () => void)();
     expect(onCancel).toHaveBeenCalledOnce();

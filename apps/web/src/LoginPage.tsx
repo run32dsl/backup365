@@ -1,4 +1,5 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
+import { Alert, Button, FormField } from './ui/index.js';
 import {
   AUDIT_NOTICE,
   UNREACHABLE,
@@ -28,26 +29,20 @@ export function Field({
   revealed?: boolean;
   onValue?: (value: string) => void;
 }) {
-  const id = useId();
   const secret = type === 'password';
   const [shown, setShown] = useState(revealed);
   return (
-    <p>
-      <label htmlFor={id}>{label}</label>
-      <br />
-      <input
-        id={id}
-        name={name}
-        type={secret && !shown ? 'password' : 'text'}
-        autoComplete={autoComplete}
-        required
-        onChange={onValue && ((e) => onValue(e.currentTarget.value))}
-      />
-      {secret && (
-        <>
-          {' '}
-          <button
-            type="button"
+    <FormField
+      label={label}
+      name={name}
+      type={secret && !shown ? 'password' : 'text'}
+      autoComplete={autoComplete}
+      required
+      onChange={onValue && ((e) => onValue(e.currentTarget.value))}
+      adornment={(id) =>
+        secret && (
+          <Button
+            variant="secondary"
             aria-controls={id}
             aria-pressed={shown}
             aria-label={`${shown ? 'Masquer' : 'Afficher'} : ${label}`}
@@ -56,22 +51,26 @@ export function Field({
             }}
           >
             {shown ? 'Masquer' : 'Afficher'}
-          </button>
-        </>
-      )}
-    </p>
+          </Button>
+        )
+      }
+    />
   );
 }
 
 /** Erreur réseau ou serveur, avec le bouton « Réessayer ». */
 export function ErrorView({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <>
-      <p role="alert">{message}</p>
-      <button type="button" onClick={onRetry}>
-        Réessayer
-      </button>
-    </>
+    <Alert
+      tone="error"
+      action={
+        <Button variant="secondary" onClick={onRetry}>
+          Réessayer
+        </Button>
+      }
+    >
+      {message}
+    </Alert>
   );
 }
 
@@ -133,10 +132,10 @@ export function CredentialsView({
             <p role="status">{setupRecap(typed.trim())}</p>
           </>
         )}
-        {error && <p role="alert">{error}</p>}
-        <button type="submit" disabled={busy}>
+        {error && <Alert tone="error">{error}</Alert>}
+        <Button type="submit" busy={busy}>
           {setup ? 'Créer le compte administrateur' : 'Se connecter'}
-        </button>
+        </Button>
       </form>
       <p>{AUDIT_NOTICE}</p>
     </main>
@@ -230,17 +229,16 @@ export function PasswordView({
           type="password"
           autoComplete="new-password"
         />
-        {error && <p role="alert">{error}</p>}
-        {done && <p role="status">Mot de passe modifié.</p>}
-        <button type="submit">Enregistrer et continuer</button>
-        {!forced && (
-          <>
-            {' '}
-            <button type="button" onClick={onCancel}>
+        {error && <Alert tone="error">{error}</Alert>}
+        {done && <Alert tone="success">Mot de passe modifié.</Alert>}
+        <div className="button-row">
+          <Button type="submit">Enregistrer et continuer</Button>
+          {!forced && (
+            <Button variant="secondary" onClick={onCancel}>
               Annuler
-            </button>
-          </>
-        )}
+            </Button>
+          )}
+        </div>
       </form>
     </main>
   );

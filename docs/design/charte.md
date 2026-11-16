@@ -42,6 +42,12 @@ Texte sur fond : au moins 4,5:1 ; contour des contrôles : au moins 3:1.
 
 ## Composants de base
 
+Les composants communs sont dans `apps/web/src/ui/` (`Button`, `FormField`, `DataTable`,
+`Dialog`, `EmptyState`, `Alert`, `Steps`, `StatusPill`) : un écran les utilise au lieu de
+refaire ses boutons, tableaux et formulaires. La page `#/composants`, visible en mode démo
+seulement (lien « Composants » en pied de page), les montre dans tous leurs états. Un nouveau
+composant s'y ajoute avec ses tests de comportement.
+
 - **Bouton** : plein pour l'action principale, contour pour les actions secondaires et la
   barre latérale ; grisé quand il est désactivé.
 - **Champ** : un `<label>` visible au-dessus, contour 3:1, aide reliée par `aria-describedby`.

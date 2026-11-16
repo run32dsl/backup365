@@ -1,17 +1,35 @@
-import { renderToString } from 'react-dom/server';
+import { renderToStaticMarkup, renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { HealthView } from './Home.js';
+import { ConsoleFooter } from './ConsoleFooter.js';
+import { Home } from './Home.js';
 import { fetchHealth } from './health.js';
 
-describe('HealthView', () => {
-  it('shows the server status and version', () => {
-    const html = renderToString(<HealthView state={{ status: 'ok', version: '1.0.0' }} />);
-    expect(html).toContain('ok');
-    expect(html).toContain('1.0.0');
+describe('Home', () => {
+  it('no longer shows the technical server line', () => {
+    const html = renderToString(<Home />);
+    expect(html).toContain('Tableau de bord');
+    expect(html).not.toContain('Serveur');
+  });
+});
+
+describe('ConsoleFooter', () => {
+  it('shows the server version', () => {
+    expect(renderToStaticMarkup(<ConsoleFooter version="1.4.2" demo={false} />)).toContain(
+      'Version 1.4.2',
+    );
   });
 
-  it('shows an error when the server is unreachable', () => {
-    expect(renderToString(<HealthView state="error" />)).toContain('injoignable');
+  it('links to the components page in demo mode only', () => {
+    const demo = renderToStaticMarkup(<ConsoleFooter version="1.4.2" demo />);
+    expect(demo).toContain('href="#/composants"');
+    expect(demo).toContain('Composants');
+    expect(renderToStaticMarkup(<ConsoleFooter version="1.4.2" demo={false} />)).not.toContain(
+      'Composants',
+    );
+  });
+
+  it('renders nothing before the version is known', () => {
+    expect(renderToStaticMarkup(<ConsoleFooter demo={false} />)).toBe('');
   });
 });
 

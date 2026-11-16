@@ -8,6 +8,7 @@ import {
   MAX_REASON_LENGTH,
   MIN_REASON_LENGTH,
 } from './mail.js';
+import { Alert, Button, FormField } from './ui/index.js';
 
 /** État de la fiche. */
 export type MailState = IndexedMail | 'loading' | 'error';
@@ -15,7 +16,7 @@ export type MailState = IndexedMail | 'loading' | 'error';
 /** Métadonnées d'un mail sauvegardé (jamais le corps). */
 export function MailView({ state }: { state: MailState }) {
   if (state === 'loading') return <p role="status">Chargement de la fiche…</p>;
-  if (state === 'error') return <p role="alert">Fiche indisponible</p>;
+  if (state === 'error') return <Alert tone="error">Fiche indisponible</Alert>;
   return (
     <dl>
       <dt>Objet</dt>
@@ -56,32 +57,29 @@ export function ExportForm({
 }) {
   return (
     <form onSubmit={onSubmit}>
-      <label>
-        Motif de l’export{' '}
-        <input
-          type="text"
-          name="reason"
-          required
-          minLength={MIN_REASON_LENGTH}
-          maxLength={MAX_REASON_LENGTH}
-          placeholder={REASON_PLACEHOLDER}
-          aria-describedby="reason-help"
-          value={reason}
-          onChange={(e) => {
-            onReason(e.currentTarget.value);
-          }}
-        />
-      </label>{' '}
-      <button type="submit" disabled={!isReasonValid(reason) || exporting === 'busy'}>
+      <FormField
+        label="Motif de l’export"
+        type="text"
+        name="reason"
+        required
+        minLength={MIN_REASON_LENGTH}
+        counterMax={MAX_REASON_LENGTH}
+        placeholder={REASON_PLACEHOLDER}
+        help={REASON_GUIDANCE}
+        value={reason}
+        onChange={(e) => {
+          onReason(e.currentTarget.value);
+        }}
+      />
+      <Button type="submit" busy={exporting === 'busy'} disabled={!isReasonValid(reason)}>
         Exporter en EML
-      </button>
-      <p id="reason-help">{REASON_GUIDANCE}</p>
+      </Button>
       <p>
         Le motif est inscrit au journal d’audit avec l’export. Pour les sauvegardes anciennes
         (format JSON), le fichier est reconstruit sans les pièces jointes.
       </p>
-      {exporting === 'done' && <p role="status">Export inscrit au journal.</p>}
-      {exporting === 'error' && <p role="alert">Export refusé ou indisponible</p>}
+      {exporting === 'done' && <Alert tone="success">Export inscrit au journal.</Alert>}
+      {exporting === 'error' && <Alert tone="error">Export refusé ou indisponible</Alert>}
     </form>
   );
 }
