@@ -51,12 +51,15 @@ const report: StatusReport = {
 describe('StatusView', () => {
   it('puts the alert count first, then one row per mailbox and workload', () => {
     const html = renderToString(<StatusView state={report} />);
-    expect(html.indexOf('2 élément(s) en alerte')).toBeLessThan(html.indexOf('<table'));
+    expect(html.indexOf('2 éléments en alerte')).toBeLessThan(html.indexOf('<table'));
     expect(html).toContain('Avertissement');
     expect(html).toContain('Échec');
     expect(html).toContain('À jour');
-    expect(html).toContain('2026-11-09T06:00:00Z');
+    expect(html).toContain('09/11/2026 06:00');
     expect(html).toContain('Site X');
+    expect(html).toContain('Messagerie');
+    expect(html).toContain('Dernière sauvegarde (UTC)');
+    expect(html).not.toMatch(/instantané|T\d\d:\d\d:\d\dZ/u);
     expect(html).toContain('site SharePoint');
     expect(html.match(/<tr/g)).toHaveLength(5);
   });
@@ -96,7 +99,7 @@ describe('StatusView', () => {
       expect(html).toContain('En échec</span> <strong>1</strong>');
       expect(html).toContain('Direction');
       expect(html).toContain('Finance');
-      expect(html).toContain('2026-11-10T06:00:00Z');
+      expect(html).toContain('10/11/2026 06:00');
     });
 
     it('lists no table when every plan is compliant', () => {

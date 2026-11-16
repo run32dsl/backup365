@@ -8,6 +8,7 @@ import {
   MAX_REASON_LENGTH,
   MIN_REASON_LENGTH,
 } from './mail.js';
+import { dateTimeOrDash, folderLabel, sizeOf } from './format.js';
 import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
 import {
   fetchLastRestore,
@@ -33,13 +34,13 @@ export function MailView({ state }: { state: MailState }) {
       <dt>Destinataires</dt>
       <dd>{state.recipients.join(', ')}</dd>
       <dt>Date (UTC)</dt>
-      <dd>{state.date}</dd>
+      <dd>{dateTimeOrDash(state.date)}</dd>
       <dt>Boîte</dt>
       <dd>{state.mailboxId}</dd>
       <dt>Dossier</dt>
-      <dd>{state.folder}</dd>
-      <dt>Taille (octets)</dt>
-      <dd>{state.size}</dd>
+      <dd>{folderLabel(state.folder)}</dd>
+      <dt>Taille</dt>
+      <dd>{sizeOf(state.size)}</dd>
       <dt>Pièces jointes</dt>
       <dd>{state.attachments.length === 0 ? 'aucune' : state.attachments.join(', ')}</dd>
     </dl>

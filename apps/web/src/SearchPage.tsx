@@ -8,6 +8,7 @@ import {
   type SearchQuery,
   type SearchResponse,
 } from './mail.js';
+import { dateTimeOf, folderLabel, plural } from './format.js';
 import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
 import { fetchRestoreConfigured } from './restore.js';
 import { Alert, Button, DataTable, EmptyState, FormField, type Column } from './ui/index.js';
@@ -18,14 +19,14 @@ export type SearchState = SearchResponse | 'loading' | 'error';
 type Hit = SearchResponse['items'][number];
 
 const COLUMNS: Column<Hit>[] = [
-  { header: 'Date (UTC)', cell: (m) => m.date },
+  { header: 'Date (UTC)', cell: (m) => <span className="nowrap">{dateTimeOf(m.date)}</span> },
   { header: 'Expéditeur', cell: (m) => m.sender },
   {
     header: 'Objet',
     cell: (m) => <a href={mailHref(m)}>{m.subject === '' ? '(sans objet)' : m.subject}</a>,
   },
   { header: 'Boîte', cell: (m) => m.mailboxId },
-  { header: 'Dossier', cell: (m) => m.folder },
+  { header: 'Dossier', cell: (m) => folderLabel(m.folder) },
 ];
 
 const RESTORE_HINT_ID = 'restore-not-configured';
@@ -59,7 +60,7 @@ export function SearchView({
   return (
     <>
       <p role="status">
-        {state.total} résultat(s), {state.offset + 1} à {state.offset + state.items.length}
+        {plural(state.total, 'résultat')}, {state.offset + 1} à {state.offset + state.items.length}
       </p>
       {restoreConfigured === false && <RestoreNotConfigured id={RESTORE_HINT_ID} />}
       <DataTable

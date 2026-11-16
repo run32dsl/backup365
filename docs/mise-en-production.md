@@ -54,7 +54,7 @@ consulter via `GET /api/audit` et à vérifier par `pnpm --filter @backup365/ser
 avant la production ; `audit-verify` en contrôle les ancres.
 
 Surveillance : l'accueil de la console et `GET /api/status` indiquent, par boîte, par site SharePoint et par charge,
-l'âge du dernier instantané (À jour, Avertissement, Échec). Seuil d'alerte `BACKUP365_STATUS_MAX_AGE_HOURS`
+l'âge de la dernière sauvegarde (À jour, Avertissement, Échec). Seuil d'alerte `BACKUP365_STATUS_MAX_AGE_HOURS`
 (26 h par défaut), charges suivies `BACKUP365_STATUS_WORKLOADS` (`mail,onedrive,sharepoint` par défaut) ; les sites sauvegardés viennent d'un recensement du stockage, gardé en cache `BACKUP365_CATALOG_CACHE_MINUTES` (60 min par défaut) ;
 voir l'ADR 0006.
 

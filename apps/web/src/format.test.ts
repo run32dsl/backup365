@@ -1,0 +1,46 @@
+import { describe, expect, it } from 'vitest';
+import {
+  dateTimeOf,
+  dateTimeOrDash,
+  folderLabel,
+  plural,
+  sizeOf,
+  workloadLabel,
+} from './format.js';
+
+describe('format', () => {
+  it('shows an ISO date as dd/mm/yyyy hh:mm UTC, without seconds or milliseconds', () => {
+    const text = dateTimeOf('2026-11-16T18:15:20.738Z');
+    expect(text).toBe('16/11/2026 18:15');
+    expect(text).not.toMatch(/T|Z|\./u);
+    expect(dateTimeOf(null)).toBe('');
+    expect(dateTimeOf('n’importe quoi')).toBe('');
+    expect(dateTimeOrDash(null)).toBe('—');
+  });
+
+  it('writes sizes in French units', () => {
+    expect(sizeOf(842)).toBe('842 o');
+    expect(sizeOf(2411)).toBe('2,4 Ko');
+    expect(sizeOf(84_000)).toBe('84 Ko');
+    expect(sizeOf(9_999)).toBe('10 Ko');
+    expect(sizeOf(999_999)).toBe('1,0 Mo');
+    expect(sizeOf(1_240_000)).toBe('1,2 Mo');
+  });
+
+  it('translates folders and workloads, and keeps unknown ones', () => {
+    expect(folderLabel('inbox')).toBe('Boîte de réception');
+    expect(folderLabel('Inbox')).toBe('Boîte de réception');
+    expect(folderLabel('sent')).toBe('Éléments envoyés');
+    expect(folderLabel('archive')).toBe('Archives');
+    expect(folderLabel('Projets')).toBe('Projets');
+    expect(workloadLabel('mail')).toBe('Messagerie');
+    expect(workloadLabel('onedrive')).toBe('OneDrive');
+    expect(workloadLabel('sharepoint')).toBe('SharePoint');
+  });
+
+  it('agrees the plural', () => {
+    expect(plural(0, 'résultat')).toBe('0 résultat');
+    expect(plural(1, 'élément')).toBe('1 élément');
+    expect(plural(10, 'résultat')).toBe('10 résultats');
+  });
+});

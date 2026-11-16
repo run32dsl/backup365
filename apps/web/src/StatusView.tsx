@@ -13,14 +13,15 @@ import {
   type Column,
   type PillStatus,
 } from './ui/index.js';
+import { dateTimeOrDash, plural, workloadLabel } from './format.js';
 
 type Row = StatusReport['rows'][number];
 
 const COLUMNS: Column<Row>[] = [
   { header: 'Source', cell: (r) => r.displayName },
   { header: 'Type', cell: (r) => KIND_LABELS[r.kind] },
-  { header: 'Charge', cell: (r) => r.workload },
-  { header: 'Dernier instantané (UTC)', cell: (r) => r.lastSnapshotAt ?? '—' },
+  { header: 'Charge', cell: (r) => workloadLabel(r.workload) },
+  { header: 'Dernière sauvegarde (UTC)', cell: (r) => dateTimeOrDash(r.lastSnapshotAt) },
   { header: 'Âge (h)', cell: (r) => r.ageHours ?? '—' },
   { header: 'État', cell: (r) => <StateBadge state={r.state} /> },
 ];
@@ -46,7 +47,7 @@ type PlanEntry = PlanComplianceReport['nonCompliant'][number];
 const PLAN_COLUMNS: Column<PlanEntry>[] = [
   { header: 'Plan', cell: (p) => p.name },
   { header: 'Objectif (h)', cell: (p) => p.rpoHours },
-  { header: 'Dernière réussite (UTC)', cell: (p) => p.lastSuccessAt ?? '—' },
+  { header: 'Dernière réussite (UTC)', cell: (p) => dateTimeOrDash(p.lastSuccessAt) },
   { header: 'État', cell: (p) => <StatusPill status={p.state === 'failed' ? 'failed' : 'late'} /> },
 ];
 
@@ -99,7 +100,9 @@ export function StatusView({ state }: { state: StatusState }) {
       <PlansCompliance plans={state.plans} />
       <section aria-label="État des sauvegardes">
         <p role="status">
-          {state.alertCount === 0 ? 'Aucune alerte' : `${state.alertCount} élément(s) en alerte`}{' '}
+          {state.alertCount === 0
+            ? 'Aucune alerte'
+            : `${plural(state.alertCount, 'élément')} en alerte`}{' '}
           (seuil : {state.maxAgeHours} h)
         </p>
         <DataTable
