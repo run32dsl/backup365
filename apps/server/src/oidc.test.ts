@@ -293,6 +293,30 @@ describe('connexion Microsoft', () => {
     expect(disable.statusCode).toBe(200);
   });
 
+  it('cannot obtain a local password through POST /api/auth/password', async () => {
+    const { app, provider, auth } = setup();
+    const res = await signIn(app, provider);
+    const cookie = cookieOf(res, SESSION_COOKIE);
+    const me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie } });
+    const headers = { cookie, 'x-csrf-token': me.json<{ csrfToken: string }>().csrfToken };
+    for (const currentPassword of ['', 'x', TEST_PASSWORD, 'dummy-password-for-timing']) {
+      const change = await app.inject({
+        method: 'POST',
+        url: '/api/auth/password',
+        payload: { currentPassword, newPassword: 'a-brand-new-password-123' },
+        headers,
+      });
+      expect(change.statusCode).not.toBe(204);
+    }
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { username: 'claire@example.test', password: 'a-brand-new-password-123' },
+    });
+    expect(login.statusCode).toBe(401);
+    expect(auth.accounts.findByUsername('claire@example.test')?.oidc).toBe(true);
+  });
+
   describe('callbacks refused before any provider call', () => {
     it('rejects a missing, foreign or reused state without contacting the provider', async () => {
       const { app, provider } = setup();
