@@ -1,4 +1,5 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -119,10 +120,34 @@ describe('deploy/synology', () => {
 
 describe('interface sous la CSP des pages', () => {
   const web = join(root, 'apps', 'web');
+  /** Sources de la console : ni `node_modules` ni dossier caché (cache Vite), seulement le code. */
   const sources = (dir: string): string[] =>
-    readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
-      entry.isDirectory() ? sources(join(dir, entry.name)) : [join(dir, entry.name)],
-    );
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      if (entry.name === 'node_modules' || entry.name.startsWith('.')) return [];
+      if (entry.isDirectory()) return sources(join(dir, entry.name));
+      return /\.(tsx?|css|html)$/.test(entry.name) ? [join(dir, entry.name)] : [];
+    });
+
+  it('reads only sources, never node_modules or hidden folders', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'csp-'));
+    try {
+      for (const sub of ['node_modules/.vite', '.cache', 'ui']) {
+        mkdirSync(join(dir, sub), { recursive: true });
+      }
+      for (const f of [
+        'node_modules/a.ts',
+        'node_modules/.vite/CACHEDIR.TAG',
+        '.cache/b.ts',
+        'notes.md',
+      ]) {
+        writeFileSync(join(dir, f), 'x');
+      }
+      writeFileSync(join(dir, 'ui', 'c.tsx'), 'x');
+      expect(sources(dir)).toEqual([join(dir, 'ui', 'c.tsx')]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
   it("forbids inline styles and scripts, so the console's sources must not use any", () => {
     expect(WEB_CSP).toContain("style-src 'self'");
