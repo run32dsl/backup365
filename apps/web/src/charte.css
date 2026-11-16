@@ -332,6 +332,15 @@ th {
   }
 }
 
+/* Sous 900 px la pastille peut passer à la ligne plutôt que déborder de sa carte. */
+@media (max-width: 56.25rem) {
+  .badge {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
 /* Composants communs (apps/web/src/ui/) */
 .btn {
   display: inline-flex;
