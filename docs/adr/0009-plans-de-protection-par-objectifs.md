@@ -75,6 +75,35 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
 - La suppression d'un plan emporte son historique d'exécutions (cascade) ; la purge n'est donc pas
   rejouable : l'écran de l'issue suivante devra demander une confirmation.
 
+### Planificateur, historique et lancement manuel (issue #62)
+
+- `PlanScheduler` (`apps/server`) démarre avec le serveur (hook `onReady`) : une minuterie de 30 s,
+  l'état en base. L'`Executeur` est injecté ; `executeurSimule` réussit aussitôt, l'exécution réelle
+  vient en sous-issue 4. Les éléments d'un plan sont sa sélection, ou toutes les boîtes du catalogue
+  si le périmètre est `all`.
+- À chaque passage, pour chaque plan et chaque élément : si aucune exécution (quel qu'en soit le
+  statut) n'a débuté depuis le dernier créneau, une exécution est lancée. Un échec n'est donc pas
+  relancé avant le créneau suivant. Les éléments passent l'un après l'autre, et les décalages des
+  plans étalent le reste.
+- Au démarrage, les exécutions restées `running` passent en `failed` (erreur `interrupted`) ; le
+  dernier créneau compte alors comme déjà tenté pour cet élément, la suivante est au créneau suivant.
+- Jamais deux exécutions à la fois sur un élément, tous plans confondus : index unique partiel
+  `plan_runs (item_id) WHERE status = 'running'` (migration 2), valable aussi entre processus.
+- `error` ne reçoit que le `code` ou le nom de l'erreur de l'exécuteur, jamais son message. Les
+  journaux du planificateur ne portent que des identifiants de plan, d'élément et d'exécution, et des codes.
+
+| Route                     | Effet                                                                             | Réponses                |
+| ------------------------- | --------------------------------------------------------------------------------- | ----------------------- |
+| `GET /api/plans/:id/runs` | `{ items }` : 200 exécutions au plus, de la plus récente à la plus ancienne       | 200, 404                |
+| `POST /api/plans/:id/run` | lance tous les éléments du plan ; corps `{ reason }` obligatoire (200 caractères) | 202, 400, 404, 409, 503 |
+
+- Mêmes règles d'accès que les autres routes des plans (administrateur ; 401, 403, 503).
+- `202 { started, skipped }` : les exécutions sont ouvertes avant la réponse et se poursuivent en
+  arrière-plan ; `skipped` compte les éléments déjà en cours. 409 `run_in_progress` si tous le
+  sont, `no_items` si le plan ne couvre rien ; 400 `reason_required` sans motif.
+- Audit : `plan.run` (ressource `plan`, cible = identifiant du plan, motif = le motif saisi), consigné
+  avant le lancement. Le motif est du texte libre : il ne doit pas contenir de contenu de mail.
+
 ### Sécurité des identifiants
 
 Les identifiants Graph et les secrets viennent des variables d'environnement ou de fichiers montés

@@ -136,6 +136,12 @@ export const PLAN_MIGRATIONS: readonly Migration[] = [
       CREATE INDEX plan_runs_plan_start ON plan_runs (plan_id, started_at);
     `,
   },
+  {
+    version: 2,
+    name: 'plan-runs-one-running-per-item',
+    // Jamais deux exécutions simultanées sur un même élément, tous plans confondus.
+    sql: `CREATE UNIQUE INDEX plan_runs_one_running_per_item ON plan_runs (item_id) WHERE status = 'running';`,
+  },
 ];
 
 /** Applique les migrations manquantes, chacune dans une transaction. */

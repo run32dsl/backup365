@@ -16,6 +16,7 @@ import { sendError } from './errors.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
 import { registerMailRoutes } from './mail-routes.js';
 import { registerPlanRoutes } from './plan-routes.js';
+import type { PlanScheduler } from './plan-scheduler.js';
 import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 import type { SearchIndexer } from './search-indexer.js';
 import { registerSearchRoutes } from './search-routes.js';
@@ -44,6 +45,8 @@ export interface AppOptions {
   auth?: AuthService;
   /** Plans de protection ; absent si la base des plans est illisible (`/api/plans` répond 503). */
   plans?: SqlitePlanStore;
+  /** Planificateur des plans ; absent, `POST /api/plans/:id/run` répond 503. */
+  planScheduler?: PlanScheduler;
   /** Derrière un proxy inverse de confiance : `X-Forwarded-Proto` et `-For` sont lus (cookie `Secure`, IP). */
   trustProxy?: string | false;
   /** Dossier de l'interface construite ; sans lui, seule l'API répond. */
@@ -91,6 +94,7 @@ export function buildApp({
   audit,
   auth,
   plans,
+  planScheduler,
   trustProxy = false,
   indexer,
   status = { maxAgeHours: DEFAULT_MAX_AGE_HOURS, workloads: ['mail', 'onedrive', 'sharepoint'] },
@@ -122,7 +126,7 @@ export function buildApp({
     done();
   });
   void app.register((scope, _opts, done) => {
-    registerPlanRoutes(scope, plans, audit);
+    registerPlanRoutes(scope, plans, audit, planScheduler);
     done();
   });
   void app.register((scope, _opts, done) => {
