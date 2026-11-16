@@ -455,6 +455,11 @@ th {
   padding: var(--space-2) 0;
 }
 
+/* Mots entiers : seule une chaîne plus longue que la colonne est coupée. */
+.data-table .keep-words {
+  overflow-wrap: break-word;
+}
+
 @media (max-width: 56.25rem) {
   .data-table,
   .data-table tbody,
@@ -484,6 +489,24 @@ th {
   .data-table td::before {
     content: attr(data-label);
     font-weight: 600;
+    color: var(--muted);
+  }
+  /* Carte compacte : deux cellules par ligne, sans étiquette ; le motif prend toute la largeur. */
+  .data-table-compact tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 var(--space-2);
+  }
+  .data-table-compact td {
+    display: block;
+  }
+  .data-table-compact td::before,
+  .data-table-compact td.card-hidden,
+  .data-table-compact td:empty {
+    display: none;
+  }
+  .data-table-compact td.card-wide {
+    grid-column: 1 / -1;
     color: var(--muted);
   }
 }

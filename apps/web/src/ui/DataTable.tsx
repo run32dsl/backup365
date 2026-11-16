@@ -4,6 +4,8 @@ import { EmptyState } from './EmptyState.js';
 export interface Column<T> {
   header: string;
   cell: (row: T) => ReactNode;
+  /** Classe CSS ajoutée à chaque cellule de la colonne (`nowrap`, `keep-words`, `card-hidden`, `card-wide`). */
+  className?: string;
 }
 
 /**
@@ -19,6 +21,7 @@ export function DataTable<T>({
   rowKey,
   empty,
   loading = false,
+  compact = false,
 }: {
   caption: string;
   /** La légende reste lue par les lecteurs d'écran mais n'est pas affichée (le titre la remplace). */
@@ -29,12 +32,14 @@ export function DataTable<T>({
   /** Phrase de l'état vide, avec au plus une action. */
   empty?: { message: string; action?: ReactNode };
   loading?: boolean;
+  /** Sous 900 px : carte compacte, sans étiquettes, deux cellules par ligne, cellules vides omises. */
+  compact?: boolean;
 }) {
   if (loading) return <p role="status">Chargement…</p>;
   if (rows.length === 0 && empty)
     return <EmptyState action={empty.action}>{empty.message}</EmptyState>;
   return (
-    <table className="data-table" role="table">
+    <table className={compact ? 'data-table data-table-compact' : 'data-table'} role="table">
       <caption className={hideCaption ? 'sr-only' : 'table-caption'}>{caption}</caption>
       <thead role="rowgroup">
         <tr role="row">
@@ -49,7 +54,7 @@ export function DataTable<T>({
         {rows.map((row) => (
           <tr key={rowKey(row)} role="row">
             {columns.map((c, i) => (
-              <td key={i} role="cell" data-label={c.header}>
+              <td key={i} role="cell" data-label={c.header} className={c.className}>
                 {c.cell(row)}
               </td>
             ))}
