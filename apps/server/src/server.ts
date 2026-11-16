@@ -14,6 +14,7 @@ import {
   withSecretFiles,
 } from './config.js';
 import { AuthService } from './auth.js';
+import { PlanScheduler, executeurSimule } from './plan-scheduler.js';
 import { SearchIndexer } from './search-indexer.js';
 import { tryOpenAccountStore } from './sqlite/open-account-store.js';
 import { tryOpenAuditLog } from './sqlite/open-audit-log.js';
@@ -85,6 +86,25 @@ export function createServer(
         })
       : undefined;
 
+  // Exécuteur simulé tant que l'exécution réelle n'existe pas (sous-issue 4 de #49).
+  const catalogForPlans = startup.status === 'ready' ? startup.atlas.catalog : undefined;
+  const planScheduler =
+    openedPlans.store && openedAudit.audit
+      ? new PlanScheduler({
+          plans: openedPlans.store,
+          executeur: executeurSimule,
+          listItems: async (plan) =>
+            plan.scope === 'selection'
+              ? plan.selection
+              : ((await catalogForPlans?.listMailboxes()) ?? []).map((m) => m.id),
+          // `app` existe quand le planificateur démarre (hook onReady).
+          logger: {
+            info: (obj, msg) => app.log.info(obj, msg),
+            error: (obj, msg) => app.log.error(obj, msg),
+          },
+        })
+      : undefined;
+
   const app = buildApp({
     version,
     logger: {
@@ -108,6 +128,7 @@ export function createServer(
     ...(openedAudit.audit ? { audit: openedAudit.audit } : {}),
     ...(auth ? { auth } : {}),
     ...(openedPlans.store ? { plans: openedPlans.store } : {}),
+    ...(planScheduler ? { planScheduler } : {}),
     trustProxy,
     ...(indexer ? { indexer } : {}),
     ...(webDir ? { webDir } : {}),
@@ -144,15 +165,17 @@ export function createServer(
   } else if (startup.status === 'unconfigured') {
     app.log.warn('stockage non configuré, les routes du catalogue répondent 503');
   }
-  if (indexer || anchorer) {
+  if (indexer || anchorer || planScheduler) {
     // Au démarrage de l'application, sans retarder l'écoute ni /api/health.
     app.addHook('onReady', () => {
       indexer?.start();
       anchorer?.start();
+      planScheduler?.start();
     });
   }
   app.addHook('onClose', async () => {
     await indexer?.stop();
+    await planScheduler?.stop();
     anchorer?.stop();
     closeDatabases();
     if (startup.status === 'ready') {

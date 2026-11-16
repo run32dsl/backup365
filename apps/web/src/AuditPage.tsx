@@ -25,6 +25,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   'plan.create': 'Création de plan',
   'plan.update': 'Modification de plan',
   'plan.delete': 'Suppression de plan',
+  'plan.run': 'Lancement manuel d’un plan',
 };
 
 /** Tableau des entrées du journal, du plus récent au plus ancien. */

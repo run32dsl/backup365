@@ -1,11 +1,22 @@
 import { parseProtectionPlanInput, type AuditLog } from '@backup365/core';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { auditEvent } from './audit-events.js';
+import type { PlanScheduler } from './plan-scheduler.js';
 import {
   PlanNameTakenError,
   type SqlitePlanStore,
   type StoredPlan,
 } from './sqlite/sqlite-plan-store.js';
+
+const RUNS_LIMIT = 200;
+const REASON_MAX = 200;
+
+/** Motif de lancement : texte non vide, borné ; `undefined` sinon. */
+function parseReason(body: unknown): string | undefined {
+  const raw = (body as { reason?: unknown } | null | undefined)?.reason;
+  const reason = typeof raw === 'string' ? raw.trim() : '';
+  return reason === '' || reason.length > REASON_MAX ? undefined : reason;
+}
 
 const idParams = {
   type: 'object',
@@ -31,12 +42,14 @@ function changedFields(before: StoredPlan, after: StoredPlan): string {
  * Plans de protection, réservés aux administrateurs (403 sinon) : lister, créer, remplacer
  * (`PUT`), supprimer. Les entrées sont validées par `parseProtectionPlanInput` (400 avec la liste
  * des erreurs) ; un nom déjà pris donne 409. Chaque écriture est consignée (`plan.create`,
- * `plan.update`, `plan.delete`) ; sans journal ou sans base des plans, 503.
+ * `plan.update`, `plan.delete`) ; `GET /:id/runs` donne l'historique, `POST /:id/run` lance le
+ * plan tout de suite (motif obligatoire, consigné `plan.run`) ; sans journal ou sans base des plans, 503.
  */
 export function registerPlanRoutes(
   app: FastifyInstance,
   plans: SqlitePlanStore | undefined,
   audit: AuditLog | undefined,
+  scheduler?: PlanScheduler,
 ) {
   function guard(req: FastifyRequest, reply: FastifyReply) {
     if (!req.session) {
@@ -121,6 +134,55 @@ export function registerPlanRoutes(
       if (!ctx.plans.delete(req.params.id)) return notFound(reply);
       await ctx.audit.record(auditEvent(req, 'plan.delete', 'plan', { target: req.params.id }));
       return reply.code(204).send();
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    '/api/plans/:id/runs',
+    { schema: { params: idParams } },
+    (req, reply) => {
+      const ctx = guard(req, reply);
+      if (!ctx) return reply;
+      if (!ctx.plans.get(req.params.id)) return notFound(reply);
+      return { items: ctx.plans.listRuns(req.params.id, RUNS_LIMIT) };
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    '/api/plans/:id/run',
+    { schema: { params: idParams } },
+    async (req, reply) => {
+      const ctx = guard(req, reply);
+      if (!ctx) return reply;
+      const reason = parseReason(req.body);
+      if (reason === undefined) {
+        return reply.code(400).send({
+          error: 'reason_required',
+          message: `Le motif du lancement est obligatoire (${REASON_MAX} caractères au plus).`,
+        });
+      }
+      if (!scheduler) return reply.code(503).send({ error: 'scheduler_unavailable' });
+      const plan = ctx.plans.get(req.params.id);
+      if (!plan) return notFound(reply);
+      // Consigné avant le lancement : la demande est tracée même si rien ne démarre.
+      await ctx.audit.record(auditEvent(req, 'plan.run', 'plan', { target: plan.id, reason }));
+      let result;
+      try {
+        result = await scheduler.runNow(plan);
+      } catch {
+        return reply.code(503).send({ error: 'items_unavailable' });
+      }
+      if (result.started === 0) {
+        if (!ctx.plans.get(plan.id)) return notFound(reply);
+        const busy = result.skipped > 0;
+        return reply.code(409).send({
+          error: busy ? 'run_in_progress' : 'no_items',
+          message: busy
+            ? 'Une exécution est déjà en cours sur chaque élément du plan.'
+            : 'Le plan ne couvre aucun élément.',
+        });
+      }
+      return reply.code(202).send({ started: result.started, skipped: result.skipped });
     },
   );
 }

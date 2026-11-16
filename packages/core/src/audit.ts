@@ -12,6 +12,7 @@ export const AUDIT_ACTIONS = [
   'plan.create',
   'plan.update',
   'plan.delete',
+  'plan.run',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

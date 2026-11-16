@@ -1,12 +1,36 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
-import type { PlanScope, ProtectionPlanInput, RpoHours } from '@backup365/core';
+import type { PlanScope, ProtectionPlanInput, RpoHours, RunStatus } from '@backup365/core';
 import { openDatabase } from './open-database.js';
 import { PLAN_MIGRATIONS } from './migrations.js';
 
 export interface StoredPlan extends ProtectionPlanInput {
   id: string;
   createdAt: string;
+}
+
+/** Une exécution de plan sur un élément. */
+export interface StoredRun {
+  id: number;
+  planId: string;
+  itemId: string;
+  startedAt: string;
+  finishedAt: string | null;
+  status: RunStatus;
+  durationMs: number | null;
+  /** Code technique (200 caractères au plus) : jamais un message ni un contenu. */
+  error: string | null;
+}
+
+interface RunRow {
+  id: number;
+  plan_id: string;
+  item_id: string;
+  started_at: string;
+  finished_at: string | null;
+  status: RunStatus;
+  duration_ms: number | null;
+  error: string | null;
 }
 
 /** Un autre plan porte déjà ce nom (casse ignorée). */
@@ -122,6 +146,78 @@ export class SqlitePlanStore {
   /** Supprime le plan, sa sélection et son historique (cascade) ; `false` s'il n'existe pas. */
   delete(id: string): boolean {
     return this.db.prepare('DELETE FROM plans WHERE id = ?').run(id).changes > 0;
+  }
+
+  /**
+   * Ouvre une exécution `running`. `undefined` si l'élément a déjà une exécution en cours (index
+   * unique de la base : valable aussi entre processus) ou si le plan n'existe plus.
+   */
+  startRun(planId: string, itemId: string, startedAt: string): number | undefined {
+    try {
+      const result = this.db
+        .prepare(
+          "INSERT INTO plan_runs (plan_id, item_id, started_at, status) VALUES (?, ?, ?, 'running')",
+        )
+        .run(planId, itemId, startedAt);
+      return Number(result.lastInsertRowid);
+    } catch (err) {
+      if (/UNIQUE|FOREIGN KEY/i.test((err as Error).message)) return undefined;
+      throw err;
+    }
+  }
+
+  /** Clôt une exécution en cours ; sans effet si elle n'est plus `running` (plan supprimé…). */
+  finishRun(id: number, status: 'success' | 'failed', finishedAt: string, error?: string): void {
+    this.db
+      .prepare(
+        `UPDATE plan_runs SET status = ?, finished_at = ?, error = ?,
+           duration_ms = MAX(0, CAST(ROUND((julianday(?) - julianday(started_at)) * 86400000) AS INTEGER))
+         WHERE id = ? AND status = 'running'`,
+      )
+      .run(status, finishedAt, error?.slice(0, 200) ?? null, finishedAt, id);
+  }
+
+  /** Au démarrage : les exécutions restées `running` n'ont pas fini, elles passent en `failed`. */
+  interruptRunning(finishedAt: string): number {
+    return Number(
+      this.db
+        .prepare(
+          `UPDATE plan_runs SET status = 'failed', finished_at = ?, error = 'interrupted',
+             duration_ms = MAX(0, CAST(ROUND((julianday(?) - julianday(started_at)) * 86400000) AS INTEGER))
+           WHERE status = 'running'`,
+        )
+        .run(finishedAt, finishedAt).changes,
+    );
+  }
+
+  /** Une exécution (quel qu'en soit le statut) de ce plan sur cet élément a-t-elle débuté depuis `since` ? */
+  hasRunSince(planId: string, itemId: string, since: string): boolean {
+    return (
+      this.db
+        .prepare(
+          'SELECT 1 FROM plan_runs WHERE plan_id = ? AND item_id = ? AND started_at >= ? LIMIT 1',
+        )
+        .get(planId, itemId, since) !== undefined
+    );
+  }
+
+  /** Historique d'un plan, du plus récent au plus ancien. */
+  listRuns(planId: string, limit: number): StoredRun[] {
+    const rows = this.db
+      .prepare(
+        'SELECT * FROM plan_runs WHERE plan_id = ? ORDER BY started_at DESC, id DESC LIMIT ?',
+      )
+      .all(planId, limit) as unknown as RunRow[];
+    return rows.map((r) => ({
+      id: r.id,
+      planId: r.plan_id,
+      itemId: r.item_id,
+      startedAt: r.started_at,
+      finishedAt: r.finished_at,
+      status: r.status,
+      durationMs: r.duration_ms,
+      error: r.error,
+    }));
   }
 
   private setSelection(id: string, items: readonly string[]): void {

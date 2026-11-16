@@ -49,7 +49,9 @@ describe('PLAN_MIGRATIONS', () => {
   it('applies once and is idempotent', () => {
     const db = open();
     migrate(db, PLAN_MIGRATIONS);
-    expect(db.prepare('SELECT version FROM schema_migrations').all()).toHaveLength(1);
+    expect(db.prepare('SELECT version FROM schema_migrations').all()).toHaveLength(
+      PLAN_MIGRATIONS.length,
+    );
   });
 
   it('stores a plan with its selection and runs, and cascades on delete', () => {
