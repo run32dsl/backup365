@@ -16,6 +16,7 @@ import {
   withSecretFiles,
 } from './config.js';
 import { AuthService } from './auth.js';
+import { DriveRestoreService } from './drive-restore-service.js';
 import { RestoreService } from './restore-service.js';
 import { PlanScheduler, executeurSimule } from './plan-scheduler.js';
 import {
@@ -28,6 +29,7 @@ import {
 import { createAtlasCatalog } from './atlas-sdk.js';
 import {
   assertNoRealStorage,
+  createDemoDriveRestorer,
   createDemoRestorer,
   DEMO_STORAGE,
   demoFactory,
@@ -177,6 +179,16 @@ export function createServer(
         })
       : undefined;
 
+  const driveRestoreService =
+    demo && openedAudit.audit
+      ? new DriveRestoreService({
+          restorer: createDemoDriveRestorer(),
+          audit: openedAudit.audit,
+          onError: (code) =>
+            app.log.error({ code }, 'restauration OneDrive : consignation en échec'),
+        })
+      : undefined;
+
   const app = buildApp({
     version,
     logger: {
@@ -202,6 +214,8 @@ export function createServer(
     ...(openedPlans.store ? { plans: openedPlans.store } : {}),
     ...(planScheduler ? { planScheduler } : {}),
     ...(restoreService ? { restore: restoreService } : {}),
+    ...(startup.status === 'ready' ? { drive: startup.atlas.drive } : {}),
+    ...(driveRestoreService ? { driveRestore: driveRestoreService } : {}),
     backupConfigured: executeur !== undefined,
     trustProxy,
     ...(demo ? { demo } : {}),

@@ -767,3 +767,48 @@ a.btn-secondary {
     width: 100%;
   }
 }
+
+/* Restauration OneDrive : sélecteurs, fil d'Ariane, tableau des éléments */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+.breadcrumb li {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+.drive-list .data-table td {
+  vertical-align: middle;
+}
+.breadcrumb li + li::before {
+  content: '>';
+  margin-right: var(--space-1);
+}
+.breadcrumb a,
+.drive-list .data-table td a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+.drive-list .data-table input[type='radio'] {
+  width: 1.5rem;
+  height: 1.5rem;
+  min-height: 0;
+  accent-color: var(--accent);
+}
+@media (max-width: 40rem) {
+  .toolbar .field,
+  .toolbar select {
+    width: 100%;
+  }
+}

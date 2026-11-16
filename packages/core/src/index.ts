@@ -42,6 +42,25 @@ export {
 } from './mail-content.js';
 export type { MailRestoreOutcome, MailRestorer } from './mail-restore.js';
 export {
+  baseName,
+  copyDate,
+  copyNameOf,
+  joinDrivePath,
+  listFolderOf,
+  normalizeDrivePath,
+  parentOf,
+  type DriveBrowser,
+  type DriveEntry,
+  type DriveItemKind,
+  type DriveManifestEntry,
+  type DriveRestoreMode,
+  type DriveRestoreOutcome,
+  type DriveRestoreRequest,
+  type DriveRestorer,
+  type DriveSnapshot,
+  type DriveVersion,
+} from './drive.js';
+export {
   indexMailbox,
   type IndexedMail,
   type MailMetadata,
