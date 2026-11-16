@@ -10,6 +10,8 @@ import { CredentialsPage, ErrorView, PasswordPage } from './LoginPage.js';
 import { MailPage } from './MailPage.js';
 import { SearchPage } from './SearchPage.js';
 import { parseMailHash } from './mail.js';
+import { PlansPage } from './PlansPage.js';
+import { parsePlansHash } from './plans.js';
 import { COMPONENTS_HASH } from './routes.js';
 import { Alert } from './ui/index.js';
 import {
@@ -35,7 +37,8 @@ import {
  */
 export function screenOf(
   hash: string,
-): 'audit' | 'search' | 'accounts' | 'password' | 'components' | 'mail' | 'home' {
+): 'audit' | 'search' | 'accounts' | 'plans' | 'password' | 'components' | 'mail' | 'home' {
+  if (parsePlansHash(hash)) return 'plans';
   if (hash === '#/audit') return 'audit';
   if (hash === '#/search') return 'search';
   if (hash === '#/comptes') return 'accounts';
@@ -61,8 +64,7 @@ export function screenFor(
 
 /**
  * Entrées de la navigation principale (5 au plus) : seules les entrées livrées apparaissent.
- * Plans de protection s'ajoutera à sa livraison ; Administration (comptes) est réservée aux
- * administrateurs.
+ * Administration (comptes) est réservée aux administrateurs.
  */
 export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean) {
   const entries = [
@@ -72,6 +74,7 @@ export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean)
       label: 'Rechercher et restaurer',
       current: screen === 'search' || screen === 'mail',
     },
+    { href: '#/plans', label: 'Plans de protection', current: screen === 'plans' },
     { href: '#/audit', label: 'Journal d’audit', current: screen === 'audit' },
   ];
   if (admin) {
@@ -263,6 +266,9 @@ export function Console({
       {screen === 'unavailable' && <UnavailableView />}
       {screen === 'audit' && <AuditPage />}
       {screen === 'search' && <SearchPage />}
+      {screen === 'plans' && (
+        <PlansPage route={parsePlansHash(hash) ?? { page: 'list' }} admin={admin} />
+      )}
       {screen === 'accounts' && <AccountsPage />}
       {screen === 'forbidden' && <ForbiddenView />}
       {screen === 'password' && (

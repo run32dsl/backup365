@@ -43,9 +43,46 @@ describe('API des plans', () => {
     expect((await send(raw, 'DELETE', '/api/plans/x')).statusCode).toBe(401);
   });
 
-  it('answers 403 to a non-administrator on the four routes', async () => {
+  it('lets an operator read the list with compliance and last run, nothing else', async () => {
+    const { app, plans } = setup('operator');
+    const plan = plans.create({
+      name: 'Mails',
+      scope: 'all',
+      dataTypes: ['mail', 'contacts'],
+      selection: [],
+      rpoHours: 4,
+      rtoHours: null,
+      retentionDays: 30,
+      gdprJustification: 'Obligation légale.',
+    });
+    const before = (await send(app, 'GET', '/api/plans')).json<{
+      items: Record<string, unknown>[];
+    }>();
+    expect(before.items[0]).not.toHaveProperty('gdprJustification');
+    expect(before.items[0]).not.toHaveProperty('selection');
+    expect((await send(app, 'GET', `/api/plans/${plan.id}/runs`)).statusCode).toBe(403);
+    expect((await send(app, 'POST', `/api/plans/${plan.id}/run`, { reason: 'x' })).statusCode).toBe(
+      403,
+    );
+    expect(before.items[0]).toMatchObject({
+      dataTypes: ['mail', 'contacts'],
+      compliance: { state: 'late', lastSuccessAt: null },
+      running: false,
+      lastRun: null,
+    });
+    const runId = plans.startRun(plan.id, 'a', new Date().toISOString()) as number;
+    plans.finishRun(runId, 'success', new Date().toISOString());
+    const after = (await send(app, 'GET', '/api/plans')).json<{
+      items: Record<string, unknown>[];
+    }>();
+    expect(after.items[0]).toMatchObject({
+      compliance: { state: 'compliant' },
+      lastRun: { status: 'success' },
+    });
+  });
+
+  it('answers 403 to a non-administrator on the write routes', async () => {
     const { app } = setup('operator');
-    expect((await send(app, 'GET', '/api/plans')).statusCode).toBe(403);
     expect((await send(app, 'POST', '/api/plans', valid)).statusCode).toBe(403);
     expect((await send(app, 'PUT', '/api/plans/x', valid)).statusCode).toBe(403);
     expect((await send(app, 'DELETE', '/api/plans/x')).statusCode).toBe(403);
@@ -71,7 +108,9 @@ describe('API des plans', () => {
     });
 
     const list = await send(app, 'GET', '/api/plans');
-    expect(list.json<{ items: unknown[] }>().items).toEqual([created.json()]);
+    expect(list.json<{ items: unknown[] }>().items).toEqual([
+      expect.objectContaining(created.json<object>()),
+    ]);
 
     const replaced = await send(app, 'PUT', `/api/plans/${plan.id}`, {
       ...valid,
@@ -183,6 +222,37 @@ describe('API des plans', () => {
       (await send(app, 'PUT', `/api/plans/${other.id}`, { ...valid, name: 'mails 4 h' }))
         .statusCode,
     ).toBe(409);
+  });
+
+  it('stores dataTypes on creation and replacement and audits the change', async () => {
+    const { app, audit } = setup();
+    const created = await send(app, 'POST', '/api/plans', {
+      ...valid,
+      dataTypes: ['mail', 'contacts'],
+    });
+    expect(created.statusCode).toBe(201);
+    const { id } = created.json<{ id: string }>();
+    expect(created.json<{ dataTypes: string[] }>().dataTypes).toEqual(['mail', 'contacts']);
+
+    const replaced = await send(app, 'PUT', `/api/plans/${id}`, { ...valid, dataTypes: ['files'] });
+    expect(replaced.statusCode).toBe(200);
+    expect(replaced.json<{ dataTypes: string[] }>().dataTypes).toEqual(['files']);
+    const list = await send(app, 'GET', '/api/plans');
+    expect(list.json<{ items: { dataTypes: string[] }[] }>().items[0]?.dataTypes).toEqual([
+      'files',
+    ]);
+
+    const entries = await log(audit);
+    expect(entries[1]?.reason).toContain('dataTypes');
+  });
+
+  it('refuses an empty or unknown dataTypes list (400)', async () => {
+    const { app } = setup();
+    for (const dataTypes of [[], ['teams']]) {
+      const res = await send(app, 'POST', '/api/plans', { ...valid, dataTypes });
+      expect(res.statusCode).toBe(400);
+    }
+    expect((await send(app, 'GET', '/api/plans')).json<{ items: unknown[] }>().items).toEqual([]);
   });
 
   it('audits each creation, modification and deletion without content', async () => {

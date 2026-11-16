@@ -105,8 +105,11 @@ faite, la première personne qui atteint le port crée l'administrateur. Le port
 sur 127.0.0.1 par défaut.
 
 Ensuite, toute l'API sauf `/api/health` exige une session. Deux rôles : **administrateur**
-(comptes ; plans et restaurations viendront avec leurs écrans) et **opérateur** (consultation, export, restauration avec
-motif). L'administrateur crée, désactive et change le rôle des comptes dans l'écran « Comptes »
+(comptes et plans de protection ; les restaurations viendront avec leur écran) et **opérateur**
+(consultation, export, restauration avec motif ; il lit la liste des plans sans la modifier). Les
+plans se créent en trois étapes dans « Plans de protection » (`#/plans`) : quoi protéger,
+objectifs (RPO, RTO, conservation et justification RGPD), récapitulatif ; « Lancer maintenant »
+demande un motif, inscrit au journal d'audit. L'administrateur crée, désactive et change le rôle des comptes dans l'écran « Comptes »
 (`#/comptes`) ; il ne peut pas désactiver ni rétrograder le dernier administrateur actif. Un mot
 de passe provisoire (création ou réinitialisation) est à changer à la connexion suivante.
 

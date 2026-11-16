@@ -142,6 +142,12 @@ export const PLAN_MIGRATIONS: readonly Migration[] = [
     // Jamais deux exécutions simultanées sur un même élément, tous plans confondus.
     sql: `CREATE UNIQUE INDEX plan_runs_one_running_per_item ON plan_runs (item_id) WHERE status = 'running';`,
   },
+  {
+    version: 3,
+    name: 'plan-data-types',
+    // Liste séparée par des virgules, jamais vide ; les plans existants protègent tout.
+    sql: `ALTER TABLE plans ADD COLUMN data_types TEXT NOT NULL DEFAULT 'mail,files,calendar,contacts' CHECK (length(data_types) > 0);`,
+  },
 ];
 
 /** Applique les migrations manquantes, chacune dans une transaction. */

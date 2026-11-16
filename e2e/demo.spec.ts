@@ -54,6 +54,7 @@ test('navigation au clavier du menu replié à 390 px', async ({ page, context, 
   await expect(page.getByRole('link', { name: 'Tableau de bord' })).toBeFocused();
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Journal d’audit' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/audit$/);
@@ -66,6 +67,86 @@ test('navigation au clavier du menu replié à 390 px', async ({ page, context, 
   await page.keyboard.press('Escape');
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await expect(toggle).toBeFocused();
+});
+
+test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  await page.goto('/#/plans');
+  await expect(page.getByRole('heading', { name: 'Plans de protection', level: 1 })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Messagerie Direction', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Créer un plan' }).click();
+  await expect(page.getByText('Étape 1 sur 3 : Quoi protéger')).toBeVisible();
+  // Étape 1 : un nom est exigé.
+  await page.getByRole('button', { name: 'Suivant' }).click();
+  await expect(page.getByRole('alert').getByText('Indiquez un nom pour le plan.')).toBeVisible();
+  await page.getByLabel('Nom du plan').fill('Contacts Exemple');
+  await page.getByRole('button', { name: 'Suivant' }).click();
+
+  // Étape 2 : le titre prend le focus ; la justification est obligatoire.
+  await expect(page.getByText('Étape 2 sur 3 : Objectifs')).toBeFocused();
+  await page.getByRole('button', { name: 'Suivant' }).click();
+  await expect(
+    page.getByRole('alert').getByText('Indiquez la justification de la durée de conservation.'),
+  ).toBeVisible();
+  await page.getByRole('group', { name: 'Durée de conservation' }).getByLabel('3 ans').check();
+  await page.getByLabel('Justification de cette durée').selectOption({ label: 'Besoin métier' });
+  await page.getByRole('button', { name: 'Suivant' }).click();
+
+  // Étape 3 : récapitulatif en langage clair, puis création.
+  await expect(page.getByText('Étape 3 sur 3 : Récapitulatif')).toBeFocused();
+  await expect(
+    page.getByText(/seront sauvegardés toutes les 12 h et conservés 3 ans/),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Créer le plan' }).click();
+  await expect(
+    page.getByText(/Plan créé\. Première sauvegarde prévue à \d\d:\d\d\./),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/#\/plans$/);
+  await expect(page.getByRole('cell', { name: 'Contacts Exemple', exact: true })).toBeVisible();
+
+  // Lancement manuel : le motif est exigé, puis inscrit au journal d'audit.
+  await page.getByRole('button', { name: 'Lancer Contacts Exemple maintenant' }).click();
+  const run = page.getByRole('dialog', { name: 'Lancer « Contacts Exemple » maintenant' });
+  await run.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
+  await expect(run.getByText('Indiquez un motif.')).toBeVisible();
+  await run.getByLabel('Motif').selectOption({ label: 'Après un incident' });
+  await run.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
+  await expect(
+    page.getByText('Sauvegarde lancée. Motif enregistré au journal d’audit.'),
+  ).toBeVisible();
+
+  // Suppression : la confirmation s'ouvre sur « Annuler ».
+  await page.getByRole('button', { name: 'Supprimer Contacts Exemple' }).click();
+  const del = page.getByRole('dialog', { name: 'Supprimer « Contacts Exemple » ?' });
+  await expect(del.getByRole('button', { name: 'Annuler' })).toBeFocused();
+  await del.getByRole('button', { name: 'Supprimer le plan' }).click();
+  await expect(page.getByText('Plan supprimé.')).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Contacts Exemple', exact: true })).toHaveCount(0);
+
+  await page.goto('/#/audit');
+  await expect(page.getByText('Après un incident').first()).toBeVisible();
+});
+
+test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'operator');
+  await page.goto('/#/plans');
+  await expect(page.getByRole('cell', { name: 'Messagerie Direction', exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Lecture seule : seul un administrateur peut modifier les plans.'),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: /Lancer/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Créer un plan' })).toHaveCount(0);
+  await page.goto('/#/plans/nouveau');
+  await expect(page.getByText('Action réservée aux administrateurs.')).toBeVisible();
 });
 
 test('le bandeau du mode démo est présent sur chaque écran', async ({ browser, baseURL }) => {

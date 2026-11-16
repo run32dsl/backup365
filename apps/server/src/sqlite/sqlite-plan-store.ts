@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
-import type { PlanScope, ProtectionPlanInput, RpoHours, RunStatus } from '@backup365/core';
+import {
+  DATA_TYPES,
+  type DataType,
+  type PlanScope,
+  type ProtectionPlanInput,
+  type RpoHours,
+  type RunStatus,
+} from '@backup365/core';
 import { openDatabase } from './open-database.js';
 import { PLAN_MIGRATIONS } from './migrations.js';
 
@@ -40,6 +47,7 @@ interface Row {
   id: string;
   name: string;
   scope: PlanScope;
+  data_types: string;
   rpo_hours: RpoHours;
   rto_hours: number | null;
   retention_days: number;
@@ -72,6 +80,7 @@ export class SqlitePlanStore {
       id: row.id,
       name: row.name,
       scope: row.scope,
+      dataTypes: DATA_TYPES.filter((t): t is DataType => row.data_types.split(',').includes(t)),
       selection: this.selection(row.id),
       rpoHours: row.rpo_hours,
       rtoHours: row.rto_hours,
@@ -100,13 +109,14 @@ export class SqlitePlanStore {
     this.write(() => {
       this.db
         .prepare(
-          `INSERT INTO plans (id, name, scope, rpo_hours, rto_hours, retention_days, gdpr_justification, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO plans (id, name, scope, data_types, rpo_hours, rto_hours, retention_days, gdpr_justification, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           id,
           input.name,
           input.scope,
+          input.dataTypes.join(','),
           input.rpoHours,
           input.rtoHours,
           input.retentionDays,
@@ -123,12 +133,13 @@ export class SqlitePlanStore {
     const found = this.write(() => {
       const result = this.db
         .prepare(
-          `UPDATE plans SET name = ?, scope = ?, rpo_hours = ?, rto_hours = ?, retention_days = ?,
-             gdpr_justification = ? WHERE id = ?`,
+          `UPDATE plans SET name = ?, scope = ?, data_types = ?, rpo_hours = ?, rto_hours = ?,
+             retention_days = ?, gdpr_justification = ? WHERE id = ?`,
         )
         .run(
           input.name,
           input.scope,
+          input.dataTypes.join(','),
           input.rpoHours,
           input.rtoHours,
           input.retentionDays,

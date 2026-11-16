@@ -50,6 +50,7 @@ export {
   type SnapshotMailReader,
 } from './search.js';
 export {
+  DATA_TYPES,
   DEFAULT_RPO_HOURS,
   RPO_HOURS,
   nextRunAt,
@@ -59,6 +60,7 @@ export {
   staggerOffsetMinutes,
   type Compliance,
   type ComplianceState,
+  type DataType,
   type PlanParseResult,
   type PlanRun,
   type PlanScope,

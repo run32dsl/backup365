@@ -608,3 +608,110 @@ th {
     scroll-behavior: auto !important;
   }
 }
+
+/* Plans de protection */
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.page-header h1 {
+  margin: 0;
+}
+a.btn {
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  font-weight: 600;
+  text-decoration: none;
+}
+a.btn-secondary {
+  background: transparent;
+  color: var(--accent);
+}
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.choices {
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.choices legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+  font-weight: 600;
+}
+.choice-row,
+.choice-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+}
+.choice-list {
+  flex-direction: column;
+}
+.choice {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.75rem;
+  margin: 0;
+  font-weight: 400;
+}
+.choice input {
+  min-height: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--accent);
+}
+.wizard {
+  max-width: 40rem;
+}
+.steps-title:focus {
+  outline: none;
+}
+.error-list {
+  margin: 0;
+  padding-left: var(--space-3);
+}
+.recap {
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.recap-sentence {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+.skeleton {
+  height: 8rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+}
+@media (max-width: 40rem) {
+  .wizard .steps ol {
+    display: none;
+  }
+  .row-actions,
+  .wizard-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .row-actions .btn,
+  .wizard-actions .btn,
+  .page-header .btn {
+    width: 100%;
+  }
+}

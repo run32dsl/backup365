@@ -5,9 +5,15 @@ export const DEFAULT_RPO_HOURS: RpoHours = 24;
 
 export type PlanScope = 'all' | 'selection';
 
+/** Types de données qu'un plan protège, dans l'ordre d'affichage (ADR 0011). */
+export const DATA_TYPES = ['mail', 'files', 'calendar', 'contacts'] as const;
+export type DataType = (typeof DATA_TYPES)[number];
+
 export interface ProtectionPlanInput {
   name: string;
   scope: PlanScope;
+  /** Types de données protégés : au moins un, sans doublon, dans l'ordre de `DATA_TYPES`. */
+  dataTypes: DataType[];
   /** Identifiants des éléments (boîtes, sites) ; vide si `scope` vaut `all`. */
   selection: string[];
   rpoHours: RpoHours;
@@ -67,6 +73,20 @@ export function parseProtectionPlanInput(raw: unknown): PlanParseResult {
     errors.push('Un périmètre « all » n’accepte pas de sélection.');
   }
 
+  let dataTypes: DataType[] = [...DATA_TYPES];
+  if (raw.dataTypes !== undefined) {
+    const given = raw.dataTypes;
+    if (
+      Array.isArray(given) &&
+      given.length > 0 &&
+      given.every((t) => DATA_TYPES.some((d) => d === t))
+    ) {
+      dataTypes = DATA_TYPES.filter((d) => given.includes(d));
+    } else {
+      errors.push('Les types de données doivent être pris parmi ' + DATA_TYPES.join(', ') + '.');
+    }
+  }
+
   const rpo = raw.rpoHours === undefined ? DEFAULT_RPO_HOURS : raw.rpoHours;
   if (!RPO_HOURS.some((h) => h === rpo)) {
     errors.push('Le RPO doit valoir ' + RPO_HOURS.join(', ') + ' heures.');
@@ -95,6 +115,7 @@ export function parseProtectionPlanInput(raw: unknown): PlanParseResult {
     plan: {
       name,
       scope: scope as PlanScope,
+      dataTypes,
       selection,
       rpoHours: rpo as RpoHours,
       rtoHours: rto as number | null,
