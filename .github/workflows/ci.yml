@@ -61,5 +61,5 @@ jobs:
       - name: Check compose.yaml is valid
         run: |
           mkdir secrets
-          for s in s3_access_key_id s3_secret_access_key encryption_passphrase; do echo x > "secrets/$s"; done
+          for s in s3_access_key_id s3_secret_access_key encryption_passphrase m365_client_secret; do echo x > "secrets/$s"; done
           docker compose --profile minio config --quiet
