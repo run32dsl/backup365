@@ -2,12 +2,17 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AccountsPage } from './AccountsPage.js';
 import { ROLE_LABELS } from './accounts.js';
 import { AuditPage } from './AuditPage.js';
-import { DemoBanner, useDemo } from './DemoBanner.js';
+import type { HealthResponse } from '@backup365/core';
+import { ComponentsPage, UnavailableView } from './ComponentsPage.js';
+import { ConsoleFooter } from './ConsoleFooter.js';
+import { DemoBanner, useHealth } from './DemoBanner.js';
 import { Home } from './Home.js';
 import { CredentialsPage, ErrorView, PasswordPage } from './LoginPage.js';
 import { MailPage } from './MailPage.js';
 import { SearchPage } from './SearchPage.js';
 import { parseMailHash } from './mail.js';
+import { COMPONENTS_HASH } from './routes.js';
+import { Alert } from './ui/index.js';
 import {
   ADMIN_ONLY,
   LOGIN_HASH,
@@ -31,11 +36,12 @@ import {
  */
 export function screenOf(
   hash: string,
-): 'audit' | 'search' | 'accounts' | 'password' | 'mail' | 'home' {
+): 'audit' | 'search' | 'accounts' | 'password' | 'components' | 'mail' | 'home' {
   if (hash === '#/audit') return 'audit';
   if (hash === '#/search') return 'search';
   if (hash === '#/comptes') return 'accounts';
   if (hash === '#/password') return 'password';
+  if (hash === COMPONENTS_HASH) return 'components';
   return parseMailHash(hash) ? 'mail' : 'home';
 }
 
@@ -43,8 +49,13 @@ export function screenOf(
  * Écran affiché pour une ancre et un rôle : un opérateur qui ouvre `#/comptes` reçoit « page
  * réservée » au lieu d'un accueil silencieux.
  */
-export function screenFor(hash: string, admin: boolean): ReturnType<typeof screenOf> | 'forbidden' {
+export function screenFor(
+  hash: string,
+  admin: boolean,
+  demo = false,
+): ReturnType<typeof screenOf> | 'forbidden' | 'unavailable' {
   const screen = screenOf(hash);
+  if (screen === 'components') return demo ? screen : 'unavailable';
   return screen === 'accounts' && !admin ? 'forbidden' : screen;
 }
 
@@ -81,7 +92,7 @@ const goHome = () => {
 export function ForbiddenView() {
   return (
     <main tabIndex={-1}>
-      <p role="alert">{ADMIN_ONLY}</p>
+      <Alert tone="error">{ADMIN_ONLY}</Alert>
       <p>
         <a href="#/">Retour à l’accueil</a>
       </p>
@@ -130,6 +141,7 @@ export function ConsoleView({
   onToggleMenu,
   onCloseMenu,
   onLogout,
+  footer,
   children,
 }: {
   user: User;
@@ -138,6 +150,7 @@ export function ConsoleView({
   onToggleMenu: () => void;
   onCloseMenu: () => void;
   onLogout: () => void;
+  footer?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -189,14 +202,26 @@ export function ConsoleView({
             </div>
           </div>
         </aside>
-        <div>{children}</div>
+        <div className="content">
+          {children}
+          {footer}
+        </div>
       </div>
     </>
   );
 }
 
 /** Navigation minimale par ancre, sans dépendance de routage. */
-export function Console({ user, onLogout }: { user: User; onLogout: () => void }) {
+export function Console({
+  user,
+  onLogout,
+  health = null,
+}: {
+  user: User;
+  onLogout: () => void;
+  health?: HealthResponse | null;
+}) {
+  const demo = health?.demo === true;
   const [hash, setHash] = useState(window.location.hash);
   useEffect(() => {
     const onChange = () => {
@@ -208,7 +233,7 @@ export function Console({ user, onLogout }: { user: User; onLogout: () => void }
     };
   }, []);
   const admin = user.role === 'admin';
-  const screen = screenFor(hash, admin);
+  const screen = screenFor(hash, admin, demo);
   const mail = parseMailHash(hash);
   const [menuOpen, setMenuOpen] = useState(false);
   // Le menu replié se referme à chaque changement d'écran.
@@ -227,7 +252,10 @@ export function Console({ user, onLogout }: { user: User; onLogout: () => void }
         setMenuOpen(false);
       }}
       onLogout={onLogout}
+      footer={<ConsoleFooter version={health?.version} demo={demo} />}
     >
+      {screen === 'components' && <ComponentsPage />}
+      {screen === 'unavailable' && <UnavailableView />}
       {screen === 'audit' && <AuditPage />}
       {screen === 'search' && <SearchPage />}
       {screen === 'accounts' && <AccountsPage />}
@@ -247,16 +275,16 @@ export function Console({ user, onLogout }: { user: User; onLogout: () => void }
  * session expirée (401 d'une requête) ramène à la connexion.
  */
 export function App() {
-  const demo = useDemo();
+  const health = useHealth();
   return (
     <>
-      <DemoBanner demo={demo} />
-      <AppGate />
+      <DemoBanner demo={health?.demo === true} />
+      <AppGate health={health} />
     </>
   );
 }
 
-function AppGate() {
+function AppGate({ health }: { health: HealthResponse | null }) {
   const [gate, setGate] = useState<Gate>({ status: 'loading' });
   const apply = (next: Gate) => {
     setCsrfToken(next.status === 'ready' ? next.session.csrfToken : null);
@@ -342,7 +370,7 @@ function AppGate() {
       return gate.session.user.mustChangePassword ? (
         <PasswordPage forced onDone={refresh} />
       ) : (
-        <Console user={gate.session.user} onLogout={leave} />
+        <Console user={gate.session.user} onLogout={leave} health={health} />
       );
   }
 }

@@ -8,6 +8,7 @@ import {
   type AuditQuery,
   type AuditResponse,
 } from './audit.js';
+import { Alert, Button, DataTable, EmptyState, FormField, type Column } from './ui/index.js';
 
 /** État de la consultation du journal. */
 export type AuditState = AuditResponse | 'loading' | 'error';
@@ -28,48 +29,44 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   'plan.run': 'Lancement manuel d’un plan',
 };
 
+type Entry = AuditResponse['items'][number];
+
+const COLUMNS: Column<Entry>[] = [
+  { header: 'N°', cell: (e) => e.seq },
+  { header: 'Date (UTC)', cell: (e) => e.at },
+  { header: 'Acteur', cell: (e) => e.actor },
+  { header: 'Action', cell: (e) => ACTION_LABELS[e.action] },
+  { header: 'Ressource', cell: (e) => e.resource },
+  { header: 'Cible', cell: (e) => e.target ?? '' },
+  { header: 'Éléments', cell: (e) => e.count ?? '' },
+  { header: 'Motif', cell: (e) => e.reason ?? '' },
+  {
+    header: 'Empreinte',
+    cell: (e) => (
+      <span title={e.hash}>
+        <code>{e.hash.slice(0, 12)}</code>
+      </span>
+    ),
+  },
+];
+
 /** Tableau des entrées du journal, du plus récent au plus ancien. */
 export function AuditView({ state }: { state: AuditState }) {
   if (state === 'loading') return <p role="status">Chargement du journal…</p>;
-  if (state === 'error') return <p role="alert">Journal d’audit indisponible</p>;
-  if (state.items.length === 0) return <p role="status">Aucune entrée.</p>;
+  if (state === 'error') return <Alert tone="error">Journal d’audit indisponible</Alert>;
+  if (state.items.length === 0) return <EmptyState>Aucune entrée.</EmptyState>;
   return (
     <>
       <p role="status">
         {state.total} entrée(s), {state.offset + 1} à {state.offset + state.items.length}
       </p>
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">N°</th>
-            <th scope="col">Date (UTC)</th>
-            <th scope="col">Acteur</th>
-            <th scope="col">Action</th>
-            <th scope="col">Ressource</th>
-            <th scope="col">Cible</th>
-            <th scope="col">Éléments</th>
-            <th scope="col">Motif</th>
-            <th scope="col">Empreinte</th>
-          </tr>
-        </thead>
-        <tbody>
-          {state.items.map((e) => (
-            <tr key={e.seq}>
-              <td>{e.seq}</td>
-              <td>{e.at}</td>
-              <td>{e.actor}</td>
-              <td>{ACTION_LABELS[e.action]}</td>
-              <td>{e.resource}</td>
-              <td>{e.target ?? ''}</td>
-              <td>{e.count ?? ''}</td>
-              <td>{e.reason ?? ''}</td>
-              <td title={e.hash}>
-                <code>{e.hash.slice(0, 12)}</code>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable
+        caption="Entrées du journal d’audit"
+        hideCaption
+        columns={COLUMNS}
+        rows={state.items}
+        rowKey={(e) => e.seq}
+      />
     </>
   );
 }
@@ -104,16 +101,10 @@ export function AuditPage() {
     <main tabIndex={-1}>
       <h1>Journal d’audit</h1>
       <p>La consultation de ce journal est elle-même journalisée.</p>
-      <form onSubmit={submit}>
-        <label>
-          Du <input type="datetime-local" name="from" />
-        </label>{' '}
-        <label>
-          Au (exclu) <input type="datetime-local" name="to" />
-        </label>{' '}
-        <label>
-          Acteur <input type="text" name="actor" maxLength={256} />
-        </label>{' '}
+      <form onSubmit={submit} className="form-row">
+        <FormField label="Du" type="datetime-local" name="from" />
+        <FormField label="Au (exclu)" type="datetime-local" name="to" />
+        <FormField label="Acteur" type="text" name="actor" maxLength={256} />
         <label>
           Action{' '}
           <select name="action" defaultValue="">
@@ -124,30 +115,30 @@ export function AuditPage() {
               </option>
             ))}
           </select>
-        </label>{' '}
-        <button type="submit">Filtrer</button>
+        </label>
+        <Button type="submit">Filtrer</Button>
       </form>
       <AuditView state={state} />
-      <p>
-        <button
-          type="button"
+      <div className="button-row">
+        <Button
+          variant="secondary"
           disabled={pages.previous === null}
           onClick={() => {
             if (pages.previous !== null) setQuery({ ...query, offset: pages.previous });
           }}
         >
           Précédent
-        </button>{' '}
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="secondary"
           disabled={pages.next === null}
           onClick={() => {
             if (pages.next !== null) setQuery({ ...query, offset: pages.next });
           }}
         >
           Suivant
-        </button>
-      </p>
+        </Button>
+      </div>
     </main>
   );
 }

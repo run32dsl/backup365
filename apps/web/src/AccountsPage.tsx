@@ -13,6 +13,7 @@ import {
 } from './accounts.js';
 import { ErrorView, Field } from './LoginPage.js';
 import { AUDIT_NOTICE, UNREACHABLE, type Outcome, type Role } from './session.js';
+import { Alert, Button, DataTable, type Column } from './ui/index.js';
 
 export type AccountsState = AccountInfo[] | 'loading' | 'error';
 
@@ -59,6 +60,51 @@ function RoleSelect({
   );
 }
 
+const columns = (
+  state: AccountInfo[],
+  actions?: Partial<AccountActions>,
+): Column<AccountInfo>[] => [
+  { header: 'Identifiant', cell: (a) => a.username },
+  {
+    header: 'Rôle',
+    cell: (a) => (
+      <RoleSelect
+        value={a.role}
+        locked={isLastAdmin(state, a)}
+        describedBy={`last-admin-${a.id}`}
+        onChange={(role) => actions?.onRole?.(a.id, role)}
+      />
+    ),
+  },
+  { header: 'État', cell: stateOf },
+  {
+    header: 'Actions',
+    cell: (a) => {
+      const last = isLastAdmin(state, a);
+      return (
+        <>
+          <Button
+            variant="secondary"
+            aria-disabled={last || undefined}
+            aria-describedby={last ? `last-admin-${a.id}` : undefined}
+            onClick={() => {
+              if (!last) actions?.onDisabled?.(a.id, !a.disabled);
+            }}
+          >
+            {a.disabled ? 'Réactiver' : 'Désactiver'}
+          </Button>
+          {last && (
+            <>
+              {' '}
+              <span id={`last-admin-${a.id}`}>{LAST_ADMIN_NOTICE}</span>
+            </>
+          )}
+        </>
+      );
+    },
+  },
+];
+
 /** Tableau des comptes et formulaires de création et de réinitialisation. */
 export function AccountsView({
   state,
@@ -83,54 +129,16 @@ export function AccountsView({
     };
   return (
     <>
-      {message && <p role={message.kind === 'error' ? 'alert' : 'status'}>{message.text}</p>}
-      <table>
-        <thead>
-          <tr>
-            <th>Identifiant</th>
-            <th>Rôle</th>
-            <th>État</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {state.map((a) => {
-            const last = isLastAdmin(state, a);
-            return (
-              <tr key={a.id}>
-                <td>{a.username}</td>
-                <td>
-                  <RoleSelect
-                    value={a.role}
-                    locked={last}
-                    describedBy={`last-admin-${a.id}`}
-                    onChange={(role) => actions?.onRole?.(a.id, role)}
-                  />
-                </td>
-                <td>{stateOf(a)}</td>
-                <td>
-                  <button
-                    type="button"
-                    aria-disabled={last || undefined}
-                    aria-describedby={last ? `last-admin-${a.id}` : undefined}
-                    onClick={() => {
-                      if (!last) actions?.onDisabled?.(a.id, !a.disabled);
-                    }}
-                  >
-                    {a.disabled ? 'Réactiver' : 'Désactiver'}
-                  </button>
-                  {last && (
-                    <>
-                      {' '}
-                      <span id={`last-admin-${a.id}`}>{LAST_ADMIN_NOTICE}</span>
-                    </>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {message && (
+        <Alert tone={message.kind === 'error' ? 'error' : 'success'}>{message.text}</Alert>
+      )}
+      <DataTable
+        caption="Comptes de la console"
+        hideCaption
+        columns={columns(state, actions)}
+        rows={state}
+        rowKey={(a) => a.id}
+      />
       {!state.some((a) => a.role === 'operator') && <p>{NO_OPERATOR}</p>}
       <h2>Créer un compte</h2>
       <form onSubmit={submit(actions?.onCreate)}>
@@ -157,7 +165,12 @@ export function AccountsView({
             </li>
           ))}
         </ul>
-        <button type="submit">Nouveau compte</button> <button type="reset">Annuler</button>
+        <div className="button-row">
+          <Button type="submit">Nouveau compte</Button>
+          <Button type="reset" variant="secondary">
+            Annuler
+          </Button>
+        </div>
       </form>
       <h2>Réinitialiser un mot de passe</h2>
       <p>L’utilisateur devra le changer à sa prochaine connexion.</p>
@@ -180,7 +193,12 @@ export function AccountsView({
           type="password"
           autoComplete="new-password"
         />
-        <button type="submit">Réinitialiser</button> <button type="reset">Annuler</button>
+        <div className="button-row">
+          <Button type="submit">Réinitialiser</Button>
+          <Button type="reset" variant="secondary">
+            Annuler
+          </Button>
+        </div>
       </form>
       <p>{AUDIT_NOTICE}</p>
     </>
