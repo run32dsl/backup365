@@ -111,7 +111,10 @@ export class PlanScheduler {
     const { plans, logger } = this.options;
     try {
       const now = this.now();
-      for (const plan of plans.list()) {
+      const current = plans.list();
+      const ids = new Set(current.map((p) => p.id));
+      for (const id of this.settledSlot.keys()) if (!ids.has(id)) this.settledSlot.delete(id);
+      for (const plan of current) {
         if (this.stopped) return;
         // Les créneaux forment une suite arithmétique : le dernier est le prochain moins un intervalle.
         const slot = new Date(
@@ -167,7 +170,15 @@ export class PlanScheduler {
     const job = (async () => {
       for (const { itemId, runId } of opened) {
         if (this.stopped) {
-          plans.finishRun(runId, 'failed', this.now().toISOString(), 'interrupted');
+          try {
+            plans.finishRun(runId, 'failed', this.now().toISOString(), 'interrupted');
+          } catch (err) {
+            // `done` ne rejette jamais : la base peut déjà être fermée à l'arrêt.
+            this.options.logger.error(
+              { runId, code: errorCode(err) },
+              'clôture interrompue en échec',
+            );
+          }
           continue;
         }
         await this.execute(plan.id, itemId, runId);
