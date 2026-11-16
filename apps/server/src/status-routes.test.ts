@@ -9,7 +9,8 @@ import {
 import { describe, expect, it } from 'vitest';
 import { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 import { ROLES, type Role } from './sqlite/sqlite-account-store.js';
-import { buildTestApp } from './test-support.js';
+import { buildApp } from './app.js';
+import { buildTestApp, testAuth } from './test-support.js';
 import { parseMaxAgeHours, parseSiteCacheTtlMs, parseStatusWorkloads } from './config.js';
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
@@ -89,7 +90,7 @@ describe('GET /api/status', () => {
     });
 
     it.each(ROLES.filter((role) => role !== 'admin'))(
-      'hides plan counts and names from the %s role, like /api/plans',
+      'hides plan counts and names from the %s role (PO decision, pending PM)',
       async (role) => {
         const plans = SqlitePlanStore.open(':memory:');
         finished(plans, plans.create(input('Échoué')).id, 'failed');
@@ -101,6 +102,15 @@ describe('GET /api/status', () => {
         expect(res.json<StatusReport>().rows).toHaveLength(4);
       },
     );
+
+    it('omits the plans without a session', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      finished(plans, plans.create(input('Échoué')).id, 'failed');
+      const app = buildApp({ version: '1', catalog, plans, auth: testAuth().auth });
+      const res = await app.inject({ method: 'GET', url: '/api/status' });
+      expect(res.json()).not.toHaveProperty('plans');
+      expect(res.body).not.toContain('Échoué');
+    });
 
     it('hides the plans from a non-administrator even when the plan store fails', async () => {
       const plans = SqlitePlanStore.open(':memory:');

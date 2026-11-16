@@ -77,9 +77,9 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
 - `plans` est absent sans base des plans, `null` si elle ne répond pas (le reste du tableau est
   servi). Sans plan, les trois décomptes valent 0.
 - Par plan, les 500 dernières exécutions sont relues.
-- `plans` n'est servi qu'aux administrateurs : c'est la règle d'accès des plans (ADR 0009), que
-  le tableau de bord n'élargit pas. Pour tout autre rôle le champ est absent et la section n'est
-  pas affichée. Élargir cet accès (décomptes seuls, ou décomptes et noms) est une décision du PO.
+- `plans` n'est servi qu'aux administrateurs : réservé aux administrateurs par décision du PO
+  du 2026-11-16, en attente de #86. Pour tout autre rôle, et sans session, le champ est absent et
+  la section n'est pas affichée. Élargir cet accès relève du PM (#86).
 - Écran d'accueil : section « Plans de protection » (décompte par état, pastille icône + texte)
   avant le tableau des sources ; tableau des plans non conformes seulement s'il y en a.
 
