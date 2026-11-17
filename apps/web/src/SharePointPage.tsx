@@ -52,7 +52,15 @@ import {
 } from './sharepoint.js';
 import type { Loaded } from './onedrive.js';
 import type { DriveSnapshot } from '@backup365/core';
-import { Alert, Button, EmptyState, FormField, Steps, WizardActions } from './ui/index.js';
+import {
+  Alert,
+  Button,
+  ChoiceGroup,
+  EmptyState,
+  FormField,
+  Steps,
+  WizardActions,
+} from './ui/index.js';
 
 /** Ce qui a été choisi à l'étape 1. */
 interface Choice {
@@ -330,36 +338,22 @@ function ChooseStep({
         </div>
       </div>
 
-      <fieldset className="choices">
-        <legend>Restaurer</legend>
-        {SCOPE_OPTIONS.map((o) => {
-          const locked = o.value === 'site' && !admin;
-          return (
-            <label key={o.value} className="choice">
-              <input
-                type="radio"
-                name="scope"
-                value={o.value}
-                checked={scope === o.value}
-                disabled={locked}
-                aria-describedby={locked ? `${hintId}-admin` : undefined}
-                onChange={() => {
-                  setScope(o.value);
-                  setPath('/');
-                  setFile(null);
-                }}
-              />{' '}
-              {o.label}
-              {locked && (
-                <span id={`${hintId}-admin`} className="field-help">
-                  {' '}
-                  ({T.adminOnly})
-                </span>
-              )}
-            </label>
-          );
-        })}
-      </fieldset>
+      <ChoiceGroup
+        legend="Restaurer"
+        name="scope"
+        value={scope}
+        options={SCOPE_OPTIONS.map((o) => ({
+          value: o.value,
+          label: o.label,
+          disabled: o.value === 'site' && !admin,
+          hint: o.value === 'site' && !admin ? T.adminOnly : undefined,
+        }))}
+        onChange={(next) => {
+          setScope(next);
+          setPath('/');
+          setFile(null);
+        }}
+      />
 
       {scope === 'site' ? (
         <p>Tout le contenu de « {site.displayName} » sera concerné.</p>

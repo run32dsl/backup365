@@ -43,6 +43,7 @@ import { AuditReminder, REASON, reasonLabel } from './RestoreJourney.js';
 import {
   Alert,
   Button,
+  ChoiceGroup,
   DataTable,
   Dialog,
   EmptyState,
@@ -68,51 +69,6 @@ function ErrorText({ id, children }: { id: string; children?: string }) {
     <p id={id} className="field-error">
       <span aria-hidden="true">✖</span> {children}
     </p>
-  );
-}
-
-/** Groupe de boutons radio natifs : flèches du clavier, `fieldset` et `legend`. */
-function RadioGroup<V extends string | number>({
-  legend,
-  name,
-  value,
-  options,
-  help,
-  onChange,
-}: {
-  legend: string;
-  name: string;
-  value: V;
-  options: { value: V; label: string }[];
-  help?: string;
-  onChange: (value: V) => void;
-}) {
-  const helpId = `${name}-help`;
-  return (
-    <fieldset className="choices" aria-describedby={help ? helpId : undefined}>
-      <legend>{legend}</legend>
-      <div className="choice-row">
-        {options.map((o) => (
-          <label key={o.value} className="choice">
-            <input
-              type="radio"
-              name={name}
-              value={o.value}
-              checked={o.value === value}
-              onChange={() => {
-                onChange(o.value);
-              }}
-            />
-            {o.label}
-          </label>
-        ))}
-      </div>
-      {help && (
-        <p id={helpId} className="field-help">
-          {help}
-        </p>
-      )}
-    </fieldset>
   );
 }
 
@@ -282,7 +238,7 @@ export function PlanWizard({
             </div>
             <ErrorText id="data-types-error">{errors.dataTypes}</ErrorText>
           </fieldset>
-          <RadioGroup
+          <ChoiceGroup
             legend="Périmètre"
             name="scope"
             value={form.scope}
@@ -323,7 +279,7 @@ export function PlanWizard({
 
       {step === 2 && (
         <>
-          <RadioGroup<RpoHours>
+          <ChoiceGroup<RpoHours>
             legend="Perte de données acceptable"
             name="rpo"
             value={form.rpoHours}
@@ -333,7 +289,7 @@ export function PlanWizard({
               patch({ rpoHours });
             }}
           />
-          <RadioGroup<number>
+          <ChoiceGroup<number>
             legend="Remise en service souhaitée"
             name="rto"
             value={form.rtoHours}
@@ -346,7 +302,7 @@ export function PlanWizard({
               patch({ rtoHours });
             }}
           />
-          <RadioGroup<number>
+          <ChoiceGroup<number>
             legend="Durée de conservation"
             name="retention"
             value={form.retentionDays}

@@ -2,6 +2,7 @@ import { useState, type MouseEvent, type ReactNode } from 'react';
 import {
   Alert,
   Button,
+  ChoiceGroup,
   DataTable,
   Dialog,
   EmptyState,
@@ -18,6 +19,7 @@ import { AuditReminder, REASON, ReasonField } from './RestoreJourney.js';
 export const SECTIONS = [
   { id: 'boutons', summary: 'Boutons', title: 'Boutons' },
   { id: 'champs', summary: 'Champs', title: 'Champs de formulaire' },
+  { id: 'choix', summary: 'Choix', title: 'Groupe d’options' },
   { id: 'tableau', summary: 'Tableau', title: 'Tableau' },
   { id: 'dialogue', summary: 'Dialogue', title: 'Boîte de dialogue' },
   { id: 'etats', summary: 'États', title: 'États vides' },
@@ -75,6 +77,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
 /** Exemples d'états d'un champ et du dialogue, avec un état local. */
 function Playground() {
   const [reason, setReason] = useState('Contrôle trimestriel du dossier');
+  const [mode, setMode] = useState('copy');
   const [open, setOpen] = useState(false);
   const [dialogReason, setDialogReason] = useState('');
   const [saving, setSaving] = useState(false);
@@ -106,6 +109,33 @@ function Playground() {
       <Section id="champs" title="Champs de formulaire">
         <ReasonField of="de l’export" value={reason} onChange={setReason} />
         <ReasonField of="de l’export" value="" error={REASON.error} onChange={() => undefined} />
+      </Section>
+      <Section id="choix" title="Groupe d’options">
+        <ChoiceGroup
+          legend="Mode"
+          name="demo-mode"
+          value={mode}
+          options={[
+            { value: 'copy', label: 'Restaurer en copie (recommandé)' },
+            { value: 'replace', label: 'Remplacer le fichier actuel' },
+          ]}
+          onChange={setMode}
+        />
+        <ChoiceGroup
+          legend="Restaurer"
+          name="demo-scope"
+          value="item"
+          options={[
+            { value: 'item', label: 'Un élément' },
+            {
+              value: 'site',
+              label: 'Le site entier',
+              disabled: true,
+              hint: 'Réservé aux administrateurs',
+            },
+          ]}
+          onChange={() => undefined}
+        />
       </Section>
       <Section id="tableau" title="Tableau">
         <DataTable caption="Comptes" columns={COLUMNS} rows={SAMPLES} rowKey={(r) => r.name} />
