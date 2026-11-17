@@ -29,6 +29,70 @@ test('401 en cours de navigation : #/connexion avec message, puis retour à la p
   await expect(page.getByText(EXPIRED)).toHaveCount(0);
 });
 
+test('changement volontaire du mot de passe : retour au tableau de bord avec confirmation', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  // Réponse simulée : changer le vrai mot de passe casserait les autres tests.
+  await page.route('**/api/auth/password', (route) => route.fulfill({ status: 204 }));
+  await page.goto('/#/password');
+  await page.getByLabel('Mot de passe actuel', { exact: true }).fill('ancien mot de passe');
+  await page.getByLabel('Nouveau mot de passe', { exact: true }).fill('nouveau mot de passe');
+  await page
+    .getByLabel('Confirmer le nouveau mot de passe', { exact: true })
+    .fill('nouveau mot de passe');
+  await page.getByRole('button', { name: 'Enregistrer et continuer' }).click();
+
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' }).first(),
+  ).toBeVisible();
+  await expect(page.getByLabel('Mot de passe actuel', { exact: true })).toHaveCount(0);
+});
+
+test('changement imposé du mot de passe : même retour au tableau de bord, avec confirmation qui disparaît après 8 s', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  let changed = false;
+  // Session réelle, avec le drapeau « mot de passe à changer » tant que le changement n'a pas eu lieu.
+  await page.route('**/api/auth/me', async (route) => {
+    const response = await route.fetch();
+    const session = (await response.json()) as { user: Record<string, unknown> };
+    await route.fulfill({
+      response,
+      json: { ...session, user: { ...session.user, mustChangePassword: !changed } },
+    });
+  });
+  await page.route('**/api/auth/password', (route) => {
+    changed = true;
+    return route.fulfill({ status: 204 });
+  });
+  await page.clock.install();
+  await page.goto('/');
+  await page.getByLabel('Mot de passe actuel', { exact: true }).fill('ancien mot de passe');
+  await page.getByLabel('Nouveau mot de passe', { exact: true }).fill('nouveau mot de passe');
+  await page
+    .getByLabel('Confirmer le nouveau mot de passe', { exact: true })
+    .fill('nouveau mot de passe');
+  await page.getByRole('button', { name: 'Enregistrer et continuer' }).click();
+
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
+  const status = page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' }).first();
+  await expect(status).toBeVisible();
+  await expect(page.getByLabel('Mot de passe actuel', { exact: true })).toHaveCount(0);
+
+  // Le message disparaît après 8 s.
+  await page.clock.fastForward(8500);
+  await expect(page.getByText('Mot de passe modifié.')).toHaveCount(0);
+});
+
 test('connexion Microsoft (fournisseur simulé de la démo) : le bouton ouvre la console', async ({
   page,
 }) => {

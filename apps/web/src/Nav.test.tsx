@@ -44,6 +44,15 @@ const tree = (menuOpen: boolean, handlers?: Parameters<typeof view>[1]) =>
 
 const byClass = (els: El[], name: string) => els.find((e) => e.props.className === name)!;
 
+describe('confirmation after a password change', () => {
+  it('shows the flash as a status alert above the screen, and nothing without it', () => {
+    const html = renderToString(view(false, { flash: 'Mot de passe modifié.' }));
+    expect(html).toMatch(/role="status"[^>]*>.*Mot de passe modifié\./);
+    expect(html.indexOf('Mot de passe modifié.')).toBeLessThan(html.indexOf('Contenu'));
+    expect(renderToString(view(false))).toContain('<div role="status"></div>');
+  });
+});
+
 describe('keyboard path of the console', () => {
   it('tabs through skip link, Menu, nav entries, account links, then the content', () => {
     const html = renderToString(view(true));

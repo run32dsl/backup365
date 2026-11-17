@@ -295,13 +295,11 @@ export function CredentialsPage({
 export function PasswordView({
   forced,
   error,
-  done = false,
   onSubmit,
   onCancel,
 }: {
   forced: boolean;
   error?: string;
-  done?: boolean;
   onSubmit?: (form: FormData) => void;
   /** Retour sans changer (absent quand le changement est imposé). */
   onCancel?: () => void;
@@ -336,7 +334,6 @@ export function PasswordView({
           autoComplete="new-password"
         />
         {error && <Alert tone="error">{error}</Alert>}
-        {done && <Alert tone="success">Mot de passe modifié.</Alert>}
         <div className="button-row">
           <Button type="submit">Enregistrer et continuer</Button>
           {!forced && (
@@ -350,6 +347,13 @@ export function PasswordView({
   );
 }
 
+/** Texte de la notification affichée par la console après un changement réussi. */
+export const PASSWORD_CHANGED = 'Mot de passe modifié.';
+
+/**
+ * Change le mot de passe puis rend la main (`onDone`) : l'appelant redirige et affiche la
+ * confirmation. Le formulaire rempli n'est plus montré après le succès.
+ */
 export function PasswordPage({
   forced,
   onDone,
@@ -377,7 +381,12 @@ export function PasswordPage({
       () => setError(UNREACHABLE),
     );
   };
-  return (
-    <PasswordView forced={forced} error={error} done={done} onSubmit={submit} onCancel={onCancel} />
-  );
+  if (done) {
+    return (
+      <main tabIndex={-1}>
+        <p role="status">Ouverture de la console…</p>
+      </main>
+    );
+  }
+  return <PasswordView forced={forced} error={error} onSubmit={submit} onCancel={onCancel} />;
 }

@@ -183,6 +183,30 @@ export const SCREENS = [
   },
   { name: 'tableau-de-bord', hash: '#/', role: 'admin' },
   {
+    name: 'mot-de-passe',
+    hash: '#/password',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Mot de passe actuel', { exact: true }).waitFor();
+    },
+  },
+  {
+    // Réponse simulée : changer le vrai mot de passe casserait les sessions de démonstration.
+    name: 'mot-de-passe-modifie',
+    hash: '#/password',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/auth/password', (route) => route.fulfill({ status: 204 }));
+      await page.getByLabel('Mot de passe actuel', { exact: true }).fill('ancien mot de passe');
+      await page.getByLabel('Nouveau mot de passe', { exact: true }).fill('nouveau mot de passe');
+      await page
+        .getByLabel('Confirmer le nouveau mot de passe', { exact: true })
+        .fill('nouveau mot de passe');
+      await page.getByRole('button', { name: 'Enregistrer et continuer' }).click();
+      await page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' }).first().waitFor();
+    },
+  },
+  {
     name: 'recherche',
     hash: '#/search',
     role: 'admin',
