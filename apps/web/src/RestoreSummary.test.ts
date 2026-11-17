@@ -35,6 +35,8 @@ describe('SharePoint restore summary', () => {
     const head = (skipped: number, errors: number) =>
       detailLabel(`outcome=succeeded;duration_ms=2000;skipped=${skipped};errors=${errors}`);
     expect(head(0, 0)).toBe('Réussie, 2 s');
+    expect(head(0, 2)).toBe('Réussie, 2 s, 2 éléments en erreur');
+    expect(head(1, 0)).toBe('Réussie, 2 s, 1 élément conservé');
     expect(head(1, 1)).toBe('Réussie, 2 s, 1 élément conservé, 1 élément en erreur');
     expect(head(3, 2)).toBe('Réussie, 2 s, 3 éléments conservés, 2 éléments en erreur');
   });
