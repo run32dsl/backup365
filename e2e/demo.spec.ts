@@ -520,7 +520,8 @@ test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
 });
 
 test('le bandeau du mode démo est présent sur chaque écran', async ({ browser, baseURL }) => {
-  for (const screen of SCREENS) {
+  // Les variantes de thème ou de version reprennent des écrans déjà parcourus.
+  for (const screen of SCREENS.filter((s) => !s.colorScheme && !s.buildCommit)) {
     const context = await browser.newContext({ baseURL: baseURL! });
     if (screen.role) await signInAs(context, baseURL!, screen.role);
     const page = await context.newPage();

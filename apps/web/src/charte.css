@@ -817,6 +817,12 @@ select[aria-disabled='true'] {
   border-top: 1px solid var(--border-soft);
   color: var(--muted);
 }
+/* Sous 900 px, même marge que le contenu (`main`) : la version s'aligne sur le texte au-dessus. */
+@media (max-width: 56.25rem) {
+  .console-footer {
+    padding-inline: var(--space-3);
+  }
+}
 .toc {
   display: flex;
   flex-wrap: wrap;

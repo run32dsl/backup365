@@ -16,18 +16,35 @@ if (process.env['BACKUP365_SKIP_BUILD'] !== '1') {
 }
 mkdirSync(outDir, { recursive: true });
 
-const server = await startDemoServer({ settled: true });
-const browser = await chromium.launch(launchOptions());
+// Un serveur par version affichée : « dev » (sans commit) et, pour les écrans qui le demandent,
+// celle d'une image construite. Lancés ensemble : l'attente des plans ne s'additionne pas.
+const commits = [...new Set(SCREENS.map((screen) => screen.buildCommit))];
+const started = await Promise.allSettled(
+  commits.map((buildCommit) => startDemoServer({ settled: true, buildCommit })),
+);
+const servers = new Map();
+started.forEach((result, i) => {
+  if (result.status === 'fulfilled') servers.set(commits[i], result.value);
+});
+const stopServers = () => Promise.all([...servers.values()].map((server) => server.stop()));
+const failed = started.find((result) => result.status === 'rejected');
+if (failed) {
+  await stopServers();
+  throw failed.reason;
+}
 const written = [];
+let browser;
 try {
+  browser = await chromium.launch(launchOptions());
   for (const screen of SCREENS) {
+    const server = servers.get(screen.buildCommit);
     for (const width of WIDTHS) {
       const context = await browser.newContext({
         viewport: { width, height: 800 },
         baseURL: server.baseURL,
         locale: 'fr-FR',
         timezoneId: 'UTC',
-        colorScheme: 'light',
+        colorScheme: screen.colorScheme ?? 'light',
       });
       try {
         if (screen.role) await signInAs(context, server.baseURL, screen.role);
@@ -44,7 +61,7 @@ try {
     }
   }
 } finally {
-  await browser.close();
-  await server.stop();
+  await browser?.close();
+  await stopServers();
 }
 for (const file of written) console.log(file.replace(`${root}/`, ''));

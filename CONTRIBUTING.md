@@ -48,7 +48,8 @@ présente ; utiliser un `BACKUP365_DATA_DIR` jetable.
   `captures/<écran>-1280.png` et `-390.png` (dossier ignoré par git). Regarder les images avant
   d'ouvrir la PR.
 - **Ajouter un écran** : une entrée dans `e2e/screens.mjs` (`name`, `hash`, `role`, `prepare`
-  éventuel pour les gestes préalables).
+  éventuel pour les gestes préalables). Deux champs facultatifs : `colorScheme: 'dark'` pour le
+  thème sombre, `buildCommit` pour photographier l'écran avec la version d'une image construite.
 - `pnpm run test:e2e` joue les tests Playwright (`e2e/*.spec.ts`) en mode démo. Installer le
   navigateur une fois avec `pnpm exec playwright install chromium`, ou pointer
   `BACKUP365_CHROMIUM` vers un exécutable Chromium existant.
@@ -58,7 +59,9 @@ présente ; utiliser un `BACKUP365_DATA_DIR` jetable.
 Le pied de page affiche « Version <paquet> · <commit court> » pour une image construite avec
 `--build-arg BUILD_COMMIT=$(git rev-parse --short=7 HEAD)` (la CI le fait), et « Version dev » en
 local ou sans l'argument. La CI vérifie que l'image affiche bien la version et le commit, jamais
-0.0.0. La version du paquet est celle de `apps/server/package.json`.
+0.0.0. La version du paquet est celle de `apps/server/package.json`. Sans Docker,
+`e2e/version.spec.ts` lance le serveur avec `BACKUP365_BUILD_COMMIT` et vérifie la même chose dans
+le navigateur, avant et après connexion ; les captures `*-version-image*` en montrent le rendu.
 
 ## Conventions
 

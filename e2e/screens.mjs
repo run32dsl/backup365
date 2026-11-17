@@ -4,11 +4,19 @@
  * - `name` : nom du fichier, `captures/<name>-<largeur>.png` ;
  * - `hash` : ancre de l'écran (vide pour la page de connexion) ;
  * - `role` : `'admin'`, `'operator'` ou `null` (pas de session) ;
- * - `prepare(page)` : gestes éventuels avant la photo (saisie, clic), rendu attendu à la fin.
+ * - `prepare(page)` : gestes éventuels avant la photo (saisie, clic), rendu attendu à la fin ;
+ * - `colorScheme` : `'dark'` pour une photo en thème sombre (clair par défaut) ;
+ * - `buildCommit` : commit court d'une image construite ; l'écran est alors photographié sur un
+ *   second serveur de démonstration, dont le pied de page affiche « Version <paquet> · <commit> »
+ *   au lieu de « Version dev ».
  *
  * @typedef {{ name: string, hash: string, role: 'admin' | 'operator' | null,
- *   prepare?: (page: import('@playwright/test').Page) => Promise<void> }} Screen
+ *   prepare?: (page: import('@playwright/test').Page) => Promise<void>,
+ *   colorScheme?: 'light' | 'dark', buildCommit?: string }} Screen
  */
+
+/** Commit court fictif des captures et des tests de la version d'une image. */
+export const IMAGE_COMMIT = 'abc1234';
 
 export const WIDTHS = [1280, 390];
 
@@ -182,6 +190,17 @@ export const SCREENS = [
     },
   },
   { name: 'tableau-de-bord', hash: '#/', role: 'admin' },
+  // Pied de page (version) : thème sombre, puis version d'une image construite, avant et après
+  // connexion. Le clair avec « Version dev » figure sur `connexion` et `tableau-de-bord`.
+  { name: 'connexion-sombre', hash: '', role: null, colorScheme: 'dark' },
+  { name: 'connexion-version-image', hash: '', role: null, buildCommit: IMAGE_COMMIT },
+  {
+    name: 'tableau-de-bord-version-image-sombre',
+    hash: '#/',
+    role: 'admin',
+    colorScheme: 'dark',
+    buildCommit: IMAGE_COMMIT,
+  },
   {
     name: 'mot-de-passe',
     hash: '#/password',
