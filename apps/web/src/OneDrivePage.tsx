@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { parentOf } from '@backup365/core';
+import { dateTimeOrDash } from './format.js';
 import { isReasonValid } from './mail.js';
 import {
   ONEDRIVE_MESSAGES as T,
@@ -158,6 +159,84 @@ function VersionsDialog({
   );
 }
 
+/** Liste des éléments d'un dossier sauvegardé : le bouton radio porte le nom de l'élément. */
+export function EntriesTable({
+  account,
+  rows,
+  selected,
+  emptyMessage,
+  onSelect,
+  onVersions,
+}: {
+  account: string;
+  rows: DriveEntry[];
+  selected: string | null;
+  emptyMessage: string;
+  onSelect: (path: string) => void;
+  onVersions: (entry: DriveEntry, button: HTMLButtonElement) => void;
+}) {
+  const prefix = useId();
+  const nameId = (e: DriveEntry) => `${prefix}-${rows.indexOf(e)}`;
+  const radio = (e: DriveEntry, labelledBy?: string) => (
+    <input
+      type="radio"
+      name="selection"
+      aria-labelledby={labelledBy}
+      checked={selected === e.path}
+      onChange={() => {
+        onSelect(e.path);
+      }}
+    />
+  );
+  return (
+    <DataTable
+      caption="Contenu du dossier sauvegardé"
+      hideCaption
+      rows={rows}
+      rowKey={(e) => e.path}
+      empty={{ message: emptyMessage }}
+      columns={[
+        {
+          header: 'Nom',
+          cell: (e) =>
+            e.kind === 'folder' ? (
+              <span className="choice">
+                {radio(e, nameId(e))}
+                <a id={nameId(e)} href={oneDriveHash(account, e.path)}>
+                  {e.name}
+                </a>
+                <span className="cell-secondary-inline">dossier</span>
+              </span>
+            ) : (
+              <label className="choice">
+                {radio(e)} {e.name}
+              </label>
+            ),
+        },
+        { header: 'Version du (UTC)', cell: (e) => dateTimeOrDash(e.versionAt) },
+        { header: 'Taille', cell: (e) => (e.sizeBytes === null ? '—' : sizeOf(e.sizeBytes)) },
+        {
+          header: 'Versions',
+          cell: (e) =>
+            e.kind === 'file' ? (
+              <Button
+                variant="secondary"
+                aria-label={`Versions de ${e.name}`}
+                onClick={(ev) => {
+                  onVersions(e, ev.currentTarget);
+                }}
+              >
+                Versions
+              </Button>
+            ) : (
+              '—'
+            ),
+        },
+      ]}
+    />
+  );
+}
+
 /** Étape 1 : parcourir la sauvegarde et choisir un élément. */
 function BrowseStep({
   route,
@@ -238,7 +317,6 @@ function BrowseStep({
           </select>
         </div>
       </div>
-      <p>Sauvegarde du {dateTimeOf(snapshot?.createdAt ?? null)}</p>
       <nav aria-label="Chemin">
         <ol className="breadcrumb">
           {breadcrumbOf(path).map((c, i, all) => (
@@ -266,63 +344,16 @@ function BrowseStep({
         {entries?.status === 'ok' && (
           <fieldset className="choices drive-list">
             <legend className="sr-only">Éléments de {breadcrumbOf(path).at(-1)?.label}</legend>
-            <DataTable
-              caption="Contenu du dossier sauvegardé"
-              hideCaption
+            <EntriesTable
+              account={account}
               rows={rows}
-              rowKey={(e) => e.path}
-              empty={{
-                message: `Ce dossier est vide dans la sauvegarde du ${dayOf(snapshot?.createdAt ?? null)}.`,
+              selected={selected}
+              emptyMessage={`Ce dossier est vide dans la sauvegarde du ${dayOf(snapshot?.createdAt ?? null)}.`}
+              onSelect={setSelected}
+              onVersions={(entry, button) => {
+                versionsButton.current = button;
+                setVersionsOf(entry);
               }}
-              columns={[
-                {
-                  header: 'Choix',
-                  cell: (e) => (
-                    <input
-                      type="radio"
-                      name="selection"
-                      aria-label={`Sélectionner ${e.name}`}
-                      checked={selected === e.path}
-                      onChange={() => {
-                        setSelected(e.path);
-                      }}
-                    />
-                  ),
-                },
-                {
-                  header: 'Nom',
-                  cell: (e) =>
-                    e.kind === 'folder' ? (
-                      <a href={oneDriveHash(account, e.path)}>
-                        <span aria-hidden="true">📁</span> {e.name}
-                        <span className="sr-only"> (dossier)</span>
-                      </a>
-                    ) : (
-                      <span>
-                        <span aria-hidden="true">📄</span> {e.name}
-                        <span className="sr-only"> (fichier)</span>
-                      </span>
-                    ),
-                },
-                { header: 'Version du', cell: (e) => dateTimeOf(e.versionAt) },
-                { header: 'Taille', cell: (e) => sizeOf(e.sizeBytes) },
-                {
-                  header: 'Versions',
-                  cell: (e) =>
-                    e.kind === 'file' ? (
-                      <Button
-                        variant="secondary"
-                        aria-label={`Versions de ${e.name}`}
-                        onClick={(ev) => {
-                          versionsButton.current = ev.currentTarget;
-                          setVersionsOf(e);
-                        }}
-                      >
-                        Versions
-                      </Button>
-                    ) : null,
-                },
-              ]}
             />
           </fieldset>
         )}

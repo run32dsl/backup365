@@ -1013,6 +1013,10 @@ a.btn-secondary {
 .drive-list .data-table td {
   vertical-align: middle;
 }
+.cell-secondary-inline {
+  color: var(--muted);
+  font-size: 0.875em;
+}
 .breadcrumb li + li::before {
   content: '>';
   margin-right: var(--space-1);

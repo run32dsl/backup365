@@ -143,7 +143,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   ).toBeVisible();
 
   // Sélection annoncée ; le panneau des versions rend le focus à son bouton.
-  await page.getByLabel('Sélectionner budget.xlsx').check();
+  await page.getByRole('radio', { name: 'budget.xlsx' }).check();
   await expect(page.getByText('1 élément sélectionné')).toBeVisible();
   const versions = page.getByRole('button', { name: 'Versions de budget.xlsx' });
   await versions.click();
@@ -200,7 +200,7 @@ test('OneDrive : un échec propose de réessayer, rien n’est modifié', async 
 }) => {
   await signInAs(context, baseURL!, 'admin');
   await page.goto(`/#/onedrive/${encodeURIComponent('paul.moreau@exemple.fr')}/Documents/Budget`);
-  await page.getByLabel('Sélectionner previsions.xlsx').check();
+  await page.getByRole('radio', { name: 'previsions.xlsx' }).check();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #8 : essai');
   await page.getByRole('button', { name: 'Continuer' }).click();
