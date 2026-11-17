@@ -33,7 +33,6 @@ export const ONEDRIVE_MESSAGES = {
   loading: 'Chargement de la sauvegarde…',
   noBackup: 'Aucune sauvegarde de ce OneDrive.',
   readError: 'La sauvegarde n’a pas pu être lue.',
-  notConfigured: 'Aucun compte Microsoft 365 n’est connecté.',
   noVersions: 'Aucune version antérieure conservée pour ce fichier.',
   confirmReplace: 'Je confirme le remplacement du fichier actuel.',
   confirmError: 'Cochez la case pour confirmer le remplacement.',
