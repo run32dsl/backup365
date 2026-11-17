@@ -490,6 +490,14 @@ export const SCREENS = [
     },
   },
   {
+    name: 'sharepoint-bibliotheques',
+    hash: '#/sharepoint',
+    role: 'operator',
+    prepare: async (page) => {
+      await openSite(page, SITES.commerce, 'item');
+    },
+  },
+  {
     name: 'sharepoint-motif',
     hash: '#/sharepoint',
     role: 'operator',

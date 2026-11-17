@@ -110,46 +110,48 @@ export function SiteEntriesTable({
   onFile: (path: string) => void;
 }) {
   return (
-    <DataTable
-      caption="Contenu du site sauvegardé"
-      hideCaption
-      rows={rows}
-      rowKey={(e) => e.path}
-      columns={[
-        {
-          header: 'Nom',
-          cell: (e) => {
-            if (e.kind === 'file') {
-              return scope === 'item' ? (
-                <label className="choice">
-                  <input
-                    type="radio"
-                    name="selection"
-                    checked={file === e.path}
-                    onChange={() => {
-                      onFile(e.path);
-                    }}
-                  />{' '}
-                  {e.name}
-                </label>
-              ) : (
-                e.name
-              );
-            }
-            return (
-              <span className="choice">
-                <a {...breadcrumbLink({ path: e.path }, siteId, scope, onOpen)}>{e.name}</a>
-                <span className="cell-secondary-inline">
-                  {e.kind === 'library' ? 'bibliothèque' : 'dossier'}
+    <div className="drive-list">
+      <DataTable
+        caption="Contenu du site sauvegardé"
+        hideCaption
+        rows={rows}
+        rowKey={(e) => e.path}
+        columns={[
+          {
+            header: 'Nom',
+            cell: (e) => {
+              if (e.kind === 'file') {
+                return scope === 'item' ? (
+                  <label className="choice">
+                    <input
+                      type="radio"
+                      name="selection"
+                      checked={file === e.path}
+                      onChange={() => {
+                        onFile(e.path);
+                      }}
+                    />{' '}
+                    {e.name}
+                  </label>
+                ) : (
+                  e.name
+                );
+              }
+              return (
+                <span className="choice">
+                  <a {...breadcrumbLink({ path: e.path }, siteId, scope, onOpen)}>{e.name}</a>
+                  <span className="cell-secondary-inline">
+                    {e.kind === 'library' ? 'bibliothèque' : 'dossier'}
+                  </span>
                 </span>
-              </span>
-            );
+              );
+            },
           },
-        },
-        { header: 'Version du (UTC)', cell: (e) => dateTimeOrDash(e.versionAt) },
-        { header: 'Taille', cell: (e) => (e.kind === 'file' ? sizeOf(e.sizeBytes) : '—') },
-      ]}
-    />
+          { header: 'Version du (UTC)', cell: (e) => dateTimeOrDash(e.versionAt) },
+          { header: 'Taille', cell: (e) => (e.kind === 'file' ? sizeOf(e.sizeBytes) : '—') },
+        ]}
+      />
+    </div>
   );
 }
 

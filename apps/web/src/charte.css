@@ -1022,7 +1022,11 @@ a.btn-secondary {
 .drive-list .data-table td {
   vertical-align: middle;
 }
+.drive-list .data-table td .choice {
+  flex-wrap: wrap;
+}
 .cell-secondary-inline {
+  white-space: nowrap;
   color: var(--muted);
   font-size: 0.875em;
 }
