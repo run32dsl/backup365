@@ -57,7 +57,7 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
       cell: (e) => <span title={e.at}>{auditDate(e.at)}</span>,
     },
     { header: 'Acteur', className: 'keep-words', cell: (e) => e.actor },
-    { header: 'Action', cell: (e) => ACTION_LABELS[e.action] },
+    { header: 'Action', className: 'keep-words', cell: (e) => ACTION_LABELS[e.action] },
     {
       header: 'Ressource',
       className: 'keep-words card-hidden',

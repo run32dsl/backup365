@@ -161,6 +161,7 @@ describe('RestoreAction', () => {
     expect(row).not.toContain('btn-primary');
     expect(row).toContain('card-action');
     expect(row.match(/<td[^>]*keep-words[^>]*>/g)).toHaveLength(2);
+    expect(row).toMatch(/<td[^>]*subject[^>]*><a [^>]*title="/);
     expect(row).toContain('alice@<span class="addr-domain">example.test</span>');
     const off = renderToString(<SearchView state={state} restoreConfigured={false} />);
     expect(off).toContain('La restauration nécessite un tenant relié.');

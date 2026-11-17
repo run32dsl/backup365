@@ -35,7 +35,15 @@ const COLUMNS: Column<Hit>[] = [
   },
   {
     header: 'Objet',
-    cell: (m) => <a href={mailHref(m)}>{m.subject === '' ? '(sans objet)' : m.subject}</a>,
+    className: 'subject',
+    cell: (m) => {
+      const subject = m.subject === '' ? '(sans objet)' : m.subject;
+      return (
+        <a href={mailHref(m)} title={subject}>
+          {subject}
+        </a>
+      );
+    },
   },
   {
     header: 'Boîte',

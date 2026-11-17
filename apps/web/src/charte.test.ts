@@ -73,6 +73,11 @@ describe('charte.css data tables', () => {
     expect(/\.data-table td\.card-action::before\s*\{\s*display:\s*none;/.test(css)).toBe(true);
   });
 
+  it('keeps addresses and subjects on one line on desktop', () => {
+    expect(/\.data-table \.address\s*\{\s*white-space:\s*nowrap;/.test(css)).toBe(true);
+    expect(/\.data-table \.subject a\s*\{[^}]*text-overflow:\s*ellipsis;/.test(css)).toBe(true);
+  });
+
   it('keeps words whole in keep-words cells', () => {
     expect(/\.data-table \.keep-words\s*\{\s*overflow-wrap:\s*break-word;/.test(css)).toBe(true);
   });

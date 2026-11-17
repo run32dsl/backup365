@@ -491,6 +491,26 @@ select[aria-disabled='true'] {
   .data-table .address {
     white-space: nowrap;
   }
+
+  /* Cellules resserrées pour que le tableau de résultats tienne dans la page à 1280 px. */
+  .data-table th,
+  .data-table td {
+    padding-inline: var(--space-1);
+  }
+
+  .data-table td .btn {
+    padding-inline: 0.625rem;
+  }
+
+  /* Objet : une seule ligne, tronquée par « … » (le titre complet est dans l'infobulle). */
+  .data-table .subject a {
+    display: inline-block;
+    max-width: 20rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
 }
 
 @media (max-width: 56.25rem) {
