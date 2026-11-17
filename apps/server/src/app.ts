@@ -8,6 +8,7 @@ import {
   type SearchIndex,
   type SiteBrowser,
 } from '@backup365/core';
+import { randomUUID } from 'node:crypto';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { registerAccountRoutes } from './account-routes.js';
 import type { AuthService } from './auth.js';
@@ -136,7 +137,13 @@ export function buildApp({
   webDir,
   demo = false,
 }: AppOptions): FastifyInstance {
-  const app = Fastify({ logger, trustProxy, routerOptions: { maxParamLength: 512 } });
+  const app = Fastify({
+    logger,
+    trustProxy,
+    // UUID natif : unique d'un redémarrage à l'autre (le compteur `req-N` repartait de 1).
+    genReqId: () => randomUUID(),
+    routerOptions: { maxParamLength: 512 },
+  });
   app.addHook('onSend', (_req, reply, payload, done) => {
     // La politique propre aux pages de l'interface (static-web.ts) l'emporte sur celle de l'API.
     const own = reply.getHeader('content-security-policy');

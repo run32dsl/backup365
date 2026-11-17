@@ -451,7 +451,7 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await page.route('**/api/plans/*/run', (route) =>
     route.fulfill({
       status: 503,
-      headers: { 'x-request-id': 'req-1a2b' },
+      headers: { 'x-request-id': '3f2b8c1e-5a7d-4e0b-9c64-1d2a7b9e4f10' },
       json: { error: 'backup_not_configured' },
     }),
   );
@@ -467,7 +467,9 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await expect(alert.getByText('fichiers de secrets', { exact: false })).toBeVisible();
   await expect(alert.getByText('Exécution des plans', { exact: false })).toBeVisible();
   await expect(run.getByRole('link', { name: 'Configurer la connexion' })).toHaveCount(0);
-  await expect(alert.getByText('Identifiant de requête : req-1a2b')).toBeVisible();
+  await expect(
+    alert.getByText('Identifiant de requête : 3f2b8c1e-5a7d-4e0b-9c64-1d2a7b9e4f10'),
+  ).toBeVisible();
   const alertBox = (await alert.boundingBox())!;
   const submitBox = (await submit.boundingBox())!;
   expect(alertBox.y + alertBox.height).toBeLessThanOrEqual(submitBox.y);
