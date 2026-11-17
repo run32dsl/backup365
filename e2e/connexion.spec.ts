@@ -29,6 +29,30 @@ test('401 en cours de navigation : #/connexion avec message, puis retour à la p
   await expect(page.getByText(EXPIRED)).toHaveCount(0);
 });
 
+test('changement volontaire du mot de passe : retour au tableau de bord avec confirmation', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  // Réponse simulée : changer le vrai mot de passe casserait les autres tests.
+  await page.route('**/api/auth/password', (route) => route.fulfill({ status: 204 }));
+  await page.goto('/#/password');
+  await page.getByLabel('Mot de passe actuel', { exact: true }).fill('ancien mot de passe');
+  await page.getByLabel('Nouveau mot de passe', { exact: true }).fill('nouveau mot de passe');
+  await page
+    .getByLabel('Confirmer le nouveau mot de passe', { exact: true })
+    .fill('nouveau mot de passe');
+  await page.getByRole('button', { name: 'Enregistrer et continuer' }).click();
+
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' }).first(),
+  ).toBeVisible();
+  await expect(page.getByLabel('Mot de passe actuel', { exact: true })).toHaveCount(0);
+});
+
 test('connexion Microsoft (fournisseur simulé de la démo) : le bouton ouvre la console', async ({
   page,
 }) => {
