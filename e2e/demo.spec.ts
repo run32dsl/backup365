@@ -237,12 +237,8 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   const next = page.getByRole('button', { name: 'Continuer' });
   await expect(next).toHaveAttribute('aria-disabled', 'true');
   await expect(page.getByText('Ouvrez la bibliothèque à restaurer pour continuer.')).toBeVisible();
-  // Arborescence au clavier : flèche, Entrée.
-  const tree = page.getByRole('tree');
-  await tree.getByRole('treeitem').first().focus();
-  await page.keyboard.press('ArrowDown');
-  await expect(tree.getByRole('treeitem').nth(1)).toBeFocused();
-  await page.keyboard.press('Enter');
+  // Le lien d'une bibliothèque ouvre le niveau et la choisit.
+  await page.getByRole('link', { name: 'Documents partagés', exact: true }).click();
   await expect(page.getByText('Sélection : Documents partagés')).toBeVisible();
   await next.click();
 
@@ -327,9 +323,9 @@ test('SharePoint : un échec affiche le résultat partiel et propose de réessay
 }) => {
   await signInAs(context, baseURL!, 'operator');
   await page.goto(`/#/sharepoint/${SITES.atelier}/item`);
-  await page.getByRole('treeitem', { name: /Documents partagés/ }).click();
-  await page.getByRole('treeitem', { name: /Plans 2024/ }).click();
-  await page.getByRole('treeitem', { name: /plan-b\.pdf/ }).click();
+  await page.getByRole('link', { name: 'Documents partagés', exact: true }).click();
+  await page.getByRole('link', { name: 'Plans 2024', exact: true }).click();
+  await page.getByRole('radio', { name: /plan-b\.pdf/ }).check();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #11 : essai');
   await page.getByRole('button', { name: 'Continuer' }).click();

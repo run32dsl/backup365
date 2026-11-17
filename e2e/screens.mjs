@@ -106,10 +106,14 @@ export async function openSite(page, site, scope = 'item') {
   await page.getByText('Étape 1 sur 3').waitFor();
 }
 
-/** Ouvre, dans l'arborescence, les dossiers de la liste, puis (facultatif) choisit le fichier. */
+/** Ouvre les dossiers de la liste (liens), puis (facultatif) choisit le fichier (bouton radio). */
 export async function browseSite(page, ...names) {
   for (const name of names) {
-    await page.getByRole('treeitem', { name: new RegExp(name, 'u') }).click();
+    const link = page.getByRole('link', { name: new RegExp(`^${name}$`, 'u') });
+    const radio = page.getByRole('radio', { name: new RegExp(name, 'u') });
+    await link.or(radio).first().waitFor();
+    if (await link.count()) await link.click();
+    else await radio.check();
   }
 }
 
@@ -483,6 +487,14 @@ export const SCREENS = [
     prepare: async (page) => {
       await openSite(page, SITES.commerce, 'item');
       await browseSite(page, 'Documents partagés', 'Plans 2024', 'plan-a.pdf');
+    },
+  },
+  {
+    name: 'sharepoint-bibliotheques',
+    hash: '#/sharepoint',
+    role: 'operator',
+    prepare: async (page) => {
+      await openSite(page, SITES.commerce, 'item');
     },
   },
   {

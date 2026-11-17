@@ -19,7 +19,7 @@ import {
   summaryOf,
 } from './sharepoint.js';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ContentTree } from './SharePointPage.js';
+import { ContentTree, SiteEntriesTable } from './SharePointPage.js';
 import { navEntries, screenOf } from './App.js';
 
 const json = (body: unknown, status = 200) =>
@@ -66,6 +66,72 @@ describe('SharePoint route', () => {
       href: '#/sharepoint',
       current: true,
     });
+  });
+});
+
+describe('SharePoint entries table', () => {
+  const rows = [
+    {
+      name: 'Documents',
+      path: '/Documents',
+      kind: 'library' as const,
+      versionAt: null,
+      sizeBytes: null,
+    },
+    { name: 'Plans', path: '/Plans', kind: 'folder' as const, versionAt: null, sizeBytes: null },
+    {
+      name: 'plan-a.pdf',
+      path: '/plan-a.pdf',
+      kind: 'file' as const,
+      versionAt: '2026-11-16T01:40:00.000Z',
+      sizeBytes: 84_000,
+    },
+    {
+      name: 'plan-b.pdf',
+      path: '/plan-b.pdf',
+      kind: 'file' as const,
+      versionAt: '2026-11-16T01:41:00.000Z',
+      sizeBytes: 1_000,
+    },
+  ];
+  const render = (scope: 'item' | 'folder', file: string | null) =>
+    renderToStaticMarkup(
+      <SiteEntriesTable
+        siteId="s"
+        scope={scope}
+        rows={rows}
+        file={file}
+        onOpen={vi.fn()}
+        onFile={vi.fn()}
+      />,
+    );
+
+  it('is a table with the same columns as OneDrive, and no emoji', () => {
+    const html = render('item', null);
+    for (const h of ['Nom', 'Version du (UTC)', 'Taille']) {
+      expect(html).toContain(`scope="col"`);
+      expect(html).toContain(`>${h}</th>`);
+    }
+    expect(html).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
+    expect(html).toContain('>bibliothèque</span>');
+    expect(html).toContain('>dossier</span>');
+    expect(html).toContain('href="#/sharepoint/s/item/Plans"');
+  });
+
+  it('names a radio button after each file and checks the chosen one only', () => {
+    const html = render('item', '/plan-b.pdf');
+    const radios = html.match(
+      /<label[^>]*><input[^>]*type="radio"[^>]*\/>[^<]*(?:<!-- -->)?[^<]*<\/label>/gu,
+    );
+    expect(radios).toHaveLength(2);
+    expect(radios?.[0]).toMatch(/plan-a\.pdf/u);
+    expect(radios?.[0]).not.toContain('checked');
+    expect(radios?.[1]).toContain('checked');
+    expect(radios?.[1]).toMatch(/plan-b\.pdf/u);
+  });
+
+  it('offers no radio button for a file when the granularity is not « item »', () => {
+    expect(render('folder', null)).not.toContain('type="radio"');
   });
 });
 
