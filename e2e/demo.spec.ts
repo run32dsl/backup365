@@ -441,6 +441,68 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await expect(page.getByText('Après un incident').first()).toBeVisible();
 });
 
+test('plans : un lancement ou une suppression en échec l’explique au-dessus des boutons', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  await page.goto('/#/plans');
+  await page.route('**/api/plans/*/run', (route) =>
+    route.fulfill({
+      status: 503,
+      headers: { 'x-request-id': 'req-1a2b' },
+      json: { error: 'backup_not_configured' },
+    }),
+  );
+  await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
+  const run = page.getByRole('dialog', { name: 'Lancer « Messagerie Direction » maintenant' });
+  const submit = run.getByRole('button', { name: 'Lancer la sauvegarde' });
+  await run.getByLabel('Motif').selectOption({ label: 'Après un incident' });
+  await submit.click();
+
+  // Le message, le lien et l'identifiant de requête, au-dessus des boutons.
+  const alert = run.getByRole('alert').filter({ hasText: 'Sauvegarde non configurée' });
+  await expect(alert).toBeVisible();
+  await expect(alert.getByRole('link', { name: 'Configurer la connexion' })).toHaveAttribute(
+    'href',
+    '#/',
+  );
+  await expect(alert.getByText('Identifiant de requête : req-1a2b')).toBeVisible();
+  const alertBox = (await alert.boundingBox())!;
+  const submitBox = (await submit.boundingBox())!;
+  expect(alertBox.y + alertBox.height).toBeLessThanOrEqual(submitBox.y);
+  // Le dialogue reste ouvert, le bouton redevient actif.
+  await expect(submit).toBeEnabled();
+
+  // Une nouvelle tentative sans motif complet remplace l'échec par le rappel du motif.
+  await run.getByLabel('Motif').selectOption({ label: 'Autre (préciser)' });
+  await submit.click();
+  await expect(run.getByText('Indiquez un motif.')).toBeVisible();
+  await expect(run.getByText('Sauvegarde non configurée')).toHaveCount(0);
+  await run.getByRole('button', { name: 'Annuler' }).click();
+
+  // Suppression refusée : même alerte, le plan reste dans la liste.
+  await page.route('**/api/plans/*', (route) =>
+    route.request().method() === 'DELETE'
+      ? route.fulfill({
+          status: 503,
+          headers: { 'x-request-id': 'req-3c4d' },
+          json: { error: 'audit_unavailable' },
+        })
+      : route.fallback(),
+  );
+  await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
+  const del = page.getByRole('dialog', { name: 'Supprimer « Messagerie Direction » ?' });
+  await del.getByRole('button', { name: 'Supprimer le plan' }).click();
+  const refused = del.getByRole('alert').filter({ hasText: 'Journal d’audit indisponible' });
+  await expect(refused).toBeVisible();
+  await expect(refused.getByText('Identifiant de requête : req-3c4d')).toBeVisible();
+  await expect(refused.getByRole('link')).toHaveCount(0);
+  await del.getByRole('button', { name: 'Annuler' }).click();
+  await expect(page.getByRole('cell', { name: 'Messagerie Direction', exact: true })).toBeVisible();
+});
+
 test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
   page,
   context,

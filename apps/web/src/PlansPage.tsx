@@ -424,6 +424,8 @@ function RunDialog({
         onSubmit={(e) => {
           e.preventDefault();
           if (!plan || busy) return;
+          // Une nouvelle tentative efface l'échec précédent : un seul message à la fois.
+          setProblem(undefined);
           if (missing) {
             setError(MESSAGES.runReason);
             return;
