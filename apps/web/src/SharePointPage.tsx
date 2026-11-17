@@ -9,8 +9,16 @@ import {
 } from 'react';
 import { RestoreNotConfigured } from './RestoreAction.js';
 import {
-  MAX_DETAIL_LENGTH,
-  REASONS,
+  AuditReminder,
+  REASON,
+  RESTORE_BUTTONS as B,
+  RESTORE_STEPS,
+  ReasonField,
+  RunningProgress,
+  stepOf,
+} from './RestoreJourney.js';
+import { isReasonValid } from './mail.js';
+import {
   SCOPE_OPTIONS,
   SHAREPOINT_MESSAGES as T,
   canContinue,
@@ -26,7 +34,6 @@ import {
   formatDuration,
   isOutcomeUncertain,
   pathLabel,
-  reasonText,
   sharePointHash,
   sizeOf,
   startSiteRestore,
@@ -41,8 +48,6 @@ import {
 import type { Loaded } from './onedrive.js';
 import type { DriveSnapshot } from '@backup365/core';
 import { Alert, Button, EmptyState, FormField, Steps } from './ui/index.js';
-
-const STEPS = ['Choisir', 'Motif', 'Confirmation'];
 
 /** Ce qui a été choisi à l'étape 1. */
 interface Choice {
@@ -398,7 +403,7 @@ function ChooseStep({
             }
           }}
         >
-          Continuer
+          {B.next}
         </Button>
       </div>
       {!ok && (
@@ -407,7 +412,6 @@ function ChooseStep({
         </p>
       )}
       {!configured && <RestoreNotConfigured id={notConfiguredId} />}
-      <p className="field-help">{T.gdpr}</p>
     </>
   );
 }
@@ -418,58 +422,30 @@ function ReasonStep({
   onBack,
   onContinue,
 }: {
-  initial: { motif: string; detail: string };
+  initial: string;
   onBack: () => void;
-  onContinue: (reason: { motif: string; detail: string }) => void;
+  onContinue: (reason: string) => void;
 }) {
-  const [motif, setMotif] = useState(initial.motif);
-  const [detail, setDetail] = useState(initial.detail);
+  const [reason, setReason] = useState(initial);
   const [error, setError] = useState<string | undefined>();
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (detail.trim().length < 3) {
-      setError(T.reasonError);
+    if (!isReasonValid(reason)) {
+      setError(REASON.error);
       return;
     }
-    onContinue({ motif, detail: detail.trim() });
+    onContinue(reason.trim());
   }
 
   return (
     <form onSubmit={submit} noValidate>
-      <div className="field">
-        <label htmlFor="sp-motif">Motif</label>
-        <select
-          id="sp-motif"
-          value={motif}
-          onChange={(e) => {
-            setMotif(e.currentTarget.value);
-          }}
-        >
-          {REASONS.map((r) => (
-            <option key={r}>{r}</option>
-          ))}
-        </select>
-      </div>
-      <FormField
-        label="Précision (obligatoire)"
-        type="text"
-        name="detail"
-        required
-        counterMax={MAX_DETAIL_LENGTH}
-        placeholder="Dossier supprimé par erreur"
-        help={`ⓘ ${T.auditNote} N’y saisissez pas de donnée personnelle.`}
-        error={error}
-        value={detail}
-        onChange={(e) => {
-          setDetail(e.currentTarget.value);
-        }}
-      />
+      <ReasonField value={reason} error={error} onChange={setReason} />
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onBack}>
-          Retour
+          {B.back}
         </Button>
-        <Button type="submit">Continuer</Button>
+        <Button type="submit">{B.next}</Button>
       </div>
     </form>
   );
@@ -485,7 +461,7 @@ function ConfirmStep({
 }: {
   site: Site;
   choice: Choice;
-  reason: { motif: string; detail: string };
+  reason: string;
   onBack: () => void;
   onStarted: (job: SiteJob) => void;
 }) {
@@ -497,7 +473,6 @@ function ConfirmStep({
   const [sending, setSending] = useState(false);
   const hintId = useId();
   const whole = choice.scope === 'site';
-  const option = SCOPE_OPTIONS.find((o) => o.value === choice.scope);
   const nameOk = typed === site.displayName;
   const ready = !whole || (understood && nameOk);
 
@@ -527,7 +502,7 @@ function ConfirmStep({
       snapshotId: choice.snapshotId,
       scope: choice.scope,
       path: choice.path,
-      reason: reasonText(reason.motif, reason.detail),
+      reason,
       ...(whole ? { confirmName: typed } : {}),
     }).then((result) => {
       setSending(false);
@@ -582,13 +557,11 @@ function ConfirmStep({
         </p>
       )}
       {summary === null && <p role="status">{T.loading}</p>}
-      <p>
-        Motif : {reason.motif} – « {reason.detail} »
-      </p>
+      <p>Motif : {reason}</p>
       {failure && <Alert tone="error">{failure}</Alert>}
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onBack}>
-          Retour
+          {B.back}
         </Button>
         <Button
           type="submit"
@@ -598,7 +571,7 @@ function ConfirmStep({
           className={ready ? undefined : 'is-inactive'}
           aria-describedby={!ready ? hintId : undefined}
         >
-          {option?.button ?? 'Restaurer'}
+          {B.confirm}
         </Button>
       </div>
       {!ready && (
@@ -607,7 +580,6 @@ function ConfirmStep({
           exact.
         </p>
       )}
-      <p className="field-help">{T.gdpr}</p>
     </form>
   );
 }
@@ -661,19 +633,9 @@ function TrackStep({
   if (running) {
     body = (
       <>
-        <p>
-          <span className="spinner" aria-hidden="true" /> Restauration en cours… {job.total}{' '}
-          {job.total > 1 ? 'éléments' : 'élément'} à traiter
-        </p>
-        {/* Le SDK ne rend pas de progression : barre sans valeur, jamais un pourcentage inventé. */}
-        <div
-          role="progressbar"
-          aria-label="Progression de la restauration"
-          aria-valuetext="En cours"
-          className="progress"
-        >
-          <span className="progress-bar" />
-        </div>
+        <RunningProgress
+          detail={`${job.total} ${job.total > 1 ? 'éléments' : 'élément'} à traiter`}
+        />
         <p>Vous pouvez quitter cette page, la restauration continue.</p>
       </>
     );
@@ -691,7 +653,7 @@ function TrackStep({
           <a className="btn btn-secondary" href="#/audit">
             Voir dans le journal d’audit
           </a>
-          <Button onClick={onAgain}>Nouvelle restauration</Button>
+          <Button onClick={onAgain}>{B.again}</Button>
         </div>
       </>
     );
@@ -709,7 +671,7 @@ function TrackStep({
           </p>
         )}
         <div className="button-row">
-          <Button onClick={onRetry}>Réessayer</Button>
+          <Button onClick={onRetry}>{B.retry}</Button>
           <a className="btn btn-secondary" href="#/audit">
             Voir dans le journal d’audit
           </a>
@@ -728,8 +690,8 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
   const [configured, setConfigured] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const [choice, setChoice] = useState<Choice | null>(null);
-  const [reason, setReason] = useState<{ motif: string; detail: string } | null>(null);
-  const [draft, setDraft] = useState({ motif: REASONS[0] as string, detail: '' });
+  const [reason, setReason] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
   const [job, setJob] = useState<SiteJob | null>(null);
   const titleRef = useRef<HTMLParagraphElement>(null);
 
@@ -796,7 +758,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
       <>
         <Alert tone="error">{T.forbidden}</Alert>
         <a className="btn btn-secondary" href={sharePointHash(site.id)}>
-          Retour
+          {B.back}
         </a>
       </>
     );
@@ -867,23 +829,12 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
     );
   }
 
-  const heading = job
-    ? job.status === 'running'
-      ? 'Restauration en cours'
-      : job.status === 'succeeded'
-        ? 'Restauration terminée'
-        : 'Restauration échouée'
-    : reason
-      ? T.confirmTitle
-      : choice
-        ? T.reasonTitle
-        : T.title;
+  const journey = snapshotId !== null && !!site && !direct;
   return (
     <main tabIndex={-1}>
-      <h1>{heading}</h1>
-      {!job && snapshotId !== null && site && !direct && (
-        <Steps steps={STEPS} current={step} titleRef={titleRef} />
-      )}
+      <h1>{T.title}</h1>
+      {journey && <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />}
+      {journey && <AuditReminder />}
       {content}
     </main>
   );

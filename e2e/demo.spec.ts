@@ -1,13 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { DEMO_LOGINS } from './demo-server.mjs';
 import { expect, test } from './fixtures.js';
-import {
-  DRIVE_REASON_LABEL,
-  RESTORE_REASON_LABEL,
-  SCREENS,
-  SITES,
-  SITE_DETAIL_LABEL,
-} from './screens.mjs';
+import { RESTORE_REASON_LABEL, SCREENS, SITES } from './screens.mjs';
 import { signInAs } from './browser.mjs';
 
 const BANNER = 'Mode démo : données fictives';
@@ -61,19 +55,19 @@ test('restauration : motif obligatoire, suivi, résultat et journal', async ({
   const dialog = page.getByRole('dialog', { name: 'Restaurer ce mail' });
   const reason = dialog.getByLabel(RESTORE_REASON_LABEL);
   await expect(reason).toBeFocused();
-  await expect(dialog.getByText('Exemple : Ticket #1234 : mail supprimé par erreur')).toBeVisible();
+  await expect(dialog.getByText('Ce motif sera inscrit au journal d’audit.')).toBeVisible();
   await expect(
     dialog.getByText(/dossier « Restauré par backup365 \d\d\/\d\d\/\d{4} »/),
   ).toBeVisible();
 
   // Le motif est obligatoire ; la saisie est bornée à 120 caractères.
-  await dialog.getByRole('button', { name: 'Restaurer le mail' }).click();
-  await expect(dialog.getByText('Indiquez un motif (120 caractères au plus).')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Restaurer', exact: true }).click();
+  await expect(dialog.getByText('Indiquez un motif pour continuer.')).toBeVisible();
   await expect(reason).toHaveAttribute('aria-invalid', 'true');
   await expect(reason).toHaveAttribute('maxlength', '120');
 
   await reason.fill('Ticket #4242 : mail supprimé par erreur');
-  await dialog.getByRole('button', { name: 'Restaurer le mail' }).click();
+  await dialog.getByRole('button', { name: 'Restaurer', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Restauration en cours' })).toBeVisible();
   await expect(
     page.getByRole('dialog').getByText('Vous pouvez fermer cette fenêtre'),
@@ -108,7 +102,7 @@ test('restauration : un échec propose de réessayer', async ({ page, context, b
   await page.getByRole('button', { name: /^Restaurer / }).click();
   const dialog = page.getByRole('dialog', { name: 'Restaurer ce mail' });
   await dialog.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #1 : essai');
-  await dialog.getByRole('button', { name: 'Restaurer le mail' }).click();
+  await dialog.getByRole('button', { name: 'Restaurer', exact: true }).click();
   const failed = page.getByRole('dialog', { name: 'Restauration échouée' });
   await expect(failed.getByRole('alert')).toContainText('La restauration a échoué après');
   await expect(failed.getByText('Rien n’a été modifié dans la boîte.')).toBeVisible();
@@ -127,8 +121,9 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   await page.goto('/#/');
   await page.getByRole('link', { name: 'OneDrive', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Restaurer depuis OneDrive' })).toBeVisible();
+  await expect(page.getByText('Étape 1 sur 3 : Choisir')).toBeVisible();
   await expect(
-    page.getByText(/Chaque consultation et chaque restauration sont enregistrées/),
+    page.getByText(/Chaque consultation, export ou restauration est inscrite/),
   ).toBeVisible();
 
   // Navigation par dossiers : le fil d'Ariane suit, les versions sont datées.
@@ -162,32 +157,34 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   await versions.click();
   await panel.getByRole('radio').nth(1).check();
   await panel.getByRole('button', { name: 'Restaurer cette version' }).click();
-  await expect(page.getByRole('heading', { name: 'Motif et récapitulatif' })).toBeVisible();
-  await expect(page.getByText(/Étape 2 sur 3/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Restaurer depuis OneDrive' })).toBeVisible();
+  await expect(page.getByText(/Étape 2 sur 3 : Motif/)).toBeVisible();
+  await page.getByRole('button', { name: 'Continuer' }).click();
+  await expect(page.getByText('Indiquez un motif pour continuer.')).toBeVisible();
+  await expect(page.getByLabel(RESTORE_REASON_LABEL)).toHaveAttribute('aria-invalid', 'true');
+  await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #7 : version erronée');
+  await page.getByRole('button', { name: 'Continuer' }).click();
+
+  // Confirmation : récapitulatif ; remplacer exige une confirmation explicite.
+  await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
   await expect(page.getByText(/version du \d\d\/\d\d\/\d{4} \d\d:\d\d/)).toBeVisible();
   await expect(page.getByText(/en copie, sous un nom choisi par OneDrive/)).toBeVisible();
-  await page.getByRole('button', { name: 'Lancer la restauration' }).click();
-  await expect(page.getByText('Indiquez un motif pour continuer.')).toBeVisible();
-  await expect(page.getByLabel(DRIVE_REASON_LABEL)).toHaveAttribute('aria-invalid', 'true');
-
-  // Remplacer exige une confirmation explicite.
-  await page.getByLabel(DRIVE_REASON_LABEL).fill('Ticket #7 : version erronée');
   await page.getByLabel('Remplacer le fichier actuel').check();
   await expect(
     page.getByText(/La version actuelle reste dans l’historique OneDrive/),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Lancer la restauration' }).click();
+  await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
   await expect(page.getByRole('alert').getByText(/Cochez la case/)).toBeVisible();
   // Revenir à la copie défait la confirmation et le mode.
   await page.getByLabel('Restaurer en copie (recommandé)').check();
-  await page.getByRole('button', { name: 'Lancer la restauration' }).click();
+  await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
 
-  await expect(page.getByRole('heading', { name: 'Restauration en cours' })).toBeVisible();
-  await expect(page.getByRole('status').getByText('En cours')).toBeVisible();
+  await expect(page.getByRole('progressbar')).toBeVisible();
+  await expect(page.getByRole('status').getByText('Restauration en cours')).toBeVisible();
   await expect(page.getByText(/Restauration terminée en \d+ s\./)).toBeVisible();
   await expect(page.getByText('Emplacement : Documents > Budget')).toBeVisible();
 
-  await page.getByRole('link', { name: 'Ouvrir le journal d’audit' }).click();
+  await page.getByRole('link', { name: 'Voir dans le journal d’audit' }).click();
   await expect(
     page.getByRole('cell', { name: 'Ticket #7 : version erronée' }).first(),
   ).toBeVisible();
@@ -204,14 +201,15 @@ test('OneDrive : un échec propose de réessayer, rien n’est modifié', async 
   await signInAs(context, baseURL!, 'admin');
   await page.goto(`/#/onedrive/${encodeURIComponent('paul.moreau@exemple.fr')}/Documents/Budget`);
   await page.getByLabel('Sélectionner previsions.xlsx').check();
-  await page.getByRole('button', { name: 'Restaurer la sélection' }).click();
-  await page.getByLabel(DRIVE_REASON_LABEL).fill('Ticket #8 : essai');
-  await page.getByRole('button', { name: 'Lancer la restauration' }).click();
+  await page.getByRole('button', { name: 'Continuer' }).click();
+  await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #8 : essai');
+  await page.getByRole('button', { name: 'Continuer' }).click();
+  await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
   const failed = page.getByRole('alert').getByText(/La restauration a échoué/);
   await expect(failed).toBeVisible();
   await expect(page.getByText(/Rien n’a été modifié/)).toBeVisible();
   await page.getByRole('button', { name: 'Réessayer' }).click();
-  await expect(page.getByLabel(DRIVE_REASON_LABEL)).toBeVisible();
+  await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
 });
 
 test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et journal', async ({
@@ -222,9 +220,11 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   await signInAs(context, baseURL!, 'operator');
   await page.goto('/#/');
   await page.getByRole('link', { name: 'SharePoint', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Restaurer SharePoint' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Restaurer depuis SharePoint' })).toBeVisible();
   await expect(page.getByText('Étape 1 sur 3')).toBeVisible();
-  await expect(page.getByText(/Cette restauration est tracée/)).toBeVisible();
+  await expect(
+    page.getByText(/Chaque consultation, export ou restauration est inscrite/),
+  ).toBeVisible();
 
   // Un opérateur ne peut pas restaurer le site entier : l'option dit pourquoi, en texte.
   await expect(page.getByLabel('Le site entier')).toBeDisabled();
@@ -245,24 +245,21 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   await next.click();
 
   // Motif : la précision est obligatoire.
-  await expect(page.getByRole('heading', { name: 'Pourquoi cette restauration ?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Restaurer depuis SharePoint' })).toBeVisible();
   await expect(page.getByText('Étape 2 sur 3')).toBeVisible();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page.getByText('Indiquez un motif pour continuer.')).toBeVisible();
-  await page.getByLabel('Motif', { exact: true }).selectOption('Contrôle ou test de restauration');
-  await page.getByLabel(SITE_DETAIL_LABEL).fill('Ticket #9 : essai trimestriel');
+  await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #9 : essai trimestriel');
   await page.getByRole('button', { name: 'Continuer' }).click();
 
   // Récapitulatif en langage clair, sans écrasement.
-  await expect(page.getByRole('heading', { name: 'Vérifiez avant de restaurer' })).toBeVisible();
+  await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
   await expect(
     page.getByText(/Vous allez restaurer la bibliothèque « Documents partagés »/),
   ).toBeVisible();
   await expect(page.getByText(/Les fichiers existants ne seront pas remplacés/)).toBeVisible();
-  await expect(
-    page.getByText('Motif : Contrôle ou test de restauration – « Ticket #9 : essai trimestriel »'),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Restaurer la bibliothèque' }).click();
+  await expect(page.getByText('Motif : Ticket #9 : essai trimestriel')).toBeVisible();
+  await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
 
   await expect(page.getByRole('progressbar')).toBeVisible();
   await expect(
@@ -271,11 +268,7 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
 
   await page.getByRole('link', { name: 'Voir dans le journal d’audit' }).click();
   await expect(
-    page
-      .getByRole('cell', {
-        name: 'Contrôle ou test de restauration : Ticket #9 : essai trimestriel',
-      })
-      .first(),
+    page.getByRole('cell', { name: 'Ticket #9 : essai trimestriel' }).first(),
   ).toBeVisible();
   await expect(
     page
@@ -295,13 +288,13 @@ test('SharePoint : le site entier exige la case, puis le nom exact du site (admi
   await page.goto(`/#/sharepoint/${SITES.rh}`);
   await page.getByLabel('Le site entier').check();
   await page.getByRole('button', { name: 'Continuer' }).click();
-  await page.getByLabel(SITE_DETAIL_LABEL).fill('Ticket #10 : reprise après incident');
+  await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #10 : reprise après incident');
   await page.getByRole('button', { name: 'Continuer' }).click();
 
   await expect(
     page.getByText('Restauration du site entier : action de grande ampleur'),
   ).toBeVisible();
-  const go = page.getByRole('button', { name: 'Restaurer le site entier' });
+  const go = page.getByRole('button', { name: 'Restaurer', exact: true });
   await expect(go).toHaveAttribute('aria-disabled', 'true');
   await expect(page.getByText(/inactif tant que la case n’est pas cochée/)).toBeVisible();
   await page.getByLabel('Tapez le nom du site pour confirmer').fill('Ressources humaine');
@@ -336,9 +329,9 @@ test('SharePoint : un échec affiche le résultat partiel et propose de réessay
   await page.getByRole('treeitem', { name: /Plans 2024/ }).click();
   await page.getByRole('treeitem', { name: /plan-b\.pdf/ }).click();
   await page.getByRole('button', { name: 'Continuer' }).click();
-  await page.getByLabel(SITE_DETAIL_LABEL).fill('Ticket #11 : essai');
+  await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #11 : essai');
   await page.getByRole('button', { name: 'Continuer' }).click();
-  await page.getByRole('button', { name: 'Restaurer l’élément' }).click();
+  await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
   await expect(
     page
       .getByRole('alert')
@@ -347,8 +340,8 @@ test('SharePoint : un échec affiche le résultat partiel et propose de réessay
   await expect(page.getByText('0 restaurés, 0 non traités, 1 erreurs.')).toBeVisible();
   // Réessayer ramène au récapitulatif, motif et choix conservés.
   await page.getByRole('button', { name: 'Réessayer' }).click();
-  await expect(page.getByRole('heading', { name: 'Vérifiez avant de restaurer' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Restaurer l’élément' })).toBeVisible();
+  await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Restaurer', exact: true })).toBeVisible();
 });
 
 test('navigation au clavier du menu replié à 390 px', async ({ page, context, baseURL }) => {

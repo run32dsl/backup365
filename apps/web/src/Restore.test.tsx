@@ -117,7 +117,7 @@ describe('restore requests', () => {
       message: 'Ce mail n’est plus disponible dans la sauvegarde.',
     });
     expect(await refuse(400, 'reason_required')).toMatchObject({
-      message: 'Indiquez un motif (120 caractères au plus).',
+      message: 'Indiquez un motif pour continuer.',
     });
     expect(await refuse(500, 'boom')).toMatchObject({ ok: false });
     const down = await startRestore('a', 'b', 'motif', () => Promise.reject(new Error('net')));

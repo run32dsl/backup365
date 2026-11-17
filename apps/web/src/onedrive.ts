@@ -1,3 +1,4 @@
+import { REASON } from './RestoreJourney.js';
 import type { DriveEntry, DriveSnapshot, DriveVersion } from '@backup365/core';
 import { UNREACHABLE } from './session.js';
 
@@ -28,14 +29,11 @@ export interface DriveJob {
 
 export const ONEDRIVE_MESSAGES = {
   title: 'Restaurer depuis OneDrive',
-  gdpr: 'Chaque consultation et chaque restauration sont enregistrées : qui, quoi, quand, pourquoi.',
   loading: 'Chargement de la sauvegarde…',
   noBackup: 'Aucune sauvegarde de ce OneDrive.',
   readError: 'La sauvegarde n’a pas pu être lue.',
   notConfigured: 'Aucun compte Microsoft 365 n’est connecté.',
   noVersions: 'Aucune version antérieure conservée pour ce fichier.',
-  reasonLabel: 'Motif de la restauration (obligatoire)',
-  reasonError: 'Indiquez un motif pour continuer.',
   confirmReplace: 'Je confirme le remplacement du fichier actuel.',
   confirmError: 'Cochez la case pour confirmer le remplacement.',
   noRights:
@@ -48,7 +46,7 @@ export const ONEDRIVE_MESSAGES = {
 } as const;
 
 const SERVER_MESSAGES: Record<string, string> = {
-  reason_required: ONEDRIVE_MESSAGES.reasonError,
+  reason_required: REASON.error,
   forbidden: ONEDRIVE_MESSAGES.noRights,
   restore_unavailable: ONEDRIVE_MESSAGES.restoreNotConfigured,
   restore_in_progress: ONEDRIVE_MESSAGES.alreadyRunning,

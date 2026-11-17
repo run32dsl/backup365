@@ -44,11 +44,8 @@ async function openRestorePanel(page, n) {
 async function confirmRestore(page) {
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #1234 : mail supprimé par erreur');
-  await dialog.getByRole('button', { name: 'Restaurer le mail' }).click();
+  await dialog.getByRole('button', { name: 'Restaurer', exact: true }).click();
 }
-
-/** Libellé du champ motif de l'écran OneDrive. */
-export const DRIVE_REASON_LABEL = 'Motif de la restauration (obligatoire)';
 
 /**
  * Ouvre un dossier de la sauvegarde OneDrive. Le compte dépend de la largeur de la capture : la
@@ -66,21 +63,25 @@ export async function openDrive(page, folder = '/Documents/Budget') {
   await page.getByRole('table').waitFor();
 }
 
-/** Choisit un fichier du dossier ouvert et passe à l'étape « Motif et récapitulatif ». */
+/** Choisit un fichier du dossier ouvert et passe à l'étape « Motif ». */
 export async function chooseDriveFile(page, name) {
   await page.getByLabel(`Sélectionner ${name}`).check();
-  await page.getByRole('button', { name: 'Restaurer la sélection' }).click();
-  await page.getByRole('heading', { name: 'Motif et récapitulatif' }).waitFor();
+  await page.getByRole('button', { name: 'Continuer' }).click();
+  await page.getByText('Étape 2 sur 3 : Motif').waitFor();
 }
 
-/** Saisit un motif et lance la restauration. */
+/** Saisit le motif et passe à l'étape « Confirmation ». */
+export async function giveDriveReason(page) {
+  await page.getByLabel(RESTORE_REASON_LABEL).fill('Suppression accidentelle par l’utilisateur');
+  await page.getByRole('button', { name: 'Continuer' }).click();
+  await page.getByText('Étape 3 sur 3 : Confirmation').waitFor();
+}
+
+/** Saisit un motif, confirme et lance la restauration. */
 export async function launchDriveRestore(page) {
-  await page.getByLabel(DRIVE_REASON_LABEL).fill('Suppression accidentelle par l’utilisateur');
-  await page.getByRole('button', { name: 'Lancer la restauration' }).click();
+  await giveDriveReason(page);
+  await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
 }
-
-/** Libellé du champ de précision du motif de l'écran SharePoint. */
-export const SITE_DETAIL_LABEL = 'Précision (obligatoire)';
 
 /** Sites fictifs (voir `DEMO_SITES` de apps/server/src/demo.ts). */
 export const SITES = {
@@ -101,7 +102,7 @@ export const SITES = {
  */
 export async function openSite(page, site, scope = 'item') {
   await page.goto(`/#/sharepoint/${site}/${scope}`);
-  await page.getByRole('heading', { name: 'Restaurer SharePoint' }).waitFor();
+  await page.getByRole('heading', { name: 'Restaurer depuis SharePoint' }).waitFor();
   await page.getByText('Étape 1 sur 3').waitFor();
 }
 
@@ -119,8 +120,8 @@ export async function continueStep(page) {
 
 /** Étape « Motif » : liste par défaut et précision saisie. */
 export async function giveSiteReason(page) {
-  await page.getByRole('heading', { name: 'Pourquoi cette restauration ?' }).waitFor();
-  await page.getByLabel(SITE_DETAIL_LABEL).fill('Dossier supprimé par erreur');
+  await page.getByText('Étape 2 sur 3 : Motif').waitFor();
+  await page.getByLabel(RESTORE_REASON_LABEL).fill('Dossier supprimé par erreur');
 }
 
 /** Choisit un chemin, donne le motif et arrive au récapitulatif. */
@@ -130,7 +131,7 @@ export async function reachSiteSummary(page, site, scope, ...names) {
   await continueStep(page);
   await giveSiteReason(page);
   await continueStep(page);
-  await page.getByRole('heading', { name: 'Vérifiez avant de restaurer' }).waitFor();
+  await page.getByText('Étape 3 sur 3 : Confirmation').waitFor();
 }
 
 /** @type {Screen[]} */
@@ -394,13 +395,25 @@ export const SCREENS = [
     },
   },
   {
+    name: 'onedrive-motif',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await openDrive(page);
+      await chooseDriveFile(page, 'budget.xlsx');
+      await page
+        .getByLabel(RESTORE_REASON_LABEL)
+        .fill('Suppression accidentelle par l’utilisateur');
+    },
+  },
+  {
     name: 'onedrive-recapitulatif',
     hash: '#/onedrive',
     role: 'operator',
     prepare: async (page) => {
       await openDrive(page);
       await chooseDriveFile(page, 'budget.xlsx');
-      await page.getByLabel(DRIVE_REASON_LABEL).fill('Suppression accidentelle par l’utilisateur');
+      await giveDriveReason(page);
     },
   },
   {
@@ -410,7 +423,7 @@ export const SCREENS = [
     prepare: async (page) => {
       await openDrive(page);
       await chooseDriveFile(page, 'budget.xlsx');
-      await page.getByLabel(DRIVE_REASON_LABEL).fill('Suppression accidentelle par l’utilisateur');
+      await giveDriveReason(page);
       await page.getByLabel('Remplacer le fichier actuel').check();
     },
   },
@@ -422,7 +435,7 @@ export const SCREENS = [
       await openDrive(page, '/Documents');
       await chooseDriveFile(page, 'notes.docx');
       await launchDriveRestore(page);
-      await page.getByRole('heading', { name: 'Restauration en cours' }).waitFor();
+      await page.getByRole('progressbar').waitFor();
     },
   },
   {
@@ -482,7 +495,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await reachSiteSummary(page, SITES.commerce, 'site');
-      await page.getByRole('heading', { name: 'Vérifiez avant de restaurer' }).waitFor();
+      await page.getByText('Restauration du site entier').waitFor();
     },
   },
   {
@@ -507,7 +520,7 @@ export const SCREENS = [
         'library',
         'Documents partagés',
       );
-      await page.getByRole('button', { name: 'Restaurer la bibliothèque' }).click();
+      await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
       await page.getByRole('progressbar').waitFor();
     },
   },
@@ -517,7 +530,7 @@ export const SCREENS = [
     role: 'operator',
     prepare: async (page) => {
       await reachSiteSummary(page, SITES.atelier, 'folder', 'Documents partagés', 'Contrats');
-      await page.getByRole('button', { name: 'Restaurer le dossier' }).click();
+      await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
       await page.getByText(/Restauration terminée en/u).waitFor();
     },
   },
@@ -534,7 +547,7 @@ export const SCREENS = [
         'Plans 2024',
         'plan-b.pdf',
       );
-      await page.getByRole('button', { name: 'Restaurer l’élément' }).click();
+      await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
       await page.getByText(/La restauration a échoué après/u).waitFor();
     },
   },

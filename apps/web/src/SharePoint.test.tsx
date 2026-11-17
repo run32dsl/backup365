@@ -10,7 +10,6 @@ import {
   isOutcomeUncertain,
   parseSharePointHash,
   pathLabel,
-  reasonText,
   sharePointHash,
   startSiteRestore,
   summaryCountOf,
@@ -63,7 +62,6 @@ describe('SharePoint wording', () => {
     );
     expect(summaryCountOf({ items: 1, sizeBytes: 84_000 })).toBe('1 élément, 84 Ko');
     expect(pathLabel('/Documents partagés/Plans 2024')).toBe('Documents partagés > Plans 2024');
-    expect(reasonText('Autre (à préciser)', '  essai ')).toBe('Autre (à préciser) : essai');
   });
 
   it('writes the summary in plain language, with the point of restoration', () => {

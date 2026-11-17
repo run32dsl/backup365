@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { parentOf } from '@backup365/core';
-import { isReasonValid, MAX_REASON_LENGTH } from './mail.js';
+import { isReasonValid } from './mail.js';
 import {
   ONEDRIVE_MESSAGES as T,
   breadcrumbOf,
@@ -28,10 +28,17 @@ import {
   type OneDriveRoute,
 } from './onedrive.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
+import {
+  AuditReminder,
+  REASON,
+  RESTORE_BUTTONS as B,
+  RESTORE_STEPS,
+  ReasonField,
+  RunningProgress,
+  stepOf,
+} from './RestoreJourney.js';
 import { formatDuration } from './restore.js';
-import { Alert, Button, DataTable, Dialog, EmptyState, FormField, Steps } from './ui/index.js';
-
-const STEPS = ['Choisir', 'Motif et récapitulatif', 'Suivi'];
+import { Alert, Button, DataTable, Dialog, EmptyState, Steps } from './ui/index.js';
 
 /** Élément choisi à l'étape 1 : un fichier ou un dossier, éventuellement une version précise. */
 interface Choice {
@@ -330,11 +337,10 @@ function BrowseStep({
             if (configured && chosen) onChoose({ entry: chosen, snapshotId });
           }}
         >
-          Restaurer la sélection
+          {B.next}
         </Button>
       </div>
       {!configured && <RestoreNotConfigured id={hintId} />}
-      <p className="field-help">{T.gdpr}</p>
 
       {versionsOf && (
         <VersionsDialog
@@ -354,23 +360,58 @@ function BrowseStep({
   );
 }
 
-/** Étape 2 : motif, mode et récapitulatif. */
+/** Étape 2 : le motif. */
+function ReasonStep({
+  initial,
+  onBack,
+  onContinue,
+}: {
+  initial: string;
+  onBack: () => void;
+  onContinue: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState(initial);
+  const [error, setError] = useState<string | undefined>();
+
+  function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!isReasonValid(reason)) {
+      setError(REASON.error);
+      return;
+    }
+    onContinue(reason.trim());
+  }
+
+  return (
+    <form onSubmit={submit} noValidate>
+      <ReasonField value={reason} error={error} onChange={setReason} />
+      <div className="button-row dialog-actions">
+        <Button variant="secondary" data-safe onClick={onBack}>
+          {B.back}
+        </Button>
+        <Button type="submit">{B.next}</Button>
+      </div>
+    </form>
+  );
+}
+
+/** Étape 3 : mode et récapitulatif. */
 function ConfirmStep({
   account,
   choice,
-  onCancel,
+  reason,
+  onBack,
   onStarted,
 }: {
   account: string;
   choice: Choice;
-  onCancel: () => void;
+  reason: string;
+  onBack: () => void;
   onStarted: (job: DriveJob) => void;
 }) {
   const { entry, version } = choice;
-  const [reason, setReason] = useState('');
   const [mode, setMode] = useState<DriveMode>('copy');
   const [confirmed, setConfirmed] = useState(false);
-  const [error, setError] = useState<string | undefined>();
   const [confirmError, setConfirmError] = useState(false);
   const [failure, setFailure] = useState<string | undefined>();
   const [sending, setSending] = useState(false);
@@ -382,11 +423,6 @@ function ConfirmStep({
     e.preventDefault();
     if (sending) return;
     setFailure(undefined);
-    if (!isReasonValid(reason)) {
-      setError(T.reasonError);
-      return;
-    }
-    setError(undefined);
     if (mode === 'replace' && !confirmed) {
       setConfirmError(true);
       return;
@@ -409,20 +445,7 @@ function ConfirmStep({
 
   return (
     <form onSubmit={submit} noValidate>
-      <FormField
-        label={T.reasonLabel}
-        type="text"
-        name="reason"
-        required
-        counterMax={MAX_REASON_LENGTH}
-        placeholder="Suppression accidentelle par l’utilisateur"
-        help="Ce motif sera inscrit au journal d’audit. N’y saisissez pas de donnée personnelle."
-        error={error}
-        value={reason}
-        onChange={(e) => {
-          setReason(e.currentTarget.value);
-        }}
-      />
+      <p>Motif : {reason}</p>
       <fieldset className="choices">
         <legend>Mode</legend>
         <label className="choice">
@@ -487,14 +510,13 @@ function ConfirmStep({
       )}
       {failure && <Alert tone="error">{failure}</Alert>}
       <div className="button-row dialog-actions">
-        <Button variant="secondary" data-safe onClick={onCancel}>
-          Annuler
+        <Button variant="secondary" data-safe onClick={onBack}>
+          {B.back}
         </Button>
         <Button type="submit" busy={sending}>
-          Lancer la restauration
+          {B.confirm}
         </Button>
       </div>
-      <p className="field-help">{T.gdpr}</p>
     </form>
   );
 }
@@ -553,9 +575,7 @@ function TrackStep({
   if (job.status === 'running') {
     body = (
       <>
-        <p role="status">
-          <span className="spinner" aria-hidden="true" /> En cours
-        </p>
+        <RunningProgress />
         <p>Vous pouvez quitter cette page, la restauration continue.</p>
       </>
     );
@@ -568,9 +588,9 @@ function TrackStep({
         <p>Emplacement : {where}</p>
         <div className="button-row">
           <a className="btn btn-secondary" href="#/audit">
-            Ouvrir le journal d’audit
+            {B.audit}
           </a>
-          <Button onClick={onAgain}>Restaurer autre chose</Button>
+          <Button onClick={onAgain}>{B.again}</Button>
         </div>
       </>
     );
@@ -584,9 +604,9 @@ function TrackStep({
             : 'Rien n’a été modifié.'}
         </Alert>
         <div className="button-row">
-          <Button onClick={onRetry}>Réessayer</Button>
+          <Button onClick={onRetry}>{B.retry}</Button>
           <a className="btn btn-secondary" href="#/audit">
-            Voir le journal d’audit
+            {B.audit}
           </a>
         </div>
       </>
@@ -612,6 +632,8 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
   const [configured, setConfigured] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const [choice, setChoice] = useState<Choice | null>(null);
+  const [reason, setReason] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
   const [job, setJob] = useState<DriveJob | null>(null);
   const titleRef = useRef<HTMLParagraphElement>(null);
 
@@ -646,7 +668,7 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
     };
   }, [account, attempt]);
 
-  const step = job ? 3 : choice ? 2 : 1;
+  const step = job ? 4 : reason !== null ? 3 : choice ? 2 : 1;
   useEffect(() => {
     if (step > 1) titleRef.current?.focus();
   }, [step]);
@@ -656,9 +678,11 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
   };
   const reset = () => {
     setChoice(null);
+    setReason(null);
     setJob(null);
   };
 
+  let journey = false;
   let content: ReactNode;
   if (accounts === null) {
     content = (
@@ -684,6 +708,7 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
   } else if (snapshotId === null) {
     content = <Problem status="no_backup" onRetry={retry} />;
   } else if (job && choice) {
+    journey = true;
     content = (
       <TrackStep
         key={job.id}
@@ -697,9 +722,33 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
         }}
       />
     );
+  } else if (choice && reason !== null) {
+    journey = true;
+    content = (
+      <ConfirmStep
+        account={account}
+        choice={choice}
+        reason={reason}
+        onBack={() => {
+          setReason(null);
+        }}
+        onStarted={setJob}
+      />
+    );
   } else if (choice) {
-    content = <ConfirmStep account={account} choice={choice} onCancel={reset} onStarted={setJob} />;
+    journey = true;
+    content = (
+      <ReasonStep
+        initial={draft}
+        onBack={reset}
+        onContinue={(r) => {
+          setDraft(r);
+          setReason(r);
+        }}
+      />
+    );
   } else {
+    journey = true;
     content = (
       <BrowseStep
         route={route}
@@ -714,19 +763,11 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
     );
   }
 
-  const heading = job
-    ? job.status === 'running'
-      ? 'Restauration en cours'
-      : job.status === 'succeeded'
-        ? 'Restauration terminée'
-        : 'Restauration échouée'
-    : choice
-      ? 'Motif et récapitulatif'
-      : T.title;
   return (
     <main tabIndex={-1}>
-      <h1>{heading}</h1>
-      {choice && <Steps steps={STEPS} current={step} titleRef={titleRef} />}
+      <h1>{T.title}</h1>
+      {journey && <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />}
+      {journey && <AuditReminder />}
       {content}
     </main>
   );
