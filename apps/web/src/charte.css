@@ -481,6 +481,18 @@ select[aria-disabled='true'] {
   overflow-wrap: break-word;
 }
 
+/* Une adresse trop longue se coupe après le « @ », pas au milieu du domaine (sauf `.address`, ci-dessous). */
+.data-table .addr-domain::before {
+  content: '\200b';
+}
+
+/* Adresse sur une seule ligne en tableau ; en carte (sous 900 px) elle peut passer à la ligne. */
+@media (min-width: 56.26rem) {
+  .data-table .address {
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 56.25rem) {
   .data-table,
   .data-table tbody,
@@ -506,6 +518,13 @@ select[aria-disabled='true'] {
     grid-template-columns: minmax(6rem, 35%) 1fr;
     gap: var(--space-2);
     border-bottom: 0;
+  }
+  /* Cellule d'action : le bouton seul, sans étiquette à gauche. */
+  .data-table td.card-action {
+    display: block;
+  }
+  .data-table td.card-action::before {
+    display: none;
   }
   .data-table td::before {
     content: attr(data-label);

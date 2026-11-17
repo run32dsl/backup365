@@ -68,6 +68,16 @@ describe('charte.css contrast (WCAG AA)', () => {
   }
 });
 
+describe('charte.css data tables', () => {
+  it('hides the label of action cells in cards', () => {
+    expect(/\.data-table td\.card-action::before\s*\{\s*display:\s*none;/.test(css)).toBe(true);
+  });
+
+  it('keeps words whole in keep-words cells', () => {
+    expect(/\.data-table \.keep-words\s*\{\s*overflow-wrap:\s*break-word;/.test(css)).toBe(true);
+  });
+});
+
 describe('charte.css collapsible menu (keyboard access)', () => {
   const narrow = /@media \(max-width: 56\.25rem\)\s*\{([\s\S]*?)\n\}\n/.exec(css)?.[1] ?? '';
 
