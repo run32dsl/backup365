@@ -334,10 +334,10 @@ function AppGate({ health }: { health: HealthState }) {
   };
   // Message affiché entre la perte d'une session et la connexion suivante.
   // Retour refusé de Microsoft (`?oidc_error=`) : lu une fois, puis retiré de l'adresse.
-  const [notice, setNotice] = useState<string | undefined>(() => {
+  const [notice, setNotice] = useState<{ text: string; tone: 'info' | 'error' } | undefined>(() => {
     const message = oidcErrorMessage(window.location.search);
     if (message) window.history.replaceState(null, '', window.location.pathname);
-    return message;
+    return message ? { text: message, tone: 'error' } : undefined;
   });
   // Page demandée avant la connexion, rouverte ensuite ; l'ancre vaut `#/connexion` entre-temps.
   const target = useRef<string | null>(null);
@@ -355,7 +355,7 @@ function AppGate({ health }: { health: HealthState }) {
   useEffect(() => {
     installSessionFetch();
     onSessionExpired((loss) => {
-      setNotice(lossMessage(loss));
+      setNotice({ text: lossMessage(loss), tone: 'info' });
       // Un refus CSRF laisse une session valide côté serveur : on revient à la connexion sans
       // la relire, sinon `loadGate` la rouvrirait aussitôt.
       if (loss === 'invalid') {
@@ -409,7 +409,8 @@ function AppGate({ health }: { health: HealthState }) {
       return (
         <CredentialsPage
           mode={gate.status}
-          notice={gate.status === 'login' ? notice : undefined}
+          notice={gate.status === 'login' ? notice?.text : undefined}
+          noticeTone={notice?.tone}
           onSession={open}
         />
       );

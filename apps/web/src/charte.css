@@ -1080,3 +1080,57 @@ a.btn-secondary {
     gap: 0;
   }
 }
+
+/* Écrans d'accès : bloc centré (connexion, premier administrateur, nouveau mot de passe). */
+main.auth {
+  box-sizing: border-box;
+  max-width: 28rem;
+  margin: var(--space-4) auto;
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+.auth-brand {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.125rem;
+}
+.auth-tagline {
+  margin: 0 0 var(--space-3);
+  color: var(--muted);
+}
+.auth form > button[type='submit'],
+.auth .button-row > button[type='submit'],
+.auth-microsoft {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+  color: var(--muted);
+}
+.auth-or::before,
+.auth-or::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--border);
+}
+.auth-audit {
+  margin: var(--space-3) 0 0;
+}
+@media (max-width: 56.25rem) {
+  main.auth {
+    margin: 0 auto;
+    padding: var(--space-3);
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+  }
+}

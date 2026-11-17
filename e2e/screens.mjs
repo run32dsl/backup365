@@ -174,7 +174,7 @@ export const SCREENS = [
     role: null,
     prepare: async (page) => {
       await page.goto('/?oidc_error=no_group');
-      await page.getByRole('status').filter({ hasText: 'aucun groupe autorisé' }).waitFor();
+      await page.getByRole('alert').filter({ hasText: 'aucun groupe autorisé' }).waitFor();
     },
   },
   { name: 'tableau-de-bord', hash: '#/', role: 'admin' },

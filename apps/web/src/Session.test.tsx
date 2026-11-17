@@ -255,8 +255,23 @@ describe('maquette de l’issue #22', () => {
     );
     expect(lossMessage('invalid')).toBe('Votre session n’est plus valide. Reconnectez-vous.');
     const html = renderToString(<CredentialsView mode="login" notice={lossMessage('expired')} />);
-    expect(html).toContain(`<p role="status">${lossMessage('expired')}</p>`);
+    expect(html).toContain('alert-info');
+    expect(html).toContain(lossMessage('expired'));
     expect(renderToString(<CredentialsView mode="login" />)).not.toContain('expiré');
+  });
+
+  it('shows a Microsoft refusal as an error alert, not a plain paragraph', () => {
+    const html = renderToString(
+      <CredentialsView mode="login" notice="Accès refusé." noticeTone="error" microsoft />,
+    );
+    expect(html).toContain('class="alert alert-error" role="alert"');
+    expect(html).toContain('✖');
+    expect(html).not.toContain('<p role="status">Accès refusé.');
+    expect(html).toContain('>ou<');
+    expect(html).toContain('class="auth-brand"');
+    expect(renderToString(<CredentialsView mode="login" />)).not.toContain('auth-or');
+    expect(renderToString(<CredentialsView mode="setup" microsoft />)).not.toContain('auth-or');
+    expect(renderToString(<CredentialsView mode="setup" />)).toContain('class="auth"');
   });
 
   it('remembers the requested page, never the login anchor itself', () => {
