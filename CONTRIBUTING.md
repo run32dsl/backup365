@@ -53,6 +53,13 @@ présente ; utiliser un `BACKUP365_DATA_DIR` jetable.
   navigateur une fois avec `pnpm exec playwright install chromium`, ou pointer
   `BACKUP365_CHROMIUM` vers un exécutable Chromium existant.
 
+## Version affichée
+
+Le pied de page affiche « Version <paquet> · <commit court> » pour une image construite avec
+`--build-arg BUILD_COMMIT=$(git rev-parse --short=7 HEAD)` (la CI le fait), et « Version dev » en
+local ou sans l'argument. La CI vérifie que l'image affiche bien la version et le commit, jamais
+0.0.0. La version du paquet est celle de `apps/server/package.json`.
+
 ## Conventions
 
 - Une issue = une branche `feat/<n>-<sujet>` ou `fix/<n>-<sujet>`, une PR vers `develop`.
