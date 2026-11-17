@@ -1,12 +1,5 @@
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type FormEvent,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { dateTimeOrDash } from './format.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
 import {
   AuditReminder,
@@ -57,6 +50,7 @@ import {
   Alert,
   Button,
   ChoiceGroup,
+  DataTable,
   EmptyState,
   FormField,
   Steps,
@@ -99,10 +93,70 @@ function Problem({
   );
 }
 
+/** Liste d'un niveau du site : même présentation que celle d'OneDrive (`EntriesTable`). */
+export function SiteEntriesTable({
+  siteId,
+  scope,
+  rows,
+  file,
+  onOpen,
+  onFile,
+}: {
+  siteId: string;
+  scope: SiteScope;
+  rows: SiteEntry[];
+  file: string | null;
+  onOpen: (path: string) => void;
+  onFile: (path: string) => void;
+}) {
+  return (
+    <DataTable
+      caption="Contenu du site sauvegardé"
+      hideCaption
+      rows={rows}
+      rowKey={(e) => e.path}
+      columns={[
+        {
+          header: 'Nom',
+          cell: (e) => {
+            if (e.kind === 'file') {
+              return scope === 'item' ? (
+                <label className="choice">
+                  <input
+                    type="radio"
+                    name="selection"
+                    checked={file === e.path}
+                    onChange={() => {
+                      onFile(e.path);
+                    }}
+                  />{' '}
+                  {e.name}
+                </label>
+              ) : (
+                e.name
+              );
+            }
+            return (
+              <span className="choice">
+                <a {...breadcrumbLink({ path: e.path }, siteId, scope, onOpen)}>{e.name}</a>
+                <span className="cell-secondary-inline">
+                  {e.kind === 'library' ? 'bibliothèque' : 'dossier'}
+                </span>
+              </span>
+            );
+          },
+        },
+        { header: 'Version du (UTC)', cell: (e) => dateTimeOrDash(e.versionAt) },
+        { header: 'Taille', cell: (e) => (e.kind === 'file' ? sizeOf(e.sizeBytes) : '—') },
+      ]}
+    />
+  );
+}
+
 /**
- * Arborescence du site à une date : une bibliothèque, un dossier ou un fichier à la fois
- * (`role="tree"`), flèches haut et bas pour se déplacer, Entrée pour ouvrir un dossier ou choisir un
- * fichier. Le chemin ouvert est le fil d'Ariane.
+ * Contenu du site à une date, un niveau à la fois : les bibliothèques et les dossiers sont des
+ * liens qui ouvrent le niveau suivant, un fichier se choisit par son bouton radio (granularité
+ * « élément »). Le chemin ouvert est le fil d'Ariane.
  */
 export function ContentTree({
   siteId,
@@ -125,13 +179,10 @@ export function ContentTree({
 }) {
   const [entries, setEntries] = useState<Loaded<SiteEntry[]> | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [active, setActive] = useState(0);
-  const refs = useRef<(HTMLLIElement | null)[]>([]);
 
   useEffect(() => {
     let current = true;
     setEntries(null);
-    setActive(0);
     void fetchSiteEntries(siteId, snapshotId, path).then((result) => {
       if (current) setEntries(result);
     });
@@ -141,49 +192,11 @@ export function ContentTree({
   }, [siteId, snapshotId, path, attempt]);
 
   const rows = entries?.status === 'ok' ? entries.data : [];
-  // Ouvrir un dossier remplace la liste : le focus passe au premier élément de la nouvelle.
-  const moved = useRef(false);
-  useEffect(() => {
-    if (moved.current && entries?.status === 'ok' && entries.data.length > 0) {
-      moved.current = false;
-      refs.current[0]?.focus();
-    }
-  }, [entries]);
   const go = (to: string) => {
-    moved.current = true;
     onFile(null);
     onPath(to);
   };
   const crumbs = breadcrumbLevels(siteName, path);
-
-  function open(e: SiteEntry) {
-    if (e.kind === 'file') {
-      if (scope === 'item') onFile(e.path);
-    } else {
-      go(e.path);
-    }
-  }
-
-  function onKey(ev: KeyboardEvent<HTMLUListElement>) {
-    const move = (to: number) => {
-      const next = Math.max(0, Math.min(rows.length - 1, to));
-      setActive(next);
-      refs.current[next]?.focus();
-      ev.preventDefault();
-    };
-    if (ev.key === 'ArrowDown') move(active + 1);
-    else if (ev.key === 'ArrowUp') move(active - 1);
-    else if (ev.key === 'Home') move(0);
-    else if (ev.key === 'End') move(rows.length - 1);
-    else if (ev.key === 'Enter' || ev.key === ' ') {
-      const row = rows[active];
-      if (row) open(row);
-      ev.preventDefault();
-    } else if (ev.key === 'ArrowLeft' && crumbs.length > 1) {
-      go(crumbs[crumbs.length - 2]?.path ?? '/');
-      ev.preventDefault();
-    }
-  }
 
   return (
     <>
@@ -214,52 +227,14 @@ export function ContentTree({
         )}
         {entries?.status === 'ok' && rows.length === 0 && <EmptyState>{T.emptyFolder}</EmptyState>}
         {rows.length > 0 && (
-          <ul
-            role="tree"
-            aria-label="Contenu du site sauvegardé"
-            className="site-tree"
-            onKeyDown={onKey}
-          >
-            {rows.map((e, i) => {
-              const selectable = e.kind !== 'file' || scope === 'item';
-              return (
-                <li
-                  key={e.path}
-                  role="treeitem"
-                  ref={(el) => {
-                    refs.current[i] = el;
-                  }}
-                  tabIndex={i === active ? 0 : -1}
-                  aria-selected={e.kind === 'file' ? file === e.path : undefined}
-                  aria-disabled={!selectable || undefined}
-                  className={`site-node${file === e.path ? ' is-selected' : ''}`}
-                  onClick={() => {
-                    setActive(i);
-                    open(e);
-                  }}
-                  onFocus={() => {
-                    setActive(i);
-                  }}
-                >
-                  <span aria-hidden="true">
-                    {e.kind === 'library' ? '🗂' : e.kind === 'folder' ? '📁' : '📄'}
-                  </span>{' '}
-                  {e.name}
-                  <span className="sr-only">
-                    {e.kind === 'library'
-                      ? ' (bibliothèque)'
-                      : e.kind === 'folder'
-                        ? ' (dossier)'
-                        : ' (fichier)'}
-                  </span>
-                  <span className="site-node-meta">
-                    {dateTimeOf(e.versionAt)}
-                    {e.kind === 'file' ? ` · ${sizeOf(e.sizeBytes)}` : ''}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+          <SiteEntriesTable
+            siteId={siteId}
+            scope={scope}
+            rows={rows}
+            file={file}
+            onOpen={go}
+            onFile={onFile}
+          />
         )}
       </div>
     </>

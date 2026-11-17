@@ -60,8 +60,8 @@ nom (restauré jj-mm-aaaa).ext` (`jj-mm-aaaa` et non `jj/mm/aaaa` de la maquette
   `outcome=<…>;duration_ms=<n>;scope=<…>;skipped=<n>;errors=<n>;reason=<motif>` (texte libre en
   dernier : couper aux cinq premiers `;` seulement). Jamais le contenu d'un fichier.
 - **Interface** : entrée « SharePoint » (`#/sharepoint/<site>/<granularité>/<chemin>` ; le chemin ouvert reste dans le fragment, que le serveur ne reçoit jamais, comme pour OneDrive ; sept entrées pour un
-  administrateur). Étapes : choisir (site, granularité en `fieldset`, arborescence `role="tree"` au
-  clavier, point de restauration), motif (liste et précision obligatoire), récapitulatif (case puis
+  administrateur). Étapes : choisir (site, granularité en `fieldset`, tableau `DataTable` comme
+  OneDrive (dossiers en liens, fichiers en boutons radio), point de restauration), motif (liste et précision obligatoire), récapitulatif (case puis
   nom du site pour le site entier), suivi. La progression est une barre `role="progressbar"` sans
   valeur : le SDK n'en rend pas, on n'invente pas de pourcentage. Composants communs : `Steps`,
   `Alert`, `EmptyState`, `FormField`, `Button`. Un accès direct au site entier sans être administrateur
