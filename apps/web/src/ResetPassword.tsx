@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type Ref } from 'react';
 import { RESET_TEXTS } from './accounts.js';
+import type { Problem } from './apiError.js';
+import { FailureAlert } from './FailureAlert.js';
 import { AuditReminder, REASON, ReasonField } from './RestoreJourney.js';
 import { Alert, Button, Dialog } from './ui/index.js';
 
@@ -7,12 +9,14 @@ import { Alert, Button, Dialog } from './ui/index.js';
 export function ResetReasonForm({
   username,
   error,
+  failure,
   busy = false,
   onSubmit,
   onCancel,
 }: {
   username: string;
   error?: string;
+  failure?: Problem | undefined;
   busy?: boolean;
   onSubmit?: (reason: string) => void;
   onCancel?: () => void;
@@ -34,6 +38,7 @@ export function ResetReasonForm({
         à sa prochaine connexion.
       </p>
       <ReasonField of="de la réinitialisation" value={reason} error={error} onChange={setReason} />
+      {failure && <FailureAlert problem={failure} />}
       <AuditReminder extra={RESET_TEXTS.audit} />
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onCancel}>
@@ -129,10 +134,11 @@ export function ResetPasswordDialog({
   onClose,
 }: {
   username: string | null;
-  run: (reason: string) => Promise<{ password: string } | { error: string }>;
+  run: (reason: string) => Promise<{ password: string } | { error: Problem }>;
   onClose: () => void;
 }) {
   const [error, setError] = useState<string>();
+  const [failure, setFailure] = useState<Problem>();
   const [busy, setBusy] = useState(false);
   const [password, setPassword] = useState<string>();
   const [copied, setCopied] = useState(false);
@@ -141,6 +147,7 @@ export function ResetPasswordDialog({
   const code = useRef<HTMLElement>(null);
   useEffect(() => {
     setError(undefined);
+    setFailure(undefined);
     setBusy(false);
     setPassword(undefined);
     setCopied(false);
@@ -180,6 +187,7 @@ export function ResetPasswordDialog({
         <ResetReasonForm
           username={username ?? ''}
           error={error}
+          failure={failure}
           busy={busy}
           onCancel={onClose}
           onSubmit={(reason) => {
@@ -189,11 +197,12 @@ export function ResetPasswordDialog({
               return;
             }
             setError(undefined);
+            setFailure(undefined);
             setBusy(true);
             void run(reason).then((result) => {
               setBusy(false);
               if ('password' in result) setPassword(result.password);
-              else setError(result.error);
+              else setFailure(result.error);
             });
           }}
         />

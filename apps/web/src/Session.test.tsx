@@ -165,8 +165,8 @@ describe('Administration page structure', () => {
     await expect(submitCreate(() => Promise.resolve(true), form, close)).resolves.toBeUndefined();
     expect(close).toHaveBeenCalledTimes(1);
     const kept = vi.fn();
-    const taken = 'Cet identifiant est déjà utilisé.';
-    await expect(submitCreate(() => Promise.resolve(taken), form, kept)).resolves.toBe(taken);
+    const taken = { message: 'Cet identifiant est déjà utilisé.', requestId: 'req-7' };
+    await expect(submitCreate(() => Promise.resolve(taken), form, kept)).resolves.toEqual(taken);
     expect(kept).not.toHaveBeenCalled();
   });
 });

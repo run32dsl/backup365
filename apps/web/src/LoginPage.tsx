@@ -66,7 +66,15 @@ export function Field({
 }
 
 /** Erreur réseau ou serveur, avec le bouton « Réessayer ». */
-export function ErrorView({ message, onRetry }: { message: string; onRetry?: () => void }) {
+export function ErrorView({
+  message,
+  requestId,
+  onRetry,
+}: {
+  message: string;
+  requestId?: string | undefined;
+  onRetry?: () => void;
+}) {
   return (
     <Alert
       tone="error"
@@ -77,6 +85,11 @@ export function ErrorView({ message, onRetry }: { message: string; onRetry?: () 
       }
     >
       {message}
+      {requestId ? (
+        <small className="alert-detail request-id">
+          Identifiant de requête : <code>{requestId}</code>
+        </small>
+      ) : null}
     </Alert>
   );
 }

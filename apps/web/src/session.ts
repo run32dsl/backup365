@@ -78,6 +78,12 @@ export async function errorMessage(res: Response): Promise<string> {
   return MESSAGES[code] ?? API_ERRORS[code] ?? fallbackMessage(res.status);
 }
 
+/** Échec d'une réponse d'erreur : le message en français et l'identifiant de requête. */
+export async function failureOf(res: Response): Promise<{ message: string; requestId?: string }> {
+  const requestId = res.headers.get('x-request-id') ?? undefined;
+  return { message: await errorMessage(res), ...(requestId ? { requestId } : {}) };
+}
+
 /** Secondes avant un nouvel essai, d'après une réponse 429 (corps, sinon en-tête `Retry-After`). */
 export async function retryAfterOf(res: Response): Promise<number | undefined> {
   const body = (await res
@@ -151,7 +157,7 @@ export async function changePassword(
   fetchFn: typeof fetch = fetch,
 ): Promise<Outcome<null>> {
   const res = await fetchFn('/api/auth/password', json({ currentPassword, newPassword }));
-  return res.ok ? { ok: true, value: null } : { ok: false, message: await errorMessage(res) };
+  return res.ok ? { ok: true, value: null } : { ok: false, ...(await failureOf(res)) };
 }
 
 /**

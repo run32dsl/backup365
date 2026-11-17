@@ -39,7 +39,7 @@ import {
   type PlansRoute,
   type ReasonKind,
 } from './plans.js';
-import type { Problem } from './apiError.js';
+import { requestIdOf, type Problem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { AuditReminder, REASON, reasonLabel } from './RestoreJourney.js';
 import {
@@ -145,15 +145,15 @@ export function PlanWizard({
   initial: PlanForm;
   editing: boolean;
   mailboxes: Mailbox[];
-  /** Renvoie le message d'échec, ou `undefined` si l'enregistrement a réussi. */
-  onSubmit: (form: PlanForm) => Promise<string | undefined>;
+  /** Renvoie le problème, ou `undefined` si l'enregistrement a réussi. */
+  onSubmit: (form: PlanForm) => Promise<Problem | undefined>;
   /** Étape affichée à l'ouverture (tests). */
   initialStep?: 1 | 2 | 3;
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(initialStep);
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [failure, setFailure] = useState<string>();
+  const [failure, setFailure] = useState<Problem>();
   const [saving, setSaving] = useState(false);
   const title = useRef<HTMLParagraphElement>(null);
   const first = useRef(true);
@@ -175,9 +175,9 @@ export function PlanWizard({
   const submit = async () => {
     setSaving(true);
     setFailure(undefined);
-    const message = await onSubmit(form);
+    const problem = await onSubmit(form);
     // En cas de succès la page quitte le parcours : seul l'échec rend la main, saisies conservées.
-    setFailure(message);
+    setFailure(problem);
     setSaving(false);
   };
   const messages = Object.values(errors);
@@ -203,7 +203,7 @@ export function PlanWizard({
           </ul>
         </Alert>
       )}
-      {failure && <Alert tone="error">{failure}</Alert>}
+      {failure && <FailureAlert problem={failure} />}
 
       {step === 1 && (
         <>
@@ -585,6 +585,7 @@ export function PlansListView({
   admin,
   configured,
   onRetry,
+  loadRequestId,
   onRun,
   onDelete,
 }: {
@@ -592,6 +593,8 @@ export function PlansListView({
   admin: boolean;
   configured: boolean;
   onRetry: () => void;
+  /** Identifiant de la requête qui a échoué au chargement, pour le support. */
+  loadRequestId?: string | undefined;
   onRun: (p: PlanItem) => void;
   onDelete: (p: PlanItem) => void;
 }) {
@@ -616,6 +619,11 @@ export function PlansListView({
         }
       >
         {MESSAGES.loadError}
+        {loadRequestId ? (
+          <small className="alert-detail request-id">
+            Identifiant de requête : <code>{loadRequestId}</code>
+          </small>
+        ) : null}
       </Alert>
     );
   }
@@ -686,6 +694,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     mailboxes: [],
   });
   const [flash, setFlash] = useState<Flash>();
+  const [loadRequestId, setLoadRequestId] = useState<string>();
   const [runTarget, setRunTarget] = useState<PlanItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlanItem | null>(null);
 
@@ -695,7 +704,8 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         setState(plans);
         setBoxes(mailboxes);
       },
-      () => {
+      (e: unknown) => {
+        setLoadRequestId(requestIdOf(e));
         setState('error');
       },
     );
@@ -746,14 +756,14 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   const plan = Array.isArray(state) && editing ? state.find((p) => p.id === editing) : undefined;
   const wizard = route.page !== 'list';
 
-  const save = async (form: PlanForm): Promise<string | undefined> => {
+  const save = async (form: PlanForm): Promise<Problem | undefined> => {
     if (editing) {
       const outcome = await updatePlan(editing, form);
-      if (!outcome.ok) return outcome.message;
+      if (!outcome.ok) return outcome;
       setFlash({ tone: 'success', text: MESSAGES.updated });
     } else {
       const outcome = await createPlan(form);
-      if (!outcome.ok) return outcome.message;
+      if (!outcome.ok) return outcome;
       setFlash({ tone: 'success', text: createdMessage(outcome.value) });
     }
     load();
@@ -771,6 +781,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured={false}
         onRetry={reloadList}
+        loadRequestId={loadRequestId}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
       />
@@ -782,6 +793,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured
         onRetry={reloadList}
+        loadRequestId={loadRequestId}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
       />
@@ -805,6 +817,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured={boxes.configured}
         onRetry={reloadList}
+        loadRequestId={loadRequestId}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
       />

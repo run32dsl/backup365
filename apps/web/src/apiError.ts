@@ -39,6 +39,24 @@ export function fallbackMessage(status: number): string {
   return `La demande a échoué (HTTP ${status}). Réessayez ; si l’erreur persiste, prévenez un administrateur en lui donnant l’identifiant de requête.`;
 }
 
+/** Échec d'une lecture : porte l'identifiant de la requête pour l'afficher à l'écran. */
+export class RequestError extends Error {
+  constructor(
+    readonly status: number,
+    readonly requestId?: string,
+  ) {
+    super(`HTTP ${status}`);
+  }
+}
+
+/** Erreur à lever pour une réponse non 2xx. */
+export const requestError = (res: Response): RequestError =>
+  new RequestError(res.status, res.headers.get('x-request-id') ?? undefined);
+
+/** Identifiant de requête d'une erreur levée par `fetchPlans` ou `fetchAccounts`, s'il y en a un. */
+export const requestIdOf = (e: unknown): string | undefined =>
+  e instanceof RequestError ? e.requestId : undefined;
+
 export interface Failure {
   message: string;
   /** Code d'erreur métier renvoyé par le serveur, `''` s'il n'y en a pas. */

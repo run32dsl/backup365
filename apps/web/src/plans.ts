@@ -8,7 +8,7 @@ import {
   type RpoHours,
   type RunStatus,
 } from '@backup365/core';
-import { readFailure } from './apiError.js';
+import { readFailure, requestError } from './apiError.js';
 import { UNREACHABLE, type Outcome } from './session.js';
 import type { PillStatus } from './ui/index.js';
 
@@ -338,7 +338,7 @@ export function parsePlansHash(hash: string): PlansRoute | null {
 /** Liste des plans ; lève si la réponse n'est pas en 2xx. */
 export async function fetchPlans(fetchFn: typeof fetch = fetch): Promise<PlanItem[]> {
   const res = await fetchFn('/api/plans');
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw requestError(res);
   return ((await res.json()) as { items: PlanItem[] }).items;
 }
 
