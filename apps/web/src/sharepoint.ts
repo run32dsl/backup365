@@ -132,6 +132,37 @@ export function followInApp(
   navigate();
 }
 
+/** Niveaux du fil d'Ariane : le site, puis chaque dossier du chemin avec son chemin complet. */
+export function breadcrumbLevels(
+  siteName: string,
+  path: string,
+): { label: string; path: string }[] {
+  const levels = [{ label: siteName, path: '/' }];
+  let acc = '';
+  for (const segment of path.split('/').filter(Boolean)) {
+    acc += `/${segment}`;
+    levels.push({ label: segment, path: acc });
+  }
+  return levels;
+}
+
+/** Lien d'un niveau du fil : son `href` propre, et un clic simple qui ouvre ce niveau. */
+export function breadcrumbLink(
+  level: { path: string },
+  siteId: string,
+  scope: SiteScope,
+  go: (path: string) => void,
+): { href: string; onClick: (ev: Parameters<typeof followInApp>[0]) => void } {
+  return {
+    href: sharePointHash(siteId, scope, level.path),
+    onClick: (ev) => {
+      followInApp(ev, () => {
+        go(level.path);
+      });
+    },
+  };
+}
+
 /** Chemin virtuel en fil lisible : `Documents partagés > Plans 2024`. */
 export function pathLabel(path: string): string {
   return path.split('/').filter(Boolean).join(' > ');

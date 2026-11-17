@@ -34,7 +34,8 @@ import {
   formatDuration,
   isOutcomeUncertain,
   pathLabel,
-  followInApp,
+  breadcrumbLevels,
+  breadcrumbLink,
   sharePointHash,
   sizeOf,
   startSiteRestore,
@@ -141,12 +142,7 @@ export function ContentTree({
     onFile(null);
     onPath(to);
   };
-  const crumbs = [{ label: siteName, path: '/' }];
-  let acc = '';
-  for (const segment of path.split('/').filter(Boolean)) {
-    acc += `/${segment}`;
-    crumbs.push({ label: segment, path: acc });
-  }
+  const crumbs = breadcrumbLevels(siteName, path);
 
   function open(e: SiteEntry) {
     if (e.kind === 'file') {
@@ -186,15 +182,7 @@ export function ContentTree({
               {i === crumbs.length - 1 ? (
                 <span aria-current="page">{c.label}</span>
               ) : (
-                <a
-                  className="btn btn-secondary"
-                  href={sharePointHash(siteId, scope, c.path)}
-                  onClick={(ev) => {
-                    followInApp(ev, () => {
-                      go(c.path);
-                    });
-                  }}
-                >
+                <a className="btn btn-secondary" {...breadcrumbLink(c, siteId, scope, go)}>
                   {c.label}
                 </a>
               )}

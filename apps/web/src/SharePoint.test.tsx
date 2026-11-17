@@ -5,6 +5,8 @@ import {
   continueHint,
   failureCause,
   fetchScope,
+  breadcrumbLevels,
+  breadcrumbLink,
   followInApp,
   fetchSiteSnapshots,
   fetchSites,
@@ -105,6 +107,27 @@ describe('SharePoint breadcrumb', () => {
     const { ev, navigate } = click();
     expect(ev.preventDefault).toHaveBeenCalledOnce();
     expect(navigate).toHaveBeenCalledOnce();
+  });
+
+  it('opens the clicked level, not another one', () => {
+    const levels = breadcrumbLevels('Commerce', '/Documents/Plans 2024');
+    expect(levels).toEqual([
+      { label: 'Commerce', path: '/' },
+      { label: 'Documents', path: '/Documents' },
+      { label: 'Plans 2024', path: '/Documents/Plans 2024' },
+    ]);
+    const onPath = vi.fn();
+    const link = breadcrumbLink(levels[1] ?? { path: '' }, 'a,b', 'item', onPath);
+    expect(link.href).toBe('#/sharepoint/a%2Cb/item/Documents');
+    link.onClick({
+      button: 0,
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      preventDefault: vi.fn(),
+    });
+    expect(onPath).toHaveBeenCalledExactlyOnceWith('/Documents');
   });
 
   it('ignores the path when the link has no granularity', () => {
