@@ -461,13 +461,12 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await run.getByLabel('Motif').selectOption({ label: 'Après un incident' });
   await submit.click();
 
-  // Le message, le lien et l'identifiant de requête, au-dessus des boutons.
+  // Le message, la consigne et l'identifiant de requête, au-dessus des boutons.
   const alert = run.getByRole('alert').filter({ hasText: 'Sauvegarde non configurée' });
   await expect(alert).toBeVisible();
-  await expect(alert.getByRole('link', { name: 'Configurer la connexion' })).toHaveAttribute(
-    'href',
-    '#/',
-  );
+  await expect(alert.getByText('fichiers de secrets', { exact: false })).toBeVisible();
+  await expect(alert.getByText('Exécution des plans', { exact: false })).toBeVisible();
+  await expect(run.getByRole('link', { name: 'Configurer la connexion' })).toHaveCount(0);
   await expect(alert.getByText('Identifiant de requête : req-1a2b')).toBeVisible();
   const alertBox = (await alert.boundingBox())!;
   const submitBox = (await submit.boundingBox())!;

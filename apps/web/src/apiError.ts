@@ -1,14 +1,10 @@
-/** Lien vers l'écran où l'on relie le tenant Microsoft 365 (l'accueil, comme les autres écrans). */
-export const CONFIG_HASH = '#/';
-export const CONFIG_LINK_LABEL = 'Configurer la connexion';
-
 /**
  * Message en français de chaque code d'erreur métier de l'API : ce qui s'est passé et quoi faire.
  * Les écrans peuvent en surcharger un par un texte plus précis.
  */
 export const API_ERRORS: Record<string, string> = {
   backup_not_configured:
-    'Sauvegarde non configurée : les identifiants Microsoft 365 ne sont pas renseignés. Un administrateur doit relier le tenant, puis relancer la sauvegarde.',
+    'Sauvegarde non configurée. Les identifiants Microsoft 365 se renseignent sur le serveur (fichiers de secrets). Voir la documentation d’installation, section « Exécution des plans ».',
   audit_unavailable:
     'Journal d’audit indisponible : l’action est refusée tant qu’elle ne peut pas être tracée. Réessayez plus tard ou prévenez un administrateur.',
   search_unavailable:

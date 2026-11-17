@@ -41,7 +41,7 @@ describe('erreurs visibles', () => {
     });
   });
 
-  it('shows the config link and the small request id', () => {
+  it('shows the install doc hint without a link, and the small request id', () => {
     const html = renderToStaticMarkup(
       <FailureAlert
         problem={{
@@ -51,8 +51,9 @@ describe('erreurs visibles', () => {
         }}
       />,
     );
-    expect(html).toContain('href="#/"');
-    expect(html).toContain('Configurer la connexion');
+    expect(html).toContain('Exécution des plans');
+    expect(html).not.toContain('<a');
+    expect(html).not.toContain('Configurer la connexion');
     expect(html).toContain('<code>req-9</code>');
     expect(renderToStaticMarkup(<FailureAlert problem={{ message: 'x' }} />)).not.toContain(
       'Identifiant de requête',
