@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { Button, guardClick } from './Button.js';
@@ -31,6 +32,22 @@ describe('Button', () => {
 
   it('keeps the native disabled state for a disabled button', () => {
     expect(renderToStaticMarkup(<Button disabled>Désactivé</Button>)).toMatch(/\sdisabled/);
+  });
+
+  it('keeps aria-disabled on a primary button so the greyed rendering applies', () => {
+    const html = renderToStaticMarkup(
+      <Button variant="primary" aria-disabled="true">
+        Terminer
+      </Button>,
+    );
+    expect(html).toContain('class="btn btn-primary"');
+    expect(html).toContain('aria-disabled="true"');
+    expect(html).not.toContain('aria-busy');
+    const css = readFileSync(new URL('../charte.css', import.meta.url), 'utf8');
+    const rule = /\.btn\[aria-disabled='true'\]:not\(\[aria-busy='true'\]\)[^{]*\{([^}]*)\}/.exec(
+      css,
+    );
+    expect(rule?.[1]).toMatch(/background:\s*transparent/);
   });
 });
 
