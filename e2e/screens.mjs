@@ -65,7 +65,7 @@ export async function openDrive(page, folder = '/Documents/Budget') {
 
 /** Choisit un fichier du dossier ouvert et passe à l'étape « Motif ». */
 export async function chooseDriveFile(page, name) {
-  await page.getByLabel(`Sélectionner ${name}`).check();
+  await page.getByRole('radio', { name, exact: true }).check();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await page.getByText('Étape 2 sur 3 : Motif').waitFor();
 }
@@ -397,7 +397,7 @@ export const SCREENS = [
     role: 'operator',
     prepare: async (page) => {
       await openDrive(page);
-      await page.getByLabel('Sélectionner budget.xlsx').check();
+      await page.getByRole('radio', { name: 'budget.xlsx' }).check();
     },
   },
   {

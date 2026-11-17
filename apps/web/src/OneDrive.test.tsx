@@ -1,4 +1,6 @@
+import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { EntriesTable } from './OneDrivePage.js';
 import {
   ONEDRIVE_MESSAGES,
   breadcrumbOf,
@@ -139,5 +141,57 @@ describe('OneDrive requests', () => {
     expect(await startDriveRestore('a', input, fetchFn)).toMatchObject({
       message: ONEDRIVE_MESSAGES.generic,
     });
+  });
+});
+
+describe('OneDrive entries table', () => {
+  const rows = [
+    {
+      name: '2025',
+      path: '/Budget 2025/2025',
+      kind: 'folder' as const,
+      versionAt: null,
+      sizeBytes: null,
+    },
+    {
+      name: 'budget.xlsx',
+      path: '/budget.xlsx',
+      kind: 'file' as const,
+      versionAt: '2026-11-13T22:04:00.000Z',
+      sizeBytes: 84_000,
+    },
+  ];
+  const html = renderToString(
+    <EntriesTable
+      account="a"
+      rows={rows}
+      selected={null}
+      emptyMessage="vide"
+      onSelect={() => undefined}
+      onVersions={() => undefined}
+    />,
+  );
+
+  it('has no emoji, no « Choix » column and a UTC date header', () => {
+    expect(html).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(html).not.toContain('Choix');
+    expect(html).toContain('Version du (UTC)');
+    expect(html).toContain('dossier</span>');
+  });
+
+  it('shows « — » for absent values, never an empty cell', () => {
+    const folderRow = html.split('<tr').find((r) => r.includes('2025')) ?? '';
+    expect(folderRow).not.toMatch(/<td[^>]*><\/td>/u);
+    expect(folderRow.match(/—/gu)).toHaveLength(3);
+    expect(html).not.toContain('>-<');
+  });
+
+  it('names each radio button after the item', () => {
+    // Dossier : le bouton est nommé par le lien ; fichier : il est dans son libellé.
+    const folderId = /<input[^>]*aria-labelledby="([^"]+)"/u.exec(html)?.[1];
+    expect(html).toMatch(new RegExp(`<a id="${folderId}"[^>]*>2025</a>`, 'u'));
+    expect(html).toMatch(
+      /<label[^>]*><input[^>]*type="radio"[^>]*\/>(?: |<!-- -->)*budget\.xlsx<\/label>/u,
+    );
   });
 });
