@@ -544,11 +544,16 @@ function planColumns(
   const columns: Column<PlanItem>[] = [
     { header: 'Plan', cell: (p) => p.name, className: 'nowrap-wide' },
     {
-      header: 'Conformité',
+      header: 'État',
       className: 'compliance-cell',
       cell: (p) => {
         const view = complianceView(p);
-        return <StatusPill status={view.status} label={view.label} />;
+        return (
+          <div>
+            <StatusPill status={view.status} label={view.label} />
+            {view.note && <small className="state-note">{view.note}</small>}
+          </div>
+        );
       },
     },
     { header: 'Dernière exécution', cell: lastRunLabel },

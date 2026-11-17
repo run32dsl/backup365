@@ -1,7 +1,7 @@
 export type PillStatus = 'compliant' | 'late' | 'failed' | 'running';
 
 const PILLS: Record<PillStatus, { icon: string; label: string; tone: string }> = {
-  compliant: { icon: '✔', label: 'Conforme', tone: 'ok' },
+  compliant: { icon: '✔', label: 'À jour', tone: 'ok' },
   late: { icon: '⚠', label: 'En retard', tone: 'warn' },
   failed: { icon: '✖', label: 'En échec', tone: 'err' },
   running: { icon: '↻', label: 'En cours', tone: 'info' },

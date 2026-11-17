@@ -253,18 +253,35 @@ export function shortDate(iso: string): string {
 /** `18:00`, à l'heure locale. */
 export const timeOf = (date: Date): string => `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 
-/** Conformité en pastille : jamais la couleur seule (icône et texte dans `StatusPill`). */
-export function complianceView(plan: PlanItem): { status: PillStatus; label: string } {
+/**
+ * État du plan : le libellé court de la charte (celui du tableau de bord) et, si elle apporte
+ * plus que la colonne « Dernière exécution », une explication en texte secondaire.
+ */
+export function complianceView(plan: PlanItem): {
+  status: PillStatus;
+  label: string;
+  note?: string;
+} {
   const { state, lastSuccessAt, lastRestorePointAt } = plan.compliance;
   if (state === 'compliant') {
     // Réussi, mais sans point de restauration : rien n'était à sauvegarder (issue #80).
-    const label = lastRestorePointAt === null ? 'Conforme : rien à sauvegarder' : 'Conforme';
-    return { status: 'compliant', label };
+    // « Dernière exécution » le dit déjà quand le dernier passage l'a constaté.
+    const said = plan.lastRun?.noSnapshotReason === 'no_content';
+    if (lastRestorePointAt === null && !said) {
+      return { status: 'compliant', label: 'À jour', note: 'Rien à sauvegarder pour l’instant' };
+    }
+    return { status: 'compliant', label: 'À jour' };
   }
-  if (lastSuccessAt === null) {
-    return { status: 'failed', label: 'Non conforme : aucune sauvegarde réussie' };
-  }
-  return { status: 'late', label: 'À vérifier : RPO dépassé' };
+  // Même état que le tableau de bord (`state` du plan), jamais déduit d'ailleurs.
+  const note =
+    lastSuccessAt === null
+      ? 'Aucune sauvegarde réussie'
+      : state === 'late'
+        ? 'Dernière sauvegarde plus ancienne que prévu'
+        : undefined; // échec : « Dernière exécution » le dit
+  return state === 'failed'
+    ? { status: 'failed', label: 'En échec', ...(note && { note }) }
+    : { status: 'late', label: 'En retard', ...(note && { note }) };
 }
 
 /** Dernière exécution en une ligne. */

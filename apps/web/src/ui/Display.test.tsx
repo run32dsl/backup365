@@ -57,7 +57,7 @@ describe('Steps', () => {
 
 describe('StatusPill', () => {
   it.each([
-    ['compliant', '✔', 'Conforme'],
+    ['compliant', '✔', 'À jour'],
     ['late', '⚠', 'En retard'],
     ['failed', '✖', 'En échec'],
     ['running', '↻', 'En cours'],
