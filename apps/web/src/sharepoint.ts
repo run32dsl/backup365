@@ -43,6 +43,9 @@ export const SHAREPOINT_MESSAGES = {
   notConfigured: 'Aucun compte Microsoft 365 n’est connecté.',
   adminOnly: 'Réservé aux administrateurs',
   forbidden: 'Vous n’avez pas le droit de restaurer ce site. Contactez un administrateur.',
+  forbiddenSite: (name: string) =>
+    `Vous n’avez pas le droit de restaurer le site « ${name} ». Demandez à un administrateur ou choisissez un autre site.`,
+  chooseOther: 'Choisir un autre site',
   reasonError: REASON.error,
   nameError: 'Le nom saisi ne correspond pas au site.',
   alreadyRunning: 'Une restauration de ce site est déjà en cours.',

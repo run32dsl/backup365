@@ -670,6 +670,24 @@ function TrackStep({
   return <RestoreResult status={job.status}>{body}</RestoreResult>;
 }
 
+/** Refus de droit sur un site : situation normale, expliquée, avec une seule issue (étape « Choisir »). */
+export function SiteDenied({ site }: { site: Site }) {
+  return (
+    <>
+      <EmptyState>{T.forbiddenSite(site.displayName)}</EmptyState>
+      <WizardActions
+        back={
+          <a className="btn btn-secondary" href={sharePointHash(site.id)}>
+            {T.chooseOther}
+          </a>
+        }
+      >
+        {null}
+      </WizardActions>
+    </>
+  );
+}
+
 /** Restaurer SharePoint : choisir, motif, confirmation, suivi (`#/sharepoint/<site>/<granularité>`). */
 export function SharePointPage({ route, admin }: { route: SharePointRoute; admin: boolean }) {
   const [sites, setSites] = useState<Loaded<Site[]> | null>(null);
@@ -742,14 +760,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
   } else if (!site) {
     content = <Problem status="no_backup" onRetry={retry} />;
   } else if (direct) {
-    content = (
-      <>
-        <Alert tone="error">{T.forbidden}</Alert>
-        <a className="btn btn-secondary" href={sharePointHash(site.id)}>
-          {B.back}
-        </a>
-      </>
-    );
+    content = <SiteDenied site={site} />;
   } else if (
     snapshots === null ||
     (snapshots.status === 'ok' && snapshotId === null && snapshots.data.length > 0)
@@ -818,12 +829,12 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
     );
   }
 
-  const journey = snapshotId !== null && !!site && !direct;
+  const journey = !!site && (direct || snapshotId !== null);
   return (
     <main tabIndex={-1}>
       <h1>{T.title}</h1>
       {journey && <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />}
-      {journey && <AuditReminder />}
+      {journey && !direct && <AuditReminder />}
       {content}
     </main>
   );
