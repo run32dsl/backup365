@@ -1,6 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { EntriesTable } from './OneDrivePage.js';
+import { ConfirmStep, EntriesTable } from './OneDrivePage.js';
 import {
   ONEDRIVE_MESSAGES,
   breadcrumbOf,
@@ -202,5 +202,26 @@ describe('OneDrive replace confirmation', () => {
     expect(restoreBlocked('replace', false)).toBe(true);
     expect(restoreBlocked('replace', true)).toBe(false);
     expect(restoreBlocked('copy', false)).toBe(false);
+  });
+
+  it('renders "Restaurer" active in the default copy mode', () => {
+    const entry = {
+      name: 'budget.xlsx',
+      kind: 'file' as const,
+      path: '/Documents/Budget/budget.xlsx',
+      versionAt: '2026-11-10T18:30:00.000Z',
+    };
+    const out = renderToString(
+      <ConfirmStep
+        account="a@exemple.fr"
+        choice={{ entry: entry as never, snapshotId: 's1' }}
+        reason="Ticket #1 : essai"
+        onBack={() => undefined}
+        onStarted={() => undefined}
+      />,
+    );
+    const button = /<button[^>]*>Restaurer<\/button>/u.exec(out)?.[0];
+    expect(button).toBeDefined();
+    expect(button).not.toContain('aria-disabled');
   });
 });
