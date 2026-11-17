@@ -1,6 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { EntriesTable } from './OneDrivePage.js';
+import { EntriesTable, Problem } from './OneDrivePage.js';
 import {
   ONEDRIVE_MESSAGES,
   breadcrumbOf,
@@ -193,5 +193,14 @@ describe('OneDrive entries table', () => {
     expect(html).toMatch(
       /<label[^>]*><input[^>]*type="radio"[^>]*\/>(?: |<!-- -->)*budget\.xlsx<\/label>/u,
     );
+  });
+});
+
+describe('OneDrive : stockage non configuré', () => {
+  it('shows the message without a misleading link to the home page', () => {
+    const html = renderToString(<Problem status="unconfigured" onRetry={() => undefined} />);
+    expect(html).toContain('Aucun compte Microsoft 365 n’est connecté.');
+    expect(html).not.toContain('<a');
+    expect(html).not.toContain('Configurer la connexion');
   });
 });
