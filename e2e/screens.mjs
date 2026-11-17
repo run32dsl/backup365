@@ -213,13 +213,24 @@ export const SCREENS = [
     },
   },
   {
+    name: 'administration-creer-compte',
+    hash: '#/comptes',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').first().waitFor();
+      await page.getByRole('button', { name: 'Créer un compte' }).click();
+      await page.getByRole('dialog').waitFor();
+    },
+  },
+  {
     name: 'reinitialisation-motif',
     hash: '#/comptes',
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('table').first().waitFor();
-      await page.getByLabel('Compte').selectOption({ label: 'operateur-demo' });
-      await page.getByRole('button', { name: 'Réinitialiser le mot de passe' }).click();
+      await page
+        .getByRole('button', { name: 'Réinitialiser le mot de passe : operateur-demo' })
+        .click();
       await page.getByLabel('Motif (obligatoire)').fill('Oubli du mot de passe');
     },
   },
@@ -233,8 +244,9 @@ export const SCREENS = [
         route.fulfill({ status: 200, json: { password: 'Tz7k-Qp3m-Vx9d-Lw2h' } }),
       );
       await page.getByRole('table').first().waitFor();
-      await page.getByLabel('Compte').selectOption({ label: 'operateur-demo' });
-      await page.getByRole('button', { name: 'Réinitialiser le mot de passe' }).click();
+      await page
+        .getByRole('button', { name: 'Réinitialiser le mot de passe : operateur-demo' })
+        .click();
       await page.getByLabel('Motif (obligatoire)').fill('Oubli du mot de passe');
       await page.getByRole('button', { name: 'Réinitialiser', exact: true }).click();
       await page.getByRole('dialog').getByLabel('Mot de passe temporaire').waitFor();

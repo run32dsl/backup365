@@ -86,8 +86,12 @@ test('réinitialisation : motif obligatoire, mot de passe affiché une seule foi
     return route.fulfill({ status: 200, json: { password: TEMPORARY } });
   });
   await page.goto('/#/comptes');
-  await page.getByLabel('Compte').selectOption({ label: DEMO_LOGINS.operator.username });
-  await page.getByRole('button', { name: 'Réinitialiser le mot de passe' }).click();
+  await page
+    .getByRole('button', {
+      name: `Réinitialiser le mot de passe : ${DEMO_LOGINS.operator.username}`,
+    })
+    .first()
+    .click();
 
   const step2 = page.getByRole('dialog', { name: 'Réinitialiser le mot de passe' });
   await expect(step2).toContainText(DEMO_LOGINS.operator.username);
@@ -122,4 +126,39 @@ test('réinitialisation : motif obligatoire, mot de passe affiché une seule foi
   expect(await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]))).not.toContain(
     TEMPORARY,
   );
+});
+
+test('administration : la boîte « Créer un compte » s’annule, signale un identifiant pris, puis crée le compte', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  await page.goto('/#/comptes');
+  const open = page.getByRole('button', { name: /Créer un compte/ });
+  const dialog = page.getByRole('dialog', { name: 'Créer un compte' });
+  const NEW_LOGIN = 'compte-e2e-boite';
+
+  // Annuler ferme la boîte sans rien créer.
+  await open.click();
+  await dialog.getByLabel('Identifiant').fill(NEW_LOGIN);
+  await dialog.getByRole('button', { name: 'Annuler' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('cell', { name: NEW_LOGIN })).toHaveCount(0);
+
+  // Identifiant déjà pris : la boîte reste ouverte avec l'erreur du serveur.
+  await open.click();
+  await dialog.getByLabel('Identifiant').fill(DEMO_LOGINS.operator.username);
+  await dialog
+    .getByRole('textbox', { name: /Mot de passe temporaire/ })
+    .fill('mot-de-passe-e2e-12345');
+  await dialog.getByRole('button', { name: 'Créer le compte' }).click();
+  await expect(dialog.getByRole('alert')).toBeVisible();
+  await expect(dialog).toBeVisible();
+
+  // Correction : la boîte se ferme et le compte apparaît dans le tableau.
+  await dialog.getByLabel('Identifiant').fill(NEW_LOGIN);
+  await dialog.getByRole('button', { name: 'Créer le compte' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('cell', { name: NEW_LOGIN }).first()).toBeVisible();
 });
