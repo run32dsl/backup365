@@ -5,6 +5,7 @@ export { DataTable, type Column } from './DataTable.js';
 export { Dialog, DialogPanel } from './Dialog.js';
 export { EmptyState } from './EmptyState.js';
 export { FormField } from './FormField.js';
+export { Pager } from './Pager.js';
 export { StatusPill, type PillStatus } from './StatusPill.js';
 export { Steps } from './Steps.js';
 export { WizardActions, WIZARD_LABELS } from './WizardActions.js';

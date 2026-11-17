@@ -1,7 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { pageOffsets } from './audit.js';
 import {
-  SEARCH_PAGE_SIZE,
   mailHref,
   searchMails,
   searchQueryFromForm,
@@ -18,6 +16,7 @@ import {
   DataTable,
   EmptyState,
   FormField,
+  Pager,
   type Column,
 } from './ui/index.js';
 
@@ -62,9 +61,11 @@ const RESTORE_HINT_ID = 'restore-not-configured';
 export function SearchView({
   state,
   restoreConfigured,
+  onPage,
 }: {
   state: SearchState;
   restoreConfigured?: boolean;
+  onPage?: (offset: number) => void;
 }) {
   if (state === 'loading') return <p role="status">Recherche en cours…</p>;
   if (state === 'error') return <Alert tone="error">Recherche indisponible</Alert>;
@@ -100,6 +101,7 @@ export function SearchView({
         rows={state.items}
         rowKey={(m) => `${m.mailboxId}/${m.messageId}`}
       />
+      <Pager offset={state.offset} limit={state.limit} total={state.total} onPage={onPage} />
     </>
   );
 }
@@ -136,42 +138,25 @@ export function SearchPage() {
     setQuery(searchQueryFromForm(new FormData(e.currentTarget)));
   }
 
-  const pages = pageOffsets(
-    query?.offset ?? 0,
-    query?.limit ?? SEARCH_PAGE_SIZE,
-    typeof state === 'object' && state !== null ? state.total : 0,
-  );
   return (
     <main tabIndex={-1}>
       <h1>Rechercher et restaurer</h1>
-      <form onSubmit={submit} className="form-row">
+      <form onSubmit={submit} className="filters">
         <FormField label="Recherche" type="search" name="q" maxLength={256} />
         <FormField label="Boîte" type="text" name="mailbox" maxLength={256} />
         <FormField label="Du" type="datetime-local" name="after" />
         <FormField label="Au (exclu)" type="datetime-local" name="before" />
         <Button type="submit">Rechercher</Button>
       </form>
-      {state !== null && <SearchView state={state} restoreConfigured={restoreConfigured} />}
-      <div className="button-row">
-        <Button
-          variant="secondary"
-          disabled={pages.previous === null}
-          onClick={() => {
-            if (query && pages.previous !== null) setQuery({ ...query, offset: pages.previous });
+      {state !== null && (
+        <SearchView
+          state={state}
+          restoreConfigured={restoreConfigured}
+          onPage={(offset) => {
+            if (query) setQuery({ ...query, offset });
           }}
-        >
-          Précédent
-        </Button>
-        <Button
-          variant="secondary"
-          disabled={pages.next === null}
-          onClick={() => {
-            if (query && pages.next !== null) setQuery({ ...query, offset: pages.next });
-          }}
-        >
-          Suivant
-        </Button>
-      </div>
+        />
+      )}
     </main>
   );
 }

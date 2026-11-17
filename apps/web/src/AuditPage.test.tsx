@@ -101,6 +101,32 @@ describe('queryFromForm', () => {
   });
 });
 
+describe('AuditView counter and pager', () => {
+  const view = (total: number, limit = 50) =>
+    renderToString(<AuditView state={{ total, limit, offset: 0, items: [entry] }} />).replace(
+      /<!-- -->/g,
+      '',
+    );
+
+  it('agrees the counter in the singular and the plural', () => {
+    expect(view(1)).toContain('1 entrée');
+    expect(view(1)).not.toContain('entrées');
+    expect(view(28)).toContain('Entrées 1 à 1 sur 28');
+    expect(view(28)).not.toContain('(s)');
+  });
+
+  it('shows Précédent and Suivant only when there is more than one page', () => {
+    expect(view(28)).not.toContain('Suivant');
+    expect(view(28)).not.toContain('Précédent');
+    expect(view(120)).toContain('Suivant');
+    expect(view(120)).toContain('Précédent');
+  });
+
+  it('uses the shared filters container', () => {
+    expect(renderToString(<AuditPage />)).toContain('class="filters"');
+  });
+});
+
 describe('pageOffsets', () => {
   it('has no previous page at the start and no next page at the end', () => {
     expect(pageOffsets(0, 50, 120)).toEqual({ previous: null, next: 50 });

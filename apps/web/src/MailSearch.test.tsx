@@ -53,6 +53,23 @@ describe('SearchView', () => {
     expect(html).not.toContain('<img');
   });
 
+  it('shows Précédent and Suivant only when there is more than one page', () => {
+    const many = renderToString(
+      <SearchView state={{ total: 40, limit: 25, offset: 0, items: [mail] }} />,
+    );
+    expect(many).toContain('Précédent');
+    expect(many).toContain('Suivant');
+    const one = renderToString(
+      <SearchView state={{ total: 10, limit: 25, offset: 0, items: [mail] }} />,
+    );
+    expect(one).not.toContain('Précédent');
+    expect(one).not.toContain('Suivant');
+  });
+
+  it('uses the shared filters container', () => {
+    expect(renderToString(<SearchPage />)).toContain('class="filters"');
+  });
+
   it('renders the search form with the free text, mailbox and date filters', () => {
     const html = renderToString(<SearchPage />);
     for (const name of ['q', 'mailbox', 'after', 'before'])

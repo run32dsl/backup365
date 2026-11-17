@@ -3,7 +3,6 @@ import { AUDIT_ACTIONS, type AuditAction } from '@backup365/core';
 import {
   AUDIT_PAGE_SIZE,
   fetchAudit,
-  pageOffsets,
   queryFromForm,
   type AuditItem,
   type AuditQuery,
@@ -18,6 +17,7 @@ import {
   DataTable,
   EmptyState,
   FormField,
+  Pager,
   type Column,
 } from './ui/index.js';
 
@@ -97,9 +97,11 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
 export function AuditView({
   state,
   planNames = null,
+  onPage,
 }: {
   state: AuditState;
   planNames?: ReadonlyMap<string, string> | null;
+  onPage?: (offset: number) => void;
 }) {
   if (state === 'loading') return <p role="status">Chargement du journal…</p>;
   if (state === 'error') return <Alert tone="error">Journal d’audit indisponible</Alert>;
@@ -107,7 +109,9 @@ export function AuditView({
   return (
     <>
       <p role="status">
-        {state.total} entrée(s), {state.offset + 1} à {state.offset + state.items.length}
+        {state.total === 1
+          ? '1 entrée'
+          : `Entrées ${state.offset + 1} à ${state.offset + state.items.length} sur ${state.total}`}
       </p>
       <DataTable
         caption="Entrées du journal d’audit"
@@ -117,6 +121,7 @@ export function AuditView({
         rows={state.items}
         rowKey={(e) => e.seq}
       />
+      <Pager offset={state.offset} limit={state.limit} total={state.total} onPage={onPage} />
     </>
   );
 }
@@ -150,22 +155,17 @@ export function AuditPage() {
     setQuery(queryFromForm(new FormData(e.currentTarget)));
   }
 
-  const pages = pageOffsets(
-    query.offset ?? 0,
-    query.limit ?? AUDIT_PAGE_SIZE,
-    typeof state === 'object' ? state.total : 0,
-  );
   return (
     <main tabIndex={-1}>
       <h1>Journal d’audit</h1>
       <p>La consultation de ce journal est elle-même journalisée.</p>
-      <form onSubmit={submit} className="form-row">
+      <form onSubmit={submit} className="filters">
         <FormField label="Du" type="datetime-local" name="from" />
         <FormField label="Au (exclu)" type="datetime-local" name="to" />
         <FormField label="Acteur" type="text" name="actor" maxLength={256} />
-        <label>
-          Action{' '}
-          <select name="action" defaultValue="">
+        <div className="field">
+          <label htmlFor="audit-action">Action</label>
+          <select id="audit-action" name="action" defaultValue="">
             <option value="">Toutes</option>
             {AUDIT_ACTIONS.map((a) => (
               <option key={a} value={a}>
@@ -173,30 +173,14 @@ export function AuditPage() {
               </option>
             ))}
           </select>
-        </label>
+        </div>
         <Button type="submit">Filtrer</Button>
       </form>
-      <AuditView state={state} planNames={planNames} />
-      <div className="button-row">
-        <Button
-          variant="secondary"
-          disabled={pages.previous === null}
-          onClick={() => {
-            if (pages.previous !== null) setQuery({ ...query, offset: pages.previous });
-          }}
-        >
-          Précédent
-        </Button>
-        <Button
-          variant="secondary"
-          disabled={pages.next === null}
-          onClick={() => {
-            if (pages.next !== null) setQuery({ ...query, offset: pages.next });
-          }}
-        >
-          Suivant
-        </Button>
-      </div>
+      <AuditView
+        state={state}
+        planNames={planNames}
+        onPage={(offset) => setQuery({ ...query, offset })}
+      />
     </main>
   );
 }
