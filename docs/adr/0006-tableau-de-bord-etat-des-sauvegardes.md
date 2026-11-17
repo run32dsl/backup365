@@ -25,8 +25,11 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   répondent sans instantané (ADR 0002) : les suivre par défaut les afficherait « absent » en
   permanence. Les boîtes couvrent les charges autres que `sharepoint` ; les sites ne sont lus
   que si `sharepoint` est suivie.
-- Écran d'accueil : synthèse (nombre d'éléments en alerte) puis tableau (source, type, charge) ;
-  l'état est écrit en toutes lettres.
+- Écran d'accueil : bandeau de synthèse (tout est à jour, ou nombre de sauvegardes et de
+  plans en retard ou en échec), puis section « Sauvegardes » (décompte par pastilles, tableau trié
+  du pire état au meilleur, ancienneté en clair) ; sous 900 px, les lignes « À jour » sont
+  repliées derrière un bouton. L'état est écrit en toutes lettres, avec les mêmes libellés que
+  les plans (« À jour », « En retard », « En échec »).
 - Lecture de métadonnées seulement : pas d'entrée dans le journal d'audit (ADR 0002).
 
 ### Sites SharePoint sauvegardés (issue #31)

@@ -60,6 +60,14 @@ const WORKLOADS: Record<string, string> = {
 /** Nom d'une charge sauvegardée ; une charge inconnue est rendue telle quelle. */
 export const workloadLabel = (workload: string): string => WORKLOADS[workload] ?? workload;
 
+/** Ancienneté en clair : `il y a 3 h`, `il y a 3 jours` ; `jamais` sans sauvegarde. */
+export function ageLabel(hours: number | null): string {
+  if (hours === null) return 'jamais';
+  if (hours < 1) return 'il y a moins d’1 h';
+  if (hours < 24) return `il y a ${Math.floor(hours)} h`;
+  return `il y a ${plural(Math.floor(hours / 24), 'jour')}`;
+}
+
 /** `1 résultat`, `10 résultats` (0 et 1 au singulier). */
 export const plural = (n: number, one: string, many = `${one}s`): string =>
   `${n} ${n < 2 ? one : many}`;

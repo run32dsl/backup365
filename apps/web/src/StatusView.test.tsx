@@ -2,7 +2,8 @@ import type { StatusReport } from '@backup365/core';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { NoBackupError, fetchStatus } from './status.js';
-import { StatusView } from './StatusView.js';
+import { StatusView, sortRows } from './StatusView.js';
+import { ageLabel } from './format.js';
 
 const report: StatusReport = {
   generatedAt: '2026-11-12T12:00:00.000Z',
@@ -49,12 +50,21 @@ const report: StatusReport = {
 };
 
 describe('StatusView', () => {
-  it('puts the alert count first, then one row per mailbox and workload', () => {
+  it('puts the summary banner first, then one row per mailbox and workload', () => {
     const html = renderToString(<StatusView state={report} />);
-    expect(html.indexOf('2 éléments en alerte')).toBeLessThan(html.indexOf('<table'));
-    expect(html).toContain('Avertissement');
-    expect(html).toContain('Échec');
-    expect(html).toContain('À jour');
+    expect(html.indexOf('1 sauvegarde en retard, 1 sauvegarde en échec')).toBeLessThan(
+      html.indexOf('<table'),
+    );
+    expect(html).toContain('<h2 id="backups-title">Sauvegardes</h2>');
+    expect(html).toContain('Une sauvegarde est en retard au-delà de 26 h.');
+    expect(html).not.toContain('Avertissement');
+    expect(html).not.toMatch(/Âge \(h\)|Objectif \(h\)/u);
+    expect(html).toContain('il y a 3 jours');
+    expect(html).toContain('En retard</span> <strong>1</strong>');
+    expect(html).toContain('En échec</span> <strong>1</strong>');
+    expect(html).toContain('À jour</span> <strong>2</strong>');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('Afficher les 2 sauvegardes à jour');
     expect(html).toContain('09/11/2026 06:00');
     expect(html).toContain('Site X');
     expect(html).toContain('Messagerie');
@@ -65,9 +75,51 @@ describe('StatusView', () => {
   });
 
   it('says so when there is no alert', () => {
-    const html = renderToString(<StatusView state={{ ...report, alertCount: 0, rows: [] }} />);
-    expect(html).toContain('Aucune alerte');
-    expect(html).toContain('Aucune boîte ni site sauvegardé');
+    const ok = report.rows.filter((r) => r.state === 'ok');
+    const html = renderToString(<StatusView state={{ ...report, alertCount: 0, rows: ok }} />);
+    expect(html).toContain('alert-success');
+    expect(html).toContain('Toutes les sauvegardes sont à jour');
+  });
+
+  it('shows no success banner without rows or when the plans are unknown', () => {
+    const none = renderToString(<StatusView state={{ ...report, alertCount: 0, rows: [] }} />);
+    expect(none).not.toContain('alert-success');
+    expect(none).toContain('Aucune boîte ni site sauvegardé');
+    const ok = report.rows.filter((r) => r.state === 'ok');
+    const unknown = renderToString(<StatusView state={{ ...report, rows: ok, plans: null }} />);
+    expect(unknown).not.toContain('alert-success');
+  });
+
+  it('shows the singular toggle, and no toggle without an up-to-date row', () => {
+    const one = report.rows.slice(0, 2);
+    expect(renderToString(<StatusView state={{ ...report, rows: one }} />)).toContain(
+      'Afficher la sauvegarde à jour',
+    );
+    const bad = report.rows.filter((r) => r.state !== 'ok');
+    expect(renderToString(<StatusView state={{ ...report, rows: bad }} />)).not.toContain(
+      'aria-expanded',
+    );
+  });
+
+  it('uses a warning banner for late backups only, an error banner otherwise', () => {
+    const late = report.rows.filter((r) => r.state !== 'missing');
+    const warning = renderToString(<StatusView state={{ ...report, rows: late }} />);
+    expect(warning).toContain('alert-warning');
+    expect(warning).toContain('1 sauvegarde en retard<');
+    expect(renderToString(<StatusView state={report} />)).toContain('alert-error');
+  });
+
+  it('sorts the worst state first, then the oldest', () => {
+    const sorted = sortRows(report.rows);
+    expect(sorted.map((r) => r.state)).toEqual(['missing', 'stale', 'ok', 'ok']);
+    const html = renderToString(<StatusView state={report} />);
+    expect(html.indexOf('Boîte B')).toBeLessThan(html.indexOf('Boîte A'));
+  });
+
+  it('formats ages in plain words', () => {
+    expect(ageLabel(3)).toBe('il y a 3 h');
+    expect(ageLabel(75)).toBe('il y a 3 jours');
+    expect(ageLabel(null)).toBe('jamais');
   });
 
   describe('plan compliance', () => {
@@ -94,9 +146,9 @@ describe('StatusView', () => {
     it('shows the count per state and the non-compliant plans', () => {
       const html = renderToString(<StatusView state={{ ...report, plans }} />);
       expect(html).toContain('Plans de protection');
-      expect(html).toContain('Conforme</span> <strong>2</strong>');
-      expect(html).toContain('En retard</span> <strong>1</strong>');
-      expect(html).toContain('En échec</span> <strong>1</strong>');
+      expect(html).toContain('À jour</span> <strong>2</strong>');
+      expect(html).toContain('1 plan en retard, 1 plan en échec');
+      expect(html).not.toContain('Objectif');
       expect(html).toContain('Direction');
       expect(html).toContain('Finance');
       expect(html).toContain('10/11/2026 06:00');
@@ -105,7 +157,7 @@ describe('StatusView', () => {
     it('lists no table when every plan is compliant', () => {
       const all = { counts: { compliant: 3, late: 0, failed: 0 }, nonCompliant: [] };
       const html = renderToString(<StatusView state={{ ...report, plans: all }} />);
-      expect(html).toContain('Conforme</span> <strong>3</strong>');
+      expect(html).toContain('À jour</span> <strong>3</strong>');
       expect(html).not.toContain('Plans non conformes');
     });
 
@@ -119,7 +171,10 @@ describe('StatusView', () => {
       expect(renderToString(<StatusView state={{ ...report, plans: null }} />)).toContain(
         'Conformité des plans indisponible',
       );
-      expect(renderToString(<StatusView state={report} />)).not.toContain('Plans de protection');
+      const operator = renderToString(<StatusView state={report} />);
+      expect(operator).not.toContain('Plans de protection');
+      expect(operator).toContain('alert-error');
+      expect(operator).toContain('>Sauvegardes</h2>');
     });
   });
 

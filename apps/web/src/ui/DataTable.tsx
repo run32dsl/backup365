@@ -22,6 +22,7 @@ export function DataTable<T>({
   empty,
   loading = false,
   compact = false,
+  rowClassName,
 }: {
   caption: string;
   /** La légende reste lue par les lecteurs d'écran mais n'est pas affichée (le titre la remplace). */
@@ -34,6 +35,8 @@ export function DataTable<T>({
   loading?: boolean;
   /** Sous 900 px : carte compacte, sans étiquettes, deux cellules par ligne, cellules vides omises. */
   compact?: boolean;
+  /** Classe CSS ajoutée à une ligne. */
+  rowClassName?: (row: T) => string | undefined;
 }) {
   if (loading) return <p role="status">Chargement…</p>;
   if (rows.length === 0 && empty)
@@ -52,7 +55,7 @@ export function DataTable<T>({
       </thead>
       <tbody role="rowgroup">
         {rows.map((row) => (
-          <tr key={rowKey(row)} role="row">
+          <tr key={rowKey(row)} role="row" className={rowClassName?.(row)}>
             {columns.map((c, i) => (
               <td key={i} role="cell" data-label={c.header} className={c.className}>
                 {c.cell(row)}
