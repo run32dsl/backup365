@@ -67,6 +67,10 @@ export function ExportForm({
       <h2 id="export-title">Exporter en EML</h2>
       <form onSubmit={onSubmit}>
         <ReasonField of="de l’export" value={reason} onChange={onReason} />
+        <p className="field-help export-note">
+          Pour les anciennes sauvegardes, les pièces jointes ne sont pas incluses dans le fichier.
+        </p>
+        <AuditReminder />
         <Button
           type="submit"
           variant="secondary"
@@ -76,17 +80,21 @@ export function ExportForm({
         >
           Exporter en EML
         </Button>
-        {empty && (
-          <p id="export-disabled-help" className="field-help export-help">
-            Saisissez un motif pour exporter
-          </p>
+        {exporting === 'done' ? (
+          <div className="export-result">
+            <Alert tone="success">Export inscrit au journal d’audit.</Alert>
+          </div>
+        ) : exporting === 'error' ? (
+          <div className="export-result">
+            <Alert tone="error">Export refusé ou indisponible.</Alert>
+          </div>
+        ) : (
+          empty && (
+            <p id="export-disabled-help" className="field-help export-help">
+              Saisissez un motif pour exporter.
+            </p>
+          )
         )}
-        <AuditReminder />
-        <p>
-          Pour les anciennes sauvegardes, les pièces jointes ne sont pas incluses dans le fichier.
-        </p>
-        {exporting === 'done' && <Alert tone="success">Export inscrit au journal.</Alert>}
-        {exporting === 'error' && <Alert tone="error">Export refusé ou indisponible</Alert>}
       </form>
     </section>
   );

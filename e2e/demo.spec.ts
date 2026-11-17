@@ -32,7 +32,7 @@ test('recherche, puis export d’un mail avec motif', async ({ page, context, ba
   const [download] = await Promise.all([page.waitForEvent('download'), exportButton.click()]);
   const eml = readFileSync(await download.path(), 'utf8');
   expect(eml).toContain('Message-ID:');
-  await expect(page.getByText('Export inscrit au journal.')).toBeVisible();
+  await expect(page.getByText('Export inscrit au journal d’audit.')).toBeVisible();
 
   // Le motif figure dans le journal d'audit.
   await page.goto('/#/audit');
