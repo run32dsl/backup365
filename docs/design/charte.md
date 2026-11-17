@@ -55,6 +55,9 @@ composant s'y ajoute avec ses tests de comportement.
   texte qui passe à la ligne plutôt que de déborder.
 - **Badge d'état** (`.badge`) : « À jour » (`✔`), « En cours », « En retard » (`⚠`),
   « En échec » (`✖`) ; mêmes libellés pour les plans et les sauvegardes.
+- **Écran d'accès** (`.auth`) : bloc centré (28 rem au plus) avec « backup365 », le titre, les
+  bandeaux et des boutons pleine largeur ; connexion, premier administrateur et mot de passe
+  imposé l'utilisent. Le changement volontaire, dans la console, ne l'utilise pas.
 - **Bandeau d'alerte** : `role="alert"` pour une erreur, `role="status"` pour une information ;
   sans détail technique.
 - **État vide** (`.empty`) : phrase claire et, au plus, un bouton d'action.

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Alert, Button, FormField } from './ui/index.js';
 import {
   AUDIT_NOTICE,
@@ -80,6 +80,19 @@ export function ErrorView({ message, onRetry }: { message: string; onRetry?: () 
   );
 }
 
+/** Bloc centré commun aux écrans d'accès : nom du produit, puis le contenu de l'écran. */
+function AuthBlock({ children, plain = false }: { children: ReactNode; plain?: boolean }) {
+  // Dans la console (changement volontaire), la barre latérale porte déjà le nom du produit.
+  if (plain) return <main tabIndex={-1}>{children}</main>;
+  return (
+    <main tabIndex={-1} className="auth">
+      <p className="auth-brand">backup365</p>
+      <p className="auth-tagline">Console de sauvegarde Microsoft 365</p>
+      {children}
+    </main>
+  );
+}
+
 /**
  * Formulaire de connexion ou de création du premier administrateur. `notice` annonce une session
  * perdue (expirée ou refusée).
@@ -88,6 +101,7 @@ export function CredentialsView({
   mode,
   error,
   notice,
+  noticeTone = 'info',
   busy = false,
   lockedSec = 0,
   lockedStartSec,
@@ -100,6 +114,8 @@ export function CredentialsView({
   mode: 'login' | 'setup';
   error?: string;
   notice?: string;
+  /** Tonalité du message : `error` pour un refus Microsoft, `info` pour une session perdue. */
+  noticeTone?: 'info' | 'error';
   busy?: boolean;
   /** Secondes restantes de verrouillage (0 : pas verrouillé). */
   lockedSec?: number;
@@ -113,7 +129,7 @@ export function CredentialsView({
   const locked = lockedSec > 0;
   const [typed, setTyped] = useState('');
   return (
-    <main tabIndex={-1}>
+    <AuthBlock>
       <h1>{setup ? 'Créer le compte administrateur' : 'Connexion à la console'}</h1>
       {locked && (
         <Alert tone="warning">
@@ -132,7 +148,7 @@ export function CredentialsView({
           Aucun compte n’existe encore. Ce compte gère les comptes, les plans et les restaurations.
         </p>
       )}
-      {notice && <p role="status">{notice}</p>}
+      {notice && <Alert tone={noticeTone}>{notice}</Alert>}
       <form
         onSubmit={(e: FormEvent<HTMLFormElement>) => {
           e.preventDefault();
@@ -169,14 +185,17 @@ export function CredentialsView({
         </Button>
       </form>
       {microsoft && !setup && (
-        <p>
-          <a className="btn btn-secondary" href={MICROSOFT_LOGIN_URL}>
+        <>
+          <p className="auth-or" aria-hidden="true">
+            ou
+          </p>
+          <a className="btn btn-secondary auth-microsoft" href={MICROSOFT_LOGIN_URL}>
             {MICROSOFT_LABEL}
           </a>
-        </p>
+        </>
       )}
-      <p>{AUDIT_NOTICE}</p>
-    </main>
+      <p className="auth-audit">{AUDIT_NOTICE}</p>
+    </AuthBlock>
   );
 }
 
@@ -189,10 +208,12 @@ const text = (form: FormData, name: string): string => {
 export function CredentialsPage({
   mode,
   notice,
+  noticeTone,
   onSession,
 }: {
   mode: 'login' | 'setup';
   notice?: string;
+  noticeTone?: 'info' | 'error';
   onSession: (session: SessionInfo) => void;
 }) {
   const [error, setError] = useState<string>();
@@ -257,6 +278,7 @@ export function CredentialsPage({
         mode={mode}
         error={error}
         notice={notice}
+        noticeTone={noticeTone}
         busy={busy}
         lockedSec={lockedSec}
         lockedStartSec={startSec}
@@ -284,7 +306,7 @@ export function PasswordView({
   onCancel?: () => void;
 }) {
   return (
-    <main tabIndex={-1}>
+    <AuthBlock plain={!forced}>
       <h1>Choisissez un nouveau mot de passe</h1>
       {forced && <p>Votre mot de passe est temporaire. Choisissez-en un nouveau pour continuer.</p>}
       <form
@@ -323,7 +345,7 @@ export function PasswordView({
           )}
         </div>
       </form>
-    </main>
+    </AuthBlock>
   );
 }
 
