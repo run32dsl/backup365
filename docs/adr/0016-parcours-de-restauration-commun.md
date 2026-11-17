@@ -16,7 +16,10 @@ de trois produits.
   boutons, le rappel d'audit (`AuditReminder`, un `Alert` d'information) et l'indicateur « en
   cours » (`RunningProgress`).
 - Le titre de page est stable (« Restaurer depuis OneDrive », « Restaurer depuis SharePoint ») ;
-  `Steps` porte l'étape et reste affiché sur l'écran de fin.
+  `Steps` porte l'étape et reste affiché sur l'écran de fin, où ses trois étapes sont terminées
+  (aucune en cours). Le suivi a un titre `h2` commun (`RestoreResult` : « Restauration en
+  cours », « Restauration terminée », « Restauration échouée ») et un récapitulatif libellé
+  (`ResultList`).
 - Le motif est un texte libre, obligatoire, de 120 caractères au plus (`MAX_REASON_LENGTH`, la
   limite du serveur), pour les trois parcours. SharePoint n'a plus de liste de motifs.
 - Le rappel d'audit reprend la phrase de la charte : « Chaque consultation, export ou

@@ -10,8 +10,45 @@ import { Alert, FormField, WIZARD_LABELS } from './ui/index.js';
 /** Étapes de OneDrive et de SharePoint ; `Steps` les affiche à chaque écran, fin comprise. */
 export const RESTORE_STEPS = ['Choisir', 'Motif', 'Confirmation'];
 
-/** Rang de l'écran dans `RESTORE_STEPS` : le suivi se tient sur la dernière étape. */
-export const stepOf = (n: number): number => Math.min(n, RESTORE_STEPS.length);
+/** Rang de l'écran pour `Steps` : au-delà de la dernière étape (suivi), toutes sont terminées. */
+export const stepOf = (n: number): number => Math.min(n, RESTORE_STEPS.length + 1);
+
+/** Titre du suivi, identique pour OneDrive et SharePoint (mêmes mots que le mail). */
+export const RESULT_TITLES = {
+  running: 'Restauration en cours',
+  succeeded: 'Restauration terminée',
+  failed: 'Restauration échouée',
+} as const;
+
+/** Suivi d'une restauration : titre `h2`, puis le contenu (l'alerte juste dessous). */
+export function RestoreResult({
+  status,
+  children,
+}: {
+  status: keyof typeof RESULT_TITLES;
+  children: ReactNode;
+}) {
+  return (
+    <section aria-labelledby="restore-result-title">
+      <h2 id="restore-result-title">{RESULT_TITLES[status]}</h2>
+      {children}
+    </section>
+  );
+}
+
+/** Récapitulatif libellé, comme la fiche d'un mail. */
+export function ResultList({ rows }: { rows: [string, ReactNode][] }) {
+  return (
+    <dl className="meta-list">
+      {rows.map(([label, value]) => (
+        <div key={label} className="meta-row">
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
 
 /** Phrase de la charte (principe « Traçabilité »). */
 export const AUDIT_REMINDER =

@@ -239,6 +239,8 @@ export function ComponentsPage() {
       <Section id="etapes" title="Indicateur d’étapes">
         <Steps steps={['Choisir', 'Vérifier', 'Confirmer']} current={1} />
         <Steps steps={['Choisir', 'Vérifier', 'Confirmer']} current={2} />
+        <p>Parcours terminé : les trois étapes sont cochées, aucune n’est en cours.</p>
+        <Steps steps={['Choisir', 'Vérifier', 'Confirmer']} current={4} />
       </Section>
       <Section id="actions-etapes" title="Barre d’actions des parcours">
         <p>Retour à gauche, action principale à droite ; en mobile, action principale en haut.</p>

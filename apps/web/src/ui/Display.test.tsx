@@ -53,6 +53,15 @@ describe('Steps', () => {
     expect(html).toContain('✔');
     expect(html).toContain('(terminée)');
   });
+
+  it('has a finished state: no current step, every step marked as done', () => {
+    const html = renderToStaticMarkup(<Steps steps={steps} current={4} />);
+    expect(html).not.toContain('aria-current');
+    expect(html).not.toContain('Étape ');
+    expect(html).not.toContain('●');
+    expect(html.match(/\(terminée\)/g)).toHaveLength(3);
+    expect(html.match(/✔/g)).toHaveLength(3);
+  });
 });
 
 describe('StatusPill', () => {
