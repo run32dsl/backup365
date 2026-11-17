@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { parentOf } from '@backup365/core';
-import type { Problem as FailureProblem } from './apiError.js';
+import { API_ERRORS, type Problem as FailureProblem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { dateTimeOrDash } from './format.js';
 import { isReasonValid } from './mail.js';
@@ -67,7 +67,7 @@ function folderLabel(path: string): string {
   return parent === '/' ? 'la racine' : parent.split('/').filter(Boolean).join(' > ');
 }
 
-function Problem({
+export function Problem({
   status,
   onRetry,
 }: {
@@ -75,9 +75,7 @@ function Problem({
   onRetry: () => void;
 }) {
   if (status === 'unconfigured') {
-    return (
-      <EmptyState action={<a href="#/">Configurer la connexion</a>}>{T.notConfigured}</EmptyState>
-    );
+    return <EmptyState>{API_ERRORS['catalog_unavailable']}</EmptyState>;
   }
   if (status === 'no_backup') {
     return (

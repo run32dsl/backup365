@@ -442,6 +442,22 @@ export const SCREENS = [
     },
   },
   {
+    // Stockage non configuré ou en panne : l'API répond 503 catalog_unavailable.
+    name: 'onedrive-non-configure',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.route('**/api/onedrive/**', (route) =>
+        route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
+      );
+      await page.route('**/api/mail/mailboxes', (route) =>
+        route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
+      );
+      await page.reload();
+      await page.getByText('Aucune sauvegarde accessible').waitFor();
+    },
+  },
+  {
     name: 'onedrive-parcourir',
     hash: '#/onedrive',
     role: 'operator',

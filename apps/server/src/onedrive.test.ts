@@ -387,6 +387,33 @@ describe('OneDrive read routes', () => {
   });
 });
 
+describe('OneDrive without storage', () => {
+  it('answers catalog_unavailable, never backup_not_configured', async () => {
+    const { audit } = auditLog();
+    const noBrowser = buildTestApp({ version: '1', audit });
+    const broken = buildTestApp({
+      version: '1',
+      audit,
+      drive: new AtlasSdkDriveBrowser({
+        onedrive: { listSnapshots: () => Promise.reject(new Error('down')) },
+      }),
+    });
+    const urls = [
+      `/api/onedrive/${owner}/snapshots`,
+      `/api/onedrive/${owner}/items?snapshot=snap-2`,
+      `/api/onedrive/${owner}/versions?path=/a.txt`,
+    ];
+    for (const app of [noBrowser, broken]) {
+      for (const url of urls) {
+        const res = await app.inject({ url });
+        expect(res.statusCode, url).toBe(503);
+        expect(res.json(), url).toEqual({ error: 'catalog_unavailable' });
+        expect(res.body).not.toContain('backup_not_configured');
+      }
+    }
+  });
+});
+
 describe('POST /api/onedrive/:ownerId/restore', () => {
   it('starts a restoration (202) and records the request with the reason', async () => {
     const t = setup({});
