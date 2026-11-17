@@ -12,6 +12,7 @@ import {
   isOutcomeUncertain,
   oneDriveHash,
   parseOneDriveHash,
+  restoreBlocked,
   sizeOf,
   startDriveRestore,
   summaryOf,
@@ -193,5 +194,13 @@ describe('OneDrive entries table', () => {
     expect(html).toMatch(
       /<label[^>]*><input[^>]*type="radio"[^>]*\/>(?: |<!-- -->)*budget\.xlsx<\/label>/u,
     );
+  });
+});
+
+describe('OneDrive replace confirmation', () => {
+  it('keeps "Restaurer" inactive until the box is checked, in replace mode only', () => {
+    expect(restoreBlocked('replace', false)).toBe(true);
+    expect(restoreBlocked('replace', true)).toBe(false);
+    expect(restoreBlocked('copy', false)).toBe(false);
   });
 });

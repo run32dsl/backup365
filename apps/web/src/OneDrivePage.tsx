@@ -21,6 +21,7 @@ import {
   oneDriveHash,
   sizeOf,
   startDriveRestore,
+  restoreBlocked,
   summaryOf,
   type DriveEntry,
   type DriveJob,
@@ -443,7 +444,7 @@ function ReasonStep({
 }
 
 /** Étape 3 : mode et récapitulatif. */
-function ConfirmStep({
+export function ConfirmStep({
   account,
   choice,
   reason,
@@ -462,6 +463,7 @@ function ConfirmStep({
   const [confirmError, setConfirmError] = useState(false);
   const [failure, setFailure] = useState<FailureProblem | undefined>();
   const [sending, setSending] = useState(false);
+  const blocked = restoreBlocked(mode, confirmed);
   const canReplace = entry.kind === 'file';
   const versionAt = version?.at ?? entry.versionAt;
   const copyName = version ? '' : copyNameOf(entry.name, entry.kind, new Date());
@@ -511,7 +513,7 @@ function ConfirmStep({
           }
         }}
       />
-      <h3>Récapitulatif</h3>
+      <h2>Récapitulatif</h2>
       <p>
         {summaryOf({
           name: entry.name,
@@ -552,7 +554,12 @@ function ConfirmStep({
           </Button>
         }
       >
-        <Button type="submit" busy={sending}>
+        <Button
+          type="submit"
+          busy={sending}
+          aria-disabled={blocked || undefined}
+          className={blocked ? 'is-inactive' : undefined}
+        >
           {B.confirm}
         </Button>
       </WizardActions>

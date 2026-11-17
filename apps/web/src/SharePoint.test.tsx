@@ -17,9 +17,10 @@ import {
   startSiteRestore,
   summaryCountOf,
   summaryOf,
+  wholeSiteSummaryOf,
 } from './sharepoint.js';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ContentTree, SiteDenied, SiteEntriesTable } from './SharePointPage.js';
+import { ConfirmStep, ContentTree, SiteDenied, SiteEntriesTable } from './SharePointPage.js';
 import { navEntries, screenOf } from './App.js';
 
 const json = (body: unknown, status = 200) =>
@@ -264,6 +265,46 @@ describe('SharePoint wording', () => {
     expect(summaryOf({ ...input, scope: 'item', summary: null, path: '/A/b.pdf' })).toContain(
       'l’élément « A > b.pdf »',
     );
+  });
+
+  it('writes the whole-site summary as one sentence', () => {
+    expect(
+      wholeSiteSummaryOf({
+        siteName: 'Équipe commerciale',
+        pointAt: '2026-11-17T14:01:00Z',
+        items: 6,
+      }),
+    ).toBe(
+      'Vous allez restaurer le site « Équipe commerciale » tel qu’il était le 17/11/2026 à 14:01 : 6 éléments. Les contenus manquants seront recréés.',
+    );
+  });
+
+  it('orders the whole-site confirmation and ties the hint to the name field', () => {
+    const html = renderToStaticMarkup(
+      <ConfirmStep
+        site={{ id: 'abc', displayName: 'Équipe commerciale' }}
+        choice={{ scope: 'site', path: '/', snapshotId: 's1', pointAt: '2026-11-17T14:01:00Z' }}
+        reason="Reprise après incident"
+        onBack={() => undefined}
+        onStarted={() => undefined}
+      />,
+    );
+    const order = [
+      'Motif : ',
+      '<h2>Récapitulatif</h2>',
+      'action de grande ampleur',
+      'Je comprends',
+      'Tapez le nom du site',
+      'Le bouton reste inactif',
+      'wizard-actions',
+    ].map((text) => html.indexOf(text));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    const help = /<input[^>]*aria-describedby="([^"]+)"/.exec(html)?.[1];
+    expect(help).toBeDefined();
+    expect(html).toContain(`id="${help ?? ''}"`);
+    expect(html.slice(html.indexOf('wizard-actions'))).not.toContain('Le bouton reste inactif');
+    expect(html).toMatch(/<button[^>]*aria-disabled="true"[^>]*>Restaurer/);
   });
 
   it('says when the outcome is uncertain', () => {
