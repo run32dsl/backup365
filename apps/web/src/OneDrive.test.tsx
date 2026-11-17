@@ -1,6 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { EntriesTable } from './OneDrivePage.js';
+import { EntriesTable, Problem } from './OneDrivePage.js';
 import {
   ONEDRIVE_MESSAGES,
   breadcrumbOf,
@@ -193,5 +193,25 @@ describe('OneDrive entries table', () => {
     expect(html).toMatch(
       /<label[^>]*><input[^>]*type="radio"[^>]*\/>(?: |<!-- -->)*budget\.xlsx<\/label>/u,
     );
+  });
+});
+
+describe('OneDrive : stockage non configuré', () => {
+  it('shows the message without a misleading link to the home page', () => {
+    const html = renderToString(<Problem status="unconfigured" onRetry={() => undefined} />);
+    // Le texte vient du dictionnaire : ce test ne fige pas son libellé, en attente du PO.
+    expect(html).toContain(ONEDRIVE_MESSAGES.notConfigured);
+    expect(html).not.toContain('<a');
+    expect(html).not.toContain('Configurer la connexion');
+  });
+
+  it('is reached only by catalog_unavailable, never by backup_not_configured', async () => {
+    // `backup_not_configured` est le code du dialogue « Lancer » (POST d'exécution d'un plan) :
+    // aucune route OneDrive ne l'émet, et s'il arrivait, la page n'afficherait pas cet état.
+    const fetchFn = vi.fn();
+    fetchFn.mockReturnValueOnce(json({ error: 'backup_not_configured' }, 503));
+    expect((await fetchSnapshots('a', fetchFn)).status).toBe('error');
+    fetchFn.mockReturnValueOnce(json({ error: 'catalog_unavailable' }, 503));
+    expect((await fetchSnapshots('a', fetchFn)).status).toBe('unconfigured');
   });
 });

@@ -442,6 +442,19 @@ export const SCREENS = [
     },
   },
   {
+    // Stockage non configuré : le serveur répond 503 catalog_unavailable, sans lien vers l'Accueil.
+    name: 'onedrive-non-configure',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.route('**/api/mailboxes', (route) =>
+        route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
+      );
+      await page.reload();
+      await page.getByText(/Aucun compte Microsoft 365 n/u).waitFor();
+    },
+  },
+  {
     name: 'onedrive-parcourir',
     hash: '#/onedrive',
     role: 'operator',
