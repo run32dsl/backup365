@@ -254,6 +254,19 @@ th {
   font-weight: 600;
   white-space: nowrap;
 }
+.status-section {
+  margin-top: var(--space-4);
+}
+.status-section h2 {
+  margin: 0 0 var(--space-1);
+}
+.status-section .help {
+  margin: 0 0 var(--space-3);
+  color: var(--muted);
+}
+.backups .ok-toggle {
+  display: none;
+}
 .plan-counts {
   display: flex;
   flex-wrap: wrap;
@@ -498,6 +511,13 @@ select[aria-disabled='true'] {
     content: attr(data-label);
     font-weight: 600;
     color: var(--muted);
+  }
+  /* Sauvegardes à jour repliées derrière un bouton. */
+  .backups:not(.show-ok) .row-ok {
+    display: none;
+  }
+  .backups .ok-toggle {
+    display: inline-flex;
   }
   /* Carte compacte : deux cellules par ligne, sans étiquette ; le motif prend toute la largeur. */
   .data-table-compact tr {

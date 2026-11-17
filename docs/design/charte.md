@@ -53,8 +53,8 @@ composant s'y ajoute avec ses tests de comportement.
 - **Champ** : un `<label>` visible au-dessus, contour 3:1, aide reliée par `aria-describedby`.
 - **Tableau** : `<th scope="col">`, légende (masquée visuellement si le titre la remplace),
   texte qui passe à la ligne plutôt que de déborder.
-- **Badge d'état** (`.badge`) : « À jour » (`✔`), « En cours », « Avertissement » (`⚠`),
-  « Échec » (`✖`).
+- **Badge d'état** (`.badge`) : « À jour » (`✔`), « En cours », « En retard » (`⚠`),
+  « En échec » (`✖`) ; mêmes libellés pour les plans et les sauvegardes.
 - **Bandeau d'alerte** : `role="alert"` pour une erreur, `role="status"` pour une information ;
   sans détail technique.
 - **État vide** (`.empty`) : phrase claire et, au plus, un bouton d'action.
