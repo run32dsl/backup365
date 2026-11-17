@@ -138,7 +138,7 @@ fichier exigeant une confirmation (ADR 0013, même réserve sur le tenant). L'é
 son emplacement d'origine et sans rien écraser ; le site entier est réservé à l'administrateur, qui
 coche une case puis retape le nom du site (ADR 0014, même réserve sur le tenant). Les
 plans se créent en trois étapes dans « Plans de protection » (`#/plans`) : quoi protéger,
-objectifs (RPO, RTO, conservation et justification RGPD), récapitulatif ; « Lancer maintenant »
+objectifs (perte de données acceptable, remise en service, conservation et justification RGPD), récapitulatif ; « Lancer maintenant »
 demande un motif, inscrit au journal d'audit. L'administrateur crée, désactive et change le rôle des comptes dans l'écran « Comptes »
 (`#/comptes`) ; il ne peut pas désactiver ni rétrograder le dernier administrateur actif. Un mot
 de passe provisoire (création ou réinitialisation) est à changer à la connexion suivante.

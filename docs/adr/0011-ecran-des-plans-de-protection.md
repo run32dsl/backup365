@@ -22,7 +22,7 @@ dans la liste la conformité et la dernière exécution, et laisser un opérateu
   l'opérateur, la liste omet la sélection, la justification et le RTO.
 - **Justification.** Le texte enregistré est le motif choisi (« Obligation légale », « Besoin
   métier », « Intérêt public », « Autre ») suivi de la précision : aucun champ de plus.
-- **Choix proposés.** RPO 12, 4 ou 24 h ; RTO 24, 8 ou 72 h ; conservation 1 an, 3 ans ou 6 mois.
+- **Choix proposés.** Perte de données 4, 12 ou 24 h ; remise en service 8, 24 ou 72 h ; conservation 6 mois, 1 an ou 3 ans (ordre croissant, sans les sigles RPO ni RTO à l'écran).
   Défauts : 12 h, 24 h, 1 an, tout protégé, toute l'organisation.
 - **Non configuré.** L'écran le déduit de `GET /api/mailboxes` (503 `catalog_unavailable`). Il n'existe
   pas encore d'écran de configuration : « Configurer la sauvegarde » renvoie au tableau de bord.

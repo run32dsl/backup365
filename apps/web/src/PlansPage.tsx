@@ -23,7 +23,9 @@ import {
   lastRunLabel,
   retentionLabel,
   withCurrent,
+  retentionHelp,
   rpoHelp,
+  rtoHelp,
   rtoSentence,
   runPlan,
   runReasonText,
@@ -169,14 +171,17 @@ export function PlanWizard({
   editing,
   mailboxes,
   onSubmit,
+  initialStep = 1,
 }: {
   initial: PlanForm;
   editing: boolean;
   mailboxes: Mailbox[];
   /** Renvoie le message d'échec, ou `undefined` si l'enregistrement a réussi. */
   onSubmit: (form: PlanForm) => Promise<string | undefined>;
+  /** Étape affichée à l'ouverture (tests). */
+  initialStep?: 1 | 2 | 3;
 }) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(initialStep);
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<FormErrors>({});
   const [failure, setFailure] = useState<string>();
@@ -308,7 +313,7 @@ export function PlanWizard({
       {step === 2 && (
         <>
           <RadioGroup<RpoHours>
-            legend="Perte de données acceptable (RPO)"
+            legend="Perte de données acceptable"
             name="rpo"
             value={form.rpoHours}
             options={RPO_CHOICES.map((h) => ({ value: h, label: `${h} h` }))}
@@ -318,13 +323,14 @@ export function PlanWizard({
             }}
           />
           <RadioGroup<number>
-            legend="Remise en service souhaitée (RTO)"
+            legend="Remise en service souhaitée"
             name="rto"
             value={form.rtoHours}
             options={withCurrent(RTO_CHOICES, form.rtoHours).map((h) => ({
               value: h,
               label: `${h} h`,
             }))}
+            help={rtoHelp(form.rtoHours)}
             onChange={(rtoHours) => {
               patch({ rtoHours });
             }}
@@ -337,6 +343,7 @@ export function PlanWizard({
               value: d,
               label: retentionLabel(d),
             }))}
+            help={retentionHelp(form.retentionDays)}
             onChange={(retentionDays) => {
               patch({ retentionDays });
             }}

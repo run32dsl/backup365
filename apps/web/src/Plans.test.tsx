@@ -11,6 +11,9 @@ import {
   lastRunLabel,
   parseJustification,
   parsePlansHash,
+  RETENTION_CHOICES,
+  RTO_CHOICES,
+  withCurrent,
   payloadOf,
   runPlan,
   summarySentence,
@@ -259,6 +262,64 @@ describe('PlanWizard', () => {
     expect(html).toContain('Nom du plan');
     expect(html).toContain('Continuer');
     expect(html).not.toContain('Précédent');
+  });
+
+  const step2 = (form = emptyForm()) =>
+    renderToStaticMarkup(
+      <PlanWizard
+        initial={form}
+        editing={false}
+        mailboxes={[]}
+        onSubmit={() => Promise.resolve(undefined)}
+        initialStep={2}
+      />,
+    );
+  const radios = (html: string, name: string) =>
+    [...html.matchAll(new RegExp(`<input[^>]*name="${name}"[^>]*>`, 'g'))].map(
+      (m) => [/value="(\d+)"/.exec(m[0])?.[1], m[0].includes('checked=""')] as const,
+    );
+
+  it('lists the objectives in ascending order, defaults checked, without acronyms', () => {
+    const html = step2();
+    expect(radios(html, 'rpo')).toEqual([
+      ['4', false],
+      ['12', true],
+      ['24', false],
+    ]);
+    expect(radios(html, 'rto')).toEqual([
+      ['8', false],
+      ['24', true],
+      ['72', false],
+    ]);
+    expect(radios(html, 'retention')).toEqual([
+      ['180', false],
+      ['365', true],
+      ['1095', false],
+    ]);
+    expect(html).not.toMatch(/RPO|RTO/);
+  });
+
+  it('links one help sentence per group with aria-describedby, following the choice', () => {
+    const html = step2();
+    for (const name of ['rpo', 'rto', 'retention']) {
+      expect(html).toContain(`aria-describedby="${name}-help"`);
+      expect(html).toContain(`id="${name}-help"`);
+    }
+    expect(html).toContain('perdre au plus 12 h');
+    expect(html).toContain('rétabli en 24 h au plus');
+    expect(html).toContain('supprimées au bout de 1\u00a0an');
+    const other = step2({ ...emptyForm(), rpoHours: 4, rtoHours: 8, retentionDays: 180 });
+    expect(other).toContain('perdre au plus 4 h');
+    expect(other).toContain('rétabli en 8 h au plus');
+    expect(other).toContain('supprimées au bout de 6\u00a0mois');
+  });
+
+  it('keeps the options sorted when the current value is outside the list', () => {
+    expect(withCurrent(RETENTION_CHOICES, 730)).toEqual([180, 365, 730, 1095]);
+    expect(withCurrent(RETENTION_CHOICES, 30)).toEqual([30, 180, 365, 1095]);
+    expect(withCurrent(RTO_CHOICES, 48)).toEqual([8, 24, 48, 72]);
+    const html = step2({ ...emptyForm(), retentionDays: 730 });
+    expect(radios(html, 'retention').map(([v]) => v)).toEqual(['180', '365', '730', '1095']);
   });
 });
 
