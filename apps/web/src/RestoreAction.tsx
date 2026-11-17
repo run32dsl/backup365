@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { IndexedMail } from '@backup365/core';
-import type { Problem } from './apiError.js';
+import { API_ERRORS, type Problem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { isReasonValid } from './mail.js';
 import { AuditReminder, REASON, RESTORE_BUTTONS as B, ReasonField } from './RestoreJourney.js';
@@ -21,11 +21,14 @@ import { Alert, Button, Dialog } from './ui/index.js';
 
 export type RestorableMail = Pick<IndexedMail, 'mailboxId' | 'messageId' | 'subject' | 'date'>;
 
-/** Message affiché sous le bouton quand aucun tenant n'est relié, avec le lien vers l'accueil. */
+/**
+ * Message affiché sous le bouton quand la restauration n'est pas configurée : c'est le cas où
+ * `POST …/restore` répond 503 `restore_unavailable`.
+ */
 export function RestoreNotConfigured({ id }: { id: string }) {
   return (
     <p id={id} className="field-help">
-      {T.notConfigured} <a href="#/">Voir Accueil.</a>
+      {API_ERRORS['restore_unavailable']}
     </p>
   );
 }
