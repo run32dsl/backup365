@@ -5,10 +5,11 @@ import {
   fetchAudit,
   pageOffsets,
   queryFromForm,
+  type AuditItem,
   type AuditQuery,
   type AuditResponse,
 } from './audit.js';
-import { auditDate, reasonLabel, resourceLabel, targetLabel } from './auditLabels.js';
+import { actorLabel, auditDate, detailLabel, reasonLabel, targetView } from './auditLabels.js';
 import { fetchPlans } from './plans.js';
 import {
   Address,
@@ -41,7 +42,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   'restore.result': 'Résultat de restauration',
 };
 
-type Entry = AuditResponse['items'][number];
+type Entry = AuditItem;
 
 /** Colonnes du tableau ; l'empreinte n'y figure pas (elle reste dans l'infobulle du numéro et dans l'API). */
 function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[] {
@@ -52,21 +53,40 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
       cell: (e) => <span title={`Empreinte : ${e.hash}`}>{e.seq}</span>,
     },
     {
-      header: 'Date',
+      header: 'Date (UTC)',
       className: 'nowrap',
-      cell: (e) => <span title={e.at}>{auditDate(e.at)}</span>,
+      cell: (e) => <span title={e.at}>{auditDate(e.at) || '—'}</span>,
     },
-    { header: 'Acteur', className: 'keep-words', cell: (e) => e.actor },
-    { header: 'Action', className: 'keep-words', cell: (e) => ACTION_LABELS[e.action] },
+    { header: 'Acteur', className: 'keep-words', cell: (e) => actorLabel(e.actor) },
     {
-      header: 'Ressource',
-      className: 'keep-words card-hidden',
-      cell: (e) => resourceLabel(e.resource),
+      header: 'Action',
+      className: 'keep-words',
+      cell: (e) => {
+        const detail = detailLabel(e.reason);
+        return (
+          <span>
+            {ACTION_LABELS[e.action]}
+            {detail && <span className="cell-secondary">{detail}</span>}
+          </span>
+        );
+      },
     },
     {
       header: 'Cible',
       className: 'keep-words',
-      cell: (e) => <Address value={targetLabel(e.target, e.resource, planNames)} />,
+      cell: (e) => {
+        const { name, secondary } = targetView(e, planNames);
+        return (
+          <span>
+            <Address value={name} />
+            {secondary && (
+              <span className="cell-secondary">
+                <Address value={secondary} />
+              </span>
+            )}
+          </span>
+        );
+      },
     },
     { header: 'Éléments', className: 'card-hidden', cell: (e) => e.count ?? '' },
     { header: 'Motif', className: 'card-wide', cell: (e) => reasonLabel(e.reason) },

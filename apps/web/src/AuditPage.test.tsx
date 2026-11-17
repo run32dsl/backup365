@@ -22,7 +22,8 @@ describe('AuditView', () => {
     );
     expect(html).toContain('alice');
     expect(html).toContain('Ouverture d’une fiche');
-    expect(html).toContain('snap-1');
+    expect(html).not.toContain('snap-1');
+    expect(html).toContain('15/01/2026 10:00');
     expect(html).toContain('b'.repeat(12));
   });
 

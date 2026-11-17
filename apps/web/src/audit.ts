@@ -9,11 +9,14 @@ export interface AuditQuery {
   offset?: number;
 }
 
+/** Entrée du journal ; pour un mail, l'API ajoute son objet et sa boîte quand l'index les connaît. */
+export type AuditItem = AuditEntry & { targetName?: string; targetMailbox?: string };
+
 export interface AuditResponse {
   total: number;
   limit: number;
   offset: number;
-  items: AuditEntry[];
+  items: AuditItem[];
 }
 
 /** Interroge `/api/audit` ; les filtres vides sont omis. Lève une erreur si la réponse n'est pas en 2xx. */

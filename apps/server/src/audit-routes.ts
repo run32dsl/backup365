@@ -1,4 +1,10 @@
-import { AUDIT_ACTIONS, type AuditAction, type AuditLog } from '@backup365/core';
+import {
+  AUDIT_ACTIONS,
+  type AuditAction,
+  type AuditEntry,
+  type AuditLog,
+  type SearchIndex,
+} from '@backup365/core';
 import type { FastifyInstance } from 'fastify';
 import { auditEvent } from './audit-events.js';
 
@@ -13,8 +19,34 @@ interface AuditQuerystring {
 
 const date = { type: 'string', format: 'date-time' } as const;
 
+const MAIL_RESOURCES: ReadonlySet<string> = new Set(['mail', 'mail.restore']);
+
+/** Entrée du journal, avec l'objet et la boîte du mail visé quand l'index les connaît encore. */
+export type AuditItem = AuditEntry & { targetName?: string; targetMailbox?: string };
+
+/**
+ * Ajoute à l'entrée l'objet du mail visé (`<boîte>/<identifiant>`), lu dans l'index à la
+ * consultation : le journal chaîné n'est pas modifié (ADR 0004). Mail absent de l'index : rien.
+ */
+async function withMailName(entry: AuditEntry, index: SearchIndex | undefined): Promise<AuditItem> {
+  const slash = entry.target?.indexOf('/') ?? -1;
+  if (!index || !MAIL_RESOURCES.has(entry.resource) || !entry.target || slash <= 0) return entry;
+  const mailbox = entry.target.slice(0, slash);
+  try {
+    const mail = await index.getMail(mailbox, entry.target.slice(slash + 1));
+    return mail ? { ...entry, targetName: mail.subject, targetMailbox: mailbox } : entry;
+  } catch {
+    // Enrichissement facultatif : une erreur de l'index ne doit pas rendre le journal illisible.
+    return entry;
+  }
+}
+
 /** Consultation du journal d'audit (lecture seule). Sans journal configuré, elle répond 503. */
-export function registerAuditRoutes(app: FastifyInstance, audit: AuditLog | undefined) {
+export function registerAuditRoutes(
+  app: FastifyInstance,
+  audit: AuditLog | undefined,
+  index?: SearchIndex,
+) {
   app.get<{ Querystring: AuditQuerystring }>(
     '/api/audit',
     {
@@ -45,7 +77,7 @@ export function registerAuditRoutes(app: FastifyInstance, audit: AuditLog | unde
         total: page.total,
         limit: req.query.limit,
         offset: req.query.offset,
-        items: page.items,
+        items: await Promise.all(page.items.map((e) => withMailName(e, index))),
       };
     },
   );

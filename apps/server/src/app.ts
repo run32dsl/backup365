@@ -166,7 +166,7 @@ export function buildApp({
     done();
   });
   void app.register((scope, _opts, done) => {
-    registerAuditRoutes(scope, audit);
+    registerAuditRoutes(scope, audit, searchIndex);
     done();
   });
   void app.register((scope, _opts, done) => {

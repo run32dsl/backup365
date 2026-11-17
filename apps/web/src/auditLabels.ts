@@ -1,33 +1,4 @@
-import { shortDate } from './plans.js';
-
-/** Libellé français des ressources du journal ; une ressource inconnue reste générique. */
-export const RESOURCE_LABELS: Record<string, string> = {
-  auth: 'Connexion',
-  session: 'Connexion',
-  account: 'Compte',
-  accounts: 'Comptes',
-  plan: 'Plan de protection',
-  plans: 'Plans de protection',
-  mailboxes: 'Boîtes',
-  mail: 'Mail',
-  'mail.search': 'Recherche de mails',
-  'mail.export': 'Export de mail',
-  'mail.restore': 'Restauration de mail',
-  snapshot: 'Sauvegarde',
-  catalog: 'Catalogue',
-  onedrive: 'OneDrive',
-  'onedrive.items': 'Fichiers OneDrive',
-  'onedrive.versions': 'Versions OneDrive',
-  'onedrive.restore': 'Restauration OneDrive',
-  sharepoint: 'SharePoint',
-  'sharepoint.items': 'Éléments SharePoint',
-  'sharepoint.scope': 'Périmètre SharePoint',
-  'sharepoint.restore': 'Restauration SharePoint',
-};
-
-export function resourceLabel(resource: string): string {
-  return RESOURCE_LABELS[resource] ?? 'Autre ressource';
-}
+import { dateTimeOf } from './format.js';
 
 const REASON_LABELS: Record<string, string> = {
   forbidden: 'Accès refusé',
@@ -57,8 +28,8 @@ const FIELD_LABELS: Record<string, string> = {
   scope: 'périmètre',
   dataTypes: 'types de données',
   selection: 'sélection',
-  rpoHours: 'RPO',
-  rtoHours: 'RTO',
+  rpoHours: 'fréquence de sauvegarde',
+  rtoHours: 'délai de reprise',
   retentionDays: 'rétention',
   gdprJustification: 'justification RGPD',
 };
@@ -68,32 +39,59 @@ const SCOPE_LABELS: Record<string, string> = {
   selection: 'sélection',
 };
 
-/**
- * Motif lisible d'une entrée : motif système traduit, justification saisie par l'utilisateur
- * conservée telle quelle (`…;reason=<texte>`), valeur inconnue omise (chaîne vide).
- */
+const CREATED = /^scope:(\w+),rpo:(\d+)$/;
+const SYSTEM_CODE = /^[a-z0-9]+(?:[_.:,-][a-z0-9]+)+$/;
+
+/** Sépare un motif `…;reason=<texte>` : la partie écrite par le système, et le texte saisi. */
+function splitReason(reason: string): { system: string; typed: string } {
+  const at = reason.indexOf(';reason=');
+  if (at >= 0) return { system: reason.slice(0, at), typed: reason.slice(at + 8).trim() };
+  if (reason.startsWith('reason=')) return { system: '', typed: reason.slice(7).trim() };
+  return { system: reason, typed: '' };
+}
+
+/** Vrai si le texte est écrit par le système (code connu ou non, résumé), et non saisi. */
+function isSystemReason(text: string): boolean {
+  return (
+    text in REASON_LABELS ||
+    CREATED.test(text) ||
+    text.startsWith('changed:') ||
+    text.startsWith('outcome=') ||
+    SYSTEM_CODE.test(text)
+  );
+}
+
+/** Motif de l'entrée : uniquement le texte saisi par l'utilisateur, conservé tel quel. */
 export function reasonLabel(reason: string | undefined): string {
   if (!reason) return '';
-  const known = REASON_LABELS[reason];
+  const { system, typed } = splitReason(reason);
+  if (typed) return typed;
+  return isSystemReason(system) || system !== reason ? '' : reason.trim();
+}
+
+/**
+ * Précision écrite par le système (« Compte Microsoft », « Accès refusé », résumé d'un plan ou
+ * d'une restauration), affichée sous l'action ; chaîne vide quand l'entrée n'en a pas.
+ */
+export function detailLabel(reason: string | undefined): string {
+  if (!reason) return '';
+  const { system } = splitReason(reason);
+  const known = REASON_LABELS[system];
   if (known) return known;
-  const created = /^scope:(\w+),rpo:(\d+)$/.exec(reason);
+  const created = CREATED.exec(system);
   if (created) {
     const scope = SCOPE_LABELS[created[1] ?? ''] ?? created[1];
-    return `Création : ${scope}, RPO ${created[2]} h`;
+    return `Création : ${scope}, sauvegarde toutes les ${created[2]} h`;
   }
-  if (reason.startsWith('changed:')) {
-    const fields = reason
+  if (system.startsWith('changed:')) {
+    const fields = system
       .slice('changed:'.length)
       .split(',')
       .map((f) => FIELD_LABELS[f])
       .filter(Boolean);
     return fields.length > 0 ? `Modifié : ${fields.join(', ')}` : '';
   }
-  if (reason.startsWith('outcome=')) return restoreLabel(reason);
-  const free = /(?:^|;)reason=(.*)$/s.exec(reason);
-  if (free) return free[1]?.trim() ?? '';
-  // Code système inconnu (snake_case, sans espace) : omis. Sinon, justification saisie telle quelle.
-  return /^[a-z0-9]+(?:[_.:,-][a-z0-9]+)+$/.test(reason) ? '' : reason.trim();
+  return system.startsWith('outcome=') ? restoreLabel(system) : '';
 }
 
 const OUTCOME_LABELS: Record<string, string> = { succeeded: 'Réussie', failed: 'Échouée' };
@@ -103,11 +101,8 @@ const RESTORE_SCOPE_LABELS: Record<string, string> = {
   site: 'site entier',
 };
 
-/** Résultat d'une restauration (`outcome=…;duration_ms=…;…;reason=<texte>`) : fait d'audit, traduit. */
-function restoreLabel(reason: string): string {
-  const at = reason.indexOf(';reason=');
-  const head = at < 0 ? reason : reason.slice(0, at);
-  const free = at < 0 ? '' : reason.slice(at + ';reason='.length).trim();
+/** Résultat d'une restauration (`outcome=…;duration_ms=…;…`) : fait d'audit, traduit. */
+function restoreLabel(head: string): string {
   const fields = new Map<string, string>();
   for (const pair of head.split(';')) {
     const eq = pair.indexOf('=');
@@ -129,23 +124,40 @@ function restoreLabel(reason: string): string {
   if (skipped !== undefined && /^\d+$/.test(skipped)) parts.push(`${skipped} conservés`);
   const errors = fields.get('errors');
   if (errors !== undefined && /^\d+$/.test(errors)) parts.push(`${errors} erreurs`);
-  return [parts.join(', '), free].filter(Boolean).join(' : ');
+  return parts.join(', ');
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Ce que le journal sait de la cible d'une entrée ; l'API ajoute l'objet et la boîte d'un mail. */
+export interface TargetInfo {
+  resource: string;
+  target?: string;
+  targetName?: string;
+  targetMailbox?: string;
+}
 
-/** Cible lisible : un identifiant de plan devient son nom (ou « Plan supprimé »), un autre UUID est omis. */
-export function targetLabel(
-  target: string | undefined,
-  resource: string,
+/**
+ * Cible lisible : un nom, et pour un mail la boîte en texte secondaire. Jamais un identifiant
+ * interne : mail ou plan introuvable → « Élément supprimé » / « Plan supprimé », sinon « — ».
+ */
+export function targetView(
+  e: TargetInfo,
   planNames: ReadonlyMap<string, string> | null,
-): string {
-  if (!target) return '';
-  const name = planNames?.get(target);
-  if (name) return name;
-  if (UUID.test(target)) return planNames && resource === 'plan' ? 'Plan supprimé' : '';
-  return target;
+): { name: string; secondary?: string } {
+  if (!e.target) return { name: '—' };
+  if (e.resource === 'plan') {
+    return { name: planNames?.get(e.target) ?? (planNames ? 'Plan supprimé' : '—') };
+  }
+  if (e.resource === 'mail' || e.resource === 'mail.restore') {
+    return e.targetName
+      ? { name: e.targetName, ...(e.targetMailbox ? { secondary: e.targetMailbox } : {}) }
+      : { name: 'Élément supprimé' };
+  }
+  // Seul l'identifiant de connexion d'un compte se lit tel quel.
+  return { name: e.resource === 'account' ? e.target : '—' };
 }
 
-/** Date courte (`14/11 06:00`) ; l'horodatage complet reste dans l'infobulle. */
-export const auditDate = shortDate;
+/** Acteur lisible : l'auteur d'une requête sans session s'écrit « Inconnu ». */
+export const actorLabel = (actor: string): string => (actor === 'anonymous' ? 'Inconnu' : actor);
+
+/** Date complète (`14/11/2026 06:00`, UTC) ; l'horodatage ISO reste dans l'infobulle. */
+export const auditDate = dateTimeOf;

@@ -114,6 +114,17 @@ describe('mode démo', () => {
   });
 });
 
+describe('journal de démonstration', () => {
+  it('vise des mails au format boîte/identifiant et un vrai plan, sans identifiant fictif', () => {
+    const events = demoAuditEvents(Date.now(), 'plan-uuid');
+    const mails = events.filter((e) => e.resource === 'mail');
+    expect(mails.length).toBeGreaterThan(0);
+    for (const e of mails) expect(e.target).toBe(`${DEMO_MAILBOXES[0]!.id}/msg-1-004`);
+    expect(events.find((e) => e.action === 'plan.create')?.target).toBe('plan-uuid');
+    expect(JSON.stringify(demoAuditEvents(Date.now()))).not.toContain('plan-demo');
+  });
+});
+
 describe('jeu de démonstration', () => {
   it('ne contient que le domaine exemple.fr', async () => {
     const now = Date.now();
@@ -143,7 +154,7 @@ describe('jeu de démonstration', () => {
     for (const site of DEMO_SITES) collect(await handle.sharepoint.listSnapshots(site.id));
     collect(DEMO_MAILBOXES);
     collect(DEMO_SITES);
-    collect(demoAuditEvents(now));
+    collect(demoAuditEvents(now, 'plan-id'));
     collect(DEMO_ACCOUNTS.map((a) => a.username));
 
     const hosts = strings.flatMap((s) => [
