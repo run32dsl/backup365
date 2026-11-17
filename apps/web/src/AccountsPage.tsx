@@ -15,7 +15,7 @@ import {
 import { ErrorView, Field } from './LoginPage.js';
 import { ResetPasswordDialog } from './ResetPassword.js';
 import { AUDIT_NOTICE, UNREACHABLE, type Outcome, type Role } from './session.js';
-import { Alert, Button, DataTable, type Column } from './ui/index.js';
+import { Alert, Button, DataTable, StatusPill, type Column } from './ui/index.js';
 
 export type AccountsState = AccountInfo[] | 'loading' | 'error';
 
@@ -27,8 +27,14 @@ export interface AccountActions {
   onReset: (form: FormData) => Promise<boolean> | void;
 }
 
-const stateOf = (a: AccountInfo): string =>
-  a.disabled ? 'Désactivé' : a.mustChangePassword ? 'Mot de passe à changer' : 'Actif';
+const stateOf = (a: AccountInfo) =>
+  a.disabled ? (
+    <StatusPill status="failed" label="Désactivé" />
+  ) : a.mustChangePassword ? (
+    <StatusPill status="late" label="Mot de passe à changer" />
+  ) : (
+    <StatusPill status="compliant" label="Actif" />
+  );
 
 function RoleSelect({
   name,
@@ -84,24 +90,16 @@ const columns = (
     cell: (a) => {
       const last = isLastAdmin(state, a);
       return (
-        <>
-          <Button
-            variant="secondary"
-            aria-disabled={last || undefined}
-            aria-describedby={last ? `last-admin-${a.id}` : undefined}
-            onClick={() => {
-              if (!last) actions?.onDisabled?.(a.id, !a.disabled);
-            }}
-          >
-            {a.disabled ? 'Réactiver' : 'Désactiver'}
-          </Button>
-          {last && (
-            <>
-              {' '}
-              <span id={`last-admin-${a.id}`}>{LAST_ADMIN_NOTICE}</span>
-            </>
-          )}
-        </>
+        <Button
+          variant="secondary"
+          aria-disabled={last || undefined}
+          aria-describedby={last ? `last-admin-${a.id}` : undefined}
+          onClick={() => {
+            if (!last) actions?.onDisabled?.(a.id, !a.disabled);
+          }}
+        >
+          {a.disabled ? 'Réactiver' : 'Désactiver'}
+        </Button>
       );
     },
   },
@@ -146,11 +144,18 @@ export function AccountsView({
         if (ok === true) form.reset();
       });
     };
+  const lastAdmin = state.find((a) => isLastAdmin(state, a));
   return (
     <>
       {message && (
         <Alert tone={message.kind === 'error' ? 'error' : 'success'}>{message.text}</Alert>
       )}
+      {lastAdmin && (
+        <Alert id={`last-admin-${lastAdmin.id}`} tone="info">
+          {LAST_ADMIN_NOTICE}
+        </Alert>
+      )}
+      <h2>Comptes de la console</h2>
       <DataTable
         caption="Comptes de la console"
         hideCaption
@@ -287,7 +292,7 @@ export function AccountsPage() {
   };
   return (
     <main tabIndex={-1}>
-      <h1>Comptes de la console</h1>
+      <h1>Administration</h1>
       <AccountsView
         state={state}
         message={message}

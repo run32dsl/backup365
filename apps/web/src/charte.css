@@ -367,9 +367,14 @@ th {
 .btn[aria-busy='true'] {
   cursor: progress;
 }
-.btn:disabled {
+.btn:disabled,
+.btn[aria-disabled='true']:not([aria-busy='true']),
+select[aria-disabled='true'] {
   color: var(--muted);
   border-color: var(--border);
+}
+select[aria-disabled='true'] {
+  cursor: not-allowed;
 }
 .spinner {
   display: inline-block;
