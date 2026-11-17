@@ -128,7 +128,7 @@ describe('plan form', () => {
 
 describe('list labels', () => {
   it('carries compliance by text, not by colour', () => {
-    expect(complianceView(plan)).toEqual({ status: 'compliant', label: 'Conforme' });
+    expect(complianceView(plan)).toEqual({ status: 'compliant', label: 'À jour' });
     expect(
       complianceView({
         ...plan,
@@ -137,14 +137,15 @@ describe('list labels', () => {
           lastSuccessAt: '2026-11-13T00:00:00Z',
           lastRestorePointAt: '2026-11-13T00:00:00Z',
         },
-      }).label,
-    ).toBe('À vérifier : RPO dépassé');
+      }),
+    ).toMatchObject({ label: 'En retard', note: 'Dernière sauvegarde plus ancienne que prévu' });
     expect(
       complianceView({
         ...plan,
         compliance: { state: 'failed', lastSuccessAt: null, lastRestorePointAt: null },
-      }).label,
-    ).toBe('Non conforme : aucune sauvegarde réussie');
+        lastRun: { ...plan.lastRun!, status: 'failed' },
+      }),
+    ).toMatchObject({ label: 'En échec', note: 'Aucune sauvegarde réussie' });
   });
 
   it('describes the last run', () => {
@@ -155,14 +156,18 @@ describe('list labels', () => {
     expect(
       lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, noSnapshotReason: 'no_content' } }),
     ).toMatch(/^Réussie \(rien à sauvegarder\), \d\d\/\d\d \d\d:\d\d$/);
+    // « rien à sauvegarder » : une seule fois par ligne.
+    const empty = { ...plan.compliance, lastRestorePointAt: null };
+    expect(complianceView({ ...plan, compliance: empty }).note).toBe(
+      'Rien à sauvegarder pour l’instant',
+    );
     expect(
-      complianceView({ ...plan, compliance: { ...plan.compliance, lastRestorePointAt: null } })
-        .label,
-    ).toBe('Conforme : rien à sauvegarder');
-    expect(
-      complianceView({ ...plan, compliance: { ...plan.compliance, lastRestorePointAt: null } })
-        .label,
-    ).not.toMatch(/restaurer/);
+      complianceView({
+        ...plan,
+        compliance: empty,
+        lastRun: { ...plan.lastRun!, noSnapshotReason: 'no_content' },
+      }).note,
+    ).toBeUndefined();
     expect(lastRunLabel({ ...plan, running: true })).toBe('En cours…');
     expect(lastRunLabel({ ...plan, lastRun: null })).toBe('Pas encore sauvegardé');
   });
@@ -183,7 +188,14 @@ describe('PlansListView', () => {
   it('shows the table with action buttons named after the plan for an administrator', () => {
     const html = list([plan], true);
     expect(html).toContain('Messagerie Direction');
-    expect(html).toContain('Conforme');
+    expect(html).toContain('À jour');
+    expect(
+      list(
+        [{ ...plan, compliance: { ...plan.compliance, state: 'failed', lastSuccessAt: null } }],
+        true,
+      ),
+    ).toContain('<small class="state-note">Aucune sauvegarde réussie</small>');
+    expect(html).not.toMatch(/Conforme|Non conforme|RPO|Conformité/);
     expect(html).toContain('aria-label="Lancer Messagerie Direction maintenant"');
     expect(html).toContain('aria-label="Modifier Messagerie Direction"');
     expect(html).toContain('aria-label="Supprimer Messagerie Direction"');

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { NoBackupError, fetchStatus } from './status.js';
 import { StatusView, sortRows } from './StatusView.js';
 import { ageLabel } from './format.js';
+import { complianceView, type PlanItem } from './plans.js';
 
 const report: StatusReport = {
   generatedAt: '2026-11-12T12:00:00.000Z',
@@ -152,6 +153,47 @@ describe('StatusView', () => {
       expect(html).toContain('Direction');
       expect(html).toContain('Finance');
       expect(html).toContain('10/11/2026 06:00');
+    });
+
+    it('gives a plan the same pill label here and in the plans list', () => {
+      const base = {
+        id: 'p',
+        name: 'P',
+        selection: [],
+        rpoHours: 4,
+        rtoHours: null,
+        retentionDays: 30,
+        gdprJustification: '',
+        createdAt: '2026-11-01T00:00:00Z',
+        running: false,
+        lastRun: null,
+      } as unknown as PlanItem;
+      for (const [state, label] of [
+        ['compliant', 'À jour'],
+        ['late', 'En retard'],
+        ['failed', 'En échec'],
+      ] as const) {
+        const view = complianceView({
+          ...base,
+          compliance: { state, lastSuccessAt: '2026-11-10T06:00:00Z', lastRestorePointAt: 'x' },
+        });
+        expect(view.label).toBe(label);
+        if (state === 'compliant') continue;
+        const html = renderToString(
+          <StatusView
+            state={{
+              ...report,
+              plans: {
+                counts: { compliant: 0, late: 0, failed: 0 },
+                nonCompliant: [
+                  { id: 'p', name: 'P', rpoHours: 4, state, lastSuccessAt: '2026-11-10T06:00:00Z' },
+                ],
+              },
+            }}
+          />,
+        );
+        expect(html).toContain(`${view.label}</span></td>`);
+      }
     });
 
     it('lists no table when every plan is compliant', () => {

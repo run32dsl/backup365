@@ -487,6 +487,12 @@ select[aria-disabled='true'] {
   content: '\200b';
 }
 
+/* Explication d'un état, sous la pastille. */
+.state-note {
+  display: block;
+  color: var(--muted);
+}
+
 /* Adresse sur une seule ligne en tableau ; en carte (sous 900 px) elle peut passer à la ligne. */
 @media (min-width: 56.26rem) {
   .data-table .address {
@@ -498,9 +504,9 @@ select[aria-disabled='true'] {
     white-space: nowrap;
   }
 
-  /* Un libellé de conformité long passe à la ligne dans sa pastille plutôt que de déborder. */
+  /* Pastille courte sur une ligne ; l'explication passe en texte secondaire dessous. */
   .data-table .compliance-cell .badge {
-    white-space: normal;
+    white-space: nowrap;
   }
 
   /* Cellules resserrées pour que le tableau de résultats tienne dans la page à 1280 px. */
