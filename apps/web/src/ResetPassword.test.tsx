@@ -38,6 +38,13 @@ describe('réinitialisation : étape 3', () => {
     expect(html).toMatch(/<button[^>]*aria-disabled="true"[^>]*>Terminer/);
   });
 
+  it('wraps the checkbox in a label.choice carrying the text, so a click on the text checks it', () => {
+    const html = renderToStaticMarkup(<TemporaryPasswordView password={password} />);
+    expect(html).toMatch(
+      /<label class="choice"><input type="checkbox"[^>]*\/>J’ai transmis le mot de passe<\/label>/,
+    );
+  });
+
   it('enables Terminer once the box is checked, and reports a copy', () => {
     const html = renderToStaticMarkup(<TemporaryPasswordView password={password} handed copied />);
     expect(html).not.toMatch(/aria-disabled="true"[^>]*>Terminer/);
