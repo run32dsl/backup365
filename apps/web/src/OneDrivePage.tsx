@@ -239,12 +239,12 @@ function BrowseStep({
         </div>
       </div>
       <p>Sauvegarde du {dateTimeOf(snapshot?.createdAt ?? null)}</p>
-      <nav aria-label="Chemin">
+      <nav aria-label="Fil d'Ariane">
         <ol className="breadcrumb">
           {breadcrumbOf(path).map((c, i, all) => (
             <li key={c.path}>
               {i === all.length - 1 ? (
-                <span aria-current="page">{c.label}</span>
+                <span aria-current="location">{c.label}</span>
               ) : (
                 <a href={oneDriveHash(account, c.path)}>{c.label}</a>
               )}

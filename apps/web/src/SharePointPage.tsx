@@ -90,7 +90,7 @@ function Problem({
  * (`role="tree"`), flèches haut et bas pour se déplacer, Entrée pour ouvrir un dossier ou choisir un
  * fichier. Le chemin ouvert est le fil d'Ariane.
  */
-function ContentTree({
+export function ContentTree({
   siteId,
   siteName,
   snapshotId,
@@ -178,21 +178,23 @@ function ContentTree({
 
   return (
     <>
-      <nav aria-label="Chemin">
+      <nav aria-label="Fil d'Ariane">
         <ol className="breadcrumb">
           {crumbs.map((c, i) => (
             <li key={c.path}>
               {i === crumbs.length - 1 ? (
-                <span aria-current="page">{c.label}</span>
+                <span aria-current="location">{c.label}</span>
               ) : (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
+                <a
+                  href={sharePointHash(siteId, scope)}
+                  onClick={(ev) => {
+                    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) return;
+                    ev.preventDefault();
                     go(c.path);
                   }}
                 >
                   {c.label}
-                </Button>
+                </a>
               )}
             </li>
           ))}
@@ -263,7 +265,7 @@ function ContentTree({
 }
 
 /** Étape 1 : site, granularité, contenu et point de restauration. */
-function ChooseStep({
+export function ChooseStep({
   sites,
   site,
   snapshots,
@@ -338,28 +340,29 @@ function ChooseStep({
         {SCOPE_OPTIONS.map((o) => {
           const locked = o.value === 'site' && !admin;
           return (
-            <label key={o.value} className="choice">
-              <input
-                type="radio"
-                name="scope"
-                value={o.value}
-                checked={scope === o.value}
-                disabled={locked}
-                aria-describedby={locked ? `${hintId}-admin` : undefined}
-                onChange={() => {
-                  setScope(o.value);
-                  setPath('/');
-                  setFile(null);
-                }}
-              />{' '}
-              {o.label}
+            <div key={o.value} className="choice-item">
+              <label className="choice">
+                <input
+                  type="radio"
+                  name="scope"
+                  value={o.value}
+                  checked={scope === o.value}
+                  disabled={locked}
+                  aria-describedby={locked ? `${hintId}-admin` : undefined}
+                  onChange={() => {
+                    setScope(o.value);
+                    setPath('/');
+                    setFile(null);
+                  }}
+                />
+                {o.label}
+              </label>
               {locked && (
-                <span id={`${hintId}-admin`} className="field-help">
-                  {' '}
-                  ({T.adminOnly})
-                </span>
+                <p id={`${hintId}-admin`} className="field-help choice-help">
+                  {T.adminOnly}
+                </p>
               )}
-            </label>
+            </div>
           );
         })}
       </fieldset>

@@ -135,8 +135,8 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
     .getByRole('link', { name: /Budget/ })
     .first()
     .click();
-  const path = page.getByRole('navigation', { name: 'Chemin' });
-  await expect(path.getByText('Budget')).toHaveAttribute('aria-current', 'page');
+  const path = page.getByRole('navigation', { name: "Fil d'Ariane" });
+  await expect(path.getByText('Budget')).toHaveAttribute('aria-current', 'location');
   await expect(page.getByRole('columnheader', { name: 'Version du' })).toBeVisible();
   await expect(
     page.getByRole('cell', { name: /\d\d\/\d\d\/\d{4} \d\d:\d\d/ }).first(),
