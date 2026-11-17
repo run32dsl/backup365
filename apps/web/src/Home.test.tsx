@@ -22,7 +22,9 @@ describe('ConsoleFooter', () => {
   it('links to the components page in demo mode only', () => {
     const demo = renderToStaticMarkup(<ConsoleFooter version="1.4.2" demo />);
     expect(demo).toContain('href="#/composants"');
-    expect(demo).toContain('Composants');
+    expect(demo).toContain(
+      '<span class="console-footer-item console-footer-link"><a href="#/composants">Composants</a> (démo seulement)</span>',
+    );
     expect(renderToStaticMarkup(<ConsoleFooter version="1.4.2" demo={false} />)).not.toContain(
       'Composants',
     );

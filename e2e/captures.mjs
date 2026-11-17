@@ -27,7 +27,7 @@ try {
         baseURL: server.baseURL,
         locale: 'fr-FR',
         timezoneId: 'UTC',
-        colorScheme: 'light',
+        colorScheme: screen.scheme ?? 'light',
       });
       try {
         if (screen.role) await signInAs(context, server.baseURL, screen.role);
