@@ -98,6 +98,9 @@ function Playground() {
           </Button>
           <Button busy>Enregistrement…</Button>
           <Button disabled>Désactivé</Button>
+          <Button variant="primary" aria-disabled="true">
+            Principal désactivé
+          </Button>
         </div>
       </Section>
       <Section id="champs" title="Champs de formulaire">
