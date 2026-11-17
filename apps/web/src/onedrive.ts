@@ -33,13 +33,11 @@ export const ONEDRIVE_MESSAGES = {
   loading: 'Chargement de la sauvegarde…',
   noBackup: 'Aucune sauvegarde de ce OneDrive.',
   readError: 'La sauvegarde n’a pas pu être lue.',
-  notConfigured: 'Aucun compte Microsoft 365 n’est connecté.',
   noVersions: 'Aucune version antérieure conservée pour ce fichier.',
   confirmReplace: 'Je confirme le remplacement du fichier actuel.',
   confirmError: 'Cochez la case pour confirmer le remplacement.',
   noRights:
     'Votre rôle ne permet pas de restaurer. Vous pouvez parcourir la sauvegarde ; demandez l’accès à un administrateur.',
-  restoreNotConfigured: 'La restauration nécessite un tenant relié.',
   alreadyRunning: 'Une restauration de cet élément est déjà en cours.',
   auditUnavailable: 'Journal d’audit indisponible : restauration refusée.',
   notInBackup: 'Cet élément n’est plus disponible dans la sauvegarde.',
@@ -49,7 +47,6 @@ export const ONEDRIVE_MESSAGES = {
 const SERVER_MESSAGES: Record<string, string> = {
   reason_required: REASON.error,
   forbidden: ONEDRIVE_MESSAGES.noRights,
-  restore_unavailable: ONEDRIVE_MESSAGES.restoreNotConfigured,
   restore_in_progress: ONEDRIVE_MESSAGES.alreadyRunning,
   audit_unavailable: ONEDRIVE_MESSAGES.auditUnavailable,
   item_not_found: ONEDRIVE_MESSAGES.notInBackup,

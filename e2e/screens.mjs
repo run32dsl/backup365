@@ -4,9 +4,10 @@
  * - `name` : nom du fichier, `captures/<name>-<largeur>.png` ;
  * - `hash` : ancre de l'écran (vide pour la page de connexion) ;
  * - `role` : `'admin'`, `'operator'` ou `null` (pas de session) ;
+ * - `scheme` : `'dark'` pour le thème sombre (clair par défaut) ;
  * - `prepare(page)` : gestes éventuels avant la photo (saisie, clic), rendu attendu à la fin.
  *
- * @typedef {{ name: string, hash: string, role: 'admin' | 'operator' | null,
+ * @typedef {{ name: string, hash: string, role: 'admin' | 'operator' | null, scheme?: 'light' | 'dark',
  *   prepare?: (page: import('@playwright/test').Page) => Promise<void> }} Screen
  */
 
@@ -182,6 +183,7 @@ export const SCREENS = [
     },
   },
   { name: 'tableau-de-bord', hash: '#/', role: 'admin' },
+  { name: 'tableau-de-bord-sombre', hash: '#/', role: 'admin', scheme: 'dark' },
   {
     name: 'mot-de-passe',
     hash: '#/password',
@@ -439,6 +441,49 @@ export const SCREENS = [
       await openRestorePanel(page, 25);
       await confirmRestore(page);
       await page.getByText(/La restauration a échoué après/u).waitFor();
+    },
+  },
+  {
+    // Restauration non configurée : GET /api/restore répond configured:false, le même état que le
+    // 503 restore_unavailable de POST …/restore.
+    name: 'restauration-non-configuree',
+    hash: DEMO_MAIL_HASH,
+    role: 'operator',
+    prepare: async (page) => {
+      await page.route('**/api/restore', (route) =>
+        route.fulfill({ status: 200, json: { configured: false } }),
+      );
+      await page.reload();
+      await page.getByText('Restauration non configurée').waitFor();
+    },
+  },
+  {
+    // Stockage non configuré ou en panne : l'API répond 503 catalog_unavailable.
+    name: 'sharepoint-non-configure',
+    hash: '#/sharepoint',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.route('**/api/sharepoint/**', (route) =>
+        route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
+      );
+      await page.reload();
+      await page.getByText('Aucune sauvegarde accessible').waitFor();
+    },
+  },
+  {
+    // Stockage non configuré ou en panne : l'API répond 503 catalog_unavailable.
+    name: 'onedrive-non-configure',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.route('**/api/onedrive/**', (route) =>
+        route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
+      );
+      await page.route('**/api/mail/mailboxes', (route) =>
+        route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
+      );
+      await page.reload();
+      await page.getByText('Aucune sauvegarde accessible').waitFor();
     },
   },
   {

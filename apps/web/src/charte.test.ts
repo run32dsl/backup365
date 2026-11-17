@@ -68,6 +68,18 @@ describe('charte.css contrast (WCAG AA)', () => {
   }
 });
 
+describe('charte.css footer', () => {
+  it('colors the footer text with --muted, measured on --bg in both themes above', () => {
+    expect(/\.console-footer\s*\{[^}]*color:\s*var\(--muted\);/.test(css)).toBe(true);
+    expect(/\.console-footer\s*\{[^}]*background/.test(css)).toBe(false);
+  });
+
+  it('never cuts the version or the link, which keeps a 44 px target', () => {
+    expect(/\.console-footer-item\s*\{\s*white-space:\s*nowrap;/.test(css)).toBe(true);
+    expect(/\.console-footer-link a\s*\{[^}]*min-height:\s*2\.75rem;/.test(css)).toBe(true);
+  });
+});
+
 describe('charte.css data tables', () => {
   it('hides the label of action cells in cards', () => {
     expect(/\.data-table td\.card-action::before\s*\{\s*display:\s*none;/.test(css)).toBe(true);
