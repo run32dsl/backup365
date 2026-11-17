@@ -1,5 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { API_ERRORS } from './apiError.js';
 import { RestoreAction, dialogTitle } from './RestoreAction.js';
 import { SearchView } from './SearchPage.js';
 import {
@@ -112,6 +113,10 @@ describe('restore requests', () => {
       ok: false,
       message: 'Vous n’avez plus le droit de restaurer.',
     });
+    expect(await refuse(503, 'restore_unavailable')).toMatchObject({
+      ok: false,
+      message: API_ERRORS['restore_unavailable'],
+    });
     expect(await refuse(404, 'mail_not_found')).toEqual({
       ok: false,
       message: 'Ce mail n’est plus disponible dans la sauvegarde.',
@@ -178,7 +183,9 @@ describe('RestoreAction', () => {
     expect(row).toMatch(/<td[^>]*subject[^>]*><a [^>]*title="/);
     expect(row).toContain('alice@<span class="addr-domain">example.test</span>');
     const off = renderToString(<SearchView state={state} restoreConfigured={false} />);
-    expect(off).toContain('La restauration nécessite un tenant relié.');
-    expect(off).toContain('href="#/"');
+    // Même état que le 503 `restore_unavailable` du serveur (voir `restore.test.ts`).
+    expect(off).toContain(API_ERRORS['restore_unavailable'] ?? 'absent');
+    expect(off).not.toContain('Voir Accueil');
+    expect(off).not.toContain('href="#/"');
   });
 });

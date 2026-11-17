@@ -410,3 +410,14 @@ describe('SharePoint routes', () => {
     expect(res.body).not.toContain('secret');
   });
 });
+
+describe('SharePoint without storage', () => {
+  it('answers catalog_unavailable on reads, never backup_not_configured', async () => {
+    const app = buildTestApp({ version: '1' });
+    for (const url of ['/api/sharepoint/sites', '/api/sharepoint/site-1/snapshots']) {
+      const res = await app.inject({ url });
+      expect(res.statusCode, url).toBe(503);
+      expect(res.json(), url).toEqual({ error: 'catalog_unavailable' });
+    }
+  });
+});

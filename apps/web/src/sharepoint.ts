@@ -41,7 +41,6 @@ export const SHAREPOINT_MESSAGES = {
   noPoints: 'Aucun point de restauration pour ce site.',
   emptyFolder: 'Ce dossier ne contient aucun élément à cette date.',
   readError: 'La sauvegarde n’a pas pu être lue.',
-  notConfigured: 'Aucun compte Microsoft 365 n’est connecté.',
   adminOnly: 'Réservé aux administrateurs',
   forbidden: 'Vous n’avez pas le droit de restaurer ce site. Contactez un administrateur.',
   forbiddenSite: (name: string) =>

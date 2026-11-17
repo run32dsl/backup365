@@ -34,7 +34,6 @@ export const RESTORE_MESSAGES = {
     'L’état de la boîte est incertain : la restauration a peut-être abouti. Vérifiez le dossier daté avant de réessayer.',
   notAvailable: 'Ce mail n’est plus disponible dans la sauvegarde.',
   forbidden: 'Vous n’avez plus le droit de restaurer.',
-  notConfigured: 'La restauration nécessite un tenant relié.',
   alreadyRunning: 'Une restauration de ce mail est déjà en cours.',
   auditUnavailable: 'Journal d’audit indisponible : restauration refusée.',
   restrictedHelp: 'Réservé aux opérateurs et administrateurs.',
@@ -102,7 +101,6 @@ const SERVER_MESSAGES: Record<string, string> = {
   reason_required: RESTORE_MESSAGES.reasonError,
   mail_not_found: RESTORE_MESSAGES.notAvailable,
   forbidden: RESTORE_MESSAGES.forbidden,
-  restore_unavailable: RESTORE_MESSAGES.notConfigured,
   restore_in_progress: RESTORE_MESSAGES.alreadyRunning,
   audit_unavailable: RESTORE_MESSAGES.auditUnavailable,
 };
