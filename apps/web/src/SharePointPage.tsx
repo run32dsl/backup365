@@ -47,7 +47,7 @@ import {
 } from './sharepoint.js';
 import type { Loaded } from './onedrive.js';
 import type { DriveSnapshot } from '@backup365/core';
-import { Alert, Button, EmptyState, FormField, Steps } from './ui/index.js';
+import { Alert, Button, EmptyState, FormField, Steps, WizardActions } from './ui/index.js';
 
 /** Ce qui a été choisi à l'étape 1. */
 interface Choice {
@@ -387,7 +387,7 @@ function ChooseStep({
             ? `Sélection : ${pathLabel(target)}`
             : 'Aucune sélection'}
       </p>
-      <div className="button-row">
+      <WizardActions>
         <Button
           aria-disabled={blocked || undefined}
           className={blocked ? 'is-inactive' : undefined}
@@ -405,7 +405,7 @@ function ChooseStep({
         >
           {B.next}
         </Button>
-      </div>
+      </WizardActions>
       {!ok && (
         <p id={hintId} className="field-help">
           {continueHint(scope)}
@@ -441,12 +441,15 @@ function ReasonStep({
   return (
     <form onSubmit={submit} noValidate>
       <ReasonField value={reason} error={error} onChange={setReason} />
-      <div className="button-row dialog-actions">
-        <Button variant="secondary" data-safe onClick={onBack}>
-          {B.back}
-        </Button>
+      <WizardActions
+        back={
+          <Button variant="secondary" data-safe onClick={onBack}>
+            {B.back}
+          </Button>
+        }
+      >
         <Button type="submit">{B.next}</Button>
-      </div>
+      </WizardActions>
     </form>
   );
 }
@@ -559,10 +562,13 @@ function ConfirmStep({
       {summary === null && <p role="status">{T.loading}</p>}
       <p>Motif : {reason}</p>
       {failure && <Alert tone="error">{failure}</Alert>}
-      <div className="button-row dialog-actions">
-        <Button variant="secondary" data-safe onClick={onBack}>
-          {B.back}
-        </Button>
+      <WizardActions
+        back={
+          <Button variant="secondary" data-safe onClick={onBack}>
+            {B.back}
+          </Button>
+        }
+      >
         <Button
           type="submit"
           variant={whole ? 'danger' : 'primary'}
@@ -573,7 +579,7 @@ function ConfirmStep({
         >
           {B.confirm}
         </Button>
-      </div>
+      </WizardActions>
       {!ready && (
         <p id={hintId} className="field-help">
           Le bouton reste inactif tant que la case n’est pas cochée et que le nom du site n’est pas
@@ -649,12 +655,15 @@ function TrackStep({
           </Alert>
         </div>
         <p>Les éléments déjà présents ont été conservés ; aucun n’a été écrasé.</p>
-        <div className="button-row">
-          <a className="btn btn-secondary" href="#/audit">
-            Voir dans le journal d’audit
-          </a>
+        <WizardActions
+          back={
+            <a className="btn btn-secondary" href="#/audit">
+              {B.audit}
+            </a>
+          }
+        >
           <Button onClick={onAgain}>{B.again}</Button>
-        </div>
+        </WizardActions>
       </>
     );
   } else {
@@ -670,12 +679,15 @@ function TrackStep({
             {job.restored} restaurés, {untreated} non traités, {job.errors} erreurs.
           </p>
         )}
-        <div className="button-row">
+        <WizardActions
+          back={
+            <a className="btn btn-secondary" href="#/audit">
+              {B.audit}
+            </a>
+          }
+        >
           <Button onClick={onRetry}>{B.retry}</Button>
-          <a className="btn btn-secondary" href="#/audit">
-            Voir dans le journal d’audit
-          </a>
-        </div>
+        </WizardActions>
       </>
     );
   }

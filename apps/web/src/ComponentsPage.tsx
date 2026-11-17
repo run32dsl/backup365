@@ -8,6 +8,8 @@ import {
   FormField,
   StatusPill,
   Steps,
+  WIZARD_LABELS,
+  WizardActions,
   type Column,
   type PillStatus,
 } from './ui/index.js';
@@ -24,6 +26,7 @@ export const SECTIONS = [
   { id: 'etats', summary: 'États', title: 'États vides' },
   { id: 'alertes', summary: 'Alertes', title: 'Alertes' },
   { id: 'etapes', summary: 'Étapes', title: 'Indicateur d’étapes' },
+  { id: 'actions-etapes', summary: 'Actions d’étapes', title: 'Barre d’actions des parcours' },
   { id: 'pastilles', summary: 'Pastilles', title: 'Pastilles d’état' },
 ] as const;
 
@@ -230,6 +233,15 @@ export function ComponentsPage() {
       <Section id="etapes" title="Indicateur d’étapes">
         <Steps steps={['Choisir', 'Vérifier', 'Confirmer']} current={1} />
         <Steps steps={['Choisir', 'Vérifier', 'Confirmer']} current={2} />
+      </Section>
+      <Section id="actions-etapes" title="Barre d’actions des parcours">
+        <p>Retour à gauche, action principale à droite ; en mobile, action principale en haut.</p>
+        <WizardActions back={<Button variant="secondary">{WIZARD_LABELS.back}</Button>}>
+          <Button>{WIZARD_LABELS.next}</Button>
+        </WizardActions>
+        <WizardActions>
+          <Button>{WIZARD_LABELS.next}</Button>
+        </WizardActions>
       </Section>
       <Section id="pastilles" title="Pastilles d’état">
         <div className="button-row">

@@ -389,20 +389,20 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await page.getByRole('button', { name: 'Créer un plan' }).click();
   await expect(page.getByText('Étape 1 sur 3 : Quoi protéger')).toBeVisible();
   // Étape 1 : un nom est exigé.
-  await page.getByRole('button', { name: 'Suivant' }).click();
+  await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page.getByRole('alert').getByText('Indiquez un nom pour le plan.')).toBeVisible();
   await page.getByLabel('Nom du plan').fill('Contacts Exemple');
-  await page.getByRole('button', { name: 'Suivant' }).click();
+  await page.getByRole('button', { name: 'Continuer' }).click();
 
   // Étape 2 : le titre prend le focus ; la justification est obligatoire.
   await expect(page.getByText('Étape 2 sur 3 : Objectifs')).toBeFocused();
-  await page.getByRole('button', { name: 'Suivant' }).click();
+  await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(
     page.getByRole('alert').getByText('Indiquez la justification de la durée de conservation.'),
   ).toBeVisible();
   await page.getByRole('group', { name: 'Durée de conservation' }).getByLabel('3 ans').check();
   await page.getByLabel('Justification de cette durée').selectOption({ label: 'Besoin métier' });
-  await page.getByRole('button', { name: 'Suivant' }).click();
+  await page.getByRole('button', { name: 'Continuer' }).click();
 
   // Étape 3 : récapitulatif en langage clair, puis création.
   await expect(page.getByText('Étape 3 sur 3 : Récapitulatif')).toBeFocused();

@@ -21,6 +21,10 @@ de trois produits.
   limite du serveur), pour les trois parcours. SharePoint n'a plus de liste de motifs.
 - Le rappel d'audit reprend la phrase de la charte : « Chaque consultation, export ou
   restauration est inscrite au journal d'audit. »
+- Barre d'actions : le composant `WizardActions` (`apps/web/src/ui/`), utilisé à chaque étape et
+  sur les écrans de fin, aussi par l'assistant de plan. En bureau, retour en contour à gauche et
+  action principale à droite ; en mobile, pleine largeur, action principale en haut.
+  `dialog-actions` est réservé aux boîtes de dialogue.
 - Boutons : « Précédent » ou « Annuler » (contour), « Continuer » (plein), « Restaurer » (plein, à
   la confirmation) ; en fin de parcours « Voir dans le journal d'audit » et « Nouvelle
   restauration ».
