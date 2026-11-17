@@ -470,6 +470,15 @@ select[aria-disabled='true'] {
 .export-help {
   margin-top: var(--space-2);
 }
+.export-note {
+  margin-bottom: var(--space-2);
+}
+.export-result {
+  margin-top: var(--space-2);
+}
+.export-result .alert {
+  margin-bottom: 0;
+}
 .field-counter {
   margin-left: auto;
   white-space: nowrap;

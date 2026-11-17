@@ -99,7 +99,7 @@ describe('MailPage', () => {
       />,
     );
     expect(form).toContain('<h2');
-    expect(form).toContain('Saisissez un motif pour exporter');
+    expect(form).toContain('Saisissez un motif pour exporter.');
     expect(form).toContain('aria-describedby="export-disabled-help"');
     expect(form).not.toContain('JSON');
   });
@@ -123,6 +123,32 @@ describe('MailPage', () => {
       );
     expect(render('')).toContain('export-disabled-help');
     expect(render('ab')).not.toContain('export-disabled-help');
+  });
+
+  it('orders the export box: reason, attachments note, audit reminder, button, then result', () => {
+    const render = (exporting: 'idle' | 'done' | 'error') =>
+      renderToString(
+        <ExportForm
+          reason="ab"
+          exporting={exporting}
+          onReason={() => undefined}
+          onSubmit={() => undefined}
+        />,
+      );
+    const idle = render('idle');
+    const reason = idle.indexOf('<label');
+    expect(reason).toBeGreaterThan(-1);
+    expect(reason).toBeLessThan(idle.indexOf('pièces jointes'));
+    expect(idle.indexOf('pièces jointes')).toBeLessThan(idle.indexOf('alert-info'));
+    expect(idle.indexOf('alert-info')).toBeLessThan(idle.indexOf('<button'));
+    const done = render('done');
+    const afterButton = done.indexOf('</button>') + '</button>'.length;
+    expect(done.slice(afterButton)).toMatch(
+      /^<div class="export-result">.*Export inscrit au journal d’audit\./,
+    );
+    expect(render('error').indexOf('export-result')).toBeGreaterThan(
+      render('error').indexOf('</button>'),
+    );
   });
 
   it('keeps the generic title while the sheet is loading', () => {
