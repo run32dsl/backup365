@@ -1,3 +1,4 @@
+import { REASON } from './RestoreJourney.js';
 import { UNREACHABLE } from './session.js';
 
 export type RestoreStatus = 'running' | 'succeeded' | 'failed';
@@ -19,11 +20,7 @@ export type RestoreResult = { ok: true; job: RestoreJob } | { ok: false; message
 
 export const RESTORE_MESSAGES = {
   title: 'Restaurer ce mail',
-  reasonLabel: 'Motif de la restauration (obligatoire)',
-  reasonHelp: 'Exemple : Ticket #1234 : mail supprimé par erreur',
-  reasonPlaceholder: 'Ticket #1234 : mail supprimé par erreur',
-  reasonError: 'Indiquez un motif (120 caractères au plus).',
-  noPersonalData: 'N’y saisissez pas de donnée personnelle (nom, adresse, contenu du mail).',
+  reasonError: REASON.error,
   sending: 'Envoi de la demande…',
   running: 'Restauration en cours…',
   runningTitle: 'Restauration en cours',

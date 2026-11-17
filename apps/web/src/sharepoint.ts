@@ -1,3 +1,4 @@
+import { REASON } from './RestoreJourney.js';
 import type { DriveSnapshot, SiteEntry, SiteScope, SiteScopeSummary } from '@backup365/core';
 import { dayOf, dateTimeOf, sizeOf, type Loaded } from './onedrive.js';
 import { UNREACHABLE } from './session.js';
@@ -31,11 +32,7 @@ export interface Site {
 }
 
 export const SHAREPOINT_MESSAGES = {
-  title: 'Restaurer SharePoint',
-  reasonTitle: 'Pourquoi cette restauration ?',
-  confirmTitle: 'Vérifiez avant de restaurer',
-  gdpr: 'Cette restauration est tracée : motif, opérateur, périmètre et durée.',
-  auditNote: 'Motif, nom de l’opérateur et durée seront inscrits au journal d’audit.',
+  title: 'Restaurer depuis SharePoint',
   loadingPoints: 'Chargement des points de restauration…',
   loading: 'Chargement…',
   noSites: 'Aucun site SharePoint n’est encore sauvegardé.',
@@ -45,7 +42,7 @@ export const SHAREPOINT_MESSAGES = {
   notConfigured: 'Aucun compte Microsoft 365 n’est connecté.',
   adminOnly: 'Réservé aux administrateurs',
   forbidden: 'Vous n’avez pas le droit de restaurer ce site. Contactez un administrateur.',
-  reasonError: 'Indiquez un motif pour continuer.',
+  reasonError: REASON.error,
   nameError: 'Le nom saisi ne correspond pas au site.',
   alreadyRunning: 'Une restauration de ce site est déjà en cours.',
   auditUnavailable: 'Journal d’audit indisponible : restauration refusée.',
@@ -67,32 +64,17 @@ const SERVER_MESSAGES: Record<string, string> = {
   empty_scope: T.emptyScope,
 };
 
-export const SCOPE_OPTIONS: { value: SiteScope; label: string; button: string; noun: string }[] = [
-  { value: 'item', label: 'Un élément', button: 'Restaurer l’élément', noun: 'l’élément' },
-  { value: 'folder', label: 'Un dossier', button: 'Restaurer le dossier', noun: 'le dossier' },
+export const SCOPE_OPTIONS: { value: SiteScope; label: string; noun: string }[] = [
+  { value: 'item', label: 'Un élément', noun: 'l’élément' },
+  { value: 'folder', label: 'Un dossier', noun: 'le dossier' },
   {
     value: 'library',
     label: 'Une bibliothèque',
-    button: 'Restaurer la bibliothèque',
+
     noun: 'la bibliothèque',
   },
-  { value: 'site', label: 'Le site entier', button: 'Restaurer le site entier', noun: 'le site' },
+  { value: 'site', label: 'Le site entier', noun: 'le site' },
 ];
-
-export const REASONS = [
-  'Suppression accidentelle',
-  'Demande d’un agent',
-  'Contrôle ou test de restauration',
-  'Autre (à préciser)',
-] as const;
-
-/** Motif envoyé au serveur : la liste, puis la précision obligatoire. */
-export function reasonText(motif: string, detail: string): string {
-  return `${motif} : ${detail.trim()}`;
-}
-
-/** Longueur maximale de la précision, une fois le plus long motif et son séparateur déduits. */
-export const MAX_DETAIL_LENGTH = 120 - 36;
 
 export interface SharePointRoute {
   /** Site ; vide : le premier de la liste. */

@@ -1,6 +1,7 @@
-import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import type { IndexedMail } from '@backup365/core';
-import { MAX_REASON_LENGTH, isReasonValid } from './mail.js';
+import { isReasonValid } from './mail.js';
+import { AuditReminder, REASON, RESTORE_BUTTONS as B, ReasonField } from './RestoreJourney.js';
 import {
   RESTORE_MESSAGES as T,
   announcement,
@@ -14,7 +15,7 @@ import {
   startRestore,
   type RestoreJob,
 } from './restore.js';
-import { Alert, Button, Dialog, FormField } from './ui/index.js';
+import { Alert, Button, Dialog } from './ui/index.js';
 
 export type RestorableMail = Pick<IndexedMail, 'mailboxId' | 'messageId' | 'subject' | 'date'>;
 
@@ -73,7 +74,6 @@ export function RestoreAction({
   const [sending, setSending] = useState(false);
   const [job, setJob] = useState<RestoreJob | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const helpId = useId();
 
   const update = (next: RestoreJob) => {
     setJob(next);
@@ -136,7 +136,7 @@ export function RestoreAction({
     e.preventDefault();
     if (sending) return;
     if (!isReasonValid(reason)) {
-      setFieldError(T.reasonError);
+      setFieldError(REASON.error);
       return;
     }
     setFieldError(undefined);
@@ -167,6 +167,7 @@ export function RestoreAction({
         Restaurer
       </Button>
       <Dialog open={open} title={dialogTitle(job)} onClose={closePanel}>
+        <AuditReminder />
         {job === null && (
           <form onSubmit={submit} noValidate>
             <p>
@@ -175,23 +176,7 @@ export function RestoreAction({
               <br />
               Boîte d’origine : {mail.mailboxId}
             </p>
-            <FormField
-              label={T.reasonLabel}
-              type="text"
-              name="reason"
-              required
-              counterMax={MAX_REASON_LENGTH}
-              placeholder={T.reasonPlaceholder}
-              help={T.reasonHelp}
-              error={fieldError}
-              value={reason}
-              onChange={(e) => {
-                setReason(e.currentTarget.value);
-              }}
-            />
-            <p id={helpId} className="field-help">
-              {T.noPersonalData}
-            </p>
+            <ReasonField value={reason} error={fieldError} onChange={setReason} />
             <h3>Ce qui va se passer</h3>
             <ul>
               <li>
@@ -199,18 +184,15 @@ export function RestoreAction({
                 {restoreFolderName(new Date(now))} ».
               </li>
               <li>Aucun mail existant ne sera modifié ni écrasé.</li>
-              <li>
-                La demande, son résultat, votre nom et le motif seront inscrits au journal d’audit
-                (jamais le contenu du mail).
-              </li>
+              <li>Le contenu du mail n’est jamais inscrit au journal d’audit.</li>
             </ul>
             {failure && <Alert tone="error">{failure}</Alert>}
             <div className="button-row dialog-actions">
               <Button variant="secondary" data-safe onClick={closePanel}>
-                Annuler
+                {B.cancel}
               </Button>
               <Button type="submit" busy={sending}>
-                {sending ? T.sending : 'Restaurer le mail'}
+                {sending ? T.sending : B.confirm}
               </Button>
             </div>
           </form>
@@ -231,7 +213,7 @@ export function RestoreAction({
             <p>Dossier : {job.folder}</p>
             <div className="button-row dialog-actions primary-first">
               <a className="btn btn-secondary" href="#/audit">
-                Voir le journal d’audit
+                {B.audit}
               </a>
               <Button variant="secondary" onClick={closePanel}>
                 Fermer
@@ -252,7 +234,7 @@ export function RestoreAction({
                   setJob(null);
                 }}
               >
-                Réessayer
+                {B.retry}
               </Button>
               <Button variant="secondary" onClick={closePanel}>
                 Fermer
