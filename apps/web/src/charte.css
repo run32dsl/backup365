@@ -413,11 +413,31 @@ select[aria-disabled='true'] {
   align-items: center;
   margin-bottom: var(--space-3);
 }
-.form-row {
-  display: flex;
-  flex-wrap: wrap;
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
   gap: var(--space-2) var(--space-3);
-  align-items: flex-end;
+  align-items: end;
+}
+.filters .field {
+  max-width: none;
+  margin: 0;
+}
+.filters input,
+.filters select,
+.filters .btn {
+  width: 100%;
+  box-sizing: border-box;
+}
+@media (min-width: 56.26rem) {
+  .filters > .btn {
+    grid-column: -2 / -1;
+  }
+}
+@media (max-width: 56.25rem) {
+  .filters {
+    grid-template-columns: 1fr;
+  }
 }
 
 .field {
