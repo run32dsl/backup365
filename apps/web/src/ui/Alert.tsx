@@ -17,15 +17,18 @@ export function Alert({
   tone,
   children,
   action,
+  id,
 }: {
   tone: AlertTone;
   children: ReactNode;
   /** Action proposée, par exemple « Réessayer ». */
   action?: ReactNode;
+  /** Identifiant, pour qu'un contrôle le cite par `aria-describedby`. */
+  id?: string;
 }) {
   const { icon, role } = TONES[tone];
   return (
-    <div className={`alert alert-${tone}`} role={role}>
+    <div id={id} className={`alert alert-${tone}`} role={role}>
       <span aria-hidden="true">{icon}</span>
       <span className="alert-text">{children}</span>
       {action}

@@ -79,6 +79,20 @@ describe('AccountsView', () => {
     expect(html).toContain('Réactiver');
     expect(html).not.toContain('<img');
   });
+  it('shows each account state as a badge with icon and text', () => {
+    const html = renderToString(
+      <AccountsView
+        state={[...accounts, { ...accounts[0]!, id: 3, username: 'eve', mustChangePassword: true }]}
+      />,
+    );
+    expect(html.replaceAll('<!-- -->', '')).toContain('<span aria-hidden="true">✔</span> Actif');
+    expect(html.replaceAll('<!-- -->', '')).toContain(
+      '<span aria-hidden="true">✖</span> Désactivé',
+    );
+    expect(html.replaceAll('<!-- -->', '')).toContain(
+      '<span aria-hidden="true">⚠</span> Mot de passe à changer',
+    );
+  });
   it('shows loading and error states', () => {
     expect(renderToString(<AccountsView state="loading" />)).toContain('Chargement');
     expect(renderToString(<AccountsView state="error" />)).toContain('indisponibles');
@@ -287,7 +301,8 @@ describe('maquette de l’issue #22', () => {
   });
 
   it('names the console in the accounts title and says the journal is audited', () => {
-    expect(renderToString(<AccountsPage />)).toContain('Comptes de la console');
+    expect(renderToString(<AccountsPage />)).toContain('<h1>Administration</h1>');
+    expect(renderToString(<AccountsView state={[]} />)).toContain('<h2>Comptes de la console</h2>');
     for (const html of [
       renderToString(<CredentialsView mode="login" />),
       renderToString(<AccountsView state={[]} />),
@@ -340,6 +355,14 @@ describe('textes restants de la maquette de #22', () => {
     const html = renderToString(<AccountsView state={only} />);
     expect(html).toContain('Dernier administrateur : ce compte ne peut pas être désactivé.');
     expect(html.match(/aria-disabled="true"/g)).toHaveLength(2);
+    expect(html.match(/aria-describedby="last-admin-1"/g)).toHaveLength(2);
+    expect(html).toContain('id="last-admin-1"');
+    // La mention n'est plus dans la cellule « Actions ».
+    const cells = [...html.matchAll(/<td[^>]*data-label="Actions"[^>]*>(.*?)<\/td>/g)].map(
+      (m) => m[1],
+    );
+    expect(cells).toHaveLength(2);
+    expect(cells.join()).not.toContain('Dernier administrateur');
     const two = [account(1, 'admin'), account(2, 'admin'), account(3, 'admin', true)];
     expect(isLastAdmin(two, two[0]!)).toBe(false);
     expect(renderToString(<AccountsView state={two} />)).not.toContain('Dernier administrateur');
