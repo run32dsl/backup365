@@ -1,3 +1,4 @@
+import { API_ERRORS } from './apiError.js';
 import { REASON } from './RestoreJourney.js';
 import type { DriveSnapshot, SiteEntry, SiteScope, SiteScopeSummary } from '@backup365/core';
 import { dayOf, dateTimeOf, sizeOf, type Loaded } from './onedrive.js';
@@ -358,7 +359,8 @@ export interface SiteRestoreInput {
   confirmName?: string | undefined;
 }
 
-export type SiteRestoreResult = { ok: true; job: SiteJob } | { ok: false; message: string };
+export type SiteRestoreResult =
+  { ok: true; job: SiteJob } | { ok: false; message: string; requestId?: string };
 
 /** Lance la restauration. `message` est en français, sans détail technique. */
 export async function startSiteRestore(
@@ -375,7 +377,12 @@ export async function startSiteRestore(
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
       const code = typeof body?.error === 'string' ? body.error : '';
-      return { ok: false, message: SERVER_MESSAGES[code] ?? T.generic };
+      const requestId = res.headers.get('x-request-id') ?? undefined;
+      return {
+        ok: false,
+        message: SERVER_MESSAGES[code] ?? API_ERRORS[code] ?? T.generic,
+        ...(requestId ? { requestId } : {}),
+      };
     }
     return { ok: true, job: ((await res.json()) as { job: SiteJob }).job };
   } catch {

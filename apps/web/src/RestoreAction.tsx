@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { IndexedMail } from '@backup365/core';
+import type { Problem } from './apiError.js';
+import { FailureAlert } from './FailureAlert.js';
 import { isReasonValid } from './mail.js';
 import { AuditReminder, REASON, RESTORE_BUTTONS as B, ReasonField } from './RestoreJourney.js';
 import {
@@ -73,7 +75,7 @@ export function RestoreAction({
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [fieldError, setFieldError] = useState<string | undefined>();
-  const [failure, setFailure] = useState<string | undefined>();
+  const [failure, setFailure] = useState<Problem | undefined>();
   const [sending, setSending] = useState(false);
   const [job, setJob] = useState<RestoreJob | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -151,7 +153,7 @@ export function RestoreAction({
         setNow(Date.now());
         update(result.job);
       } else {
-        setFailure(result.message);
+        setFailure({ message: result.message, requestId: result.requestId });
       }
     });
   }
@@ -190,7 +192,7 @@ export function RestoreAction({
               <li>Aucun mail existant ne sera modifié ni écrasé.</li>
               <li>Le contenu du mail n’est jamais inscrit au journal d’audit.</li>
             </ul>
-            {failure && <Alert tone="error">{failure}</Alert>}
+            {failure && <FailureAlert problem={failure} />}
             <div className="button-row dialog-actions">
               <Button variant="secondary" data-safe onClick={closePanel}>
                 {B.cancel}

@@ -39,6 +39,8 @@ import {
   type PlansRoute,
   type ReasonKind,
 } from './plans.js';
+import { requestIdOf, type Problem } from './apiError.js';
+import { FailureAlert } from './FailureAlert.js';
 import { AuditReminder, REASON, reasonLabel } from './RestoreJourney.js';
 import {
   Alert,
@@ -143,15 +145,15 @@ export function PlanWizard({
   initial: PlanForm;
   editing: boolean;
   mailboxes: Mailbox[];
-  /** Renvoie le message d'échec, ou `undefined` si l'enregistrement a réussi. */
-  onSubmit: (form: PlanForm) => Promise<string | undefined>;
+  /** Renvoie le problème, ou `undefined` si l'enregistrement a réussi. */
+  onSubmit: (form: PlanForm) => Promise<Problem | undefined>;
   /** Étape affichée à l'ouverture (tests). */
   initialStep?: 1 | 2 | 3;
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(initialStep);
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [failure, setFailure] = useState<string>();
+  const [failure, setFailure] = useState<Problem>();
   const [saving, setSaving] = useState(false);
   const title = useRef<HTMLParagraphElement>(null);
   const first = useRef(true);
@@ -173,9 +175,9 @@ export function PlanWizard({
   const submit = async () => {
     setSaving(true);
     setFailure(undefined);
-    const message = await onSubmit(form);
+    const problem = await onSubmit(form);
     // En cas de succès la page quitte le parcours : seul l'échec rend la main, saisies conservées.
-    setFailure(message);
+    setFailure(problem);
     setSaving(false);
   };
   const messages = Object.values(errors);
@@ -201,7 +203,7 @@ export function PlanWizard({
           </ul>
         </Alert>
       )}
-      {failure && <Alert tone="error">{failure}</Alert>}
+      {failure && <FailureAlert problem={failure} />}
 
       {step === 1 && (
         <>
@@ -395,17 +397,19 @@ function RunDialog({
 }: {
   plan: PlanItem | null;
   onClose: () => void;
-  onRun: (plan: PlanItem, reason: string) => Promise<string | undefined>;
+  onRun: (plan: PlanItem, reason: string) => Promise<Problem | undefined>;
 }) {
   const [choice, setChoice] = useState('');
   const [detail, setDetail] = useState('');
   const [error, setError] = useState<string>();
+  const [problem, setProblem] = useState<Problem>();
   const [busy, setBusy] = useState(false);
   // Chaque ouverture repart d'un formulaire vide.
   useEffect(() => {
     setChoice('');
     setDetail('');
     setError(undefined);
+    setProblem(undefined);
     setBusy(false);
   }, [plan]);
   const missing = choice === '' || (choice === 'Autre (préciser)' && detail.trim() === '');
@@ -420,14 +424,17 @@ function RunDialog({
         onSubmit={(e) => {
           e.preventDefault();
           if (!plan || busy) return;
+          // Une nouvelle tentative efface l'échec précédent : un seul message à la fois.
+          setProblem(undefined);
           if (missing) {
             setError(MESSAGES.runReason);
             return;
           }
+          setError(undefined);
           setBusy(true);
           void onRun(plan, runReasonText(choice, detail)).then((failure) => {
             setBusy(false);
-            setError(failure);
+            setProblem(failure);
           });
         }}
       >
@@ -450,6 +457,7 @@ function RunDialog({
           }}
         />
         <AuditReminder />
+        {problem && <FailureAlert problem={problem} />}
         <div className="button-row dialog-actions">
           <Button variant="secondary" data-safe onClick={onClose}>
             Annuler
@@ -470,9 +478,9 @@ function DeleteDialog({
 }: {
   plan: PlanItem | null;
   onClose: () => void;
-  onDelete: (plan: PlanItem) => Promise<string | undefined>;
+  onDelete: (plan: PlanItem) => Promise<Problem | undefined>;
 }) {
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<Problem>();
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     setError(undefined);
@@ -484,7 +492,7 @@ function DeleteDialog({
         Les sauvegardes existantes sont conservées jusqu’à la fin de leur durée de conservation.
         Aucune nouvelle sauvegarde ne sera faite.
       </p>
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && <FailureAlert problem={error} />}
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onClose}>
           Annuler
@@ -579,6 +587,7 @@ export function PlansListView({
   admin,
   configured,
   onRetry,
+  loadRequestId,
   onRun,
   onDelete,
 }: {
@@ -586,6 +595,8 @@ export function PlansListView({
   admin: boolean;
   configured: boolean;
   onRetry: () => void;
+  /** Identifiant de la requête qui a échoué au chargement, pour le support. */
+  loadRequestId?: string | undefined;
   onRun: (p: PlanItem) => void;
   onDelete: (p: PlanItem) => void;
 }) {
@@ -610,6 +621,11 @@ export function PlansListView({
         }
       >
         {MESSAGES.loadError}
+        {loadRequestId ? (
+          <small className="alert-detail request-id">
+            Identifiant de requête : <code>{loadRequestId}</code>
+          </small>
+        ) : null}
       </Alert>
     );
   }
@@ -680,6 +696,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     mailboxes: [],
   });
   const [flash, setFlash] = useState<Flash>();
+  const [loadRequestId, setLoadRequestId] = useState<string>();
   const [runTarget, setRunTarget] = useState<PlanItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlanItem | null>(null);
 
@@ -689,7 +706,8 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         setState(plans);
         setBoxes(mailboxes);
       },
-      () => {
+      (e: unknown) => {
+        setLoadRequestId(requestIdOf(e));
         setState('error');
       },
     );
@@ -721,7 +739,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   };
   const onRun = async (plan: PlanItem, reason: string) => {
     const outcome = await runPlan(plan.id, reason);
-    if (!outcome.ok) return outcome.message;
+    if (!outcome.ok) return outcome;
     setRunTarget(null);
     setFlash({ tone: 'success', text: MESSAGES.runStarted });
     load();
@@ -729,7 +747,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   };
   const onDelete = async (plan: PlanItem) => {
     const outcome = await deletePlan(plan.id);
-    if (!outcome.ok) return outcome.message;
+    if (!outcome.ok) return outcome;
     setDeleteTarget(null);
     setFlash({ tone: 'success', text: MESSAGES.deleted });
     load();
@@ -740,14 +758,14 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   const plan = Array.isArray(state) && editing ? state.find((p) => p.id === editing) : undefined;
   const wizard = route.page !== 'list';
 
-  const save = async (form: PlanForm): Promise<string | undefined> => {
+  const save = async (form: PlanForm): Promise<Problem | undefined> => {
     if (editing) {
       const outcome = await updatePlan(editing, form);
-      if (!outcome.ok) return outcome.message;
+      if (!outcome.ok) return outcome;
       setFlash({ tone: 'success', text: MESSAGES.updated });
     } else {
       const outcome = await createPlan(form);
-      if (!outcome.ok) return outcome.message;
+      if (!outcome.ok) return outcome;
       setFlash({ tone: 'success', text: createdMessage(outcome.value) });
     }
     load();
@@ -765,6 +783,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured={false}
         onRetry={reloadList}
+        loadRequestId={loadRequestId}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
       />
@@ -776,6 +795,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured
         onRetry={reloadList}
+        loadRequestId={loadRequestId}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
       />
@@ -799,6 +819,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured={boxes.configured}
         onRetry={reloadList}
+        loadRequestId={loadRequestId}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
       />

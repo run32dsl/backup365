@@ -280,3 +280,14 @@ moins qu'elle ne le laisse croire. Sans `BACKUP365_AUDIT_ANCHOR_DIR`, ou s'il es
 `BACKUP365_DATA_DIR` ou contenu dedans, le démarrage journalise un avertissement et
 `GET /api/status` indique « ancrage du journal : non configuré ». `audit-verify` contrôle alors
 aussi les ancres (code 1 en cas d'écart).
+
+## Dépannage : erreurs de l'API
+
+Toute réponse d'erreur de l'API (4xx, 5xx) est journalisée en JSON (`warn` ou `error`) avec la
+route, le code d'erreur métier, l'identifiant de requête et le compte, jamais le contenu d'un
+mail ni un secret. L'identifiant est aussi dans l'en-tête `x-request-id` et affiché en petit
+dans l'interface pour le support. Il repart de `req-1` à chaque démarrage du serveur : avec la
+date du journal, il désigne une requête précise. Une action de plan ou de restauration refusée
+ou en échec (y compris le 403 d'un opérateur) est inscrite au journal d'audit (« Échec
+d'accès », le code en motif). Le 503 `audit_unavailable` fait exception : sans journal, rien ne
+peut être inscrit, seul le journal du serveur en garde la trace.

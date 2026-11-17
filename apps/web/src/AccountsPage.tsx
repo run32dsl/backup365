@@ -13,6 +13,8 @@ import {
   updateAccount,
   type AccountInfo,
 } from './accounts.js';
+import { requestIdOf, type Problem } from './apiError.js';
+import { FailureAlert } from './FailureAlert.js';
 import { ErrorView, Field } from './LoginPage.js';
 import { ResetPasswordDialog } from './ResetPassword.js';
 import { AUDIT_NOTICE, UNREACHABLE, type Outcome, type Role } from './session.js';
@@ -24,7 +26,7 @@ export interface AccountActions {
   onRole: (id: number, role: Role) => void;
   onDisabled: (id: number, disabled: boolean) => void;
   /** Résout à `true` si le compte est créé (la boîte se ferme), sinon au message d'erreur affiché dans la boîte. */
-  onCreate: (form: FormData) => Promise<true | string>;
+  onCreate: (form: FormData) => Promise<true | Problem>;
   /** Ouvre la boîte de réinitialisation du compte de la ligne. */
   onReset: (id: number) => void;
 }
@@ -133,13 +135,15 @@ export function AccountsView({
   actions,
   dialog,
   onRetry,
+  loadRequestId,
 }: {
   /** Boîtes de création et de réinitialisation (étapes 2 et 3). */
   dialog?: ReactNode;
   state: AccountsState;
-  message?: { kind: 'error' | 'status'; text: string };
+  message?: { kind: 'error' | 'status'; text: string; requestId?: string | undefined };
   actions?: Partial<AccountActions>;
   onRetry?: () => void;
+  loadRequestId?: string | undefined;
 }) {
   // Les boîtes restent montées même si la liste charge ou échoue : celle du mot de passe
   // temporaire porte un mot de passe qui ne peut pas être relu.
@@ -153,15 +157,18 @@ export function AccountsView({
   if (state === 'error')
     return (
       <>
-        <ErrorView message="Comptes indisponibles" onRetry={onRetry} />
+        <ErrorView message="Comptes indisponibles" requestId={loadRequestId} onRetry={onRetry} />
         {dialog}
       </>
     );
   return (
     <>
-      {message && (
-        <Alert tone={message.kind === 'error' ? 'error' : 'success'}>{message.text}</Alert>
-      )}
+      {message &&
+        (message.kind === 'error' ? (
+          <FailureAlert problem={{ message: message.text, requestId: message.requestId }} />
+        ) : (
+          <Alert tone="success">{message.text}</Alert>
+        ))}
       <h2>Comptes de la console</h2>
       <DataTable
         caption="Comptes de la console"
@@ -184,7 +191,7 @@ export function CreateAccountForm({
   onSubmit,
   onCancel,
 }: {
-  error?: string;
+  error?: Problem | undefined;
   busy?: boolean;
   onSubmit?: (form: FormData) => void;
   onCancel?: () => void;
@@ -196,7 +203,7 @@ export function CreateAccountForm({
         onSubmit?.(new FormData(e.currentTarget));
       }}
     >
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && <FailureAlert problem={error} />}
       <p>
         <label>
           Identifiant <input name="username" autoComplete="off" required />
@@ -234,10 +241,10 @@ export function CreateAccountForm({
 
 /** Décide de la suite d'une création : la boîte se ferme si elle a réussi, sinon elle reste. */
 export async function submitCreate(
-  create: (form: FormData) => Promise<true | string>,
+  create: (form: FormData) => Promise<true | Problem>,
   form: FormData,
   close: () => void,
-): Promise<string | undefined> {
+): Promise<Problem | undefined> {
   const result = await create(form);
   if (result === true) {
     close();
@@ -253,11 +260,11 @@ export function CreateAccountDialog({
   onClose,
 }: {
   open: boolean;
-  onCreate: (form: FormData) => Promise<true | string>;
+  onCreate: (form: FormData) => Promise<true | Problem>;
   onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<Problem>();
   useEffect(() => {
     setBusy(false);
     setError(undefined);
@@ -289,12 +296,20 @@ const text = (form: FormData, name: string): string => {
 /** Gestion des comptes (écran `#/comptes`, administrateur seulement). */
 export function AccountsPage() {
   const [state, setState] = useState<AccountsState>('loading');
-  const [message, setMessage] = useState<{ kind: 'error' | 'status'; text: string }>();
+  const [message, setMessage] = useState<{
+    kind: 'error' | 'status';
+    text: string;
+    requestId?: string | undefined;
+  }>();
   const [reset, setReset] = useState<{ id: number; username: string } | null>(null);
   const [creating, setCreating] = useState(false);
+  const [loadRequestId, setLoadRequestId] = useState<string>();
   const resetDone = useRef(false);
   const reload = useCallback(() => {
-    fetchAccounts().then(setState, () => setState('error'));
+    fetchAccounts().then(setState, (e: unknown) => {
+      setLoadRequestId(requestIdOf(e));
+      setState('error');
+    });
   }, []);
   useEffect(reload, [reload]);
 
@@ -302,14 +317,18 @@ export function AccountsPage() {
     return request.then(
       (outcome) => {
         setMessage(
-          outcome.ok ? { kind: 'status', text: done } : { kind: 'error', text: outcome.message },
+          outcome.ok
+            ? { kind: 'status', text: done }
+            : { kind: 'error', text: outcome.message, requestId: outcome.requestId },
         );
         reload();
-        return outcome.ok ? (true as const) : outcome.message;
+        return outcome.ok
+          ? (true as const)
+          : { message: outcome.message, requestId: outcome.requestId };
       },
       () => {
         setMessage({ kind: 'error', text: UNREACHABLE });
-        return UNREACHABLE;
+        return { message: UNREACHABLE };
       },
     );
   };
@@ -335,16 +354,16 @@ export function AccountsPage() {
     },
   };
   const runReset = async (reason: string) => {
-    if (!reset) return { error: UNREACHABLE };
+    if (!reset) return { error: { message: UNREACHABLE } };
     try {
       const outcome = await resetPassword(reset.id, reason);
       if (outcome.ok) {
         resetDone.current = true;
         return { password: outcome.value };
       }
-      return { error: outcome.message };
+      return { error: { message: outcome.message, requestId: outcome.requestId } };
     } catch {
-      return { error: UNREACHABLE };
+      return { error: { message: UNREACHABLE } };
     }
   };
   return (
@@ -363,6 +382,7 @@ export function AccountsPage() {
       <AccountsView
         state={state}
         message={message}
+        loadRequestId={loadRequestId}
         actions={actions}
         dialog={
           <>

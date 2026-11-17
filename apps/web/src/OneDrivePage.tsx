@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { parentOf } from '@backup365/core';
+import type { Problem as FailureProblem } from './apiError.js';
+import { FailureAlert } from './FailureAlert.js';
 import { dateTimeOrDash } from './format.js';
 import { isReasonValid } from './mail.js';
 import {
@@ -458,7 +460,7 @@ function ConfirmStep({
   const [mode, setMode] = useState<DriveMode>('copy');
   const [confirmed, setConfirmed] = useState(false);
   const [confirmError, setConfirmError] = useState(false);
-  const [failure, setFailure] = useState<string | undefined>();
+  const [failure, setFailure] = useState<FailureProblem | undefined>();
   const [sending, setSending] = useState(false);
   const canReplace = entry.kind === 'file';
   const versionAt = version?.at ?? entry.versionAt;
@@ -484,7 +486,7 @@ function ConfirmStep({
     }).then((result) => {
       setSending(false);
       if (result.ok) onStarted(result.job);
-      else setFailure(result.message);
+      else setFailure({ message: result.message, requestId: result.requestId });
     });
   }
 
@@ -542,7 +544,7 @@ function ConfirmStep({
           )}
         </div>
       )}
-      {failure && <Alert tone="error">{failure}</Alert>}
+      {failure && <FailureAlert problem={failure} />}
       <WizardActions
         back={
           <Button variant="secondary" data-safe onClick={onBack}>

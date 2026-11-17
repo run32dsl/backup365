@@ -1,6 +1,6 @@
 import { parseProtectionPlanInput, planCompliance, type AuditLog } from '@backup365/core';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { auditEvent } from './audit-events.js';
+import { auditEvent, recordDenied } from './audit-events.js';
 import type { PlanScheduler } from './plan-scheduler.js';
 import {
   PlanNameTakenError,
@@ -53,12 +53,14 @@ export function registerPlanRoutes(
   scheduler?: PlanScheduler,
   backupConfigured = true,
 ) {
-  function guard(req: FastifyRequest, reply: FastifyReply, readOnlyOk = false) {
+  async function guard(req: FastifyRequest, reply: FastifyReply, readOnlyOk = false) {
     if (!req.session) {
       void reply.code(401).send({ error: 'unauthenticated' });
       return null;
     }
     if (!readOnlyOk && req.session.role !== 'admin') {
+      // Refus tracé quand le journal existe ; sans journal (503 plus bas), rien à écrire.
+      if (audit) await recordDenied(audit, req, 'plans', 'forbidden');
       void reply.code(403).send({ error: 'forbidden' });
       return null;
     }
@@ -69,15 +71,34 @@ export function registerPlanRoutes(
     return { plans, audit };
   }
 
-  const invalid = (reply: FastifyReply, errors: string[]) =>
-    reply.code(400).send({ error: 'invalid_plan', message: errors.join(' '), errors });
-  const taken = (reply: FastifyReply) =>
-    reply.code(409).send({ error: 'plan_name_taken', message: 'Ce nom de plan existe déjà.' });
-  const notFound = (reply: FastifyReply) => reply.code(404).send({ error: 'plan_not_found' });
+  /** Répond une erreur et l'inscrit au journal d'audit (résultat « échec », code en motif). */
+  async function refuse(
+    req: FastifyRequest,
+    reply: FastifyReply,
+    resource: string,
+    status: number,
+    body: { error: string } & Record<string, unknown>,
+  ) {
+    if (audit) await recordDenied(audit, req, resource, body.error);
+    return reply.code(status).send(body);
+  }
+  const invalid = (req: FastifyRequest, reply: FastifyReply, resource: string, errors: string[]) =>
+    refuse(req, reply, resource, 400, {
+      error: 'invalid_plan',
+      message: errors.join(' '),
+      errors,
+    });
+  const taken = (req: FastifyRequest, reply: FastifyReply, resource: string) =>
+    refuse(req, reply, resource, 409, {
+      error: 'plan_name_taken',
+      message: 'Ce nom de plan existe déjà.',
+    });
+  const notFound = (req: FastifyRequest, reply: FastifyReply, resource: string) =>
+    refuse(req, reply, resource, 404, { error: 'plan_not_found' });
 
-  app.get('/api/plans', (req, reply) => {
+  app.get('/api/plans', async (req, reply) => {
     // Seule route ouverte à l'opérateur (lecture seule, écran des plans).
-    const ctx = guard(req, reply, true);
+    const ctx = await guard(req, reply, true);
     if (!ctx) return reply;
     const now = new Date();
     const items = ctx.plans.list().map((plan) => {
@@ -120,8 +141,8 @@ export function registerPlanRoutes(
   });
 
   /** Les plans existent sans identifiants Microsoft 365, mais rien ne s'exécute (ADR 0009). */
-  app.get('/api/plans/execution', (req, reply) => {
-    const ctx = guard(req, reply);
+  app.get('/api/plans/execution', async (req, reply) => {
+    const ctx = await guard(req, reply);
     if (!ctx) return reply;
     return backupConfigured
       ? { configured: true, retention: 'not_enforced' }
@@ -129,10 +150,10 @@ export function registerPlanRoutes(
   });
 
   app.post('/api/plans', async (req, reply) => {
-    const ctx = guard(req, reply);
+    const ctx = await guard(req, reply);
     if (!ctx) return reply;
     const parsed = parseProtectionPlanInput(req.body);
-    if (!parsed.ok) return invalid(reply, parsed.errors);
+    if (!parsed.ok) return invalid(req, reply, 'plan.create', parsed.errors);
     try {
       const plan = ctx.plans.create(parsed.plan);
       await ctx.audit.record(
@@ -143,7 +164,7 @@ export function registerPlanRoutes(
       );
       return await reply.code(201).send(plan);
     } catch (err) {
-      if (err instanceof PlanNameTakenError) return taken(reply);
+      if (err instanceof PlanNameTakenError) return taken(req, reply, 'plan.create');
       throw err;
     }
   });
@@ -152,14 +173,14 @@ export function registerPlanRoutes(
     '/api/plans/:id',
     { schema: { params: idParams } },
     async (req, reply) => {
-      const ctx = guard(req, reply);
+      const ctx = await guard(req, reply);
       if (!ctx) return reply;
       const parsed = parseProtectionPlanInput(req.body);
-      if (!parsed.ok) return invalid(reply, parsed.errors);
+      if (!parsed.ok) return invalid(req, reply, 'plan.update', parsed.errors);
       try {
         const before = ctx.plans.get(req.params.id);
         const plan = before && ctx.plans.update(req.params.id, parsed.plan);
-        if (!before || !plan) return notFound(reply);
+        if (!before || !plan) return notFound(req, reply, 'plan.update');
         await ctx.audit.record(
           auditEvent(req, 'plan.update', 'plan', {
             target: plan.id,
@@ -168,7 +189,7 @@ export function registerPlanRoutes(
         );
         return plan;
       } catch (err) {
-        if (err instanceof PlanNameTakenError) return taken(reply);
+        if (err instanceof PlanNameTakenError) return taken(req, reply, 'plan.update');
         throw err;
       }
     },
@@ -178,9 +199,9 @@ export function registerPlanRoutes(
     '/api/plans/:id',
     { schema: { params: idParams } },
     async (req, reply) => {
-      const ctx = guard(req, reply);
+      const ctx = await guard(req, reply);
       if (!ctx) return reply;
-      if (!ctx.plans.delete(req.params.id)) return notFound(reply);
+      if (!ctx.plans.delete(req.params.id)) return notFound(req, reply, 'plan.delete');
       await ctx.audit.record(auditEvent(req, 'plan.delete', 'plan', { target: req.params.id }));
       return reply.code(204).send();
     },
@@ -189,10 +210,10 @@ export function registerPlanRoutes(
   app.get<{ Params: { id: string } }>(
     '/api/plans/:id/runs',
     { schema: { params: idParams } },
-    (req, reply) => {
-      const ctx = guard(req, reply);
+    async (req, reply) => {
+      const ctx = await guard(req, reply);
       if (!ctx) return reply;
-      if (!ctx.plans.get(req.params.id)) return notFound(reply);
+      if (!ctx.plans.get(req.params.id)) return notFound(req, reply, 'plan.runs');
       return { items: ctx.plans.listRuns(req.params.id, RUNS_LIMIT) };
     },
   );
@@ -201,36 +222,37 @@ export function registerPlanRoutes(
     '/api/plans/:id/run',
     { schema: { params: idParams } },
     async (req, reply) => {
-      const ctx = guard(req, reply);
+      const ctx = await guard(req, reply);
       if (!ctx) return reply;
       const reason = parseReason(req.body);
       if (reason === undefined) {
-        return reply.code(400).send({
+        return refuse(req, reply, 'plan.run', 400, {
           error: 'reason_required',
           message: `Le motif du lancement est obligatoire (${REASON_MAX} caractères au plus).`,
         });
       }
       if (!backupConfigured) {
-        return reply.code(503).send({
+        return refuse(req, reply, 'plan.run', 503, {
           error: 'backup_not_configured',
           message: 'Sauvegarde non configurée : identifiants Microsoft 365 absents.',
         });
       }
-      if (!scheduler) return reply.code(503).send({ error: 'scheduler_unavailable' });
+      if (!scheduler)
+        return refuse(req, reply, 'plan.run', 503, { error: 'scheduler_unavailable' });
       const plan = ctx.plans.get(req.params.id);
-      if (!plan) return notFound(reply);
+      if (!plan) return notFound(req, reply, 'plan.run');
       // Consigné avant le lancement : la demande est tracée même si rien ne démarre.
       await ctx.audit.record(auditEvent(req, 'plan.run', 'plan', { target: plan.id, reason }));
       let result;
       try {
         result = await scheduler.runNow(plan);
       } catch {
-        return reply.code(503).send({ error: 'items_unavailable' });
+        return refuse(req, reply, 'plan.run', 503, { error: 'items_unavailable' });
       }
       if (result.started === 0) {
-        if (!ctx.plans.get(plan.id)) return notFound(reply);
+        if (!ctx.plans.get(plan.id)) return notFound(req, reply, 'plan.run');
         const busy = result.skipped > 0;
-        return reply.code(409).send({
+        return refuse(req, reply, 'plan.run', 409, {
           error: busy ? 'run_in_progress' : 'no_items',
           message: busy
             ? 'Une exécution est déjà en cours sur chaque élément du plan.'

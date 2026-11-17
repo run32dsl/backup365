@@ -1,4 +1,5 @@
-import { errorMessage, type Outcome, type Role } from './session.js';
+import { requestError } from './apiError.js';
+import { failureOf, type Outcome, type Role } from './session.js';
 
 export interface AccountInfo {
   id: number;
@@ -39,7 +40,7 @@ export function isLastAdmin(accounts: AccountInfo[], account: AccountInfo): bool
 /** Liste des comptes (administrateur seulement). Lève une erreur si la réponse n'est pas en 2xx. */
 export async function fetchAccounts(fetchFn: typeof fetch = fetch): Promise<AccountInfo[]> {
   const res = await fetchFn('/api/accounts');
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw requestError(res);
   return ((await res.json()) as { items: AccountInfo[] }).items;
 }
 
@@ -54,7 +55,7 @@ async function send(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return res.ok ? { ok: true, value: null } : { ok: false, message: await errorMessage(res) };
+  return res.ok ? { ok: true, value: null } : { ok: false, ...(await failureOf(res)) };
 }
 
 export const createAccount = (
@@ -84,7 +85,7 @@ export async function resetPassword(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ reason }),
   });
-  if (!res.ok) return { ok: false, message: await errorMessage(res) };
+  if (!res.ok) return { ok: false, ...(await failureOf(res)) };
   return { ok: true, value: ((await res.json()) as { password: string }).password };
 }
 

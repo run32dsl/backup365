@@ -1,3 +1,4 @@
+import { API_ERRORS } from './apiError.js';
 import { REASON } from './RestoreJourney.js';
 import { UNREACHABLE } from './session.js';
 
@@ -16,7 +17,8 @@ export interface RestoreJob {
   error: 'restore_error' | 'restore_unreachable' | 'restore_lost' | null;
 }
 
-export type RestoreResult = { ok: true; job: RestoreJob } | { ok: false; message: string };
+export type RestoreResult =
+  { ok: true; job: RestoreJob } | { ok: false; message: string; requestId?: string };
 
 export const RESTORE_MESSAGES = {
   title: 'Restaurer ce mail',
@@ -147,7 +149,12 @@ export async function startRestore(
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
       const code = typeof body?.error === 'string' ? body.error : '';
-      return { ok: false, message: SERVER_MESSAGES[code] ?? RESTORE_MESSAGES.generic };
+      const requestId = res.headers.get('x-request-id') ?? undefined;
+      return {
+        ok: false,
+        message: SERVER_MESSAGES[code] ?? API_ERRORS[code] ?? RESTORE_MESSAGES.generic,
+        ...(requestId ? { requestId } : {}),
+      };
     }
     return { ok: true, job: ((await res.json()) as { job: RestoreJob }).job };
   } catch {
