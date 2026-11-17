@@ -22,17 +22,48 @@ const json = (body: unknown, status = 200) =>
 
 describe('SharePoint route', () => {
   it('parses #/sharepoint[/<site>[/<granularité>]] and round-trips', () => {
-    expect(parseSharePointHash('#/sharepoint')).toEqual({ site: '', scope: null });
-    expect(parseSharePointHash('#/sharepoint/site-1')).toEqual({ site: 'site-1', scope: null });
-    expect(parseSharePointHash('#/sharepoint/a%2Cb/site')).toEqual({ site: 'a,b', scope: 'site' });
-    expect(parseSharePointHash('#/sharepoint/s/nimporte')).toEqual({ site: 's', scope: null });
+    expect(parseSharePointHash('#/sharepoint')).toEqual({ site: '', scope: null, path: '/' });
+    expect(parseSharePointHash('#/sharepoint/site-1')).toEqual({
+      site: 'site-1',
+      scope: null,
+      path: '/',
+    });
+    expect(parseSharePointHash('#/sharepoint/a%2Cb/site')).toEqual({
+      site: 'a,b',
+      scope: 'site',
+      path: '/',
+    });
+    expect(parseSharePointHash('#/sharepoint/s/nimporte')).toEqual({
+      site: 's',
+      scope: null,
+      path: '/',
+    });
     expect(parseSharePointHash(sharePointHash('a,b', 'library'))).toEqual({
       site: 'a,b',
       scope: 'library',
+      path: '/',
     });
     expect(parseSharePointHash('#/sharepointx')).toBeNull();
     expect(parseSharePointHash('#/sharepoint/%E0%A4%A')).toBeNull();
     expect(screenOf('#/sharepoint/s')).toBe('sharepoint');
+  });
+
+  it('carries the open folder after the scope, one segment per level', () => {
+    const hash = sharePointHash('s', 'folder', '/Documents partagés/Plans 2024');
+    expect(hash).toBe('#/sharepoint/s/folder/Documents%20partag%C3%A9s/Plans%202024');
+    expect(parseSharePointHash(hash)).toEqual({
+      site: 's',
+      scope: 'folder',
+      path: '/Documents partagés/Plans 2024',
+    });
+    expect(sharePointHash('s', 'folder', '/')).toBe('#/sharepoint/s/folder');
+    // Sans granularité valide, pas de dossier : l'ancre ne sait pas quoi ouvrir.
+    expect(sharePointHash('s', undefined, '/Docs')).toBe('#/sharepoint/s');
+    expect(parseSharePointHash('#/sharepoint/s/nimporte/Docs')).toMatchObject({ path: '/' });
+    // Aucun filtrage côté navigateur : le chemin part tel quel, le serveur refuse `..`.
+    expect(parseSharePointHash('#/sharepoint/s/folder/Docs/..')).toMatchObject({
+      path: '/Docs/..',
+    });
   });
 
   it('adds a SharePoint entry to the navigation', () => {

@@ -40,7 +40,12 @@ describe('SharePoint choose step', () => {
         onFile={noop}
       />,
     );
-    expect(out.match(/<a /g)).toHaveLength(3);
+    // Comme OneDrive : chaque lien porte son niveau (clic milieu, copie du lien).
+    expect([...out.matchAll(/<a href="([^"]+)"/g)].map((m) => m[1])).toEqual([
+      '#/sharepoint/s1/item',
+      '#/sharepoint/s1/item/Docs',
+      '#/sharepoint/s1/item/Docs/Plans',
+    ]);
     expect(out).not.toContain('<button');
     expect(out).toMatch(/aria-current="location"[^>]*>2024</);
   });

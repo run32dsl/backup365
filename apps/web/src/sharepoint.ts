@@ -81,25 +81,32 @@ export interface SharePointRoute {
   site: string;
   /** Granularité demandée par l'ancre ; `null` : celle par défaut. */
   scope: SiteScope | null;
+  /** Dossier ouvert à l'arrivée (`/` : la racine du site). Ignoré sans granularité valide. */
+  path: string;
 }
 
 export const SHAREPOINT_HASH = '#/sharepoint';
 
-/** `#/sharepoint[/<site>[/<granularité>]]`. `null` si l'ancre n'est pas la bonne. */
+/** `#/sharepoint[/<site>[/<granularité>[/<dossier>...]]]`. `null` si l'ancre n'est pas la bonne. */
 export function parseSharePointHash(hash: string): SharePointRoute | null {
   if (hash !== SHAREPOINT_HASH && !hash.startsWith(`${SHAREPOINT_HASH}/`)) return null;
   const parts = hash.slice(SHAREPOINT_HASH.length).split('/').filter(Boolean);
   try {
-    const [site = '', scope = ''] = parts.map(decodeURIComponent);
+    const [site = '', scope = '', ...folders] = parts.map(decodeURIComponent);
     const found = SCOPE_OPTIONS.find((o) => o.value === scope);
-    return { site, scope: found?.value ?? null };
+    // Un segment `..` ou contenant `/` ne sortirait pas du site : le serveur le refuse aussi.
+    const path = found && folders.length > 0 ? `/${folders.join('/')}` : '/';
+    return { site, scope: found?.value ?? null, path };
   } catch {
     return null;
   }
 }
 
-export function sharePointHash(site: string, scope?: SiteScope): string {
-  return [SHAREPOINT_HASH, encodeURIComponent(site), ...(scope ? [scope] : [])].join('/');
+/** Le dossier n'est porté par l'ancre qu'avec une granularité : chaque niveau du fil a son lien. */
+export function sharePointHash(site: string, scope?: SiteScope, path = '/'): string {
+  const folders = scope ? path.split('/').filter(Boolean).map(encodeURIComponent) : [];
+  const parts = [SHAREPOINT_HASH, encodeURIComponent(site), ...(scope ? [scope] : []), ...folders];
+  return parts.join('/');
 }
 
 /** Chemin virtuel en fil lisible : `Documents partagés > Plans 2024`. */

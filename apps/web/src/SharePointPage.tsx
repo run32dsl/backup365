@@ -186,7 +186,7 @@ export function ContentTree({
                 <span aria-current="location">{c.label}</span>
               ) : (
                 <a
-                  href={sharePointHash(siteId, scope)}
+                  href={sharePointHash(siteId, scope, c.path)}
                   onClick={(ev) => {
                     if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) return;
                     ev.preventDefault();
@@ -271,6 +271,7 @@ export function ChooseStep({
   snapshots,
   snapshotId,
   initialScope,
+  initialPath = '/',
   admin,
   configured,
   onSnapshot,
@@ -281,13 +282,15 @@ export function ChooseStep({
   snapshots: DriveSnapshot[];
   snapshotId: string;
   initialScope: SiteScope;
+  /** Dossier ouvert à l'arrivée : celui de l'ancre (lien du fil d'Ariane ouvert dans un onglet). */
+  initialPath?: string;
   admin: boolean;
   configured: boolean;
   onSnapshot: (id: string) => void;
   onContinue: (choice: Choice) => void;
 }) {
   const [scope, setScope] = useState<SiteScope>(initialScope);
-  const [path, setPath] = useState('/');
+  const [path, setPath] = useState(initialPath);
   const [file, setFile] = useState<string | null>(null);
   const hintId = useId();
   const notConfiguredId = useId();
@@ -697,7 +700,10 @@ function TrackStep({
   return <>{body}</>;
 }
 
-/** Restaurer SharePoint : choisir, motif, confirmation, suivi (`#/sharepoint/<site>/<granularité>`). */
+/**
+ * Restaurer SharePoint : choisir, motif, confirmation, suivi
+ * (`#/sharepoint/<site>/<granularité>/<dossier>...`).
+ */
 export function SharePointPage({ route, admin }: { route: SharePointRoute; admin: boolean }) {
   const [sites, setSites] = useState<Loaded<Site[]> | null>(null);
   const [snapshots, setSnapshots] = useState<Loaded<DriveSnapshot[]> | null>(null);
@@ -836,6 +842,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
         snapshots={snapshots.data}
         snapshotId={snapshotId}
         initialScope={route.scope ?? 'item'}
+        initialPath={route.path}
         admin={admin}
         configured={configured}
         onSnapshot={setSnapshotId}

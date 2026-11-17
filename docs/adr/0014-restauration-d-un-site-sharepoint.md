@@ -59,7 +59,7 @@ nom (restauré jj-mm-aaaa).ext` (`jj-mm-aaaa` et non `jj/mm/aaaa` de la maquette
   avec `count` = éléments restaurés et le motif
   `outcome=<…>;duration_ms=<n>;scope=<…>;skipped=<n>;errors=<n>;reason=<motif>` (texte libre en
   dernier : couper aux cinq premiers `;` seulement). Jamais le contenu d'un fichier.
-- **Interface** : entrée « SharePoint » (`#/sharepoint/<site>/<granularité>`, sept entrées pour un
+- **Interface** : entrée « SharePoint » (`#/sharepoint/<site>/<granularité>[/<dossier>...]`, sept entrées pour un
   administrateur). Étapes : choisir (site, granularité en `fieldset`, arborescence `role="tree"` au
   clavier, point de restauration), motif (liste et précision obligatoire), récapitulatif (case puis
   nom du site pour le site entier), suivi. La progression est une barre `role="progressbar"` sans
