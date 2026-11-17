@@ -485,3 +485,34 @@ test('dialogue : focus piégé, Échap, retour du focus', async ({ page, context
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
 });
+
+test('groupe d’options : légende, flèches du clavier, option désactivée', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  await page.goto('/#/composants');
+
+  const mode = page.getByRole('group', { name: 'Mode' });
+  const copy = mode.getByRole('radio', { name: /Restaurer en copie/ });
+  const replace = mode.getByRole('radio', { name: 'Remplacer le fichier actuel' });
+  await expect(copy).toBeChecked();
+  await copy.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(replace).toBeChecked();
+  await expect(copy).not.toBeChecked();
+  await page.keyboard.press('ArrowLeft');
+  await expect(copy).toBeChecked();
+
+  // Une option désactivée n'est jamais atteinte par les flèches et garde son explication.
+  const scope = page.getByRole('group', { name: 'Restaurer' });
+  const item = scope.getByRole('radio', { name: 'Un élément' });
+  const site = scope.getByRole('radio', { name: /Le site entier/ });
+  await expect(site).toBeDisabled();
+  await expect(site).toHaveAccessibleDescription('(Réservé aux administrateurs)');
+  await item.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(item).toBeChecked();
+  await expect(site).not.toBeChecked();
+});

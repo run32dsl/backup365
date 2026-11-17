@@ -42,7 +42,7 @@ Texte sur fond : au moins 4,5:1 ; contour des contrôles : au moins 3:1.
 
 ## Composants de base
 
-Les composants communs sont dans `apps/web/src/ui/` (`Button`, `FormField`, `DataTable`,
+Les composants communs sont dans `apps/web/src/ui/` (`Button`, `FormField`, `ChoiceGroup`, `DataTable`,
 `Dialog`, `EmptyState`, `Alert`, `Steps`, `StatusPill`) : un écran les utilise au lieu de
 refaire ses boutons, tableaux et formulaires. La page `#/composants`, visible en mode démo
 seulement (lien « Composants » en pied de page), les montre dans tous leurs états. Un nouveau

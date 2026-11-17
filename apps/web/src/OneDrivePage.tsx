@@ -39,7 +39,16 @@ import {
   stepOf,
 } from './RestoreJourney.js';
 import { formatDuration } from './restore.js';
-import { Alert, Button, DataTable, Dialog, EmptyState, Steps, WizardActions } from './ui/index.js';
+import {
+  Alert,
+  Button,
+  ChoiceGroup,
+  DataTable,
+  Dialog,
+  EmptyState,
+  Steps,
+  WizardActions,
+} from './ui/index.js';
 
 /** Élément choisi à l'étape 1 : un fichier ou un dossier, éventuellement une version précise. */
 interface Choice {
@@ -480,35 +489,24 @@ function ConfirmStep({
   return (
     <form onSubmit={submit} noValidate>
       <p>Motif : {reason}</p>
-      <fieldset className="choices">
-        <legend>Mode</legend>
-        <label className="choice">
-          <input
-            type="radio"
-            name="mode"
-            checked={mode === 'copy'}
-            onChange={() => {
-              setMode('copy');
-              setConfirmed(false);
-              setConfirmError(false);
-            }}
-          />{' '}
-          Restaurer en copie (recommandé)
-        </label>
-        {canReplace && (
-          <label className="choice">
-            <input
-              type="radio"
-              name="mode"
-              checked={mode === 'replace'}
-              onChange={() => {
-                setMode('replace');
-              }}
-            />{' '}
-            Remplacer le fichier actuel
-          </label>
-        )}
-      </fieldset>
+      <ChoiceGroup<DriveMode>
+        legend="Mode"
+        name="mode"
+        value={mode}
+        options={[
+          { value: 'copy', label: 'Restaurer en copie (recommandé)' },
+          ...(canReplace
+            ? [{ value: 'replace' as const, label: 'Remplacer le fichier actuel' }]
+            : []),
+        ]}
+        onChange={(next) => {
+          setMode(next);
+          if (next === 'copy') {
+            setConfirmed(false);
+            setConfirmError(false);
+          }
+        }}
+      />
       <h3>Récapitulatif</h3>
       <p>
         {summaryOf({
