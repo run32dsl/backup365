@@ -755,6 +755,12 @@ select[aria-disabled='true'] {
 .wizard-actions > :last-child {
   margin-left: auto;
 }
+.wizard-actions > :only-child {
+  margin-left: 0;
+}
+.empty + .wizard-actions {
+  margin-top: var(--space-3);
+}
 @media (max-width: 37.5rem) {
   .dialog-backdrop {
     padding: 0;

@@ -17,7 +17,7 @@ import { parseMailHash } from './mail.js';
 import { PlansPage } from './PlansPage.js';
 import { parsePlansHash } from './plans.js';
 import { COMPONENTS_HASH } from './routes.js';
-import { Alert } from './ui/index.js';
+import { EmptyState } from './ui/index.js';
 import {
   ADMIN_ONLY,
   LOGIN_HASH,
@@ -116,10 +116,16 @@ const goHome = () => {
 export function ForbiddenView() {
   return (
     <main tabIndex={-1}>
-      <Alert tone="error">{ADMIN_ONLY}</Alert>
-      <p>
-        <a href="#/">Retour à l’accueil</a>
-      </p>
+      <h1>Administration</h1>
+      <EmptyState
+        action={
+          <a className="btn btn-secondary" href="#/">
+            Retour au tableau de bord
+          </a>
+        }
+      >
+        {ADMIN_ONLY} Demandez à un administrateur de la console de faire cette action.
+      </EmptyState>
     </main>
   );
 }

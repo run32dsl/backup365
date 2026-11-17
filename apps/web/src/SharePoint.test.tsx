@@ -19,11 +19,26 @@ import {
   summaryOf,
 } from './sharepoint.js';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ContentTree, SiteEntriesTable } from './SharePointPage.js';
+import { ContentTree, SiteDenied, SiteEntriesTable } from './SharePointPage.js';
 import { navEntries, screenOf } from './App.js';
 
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
+
+describe('SharePoint right refusal', () => {
+  it('names the site, shows no error banner and leads back to the Choose step', () => {
+    const html = renderToStaticMarkup(
+      <SiteDenied site={{ id: 'abc', displayName: 'Équipe commerciale' }} />,
+    );
+    expect(html).toContain('le site « Équipe commerciale »');
+    expect(html).toContain('Choisir un autre site');
+    expect(html).not.toContain('alert-error');
+    const href = /href="([^"]+)"/u.exec(html)?.[1];
+    expect(href).toBe(sharePointHash('abc'));
+    // Sans granularité : l'étape « Choisir » du site.
+    expect(parseSharePointHash(href ?? '')).toEqual({ site: 'abc', scope: null, path: '/' });
+  });
+});
 
 describe('SharePoint route', () => {
   it('parses #/sharepoint[/<site>[/<granularité>]] and round-trips', () => {

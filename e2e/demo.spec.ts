@@ -223,7 +223,7 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   await page.goto('/#/');
   await page.getByRole('link', { name: 'SharePoint', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Restaurer depuis SharePoint' })).toBeVisible();
-  await expect(page.getByText('Étape 1 sur 3')).toBeVisible();
+  await expect(page.getByText(/Étape 1 sur 3 : Choisir/)).toBeVisible();
   await expect(
     page.getByText(/Chaque consultation, export ou restauration est inscrite/),
   ).toBeVisible();
@@ -312,8 +312,11 @@ test('SharePoint : un accès direct au site entier est refusé à un opérateur'
   await signInAs(context, baseURL!, 'operator');
   await page.goto(`/#/sharepoint/${SITES.rh}/site`);
   await expect(
-    page.getByText('Vous n’avez pas le droit de restaurer ce site. Contactez un administrateur.'),
+    page.getByText(/Vous n’avez pas le droit de restaurer le site « Ressources humaines »/),
   ).toBeVisible();
+  await expect(page.getByText(/Étape 1 sur 3 : Choisir/)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Choisir un autre site' })).toBeVisible();
+  await expect(page.locator('.alert-error')).toHaveCount(0);
 });
 
 test('SharePoint : un échec affiche le résultat partiel et propose de réessayer', async ({
