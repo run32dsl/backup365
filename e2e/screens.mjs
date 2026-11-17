@@ -4,9 +4,10 @@
  * - `name` : nom du fichier, `captures/<name>-<largeur>.png` ;
  * - `hash` : ancre de l'écran (vide pour la page de connexion) ;
  * - `role` : `'admin'`, `'operator'` ou `null` (pas de session) ;
+ * - `scheme` : `'dark'` pour le thème sombre (clair par défaut) ;
  * - `prepare(page)` : gestes éventuels avant la photo (saisie, clic), rendu attendu à la fin.
  *
- * @typedef {{ name: string, hash: string, role: 'admin' | 'operator' | null,
+ * @typedef {{ name: string, hash: string, role: 'admin' | 'operator' | null, scheme?: 'light' | 'dark',
  *   prepare?: (page: import('@playwright/test').Page) => Promise<void> }} Screen
  */
 
@@ -182,6 +183,7 @@ export const SCREENS = [
     },
   },
   { name: 'tableau-de-bord', hash: '#/', role: 'admin' },
+  { name: 'tableau-de-bord-sombre', hash: '#/', role: 'admin', scheme: 'dark' },
   {
     name: 'mot-de-passe',
     hash: '#/password',

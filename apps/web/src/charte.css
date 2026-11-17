@@ -816,6 +816,23 @@ select[aria-disabled='true'] {
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border-soft);
   color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-3);
+}
+/* Chaque élément reste entier : le retour à la ligne se fait entre la version et le lien. */
+.console-footer-item {
+  white-space: nowrap;
+}
+.console-footer-link {
+  display: inline-flex;
+  align-items: center;
+}
+.console-footer-link a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
 }
 .toc {
   display: flex;
