@@ -5,6 +5,9 @@ import {
   continueHint,
   failureCause,
   fetchScope,
+  breadcrumbLevels,
+  breadcrumbLink,
+  followInApp,
   fetchSiteSnapshots,
   fetchSites,
   isOutcomeUncertain,
@@ -15,6 +18,8 @@ import {
   summaryCountOf,
   summaryOf,
 } from './sharepoint.js';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { ContentTree } from './SharePointPage.js';
 import { navEntries, screenOf } from './App.js';
 
 const json = (body: unknown, status = 200) =>
@@ -22,13 +27,34 @@ const json = (body: unknown, status = 200) =>
 
 describe('SharePoint route', () => {
   it('parses #/sharepoint[/<site>[/<granularité>]] and round-trips', () => {
-    expect(parseSharePointHash('#/sharepoint')).toEqual({ site: '', scope: null });
-    expect(parseSharePointHash('#/sharepoint/site-1')).toEqual({ site: 'site-1', scope: null });
-    expect(parseSharePointHash('#/sharepoint/a%2Cb/site')).toEqual({ site: 'a,b', scope: 'site' });
-    expect(parseSharePointHash('#/sharepoint/s/nimporte')).toEqual({ site: 's', scope: null });
+    const root = '/';
+    expect(parseSharePointHash('#/sharepoint')).toEqual({ site: '', scope: null, path: root });
+    expect(parseSharePointHash('#/sharepoint/site-1')).toEqual({
+      site: 'site-1',
+      scope: null,
+      path: root,
+    });
+    expect(parseSharePointHash('#/sharepoint/a%2Cb/site')).toEqual({
+      site: 'a,b',
+      scope: 'site',
+      path: root,
+    });
+    expect(parseSharePointHash('#/sharepoint/s/nimporte')).toEqual({
+      site: 's',
+      scope: null,
+      path: root,
+    });
     expect(parseSharePointHash(sharePointHash('a,b', 'library'))).toEqual({
       site: 'a,b',
       scope: 'library',
+      path: root,
+    });
+    const deep = sharePointHash('a,b', 'item', '/Documents/Plans 2024');
+    expect(deep).toBe('#/sharepoint/a%2Cb/item/Documents/Plans%202024');
+    expect(parseSharePointHash(deep)).toEqual({
+      site: 'a,b',
+      scope: 'item',
+      path: '/Documents/Plans 2024',
     });
     expect(parseSharePointHash('#/sharepointx')).toBeNull();
     expect(parseSharePointHash('#/sharepoint/%E0%A4%A')).toBeNull();
@@ -40,6 +66,85 @@ describe('SharePoint route', () => {
       href: '#/sharepoint',
       current: true,
     });
+  });
+});
+
+describe('SharePoint breadcrumb', () => {
+  const click = (over: Partial<Parameters<typeof followInApp>[0]> = {}) => {
+    const ev = {
+      button: 0,
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      preventDefault: vi.fn(),
+      ...over,
+    };
+    const navigate = vi.fn();
+    followInApp(ev, navigate);
+    return { ev, navigate };
+  };
+
+  it('gives each level its own deep link', () => {
+    const html = renderToStaticMarkup(
+      <ContentTree
+        siteId="a,b"
+        siteName="Commerce"
+        snapshotId="s1"
+        scope="item"
+        path="/Documents/Plans 2024"
+        file={null}
+        onPath={vi.fn()}
+        onFile={vi.fn()}
+      />,
+    );
+    expect(html).toContain('href="#/sharepoint/a%2Cb/item"');
+    expect(html).toContain('href="#/sharepoint/a%2Cb/item/Documents"');
+    expect(html).toContain('<span aria-current="page">Plans 2024</span>');
+  });
+
+  it('navigates in the page on a plain click', () => {
+    const { ev, navigate } = click();
+    expect(ev.preventDefault).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledOnce();
+  });
+
+  it('opens the clicked level, not another one', () => {
+    const levels = breadcrumbLevels('Commerce', '/Documents/Plans 2024');
+    expect(levels).toEqual([
+      { label: 'Commerce', path: '/' },
+      { label: 'Documents', path: '/Documents' },
+      { label: 'Plans 2024', path: '/Documents/Plans 2024' },
+    ]);
+    const onPath = vi.fn();
+    const link = breadcrumbLink(levels[1] ?? { path: '' }, 'a,b', 'item', onPath);
+    expect(link.href).toBe('#/sharepoint/a%2Cb/item/Documents');
+    link.onClick({
+      button: 0,
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      preventDefault: vi.fn(),
+    });
+    expect(onPath).toHaveBeenCalledExactlyOnceWith('/Documents');
+  });
+
+  it('ignores the path when the link has no granularity', () => {
+    expect(sharePointHash('s', undefined, '/Documents')).toBe('#/sharepoint/s');
+  });
+
+  it.each([
+    { ctrlKey: true },
+    { metaKey: true },
+    { shiftKey: true },
+    { altKey: true },
+    { button: 1 },
+    { button: 2 },
+  ])('leaves a modified click %j to the browser', (over) => {
+    const { ev, navigate } = click(over);
+    expect(ev.preventDefault).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });
 

@@ -34,6 +34,8 @@ import {
   formatDuration,
   isOutcomeUncertain,
   pathLabel,
+  breadcrumbLevels,
+  breadcrumbLink,
   sharePointHash,
   sizeOf,
   startSiteRestore,
@@ -90,7 +92,7 @@ function Problem({
  * (`role="tree"`), flèches haut et bas pour se déplacer, Entrée pour ouvrir un dossier ou choisir un
  * fichier. Le chemin ouvert est le fil d'Ariane.
  */
-function ContentTree({
+export function ContentTree({
   siteId,
   siteName,
   snapshotId,
@@ -140,12 +142,7 @@ function ContentTree({
     onFile(null);
     onPath(to);
   };
-  const crumbs = [{ label: siteName, path: '/' }];
-  let acc = '';
-  for (const segment of path.split('/').filter(Boolean)) {
-    acc += `/${segment}`;
-    crumbs.push({ label: segment, path: acc });
-  }
+  const crumbs = breadcrumbLevels(siteName, path);
 
   function open(e: SiteEntry) {
     if (e.kind === 'file') {
@@ -185,14 +182,9 @@ function ContentTree({
               {i === crumbs.length - 1 ? (
                 <span aria-current="page">{c.label}</span>
               ) : (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    go(c.path);
-                  }}
-                >
+                <a className="btn btn-secondary" {...breadcrumbLink(c, siteId, scope, go)}>
                   {c.label}
-                </Button>
+                </a>
               )}
             </li>
           ))}
@@ -269,6 +261,7 @@ function ChooseStep({
   snapshots,
   snapshotId,
   initialScope,
+  initialPath,
   admin,
   configured,
   onSnapshot,
@@ -279,13 +272,14 @@ function ChooseStep({
   snapshots: DriveSnapshot[];
   snapshotId: string;
   initialScope: SiteScope;
+  initialPath: string;
   admin: boolean;
   configured: boolean;
   onSnapshot: (id: string) => void;
   onContinue: (choice: Choice) => void;
 }) {
   const [scope, setScope] = useState<SiteScope>(initialScope);
-  const [path, setPath] = useState('/');
+  const [path, setPath] = useState(initialPath);
   const [file, setFile] = useState<string | null>(null);
   const hintId = useId();
   const notConfiguredId = useId();
@@ -833,6 +827,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
         snapshots={snapshots.data}
         snapshotId={snapshotId}
         initialScope={route.scope ?? 'item'}
+        initialPath={route.path}
         admin={admin}
         configured={configured}
         onSnapshot={setSnapshotId}

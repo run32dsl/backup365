@@ -81,25 +81,86 @@ export interface SharePointRoute {
   site: string;
   /** Granularité demandée par l'ancre ; `null` : celle par défaut. */
   scope: SiteScope | null;
+  /** Dossier ouvert dans l'arborescence, `/` pour la racine du site. */
+  path: string;
 }
 
 export const SHAREPOINT_HASH = '#/sharepoint';
 
-/** `#/sharepoint[/<site>[/<granularité>]]`. `null` si l'ancre n'est pas la bonne. */
+/** `#/sharepoint[/<site>[/<granularité>[/<chemin>]]]`, chaque segment encodé. `null` si l'ancre n'est pas la bonne. */
 export function parseSharePointHash(hash: string): SharePointRoute | null {
   if (hash !== SHAREPOINT_HASH && !hash.startsWith(`${SHAREPOINT_HASH}/`)) return null;
   const parts = hash.slice(SHAREPOINT_HASH.length).split('/').filter(Boolean);
   try {
-    const [site = '', scope = ''] = parts.map(decodeURIComponent);
+    const [site = '', scope = '', ...path] = parts.map(decodeURIComponent);
     const found = SCOPE_OPTIONS.find((o) => o.value === scope);
-    return { site, scope: found?.value ?? null };
+    return {
+      site,
+      scope: found?.value ?? null,
+      path: path.length === 0 ? '/' : `/${path.join('/')}`,
+    };
   } catch {
     return null;
   }
 }
 
-export function sharePointHash(site: string, scope?: SiteScope): string {
-  return [SHAREPOINT_HASH, encodeURIComponent(site), ...(scope ? [scope] : [])].join('/');
+/** Le chemin n'est pris en compte qu'avec une granularité : elle précède le chemin dans l'ancre. */
+export function sharePointHash(site: string, scope?: SiteScope, path = '/'): string {
+  const segments = scope ? path.split('/').filter(Boolean).map(encodeURIComponent) : [];
+  return [SHAREPOINT_HASH, encodeURIComponent(site), ...(scope ? [scope] : []), ...segments].join(
+    '/',
+  );
+}
+
+/**
+ * Clic simple sur un lien : on navigue dans la page sans recharger. Un clic modifié (Ctrl, Meta,
+ * Maj, Alt, bouton du milieu) est laissé au navigateur, qui ouvre le `href` du lien.
+ */
+export function followInApp(
+  ev: {
+    button: number;
+    ctrlKey: boolean;
+    metaKey: boolean;
+    shiftKey: boolean;
+    altKey: boolean;
+    preventDefault: () => void;
+  },
+  navigate: () => void,
+): void {
+  if (ev.button !== 0 || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return;
+  ev.preventDefault();
+  navigate();
+}
+
+/** Niveaux du fil d'Ariane : le site, puis chaque dossier du chemin avec son chemin complet. */
+export function breadcrumbLevels(
+  siteName: string,
+  path: string,
+): { label: string; path: string }[] {
+  const levels = [{ label: siteName, path: '/' }];
+  let acc = '';
+  for (const segment of path.split('/').filter(Boolean)) {
+    acc += `/${segment}`;
+    levels.push({ label: segment, path: acc });
+  }
+  return levels;
+}
+
+/** Lien d'un niveau du fil : son `href` propre, et un clic simple qui ouvre ce niveau. */
+export function breadcrumbLink(
+  level: { path: string },
+  siteId: string,
+  scope: SiteScope,
+  go: (path: string) => void,
+): { href: string; onClick: (ev: Parameters<typeof followInApp>[0]) => void } {
+  return {
+    href: sharePointHash(siteId, scope, level.path),
+    onClick: (ev) => {
+      followInApp(ev, () => {
+        go(level.path);
+      });
+    },
+  };
 }
 
 /** Chemin virtuel en fil lisible : `Documents partagés > Plans 2024`. */

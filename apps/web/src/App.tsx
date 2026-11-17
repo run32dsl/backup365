@@ -299,7 +299,7 @@ export function Console({
       {screen === 'sharepoint' && (
         <SharePointPage
           key={hash}
-          route={parseSharePointHash(hash) ?? { site: '', scope: null }}
+          route={parseSharePointHash(hash) ?? { site: '', scope: null, path: '/' }}
           admin={admin}
         />
       )}
