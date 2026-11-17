@@ -33,7 +33,7 @@ export function DataTable<T>({
   /** Phrase de l'état vide, avec au plus une action. */
   empty?: { message: string; action?: ReactNode };
   loading?: boolean;
-  /** Sous 900 px : carte compacte, sans étiquettes, deux cellules par ligne, cellules vides omises. */
+  /** Sous 900 px : carte compacte (étiquettes conservées, lignes serrées), cellules vides omises. */
   compact?: boolean;
   /** Classe CSS ajoutée à une ligne. */
   rowClassName?: (row: T) => string | undefined;

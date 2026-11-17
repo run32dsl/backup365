@@ -384,7 +384,7 @@ export function demoFactory(now: number = Date.now()): AtlasFactory {
 }
 
 /** Entrées de journal d'audit fictives, de la plus ancienne à la plus récente. */
-export function demoAuditEvents(now: number): AuditEvent[] {
+export function demoAuditEvents(now: number, planId?: string): AuditEvent[] {
   const at = (hoursAgo: number) => new Date(now - hoursAgo * HOUR).toISOString();
   return [
     { at: at(30), actor: 'admin-demo', action: 'auth.login', resource: 'session' },
@@ -400,7 +400,7 @@ export function demoAuditEvents(now: number): AuditEvent[] {
       actor: 'admin-demo',
       action: 'plan.create',
       resource: 'plan',
-      target: 'plan-demo',
+      ...(planId === undefined ? {} : { target: planId }),
     },
     { at: at(26), actor: 'admin-demo', action: 'auth.logout', resource: 'session' },
     { at: at(22), actor: 'operateur-demo', action: 'auth.login', resource: 'session' },
@@ -416,14 +416,14 @@ export function demoAuditEvents(now: number): AuditEvent[] {
       actor: 'operateur-demo',
       action: 'item.open',
       resource: 'mail',
-      target: 'msg-1-004',
+      target: `${DEMO_MAILBOXES[0]!.id}/msg-1-004`,
     },
     {
       at: at(20),
       actor: 'operateur-demo',
       action: 'item.export',
       resource: 'mail',
-      target: 'msg-1-004',
+      target: `${DEMO_MAILBOXES[0]!.id}/msg-1-004`,
       reason: 'Ticket INC-10001',
     },
     { at: at(12), actor: 'anonymous', action: 'auth.login_failed', resource: 'session' },
@@ -470,7 +470,7 @@ export async function seedDemo(
     }
   }
   if (audit && audit.head() === undefined) {
-    for (const event of demoAuditEvents(now)) await audit.record(event);
+    for (const event of demoAuditEvents(now, plans?.list()[0]?.id)) await audit.record(event);
   }
 }
 
