@@ -557,6 +557,13 @@ select[aria-disabled='true'] {
   .data-table td.card-action::before {
     display: none;
   }
+  /* Plusieurs actions dans une carte : chacune en pleine largeur, sans débordement. */
+  .data-table td.card-action .button-row {
+    margin-bottom: 0;
+  }
+  .data-table td.card-action .button-row .btn {
+    flex: 1 1 100%;
+  }
   .data-table td::before {
     content: attr(data-label);
     font-weight: 600;

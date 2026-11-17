@@ -1,7 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { Console, ForbiddenView, screenFor, screenOf } from './App.js';
-import { AccountsPage, AccountsView } from './AccountsPage.js';
+import { AccountsPage, AccountsView, CreateAccountForm, submitCreate } from './AccountsPage.js';
 import { AuditPage } from './AuditPage.js';
 import { CredentialsView, ErrorView, Field, PasswordView } from './LoginPage.js';
 import { createAccount, isLastAdmin, resetPassword } from './accounts.js';
@@ -102,6 +102,52 @@ describe('AccountsView', () => {
         'BOITE-MDP',
       );
     }
+  });
+});
+
+describe('Administration page structure', () => {
+  const account = (id: number, username: string) => ({
+    id,
+    username,
+    role: 'operator' as const,
+    disabled: false,
+    mustChangePassword: false,
+    createdAt: '',
+  });
+  const html = renderToString(
+    <AccountsView state={[account(1, 'ann'), account(2, 'bob')]} actions={{}} />,
+  );
+
+  it('has no inline form and no account dropdown any more', () => {
+    expect(html).not.toContain('<form');
+    expect(html).not.toContain('Réinitialiser un mot de passe');
+    expect(html).not.toContain('<h2>Créer un compte</h2>');
+    // Un seul menu par ligne : le rôle.
+    expect(html.match(/<select/g)).toHaveLength(2);
+  });
+
+  it('offers an outlined reset button on every row, naming the account', () => {
+    expect(html.match(/btn-secondary[^>]*>Réinitialiser le mot de passe</g)).toHaveLength(2);
+    expect(html).toContain('aria-label="Réinitialiser le mot de passe : bob"');
+    expect(html).toContain(AUDIT_NOTICE);
+  });
+
+  it('keeps one filled button on the page, « + Créer un compte », next to the title', () => {
+    const page = renderToString(<AccountsPage />);
+    expect(page).toContain('<div class="page-header"><h1>Administration</h1>');
+    expect(page.match(/btn-primary/g)).toHaveLength(1);
+    expect(page.replaceAll('<!-- -->', '')).toContain('+ </span>Créer un compte</button>');
+  });
+
+  it('closes the creation box once the account is created, and keeps it on failure', async () => {
+    const form = new FormData();
+    const close = vi.fn();
+    await expect(submitCreate(() => Promise.resolve(true), form, close)).resolves.toBeUndefined();
+    expect(close).toHaveBeenCalledTimes(1);
+    const kept = vi.fn();
+    const taken = 'Cet identifiant est déjà utilisé.';
+    await expect(submitCreate(() => Promise.resolve(taken), form, kept)).resolves.toBe(taken);
+    expect(kept).not.toHaveBeenCalled();
   });
 });
 
@@ -224,7 +270,7 @@ describe('maquette de l’issue #22', () => {
       expect(html).toContain('Identifiant');
       expect(html).not.toContain('utilisateur');
     }
-    const accounts = renderToString(<AccountsView state={[]} />);
+    const accounts = renderToString(<CreateAccountForm />);
     expect(accounts).toContain('Identifiant');
     expect(accounts).not.toContain('Nom d’utilisateur');
   });
@@ -283,7 +329,7 @@ describe('maquette de l’issue #22', () => {
   });
 
   it('gives the account creation form an Afficher / Masquer button', () => {
-    const html = renderToString(<AccountsView state={[]} />);
+    const html = renderToString(<CreateAccountForm />);
     expect(html.match(/Afficher</g)).toHaveLength(1);
     expect(html).toContain('Identifiant');
   });
@@ -296,8 +342,10 @@ describe('maquette de l’issue #22', () => {
     const password = renderToString(<PasswordView forced={false} />);
     expect(password).toContain('Choisissez un nouveau mot de passe');
     expect(password).toContain('>Enregistrer et continuer</button>');
-    const view = renderToString(<AccountsView state={[]} />);
-    expect(view).toContain('>Nouveau compte</button>');
+    const view = renderToString(<CreateAccountForm />);
+    expect(view).toContain('>Créer le compte</button>');
+    expect(view).toContain('>Annuler</button>');
+    expect(view).not.toContain('Nouveau compte');
   });
 
   it('names the console in the accounts title and says the journal is audited', () => {
@@ -372,7 +420,7 @@ describe('textes restants de la maquette de #22', () => {
   });
 
   it('describes each role in the create form', () => {
-    const html = renderToString(<AccountsView state={[]} />);
+    const html = renderToString(<CreateAccountForm />);
     expect(html).toContain('gère les comptes, les plans et les restaurations.');
     expect(html).toContain('consulte, exporte et restaure, avec un motif.');
   });
@@ -394,7 +442,7 @@ describe('textes restants de la maquette de #22', () => {
   });
 
   it('says « Mot de passe temporaire » on the account forms, never « provisoire »', () => {
-    const html = renderToString(<AccountsView state={[]} />);
+    const html = renderToString(<CreateAccountForm />);
     expect(html).toContain('>Mot de passe temporaire (12 caractères au minimum)</label>');
     expect(html).not.toContain('provisoire');
   });
@@ -436,42 +484,8 @@ describe('textes restants de la maquette de #22', () => {
     expect(html).toContain('class="skip-link"');
   });
 
-  it('clears an account form only when the request succeeded', async () => {
-    type El = { type?: unknown; props?: { children?: unknown; [k: string]: unknown } };
-    vi.stubGlobal('FormData', class {});
-    const submitWith = async (result: boolean) => {
-      const reset = vi.fn();
-      const tree = AccountsView({
-        state: [],
-        actions: { onCreate: () => Promise.resolve(result) },
-      });
-      const forms: El[] = [];
-      const walk = (n: unknown): void => {
-        if (Array.isArray(n)) n.forEach(walk);
-        else if (n && typeof n === 'object') {
-          const el = n as El;
-          if (el.type === 'form') forms.push(el);
-          walk(el.props?.children);
-        }
-      };
-      walk(tree);
-      (forms[0]!.props!.onSubmit as (e: unknown) => void)({
-        preventDefault: () => undefined,
-        currentTarget: { reset },
-      });
-      await new Promise((r) => setTimeout(r, 0));
-      return reset;
-    };
-    try {
-      expect(await submitWith(false)).not.toHaveBeenCalled();
-      expect(await submitWith(true)).toHaveBeenCalledOnce();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
   it('offers Annuler on the account forms and on a voluntary password change', () => {
-    expect(renderToString(<AccountsView state={[]} />).match(/>Annuler</g)).toHaveLength(1);
+    expect(renderToString(<CreateAccountForm />).match(/>Annuler</g)).toHaveLength(1);
     expect(renderToString(<PasswordView forced={false} />)).toContain('>Annuler</button>');
     expect(renderToString(<PasswordView forced />)).not.toContain('Annuler');
   });
@@ -508,6 +522,16 @@ describe('textes restants de la maquette de #22', () => {
     const other = find(tree, (e) => isButton(e) && e.props?.children === 'Désactiver');
     (other.find((e) => e.props?.['aria-disabled'] === undefined)!.props!.onClick as () => void)();
     expect(onDisabled).toHaveBeenCalledWith(2, true);
+
+    // « Réinitialiser le mot de passe » ouvre la boîte du compte de sa ligne, sans choix de compte.
+    const onReset = vi.fn();
+    const resets = find(
+      AccountsView({ state: only, actions: { onReset } }),
+      (e) => isButton(e) && e.props?.children === 'Réinitialiser le mot de passe',
+    );
+    expect(resets).toHaveLength(2);
+    (resets[1]!.props!.onClick as () => void)();
+    expect(onReset).toHaveBeenCalledExactlyOnceWith(2);
 
     const onRetry = vi.fn();
     const retry = find(ErrorView({ message: 'x', onRetry }), isButton);
