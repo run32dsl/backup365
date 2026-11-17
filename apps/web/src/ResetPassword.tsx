@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type Ref } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type Ref } from 'react';
 import { RESET_TEXTS } from './accounts.js';
 import { AuditReminder, REASON, ReasonField } from './RestoreJourney.js';
 import { Alert, Button, Dialog } from './ui/index.js';
@@ -67,11 +67,10 @@ export function TemporaryPasswordView({
   onHanded?: (checked: boolean) => void;
   onDone?: () => void;
 }) {
-  const checkId = useId();
   return (
     <div>
       <p>{RESET_TEXTS.once}</p>
-      <div className="button-row">
+      <div className="button-row temp-password-row">
         <code
           ref={codeRef}
           className="temp-password"
@@ -96,15 +95,16 @@ export function TemporaryPasswordView({
       </div>
       {copyFailed && <Alert tone="warning">{RESET_TEXTS.copyFailed}</Alert>}
       <p className="field-help">La boîte ne se ferme qu’après avoir coché la case ci-dessous.</p>
-      <p>
-        <input
-          id={checkId}
-          type="checkbox"
-          checked={handed}
-          onChange={(e) => onHanded?.(e.currentTarget.checked)}
-        />{' '}
-        <label htmlFor={checkId}>{RESET_TEXTS.handed}</label>
-      </p>
+      <div className="field">
+        <label className="choice">
+          <input
+            type="checkbox"
+            checked={handed}
+            onChange={(e) => onHanded?.(e.currentTarget.checked)}
+          />
+          {RESET_TEXTS.handed}
+        </label>
+      </div>
       <div className="button-row dialog-actions">
         <Button
           type="button"
