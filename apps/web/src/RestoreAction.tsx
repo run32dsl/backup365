@@ -159,7 +159,6 @@ export function RestoreAction({
   return (
     <>
       <Button
-        variant="secondary"
         aria-label={label}
         aria-disabled={!configured || undefined}
         aria-describedby={!configured ? hintId : undefined}
