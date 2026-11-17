@@ -25,7 +25,7 @@ test('recherche, puis export d’un mail avec motif', async ({ page, context, ba
   await expect(page.getByRole('heading', { level: 2, name: 'Exporter en EML' })).toBeVisible();
   await expect(page.getByText('@exemple.fr').first()).toBeVisible();
 
-  const reason = page.getByLabel('Motif de l’export');
+  const reason = page.getByLabel('Motif de l’export (obligatoire)');
   const exportButton = page.getByRole('button', { name: 'Exporter en EML' });
   await expect(exportButton).toBeDisabled();
   await reason.fill('Ticket INC-20001');

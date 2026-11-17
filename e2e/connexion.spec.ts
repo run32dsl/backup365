@@ -95,11 +95,13 @@ test('réinitialisation : motif obligatoire, mot de passe affiché une seule foi
 
   const step2 = page.getByRole('dialog', { name: 'Réinitialiser le mot de passe' });
   await expect(step2).toContainText(DEMO_LOGINS.operator.username);
-  await expect(step2).toContainText('Cette action sera journalisée (sans le mot de passe).');
+  await expect(step2).toContainText('Le mot de passe n’y figure pas.');
   await step2.getByRole('button', { name: 'Réinitialiser' }).click();
-  await expect(step2.getByText('Indiquez un motif.')).toBeVisible();
+  await expect(step2.getByText('Indiquez un motif pour continuer.')).toBeVisible();
   expect(bodies).toHaveLength(0);
-  await step2.getByLabel('Motif (obligatoire)').fill('Oubli du mot de passe');
+  await step2
+    .getByLabel('Motif de la réinitialisation (obligatoire)')
+    .fill('Oubli du mot de passe');
   await step2.getByRole('button', { name: 'Réinitialiser' }).click();
 
   const step3 = page.getByRole('dialog', { name: 'Mot de passe temporaire' });

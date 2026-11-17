@@ -39,6 +39,7 @@ import {
   type PlansRoute,
   type ReasonKind,
 } from './plans.js';
+import { AuditReminder, REASON, reasonLabel } from './RestoreJourney.js';
 import {
   Alert,
   Button,
@@ -123,9 +124,11 @@ function SelectField({
   placeholder,
   options,
   error,
+  help,
   onChange,
 }: {
   id: string;
+  help?: string;
   label: string;
   value: string;
   placeholder: string;
@@ -140,7 +143,10 @@ function SelectField({
         id={id}
         value={value}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
+        aria-describedby={
+          [help ? `${id}-help` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ') ||
+          undefined
+        }
         onChange={(e) => {
           onChange(e.currentTarget.value);
         }}
@@ -152,6 +158,11 @@ function SelectField({
           </option>
         ))}
       </select>
+      {help && (
+        <p id={`${id}-help`} className="field-help">
+          {help}
+        </p>
+      )}
       <ErrorText id={`${id}-error`}>{error}</ErrorText>
     </div>
   );
@@ -466,7 +477,8 @@ function RunDialog({
       >
         <SelectField
           id="run-reason"
-          label="Motif *"
+          label={reasonLabel('du lancement')}
+          help={REASON.help}
           value={choice}
           placeholder="Choisir un motif"
           options={RUN_REASONS.map((r) => ({ value: r, label: r }))}
@@ -474,14 +486,14 @@ function RunDialog({
           onChange={setChoice}
         />
         <FormField
-          label="Précision"
+          label="Précision (facultatif)"
           value={detail}
-          maxLength={150}
+          counterMax={REASON.maxLength}
           onChange={(e) => {
             setDetail(e.currentTarget.value);
           }}
         />
-        <Alert tone="info">Cette action sera inscrite au journal d’audit.</Alert>
+        <AuditReminder />
         <div className="button-row dialog-actions">
           <Button variant="secondary" data-safe onClick={onClose}>
             Annuler

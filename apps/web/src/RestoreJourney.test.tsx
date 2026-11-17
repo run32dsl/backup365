@@ -9,6 +9,7 @@ import {
   RESTORE_BUTTONS,
   RESTORE_STEPS,
   ReasonField,
+  reasonLabel,
   RunningProgress,
   stepOf,
 } from './RestoreJourney.js';
@@ -35,6 +36,50 @@ describe('restore journey', () => {
     const text = source(name);
     expect(text).toContain('ReasonField');
     expect(text).not.toContain('counterMax');
+  });
+
+  it.each([
+    ['MailPage.tsx', 'de l’export'],
+    ['ResetPassword.tsx', 'de la réinitialisation'],
+    ['ComponentsPage.tsx', 'de l’export'],
+  ])('%s reuses the reason block and the audit reminder', (name) => {
+    const text = source(name);
+    expect(text).toContain('<ReasonField');
+    expect(text).toContain('<AuditReminder');
+    expect(text).not.toContain('counterMax');
+  });
+
+  it('labels every reason "Motif … (obligatoire)" with the same help and counter', () => {
+    for (const of of [
+      'de la restauration',
+      'du lancement',
+      'de la réinitialisation',
+      'de l’export',
+    ]) {
+      expect(reasonLabel(of)).toBe(`Motif ${of} (obligatoire)`);
+    }
+    const html = renderToStaticMarkup(
+      <ReasonField of="de l’export" value="" onChange={() => undefined} />,
+    );
+    expect(html).toContain(REASON.help);
+    expect(html).toContain(`0 / ${MAX_REASON_LENGTH}`);
+    expect(html).not.toContain('*');
+    const plans = source('PlansPage.tsx');
+    expect(plans).toContain("reasonLabel('du lancement')");
+    expect(plans).toContain('help={REASON.help}');
+    expect(plans).toContain('counterMax={REASON.maxLength}');
+    expect(plans).toContain('Précision (facultatif)');
+    expect(plans).toContain('<AuditReminder />');
+  });
+
+  it('keeps the word « journalisée » out of the screens', () => {
+    const files = readdirSync(dir).filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f));
+    for (const f of files) {
+      const code = source(f)
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      expect(code, f).not.toContain('journalisée');
+    }
   });
 
   it('shows the audit reminder of the charter in an information alert', () => {

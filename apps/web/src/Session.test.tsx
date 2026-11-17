@@ -362,7 +362,7 @@ describe('maquette de l’issue #22', () => {
     ])
       expect(html).toContain(AUDIT_NOTICE);
     expect(renderToString(<AuditPage />)).toContain(
-      'La consultation de ce journal est elle-même journalisée.',
+      'La consultation de ce journal est elle-même inscrite au journal d’audit.',
     );
     expect(UNREACHABLE).toBe('Impossible de joindre la console. Réessayez.');
   });
