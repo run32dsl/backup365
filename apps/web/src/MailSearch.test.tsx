@@ -2,6 +2,7 @@ import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
 import { ExportForm, MailPage, MailView, mailTitle } from './MailPage.js';
+import { AUDIT_REMINDER, REASON } from './RestoreJourney.js';
 import { SearchPage, SearchView } from './SearchPage.js';
 import {
   exportEml,
@@ -147,12 +148,10 @@ describe('ExportForm', () => {
         onSubmit={() => undefined}
       />,
     );
-    expect(html).toContain('Motif de l’export');
-    expect(html).toContain('placeholder="Ticket INC-12345"');
+    expect(html).toContain('Motif de l’export (obligatoire)');
     expect(html).toContain('maxLength="120"');
-    expect(html).toContain(
-      'Indiquez de préférence le numéro du ticket interne. N’y saisissez pas de donnée personnelle (nom, adresse, contenu du mail).',
-    );
+    expect(html).toContain(REASON.help);
+    expect(html).toContain(AUDIT_REMINDER);
   });
 });
 

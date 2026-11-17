@@ -231,7 +231,9 @@ export const SCREENS = [
       await page
         .getByRole('button', { name: 'Réinitialiser le mot de passe : operateur-demo' })
         .click();
-      await page.getByLabel('Motif (obligatoire)').fill('Oubli du mot de passe');
+      await page
+        .getByLabel('Motif de la réinitialisation (obligatoire)')
+        .fill('Oubli du mot de passe');
     },
   },
   {
@@ -247,7 +249,9 @@ export const SCREENS = [
       await page
         .getByRole('button', { name: 'Réinitialiser le mot de passe : operateur-demo' })
         .click();
-      await page.getByLabel('Motif (obligatoire)').fill('Oubli du mot de passe');
+      await page
+        .getByLabel('Motif de la réinitialisation (obligatoire)')
+        .fill('Oubli du mot de passe');
       await page.getByRole('button', { name: 'Réinitialiser', exact: true }).click();
       await page.getByRole('dialog').getByLabel('Mot de passe temporaire').waitFor();
     },

@@ -158,7 +158,7 @@ export function AuditPage() {
   return (
     <main tabIndex={-1}>
       <h1>Journal d’audit</h1>
-      <p>La consultation de ce journal est elle-même journalisée.</p>
+      <p>La consultation de ce journal est elle-même inscrite au journal d’audit.</p>
       <form onSubmit={submit} className="filters">
         <FormField label="Du" type="datetime-local" name="from" />
         <FormField label="Au (exclu)" type="datetime-local" name="to" />

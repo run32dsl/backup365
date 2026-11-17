@@ -5,7 +5,6 @@ import {
   DataTable,
   Dialog,
   EmptyState,
-  FormField,
   StatusPill,
   Steps,
   WIZARD_LABELS,
@@ -13,9 +12,7 @@ import {
   type Column,
   type PillStatus,
 } from './ui/index.js';
-
-const RGPD_REMINDER =
-  'Chaque consultation, export ou restauration est inscrite au journal d’audit.';
+import { AuditReminder, REASON, ReasonField } from './RestoreJourney.js';
 
 /** Sections de la page, dans l'ordre du sommaire. */
 export const SECTIONS = [
@@ -107,22 +104,8 @@ function Playground() {
         </div>
       </Section>
       <Section id="champs" title="Champs de formulaire">
-        <FormField
-          label="Motif de la consultation"
-          help="Ce motif sera inscrit au journal d’audit."
-          counterMax={200}
-          value={reason}
-          onChange={(e) => {
-            setReason(e.currentTarget.value);
-          }}
-        />
-        <FormField
-          label="Motif de la consultation (en erreur)"
-          error="Indiquez un motif d’au moins 10 caractères."
-          counterMax={200}
-          value="Test"
-          readOnly
-        />
+        <ReasonField of="de l’export" value={reason} onChange={setReason} />
+        <ReasonField of="de l’export" value="" error={REASON.error} onChange={() => undefined} />
       </Section>
       <Section id="tableau" title="Tableau">
         <DataTable caption="Comptes" columns={COLUMNS} rows={SAMPLES} rowKey={(r) => r.name} />
@@ -161,15 +144,8 @@ function Playground() {
           }}
         >
           <p>Indiquez le motif de l’export.</p>
-          <FormField
-            label="Motif"
-            counterMax={200}
-            value={dialogReason}
-            onChange={(e) => {
-              setDialogReason(e.currentTarget.value);
-            }}
-          />
-          <Alert tone="info">{RGPD_REMINDER}</Alert>
+          <ReasonField of="de l’export" value={dialogReason} onChange={setDialogReason} />
+          <AuditReminder />
           <div className="button-row dialog-actions">
             <Button
               variant="secondary"

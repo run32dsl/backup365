@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type Ref } from 'react';
 import { RESET_TEXTS } from './accounts.js';
-import { Alert, Button, Dialog, FormField } from './ui/index.js';
+import { AuditReminder, REASON, ReasonField } from './RestoreJourney.js';
+import { Alert, Button, Dialog } from './ui/index.js';
 
 /** Étape 2 : récapitulatif et motif obligatoire. Sans état : le motif vide donne `error`. */
 export function ResetReasonForm({
@@ -16,13 +17,13 @@ export function ResetReasonForm({
   onSubmit?: (reason: string) => void;
   onCancel?: () => void;
 }) {
+  const [reason, setReason] = useState('');
   return (
     <form
       noValidate
       onSubmit={(e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const reason = new FormData(e.currentTarget).get('reason');
-        onSubmit?.(typeof reason === 'string' ? reason.trim() : '');
+        onSubmit?.(reason.trim());
       }}
     >
       <p>
@@ -32,14 +33,8 @@ export function ResetReasonForm({
         Un mot de passe temporaire sera créé et affiché une seule fois. {username} devra le changer
         à sa prochaine connexion.
       </p>
-      <FormField
-        label={RESET_TEXTS.reasonLabel}
-        name="reason"
-        maxLength={200}
-        autoComplete="off"
-        error={error}
-      />
-      <Alert tone="info">{RESET_TEXTS.audit}</Alert>
+      <ReasonField of="de la réinitialisation" value={reason} error={error} onChange={setReason} />
+      <AuditReminder extra={RESET_TEXTS.audit} />
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onCancel}>
           Annuler
@@ -190,7 +185,7 @@ export function ResetPasswordDialog({
           onSubmit={(reason) => {
             if (busy) return;
             if (!reason) {
-              setError(RESET_TEXTS.reasonMissing);
+              setError(REASON.error);
               return;
             }
             setError(undefined);

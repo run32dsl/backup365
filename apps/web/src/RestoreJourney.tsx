@@ -26,6 +26,9 @@ export const REASON = {
   maxLength: MAX_REASON_LENGTH,
 } as const;
 
+/** Libellé du motif : « Motif <of> (obligatoire) », ex. « du lancement ». */
+export const reasonLabel = (of: string): string => `Motif ${of} (obligatoire)`;
+
 /** Libellés des boutons, les mêmes dans les trois parcours. */
 export const RESTORE_BUTTONS = {
   back: WIZARD_LABELS.back,
@@ -38,23 +41,31 @@ export const RESTORE_BUTTONS = {
 } as const;
 
 /** Rappel d'audit : `Alert` d'information, au même endroit sur chaque étape. */
-export function AuditReminder() {
-  return <Alert tone="info">{AUDIT_REMINDER}</Alert>;
+export function AuditReminder({ extra }: { extra?: string }) {
+  return (
+    <Alert tone="info">
+      {AUDIT_REMINDER}
+      {extra ? ` ${extra}` : ''}
+    </Alert>
+  );
 }
 
 /** Bloc motif : texte libre, même libellé, même aide, même limite. */
 export function ReasonField({
   value,
   error,
+  of,
   onChange,
 }: {
+  /** Complément du libellé : « de la restauration » (défaut), « de l’export »… */
+  of?: string;
   value: string;
   error?: string | undefined;
   onChange: (value: string) => void;
 }) {
   return (
     <FormField
-      label={REASON.label}
+      label={of === undefined ? REASON.label : reasonLabel(of)}
       type="text"
       name="reason"
       required
