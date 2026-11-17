@@ -27,6 +27,13 @@ describe('AuditView', () => {
     expect(html).toContain('b'.repeat(12));
   });
 
+  it('keeps the compact table layout', () => {
+    const html = renderToString(
+      <AuditView state={{ total: 1, limit: 50, offset: 0, items: [entry] }} />,
+    );
+    expect(html).toContain('data-table-compact');
+  });
+
   it('shows an empty state, loading and error', () => {
     expect(
       renderToString(<AuditView state={{ total: 0, limit: 50, offset: 0, items: [] }} />),

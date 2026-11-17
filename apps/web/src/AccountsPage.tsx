@@ -162,7 +162,6 @@ export function AccountsView({
       <DataTable
         caption="Comptes de la console"
         hideCaption
-        compact
         columns={columns(state, actions)}
         rows={state}
         rowKey={(a) => a.id}

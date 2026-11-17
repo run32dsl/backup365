@@ -93,6 +93,11 @@ describe('AccountsView', () => {
       '<span aria-hidden="true">⚠</span> Mot de passe à changer',
     );
   });
+  it('uses the regular card layout, not the compact one kept for the audit log', () => {
+    const html = renderToString(<AccountsView state={accounts} actions={{}} />);
+    expect(html).toContain('class="data-table"');
+    expect(html).not.toContain('data-table-compact');
+  });
   it('shows loading and error states', () => {
     expect(renderToString(<AccountsView state="loading" />)).toContain('Chargement');
     expect(renderToString(<AccountsView state="error" />)).toContain('indisponibles');

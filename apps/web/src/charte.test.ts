@@ -73,6 +73,13 @@ describe('charte.css data tables', () => {
     expect(/\.data-table td\.card-action::before\s*\{\s*display:\s*none;/.test(css)).toBe(true);
   });
 
+  it('separates card actions from the data and keeps badges at their natural width', () => {
+    expect(/\.data-table td\.card-action\s*\{[^}]*padding-top:\s*var\(--space-2\);/.test(css)).toBe(
+      true,
+    );
+    expect(/\.data-table td > \.badge\s*\{\s*justify-self:\s*start;/.test(css)).toBe(true);
+  });
+
   it('keeps addresses and subjects on one line on desktop', () => {
     expect(/\.data-table \.address\s*\{\s*white-space:\s*nowrap;/.test(css)).toBe(true);
     expect(/\.data-table \.subject a\s*\{[^}]*text-overflow:\s*ellipsis;/.test(css)).toBe(true);

@@ -579,9 +579,15 @@ select[aria-disabled='true'] {
   /* Cellule d'action : le bouton seul, sans étiquette à gauche. */
   .data-table td.card-action {
     display: block;
+    /* Séparation entre la dernière ligne de données et les actions. */
+    padding-top: var(--space-2);
   }
   .data-table td.card-action::before {
     display: none;
+  }
+  /* La pastille garde sa largeur naturelle au lieu d'être étirée par la grille. */
+  .data-table td > .badge {
+    justify-self: start;
   }
   /* Plusieurs actions dans une carte : chacune en pleine largeur, sans débordement. */
   .data-table td.card-action .button-row {
