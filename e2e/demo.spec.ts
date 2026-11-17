@@ -173,11 +173,18 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   await expect(
     page.getByText(/La version actuelle reste dans l’historique OneDrive/),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
+  const replaceGo = page.getByRole('button', { name: 'Restaurer', exact: true });
+  await expect(replaceGo).toHaveAttribute('aria-disabled', 'true');
+  // Le bouton grisé reste cliquable : le clic affiche l’erreur.
+  await replaceGo.click({ force: true });
   await expect(page.getByRole('alert').getByText(/Cochez la case/)).toBeVisible();
+  // Une fois la case cochée, le bouton devient actif.
+  await page.getByLabel('Je confirme le remplacement du fichier actuel.').check();
+  await expect(replaceGo).not.toHaveAttribute('aria-disabled', 'true');
   // Revenir à la copie défait la confirmation et le mode.
   await page.getByLabel('Restaurer en copie (recommandé)').check();
-  await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
+  await expect(replaceGo).not.toHaveAttribute('aria-disabled', 'true');
+  await replaceGo.click();
 
   await expect(page.getByRole('progressbar')).toBeVisible();
   await expect(page.getByRole('status').getByText('Restauration en cours')).toBeVisible();

@@ -39,6 +39,7 @@ import {
   sizeOf,
   startSiteRestore,
   summaryOf,
+  wholeSiteSummaryOf,
   type Site,
   type SiteEntry,
   type SiteJob,
@@ -424,7 +425,7 @@ function ReasonStep({
 }
 
 /** Étape 3 : récapitulatif ; site entier : double confirmation (case, puis nom du site). */
-function ConfirmStep({
+export function ConfirmStep({
   site,
   choice,
   reason,
@@ -443,7 +444,6 @@ function ConfirmStep({
   const [nameError, setNameError] = useState(false);
   const [failure, setFailure] = useState<FailureProblem | undefined>();
   const [sending, setSending] = useState(false);
-  const hintId = useId();
   const whole = choice.scope === 'site';
   const nameOk = typed === site.displayName;
   const ready = !whole || (understood && nameOk);
@@ -485,31 +485,48 @@ function ConfirmStep({
 
   return (
     <form onSubmit={submit} noValidate>
-      {whole ? (
+      <p>Motif : {reason}</p>
+      <h2>Récapitulatif</h2>
+      <p>
+        {whole
+          ? wholeSiteSummaryOf({
+              siteName: site.displayName,
+              pointAt: choice.pointAt,
+              items: counts ? counts.items : null,
+            })
+          : summaryOf({
+              scope: choice.scope,
+              siteName: site.displayName,
+              path: choice.path,
+              pointAt: choice.pointAt,
+              summary: counts,
+            })}
+      </p>
+      {summary === null && <p role="status">{T.loading}</p>}
+      {whole && (
         <>
           <Alert tone="warning">
             <strong>Restauration du site entier : action de grande ampleur</strong>
           </Alert>
-          <p>
-            {site.displayName} · point du {dateTimeOf(choice.pointAt)}
-            {counts ? ` · ${counts.items} éléments` : ''}
-          </p>
-          <label className="choice">
-            <input
-              type="checkbox"
-              checked={understood}
-              onChange={(e) => {
-                setUnderstood(e.currentTarget.checked);
-              }}
-            />{' '}
-            Je comprends que tous les contenus manquants seront recréés
-          </label>
+          <div className="field">
+            <label className="choice">
+              <input
+                type="checkbox"
+                checked={understood}
+                onChange={(e) => {
+                  setUnderstood(e.currentTarget.checked);
+                }}
+              />{' '}
+              Je comprends que tous les contenus manquants seront recréés
+            </label>
+          </div>
           <FormField
             label="Tapez le nom du site pour confirmer"
             type="text"
             name="site-name"
             autoComplete="off"
             value={typed}
+            help={ready ? undefined : T.inactiveHint}
             error={nameError ? T.nameError : undefined}
             onChange={(e) => {
               setTyped(e.currentTarget.value);
@@ -517,19 +534,7 @@ function ConfirmStep({
             }}
           />
         </>
-      ) : (
-        <p>
-          {summaryOf({
-            scope: choice.scope,
-            siteName: site.displayName,
-            path: choice.path,
-            pointAt: choice.pointAt,
-            summary: counts,
-          })}
-        </p>
       )}
-      {summary === null && <p role="status">{T.loading}</p>}
-      <p>Motif : {reason}</p>
       {failure && <FailureAlert problem={failure} />}
       <WizardActions
         back={
@@ -544,17 +549,10 @@ function ConfirmStep({
           busy={sending}
           aria-disabled={!ready || undefined}
           className={ready ? undefined : 'is-inactive'}
-          aria-describedby={!ready ? hintId : undefined}
         >
           {B.confirm}
         </Button>
       </WizardActions>
-      {!ready && (
-        <p id={hintId} className="field-help">
-          Le bouton reste inactif tant que la case n’est pas cochée et que le nom du site n’est pas
-          exact.
-        </p>
-      )}
     </form>
   );
 }

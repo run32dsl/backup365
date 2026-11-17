@@ -48,6 +48,8 @@ export const SHAREPOINT_MESSAGES = {
   chooseOther: 'Choisir un autre site',
   reasonError: REASON.error,
   nameError: 'Le nom saisi ne correspond pas au site.',
+  inactiveHint:
+    'Le bouton reste inactif tant que la case n’est pas cochée et que le nom du site n’est pas exact.',
   alreadyRunning: 'Une restauration de ce site est déjà en cours.',
   auditUnavailable: 'Journal d’audit indisponible : restauration refusée.',
   emptyScope: 'Rien à restaurer à cette date : le périmètre ne contient aucun élément.',
@@ -223,6 +225,16 @@ export function summaryOf(input: {
           : 'le site entier';
   const count = input.summary ? ` ${summaryCountOf(input.summary)}.` : '';
   return `Vous allez restaurer ${what} du site « ${input.siteName} », tel qu’il était le ${dayOf(input.pointAt)} à ${timeOf(input.pointAt)}, à son emplacement d’origine. Les fichiers existants ne seront pas remplacés.${count}`;
+}
+
+/** Phrase de récapitulatif du site entier ; le nombre d'éléments suit quand il est connu. */
+export function wholeSiteSummaryOf(input: {
+  siteName: string;
+  pointAt: string;
+  items: number | null;
+}): string {
+  const count = input.items === null ? '' : ` : ${plural(input.items, 'élément', 'éléments')}`;
+  return `Vous allez restaurer le site « ${input.siteName} » tel qu’il était le ${dayOf(input.pointAt)} à ${timeOf(input.pointAt)}${count}. Les contenus manquants seront recréés.`;
 }
 
 /** `3 min 12 s` : voir `formatDuration` de `restore.ts`. */

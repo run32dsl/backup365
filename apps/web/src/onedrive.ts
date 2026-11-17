@@ -93,6 +93,10 @@ export function breadcrumbOf(path: string): { label: string; path: string }[] {
 /** Copie : `budget.xlsx` → `budget (restauré 14-11-2026).xlsx` (voir `copyNameOf` du serveur). */
 export { copyNameOf } from '@backup365/core';
 
+/** « Restaurer » reste inactif tant que le remplacement n'est pas confirmé par la case. */
+export const restoreBlocked = (mode: DriveMode, confirmed: boolean): boolean =>
+  mode === 'replace' && !confirmed;
+
 /** Phrase de récapitulatif, en langage clair. */
 export function summaryOf(input: {
   name: string;
