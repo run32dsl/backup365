@@ -4,7 +4,7 @@ import { EmptyState } from './EmptyState.js';
 export interface Column<T> {
   header: string;
   cell: (row: T) => ReactNode;
-  /** Classe CSS ajoutée à chaque cellule de la colonne (`nowrap`, `keep-words`, `card-hidden`, `card-wide`). */
+  /** Classe CSS ajoutée à chaque cellule de la colonne (`nowrap`, `keep-words`, `address`, `card-hidden`, `card-wide`, `card-action`). */
   className?: string;
 }
 

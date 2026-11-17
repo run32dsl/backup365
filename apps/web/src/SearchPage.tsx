@@ -11,7 +11,15 @@ import {
 import { dateTimeOf, folderLabel, plural } from './format.js';
 import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
 import { fetchRestoreConfigured } from './restore.js';
-import { Alert, Button, DataTable, EmptyState, FormField, type Column } from './ui/index.js';
+import {
+  Address,
+  Alert,
+  Button,
+  DataTable,
+  EmptyState,
+  FormField,
+  type Column,
+} from './ui/index.js';
 
 /** État de la recherche. */
 export type SearchState = SearchResponse | 'loading' | 'error';
@@ -20,13 +28,29 @@ type Hit = SearchResponse['items'][number];
 
 const COLUMNS: Column<Hit>[] = [
   { header: 'Date (UTC)', cell: (m) => <span className="nowrap">{dateTimeOf(m.date)}</span> },
-  { header: 'Expéditeur', cell: (m) => m.sender },
+  {
+    header: 'Expéditeur',
+    className: 'keep-words address',
+    cell: (m) => <Address value={m.sender} />,
+  },
   {
     header: 'Objet',
-    cell: (m) => <a href={mailHref(m)}>{m.subject === '' ? '(sans objet)' : m.subject}</a>,
+    className: 'subject',
+    cell: (m) => {
+      const subject = m.subject === '' ? '(sans objet)' : m.subject;
+      return (
+        <a href={mailHref(m)} title={subject}>
+          {subject}
+        </a>
+      );
+    },
   },
-  { header: 'Boîte', cell: (m) => m.mailboxId },
-  { header: 'Dossier', cell: (m) => folderLabel(m.folder) },
+  {
+    header: 'Boîte',
+    className: 'keep-words address',
+    cell: (m) => <Address value={m.mailboxId} />,
+  },
+  { header: 'Dossier', className: 'nowrap', cell: (m) => folderLabel(m.folder) },
 ];
 
 const RESTORE_HINT_ID = 'restore-not-configured';
@@ -52,8 +76,14 @@ export function SearchView({
           ...COLUMNS,
           {
             header: 'Action',
+            className: 'card-action',
             cell: (m) => (
-              <RestoreAction mail={m} configured={restoreConfigured} hintId={RESTORE_HINT_ID} />
+              <RestoreAction
+                mail={m}
+                configured={restoreConfigured}
+                hintId={RESTORE_HINT_ID}
+                variant="secondary"
+              />
             ),
           },
         ];

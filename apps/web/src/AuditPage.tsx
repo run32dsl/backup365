@@ -10,7 +10,15 @@ import {
 } from './audit.js';
 import { auditDate, reasonLabel, resourceLabel, targetLabel } from './auditLabels.js';
 import { fetchPlans } from './plans.js';
-import { Alert, Button, DataTable, EmptyState, FormField, type Column } from './ui/index.js';
+import {
+  Address,
+  Alert,
+  Button,
+  DataTable,
+  EmptyState,
+  FormField,
+  type Column,
+} from './ui/index.js';
 
 /** État de la consultation du journal. */
 export type AuditState = AuditResponse | 'loading' | 'error';
@@ -49,13 +57,17 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
       cell: (e) => <span title={e.at}>{auditDate(e.at)}</span>,
     },
     { header: 'Acteur', className: 'keep-words', cell: (e) => e.actor },
-    { header: 'Action', cell: (e) => ACTION_LABELS[e.action] },
+    { header: 'Action', className: 'keep-words', cell: (e) => ACTION_LABELS[e.action] },
     {
       header: 'Ressource',
       className: 'keep-words card-hidden',
       cell: (e) => resourceLabel(e.resource),
     },
-    { header: 'Cible', cell: (e) => targetLabel(e.target, e.resource, planNames) },
+    {
+      header: 'Cible',
+      className: 'keep-words',
+      cell: (e) => <Address value={targetLabel(e.target, e.resource, planNames)} />,
+    },
     { header: 'Éléments', className: 'card-hidden', cell: (e) => e.count ?? '' },
     { header: 'Motif', className: 'card-wide', cell: (e) => reasonLabel(e.reason) },
   ];

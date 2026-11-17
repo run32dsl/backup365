@@ -61,11 +61,14 @@ export function RestoreAction({
   configured,
   hintId,
   onJob,
+  variant = 'primary',
 }: {
   mail: RestorableMail;
   configured: boolean;
   hintId?: string;
   onJob?: (job: RestoreJob) => void;
+  /** `secondary` dans une liste : le bouton plein est réservé à l'action principale de l'écran. */
+  variant?: 'primary' | 'secondary';
 }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
@@ -159,6 +162,7 @@ export function RestoreAction({
   return (
     <>
       <Button
+        variant={variant}
         aria-label={label}
         aria-disabled={!configured || undefined}
         aria-describedby={!configured ? hintId : undefined}

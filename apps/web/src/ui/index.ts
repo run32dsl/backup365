@@ -1,3 +1,4 @@
+export { Address } from './Address.js';
 export { Alert, alertRole, type AlertTone } from './Alert.js';
 export { Button, guardClick, type ButtonVariant } from './Button.js';
 export { DataTable, type Column } from './DataTable.js';
