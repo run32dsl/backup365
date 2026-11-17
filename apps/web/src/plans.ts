@@ -59,14 +59,18 @@ const DATA_TYPE_PHRASES: Record<DataType, string> = {
   contacts: 'contacts',
 };
 
-export const RPO_CHOICES: readonly RpoHours[] = [12, 4, 24];
-export const RTO_CHOICES: readonly number[] = [24, 8, 72];
+export const RPO_CHOICES: readonly RpoHours[] = [4, 12, 24];
+export const RTO_CHOICES: readonly number[] = [8, 24, 72];
 /** Durées de conservation proposées, en jours. */
-export const RETENTION_CHOICES: readonly number[] = [365, 1095, 180];
+export const RETENTION_CHOICES: readonly number[] = [180, 365, 1095];
 
-/** Les choix proposés, plus la valeur courante si elle n'en fait pas partie (plan créé par l'API). */
+/**
+ * Les choix proposés, plus la valeur courante si elle n'en fait pas partie (plan créé par l'API),
+ * en ordre croissant.
+ */
 export function withCurrent(choices: readonly number[], current: number): number[] {
-  return choices.includes(current) ? [...choices] : [...choices, current];
+  const all = choices.includes(current) ? [...choices] : [...choices, current];
+  return all.sort((a, b) => a - b);
 }
 
 export function retentionLabel(days: number): string {
@@ -239,6 +243,12 @@ export const rtoSentence = (hours: number): string =>
 
 export const rpoHelp = (hours: number): string =>
   `Si un incident survient, vous pouvez perdre au plus ${hours} h de données.`;
+
+export const rtoHelp = (hours: number): string =>
+  `Le service doit être rétabli en ${hours} h au plus.`;
+
+export const retentionHelp = (days: number): string =>
+  `Les sauvegardes sont supprimées au bout de ${retentionLabel(days).replace(' ', ' ')}.`;
 
 // ---- Affichage de la liste ------------------------------------------------------------------
 
