@@ -98,6 +98,21 @@ describe('AccountsView', () => {
     expect(html).toContain('class="data-table"');
     expect(html).not.toContain('data-table-compact');
   });
+  it('offers the password reset only to local accounts', () => {
+    const html = renderToString(
+      <AccountsView state={[accounts[0]!, { ...accounts[1]!, oidc: true }]} actions={{}} />,
+    );
+    expect(html.match(/Réinitialiser le mot de passe : /g)).toHaveLength(1);
+    expect(html).toContain('Réinitialiser le mot de passe : root');
+    expect(html).not.toContain('Réinitialiser le mot de passe : bob');
+    expect(html).toContain('Mot de passe géré par Microsoft');
+  });
+  it('keeps both mentions, and a valid aria-describedby, on a Microsoft last administrator', () => {
+    const html = renderToString(<AccountsView state={[{ ...accounts[0]!, oidc: true }]} />);
+    expect(html).toContain('Mot de passe géré par Microsoft');
+    expect(html).toContain('id="last-admin-1"');
+    expect(html).toContain('aria-describedby="last-admin-1"');
+  });
   it('shows loading and error states', () => {
     expect(renderToString(<AccountsView state="loading" />)).toContain('Chargement');
     expect(renderToString(<AccountsView state="error" />)).toContain('indisponibles');
@@ -410,12 +425,15 @@ describe('textes restants de la maquette de #22', () => {
     expect(html.match(/aria-disabled="true"/g)).toHaveLength(2);
     expect(html.match(/aria-describedby="last-admin-1"/g)).toHaveLength(2);
     expect(html).toContain('id="last-admin-1"');
-    // La mention n'est plus dans la cellule « Actions ».
+    // Plus de bandeau en tête de page : la phrase est dans la cellule « Actions » du compte.
+    expect(html).not.toContain('class="alert');
     const cells = [...html.matchAll(/<td[^>]*data-label="Actions"[^>]*>(.*?)<\/td>/g)].map(
       (m) => m[1],
     );
     expect(cells).toHaveLength(2);
-    expect(cells.join()).not.toContain('Dernier administrateur');
+    expect(cells[0]).toContain('id="last-admin-1"');
+    expect(cells[0]).toContain('Dernier administrateur');
+    expect(cells[1]).not.toContain('Dernier administrateur');
     const two = [account(1, 'admin'), account(2, 'admin'), account(3, 'admin', true)];
     expect(isLastAdmin(two, two[0]!)).toBe(false);
     expect(renderToString(<AccountsView state={two} />)).not.toContain('Dernier administrateur');

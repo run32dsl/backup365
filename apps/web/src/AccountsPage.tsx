@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   LAST_ADMIN_NOTICE,
+  OIDC_PASSWORD_NOTICE,
   RESET_TEXTS,
   NO_OPERATOR,
   ROLE_DESCRIPTIONS,
@@ -93,13 +94,17 @@ const columns = (
       const last = isLastAdmin(state, a);
       return (
         <div className="button-row">
-          <Button
-            variant="secondary"
-            aria-label={`${RESET_TEXTS.title} : ${a.username}`}
-            onClick={() => actions?.onReset?.(a.id)}
-          >
-            {RESET_TEXTS.title}
-          </Button>
+          {a.oidc ? (
+            <span className="cell-secondary">{OIDC_PASSWORD_NOTICE}</span>
+          ) : (
+            <Button
+              variant="secondary"
+              aria-label={`${RESET_TEXTS.title} : ${a.username}`}
+              onClick={() => actions?.onReset?.(a.id)}
+            >
+              {RESET_TEXTS.title}
+            </Button>
+          )}
           <Button
             variant="secondary"
             aria-disabled={last || undefined}
@@ -110,6 +115,11 @@ const columns = (
           >
             {a.disabled ? 'Réactiver' : 'Désactiver'}
           </Button>
+          {last && (
+            <span id={`last-admin-${a.id}`} className="cell-secondary">
+              {LAST_ADMIN_NOTICE}
+            </span>
+          )}
         </div>
       );
     },
@@ -147,16 +157,10 @@ export function AccountsView({
         {dialog}
       </>
     );
-  const lastAdmin = state.find((a) => isLastAdmin(state, a));
   return (
     <>
       {message && (
         <Alert tone={message.kind === 'error' ? 'error' : 'success'}>{message.text}</Alert>
-      )}
-      {lastAdmin && (
-        <Alert id={`last-admin-${lastAdmin.id}`} tone="info">
-          {LAST_ADMIN_NOTICE}
-        </Alert>
       )}
       <h2>Comptes de la console</h2>
       <DataTable
