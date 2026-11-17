@@ -9,6 +9,7 @@ const REASON_LABELS: Record<string, string> = {
   oidc: 'Compte Microsoft',
   first_admin: 'Premier administrateur',
   password_changed: 'Mot de passe changé',
+  password_reset: 'Mot de passe réinitialisé',
   'role:admin': 'Rôle administrateur',
   unchanged: 'Aucun changement',
   catalog_unavailable: 'Catalogue indisponible',
@@ -40,17 +41,23 @@ const SCOPE_LABELS: Record<string, string> = {
 };
 
 const CREATED = /^scope:(\w+),rpo:(\d+)$/;
-const SYSTEM_CODE = /^[a-z0-9]+(?:[_.:,-][a-z0-9]+)+$/;
+const RESET_PREFIX = 'password_reset: ';
+/** Codes émis par le serveur hors de `REASON_LABELS` : `oidc_<code>`, `password_change_*`, changements de compte. */
+const SYSTEM_CODE =
+  /^(?:oidc_(?:invalid_request|provider_error|invalid_token|no_group|account_conflict|disabled|unavailable)|password_change_(?:locked|failed)|(?:role:(?:admin|operator)|disabled:(?:true|false))(?:,disabled:(?:true|false))?)$/;
 
 /** Sépare un motif `…;reason=<texte>` : la partie écrite par le système, et le texte saisi. */
 function splitReason(reason: string): { system: string; typed: string } {
   const at = reason.indexOf(';reason=');
   if (at >= 0) return { system: reason.slice(0, at), typed: reason.slice(at + 8).trim() };
   if (reason.startsWith('reason=')) return { system: '', typed: reason.slice(7).trim() };
+  if (reason.startsWith(RESET_PREFIX)) {
+    return { system: 'password_reset', typed: reason.slice(RESET_PREFIX.length).trim() };
+  }
   return { system: reason, typed: '' };
 }
 
-/** Vrai si le texte est écrit par le système (code connu ou non, résumé), et non saisi. */
+/** Vrai si le texte est un code ou un résumé que le serveur émet (liste fermée), et non saisi. */
 function isSystemReason(text: string): boolean {
   return (
     text in REASON_LABELS ||

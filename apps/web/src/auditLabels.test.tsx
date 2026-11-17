@@ -19,10 +19,18 @@ describe('audit labels', () => {
       'scope:all,rpo:24',
       'changed:name',
       'outcome=failed;duration_ms=9',
-      'unknown_code',
+      'bad_credentials',
+      'oidc_no_group',
+      'password_change_failed',
+      'role:operator,disabled:true',
     ]) {
       expect(reasonLabel(system)).toBe('');
     }
+    // Un texte saisi qui ressemble à un code reste affiché.
+    for (const typed of ['inc-10001', 'ticket-123', 'rgpd-2026', 'unknown_code']) {
+      expect(reasonLabel(typed)).toBe(typed);
+    }
+    expect(reasonLabel('password_reset: inc-10001')).toBe('inc-10001');
     expect(reasonLabel(undefined)).toBe('');
   });
 
@@ -40,7 +48,8 @@ describe('audit labels', () => {
     );
     expect(detailLabel('outcome=failed;duration_ms=2300')).toBe('Échouée, 2 s');
     expect(detailLabel('Ticket INC-10001')).toBe('');
-    expect(detailLabel('unknown_code')).toBe('');
+    expect(detailLabel('inc-10001')).toBe('');
+    expect(detailLabel('password_reset: inc-10001')).toBe('Mot de passe réinitialisé');
     for (const r of ['scope:selection,rpo:12', 'changed:rpoHours,rtoHours']) {
       expect(detailLabel(r)).not.toMatch(/RPO|RTO/);
     }
