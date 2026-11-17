@@ -26,6 +26,7 @@ export const SECTIONS = [
   { id: 'etats', summary: 'États', title: 'États vides' },
   { id: 'alertes', summary: 'Alertes', title: 'Alertes' },
   { id: 'etapes', summary: 'Étapes', title: 'Indicateur d’étapes' },
+  { id: 'actions-etapes', summary: 'Actions d’étapes', title: 'Barre d’actions des parcours' },
   { id: 'pastilles', summary: 'Pastilles', title: 'Pastilles d’état' },
 ] as const;
 

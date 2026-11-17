@@ -842,7 +842,9 @@ a.btn-secondary {
   height: 1.25rem;
   accent-color: var(--accent);
 }
-.wizard {
+/* Les champs gardent leur largeur de lecture ; la barre d'actions prend toute la largeur du
+   contenu, comme dans les parcours OneDrive et SharePoint. */
+.wizard > :not(.wizard-actions) {
   max-width: 40rem;
 }
 .steps-title:focus {

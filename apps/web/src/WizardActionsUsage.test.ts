@@ -20,4 +20,10 @@ describe('barre d’actions des parcours', () => {
     expect(src).toContain('<WizardActions');
     expect(src).not.toContain('className="button-row wizard-actions"');
   });
+
+  it('la barre du plan reste pleine largeur, comme OneDrive et SharePoint', () => {
+    const css = read('charte.css');
+    expect(css).toMatch(/\.wizard > :not\(\.wizard-actions\) \{\s*max-width: 40rem;/);
+    expect(css).not.toMatch(/\.wizard \{\s*max-width/);
+  });
 });
