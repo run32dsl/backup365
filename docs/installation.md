@@ -97,6 +97,11 @@ lire le mail, OneDrive et SharePoint du tenant) : la console répond alors « sa
 configurée » (`GET /api/plans/execution`), le lancement manuel d'un plan répond 503
 `backup_not_configured` et le serveur le signale au démarrage. Donner une seule des deux
 variables refuse le démarrage. Les identifiants ne sont jamais stockés, journalisés ni renvoyés.
+Toute réponse d'erreur de l'API (4xx, 5xx) est journalisée en JSON (`warn` ou `error`) avec la
+route, le code d'erreur métier, l'identifiant de requête et le compte, jamais le contenu d'un
+mail ni un secret ; l'identifiant est aussi dans l'en-tête `x-request-id` et affiché en petit
+dans l'interface pour le support. Une action de plan refusée ou en échec est inscrite au journal
+d'audit (« Échec d'accès », le code en motif).
 Avec `compose.yaml`, `BACKUP365_M365_CLIENT_ID` se renseigne dans `.env` et le secret dans le
 fichier `secrets/m365_client_secret` (monté par `BACKUP365_M365_CLIENT_SECRET_FILE`). Ce fichier
 doit exister, car Compose refuse de démarrer sans lui : la commande `: >` de la section

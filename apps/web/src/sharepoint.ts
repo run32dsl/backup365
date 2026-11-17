@@ -1,3 +1,4 @@
+import { API_ERRORS } from './apiError.js';
 import { REASON } from './RestoreJourney.js';
 import type { DriveSnapshot, SiteEntry, SiteScope, SiteScopeSummary } from '@backup365/core';
 import { dayOf, dateTimeOf, sizeOf, type Loaded } from './onedrive.js';
@@ -375,7 +376,7 @@ export async function startSiteRestore(
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
       const code = typeof body?.error === 'string' ? body.error : '';
-      return { ok: false, message: SERVER_MESSAGES[code] ?? T.generic };
+      return { ok: false, message: SERVER_MESSAGES[code] ?? API_ERRORS[code] ?? T.generic };
     }
     return { ok: true, job: ((await res.json()) as { job: SiteJob }).job };
   } catch {

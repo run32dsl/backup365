@@ -340,7 +340,10 @@ describe('network helpers', () => {
 
   it('turns API errors into readable messages, without a network call in tests', async () => {
     const taken = await runPlan('p', 'x', reply(409, { error: 'run_in_progress' }) as typeof fetch);
-    expect(taken).toEqual({ ok: false, message: 'Une sauvegarde est déjà en cours pour ce plan.' });
+    expect(taken).toMatchObject({
+      ok: false,
+      message: 'Une sauvegarde est déjà en cours pour ce plan.',
+    });
     const down = await runPlan('p', 'x', (() => Promise.reject(new Error('net'))) as typeof fetch);
     expect(down.ok).toBe(false);
   });

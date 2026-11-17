@@ -1,3 +1,4 @@
+import { API_ERRORS } from './apiError.js';
 import { REASON } from './RestoreJourney.js';
 import type { DriveEntry, DriveSnapshot, DriveVersion } from '@backup365/core';
 import { UNREACHABLE } from './session.js';
@@ -250,7 +251,10 @@ export async function startDriveRestore(
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
       const code = typeof body?.error === 'string' ? body.error : '';
-      return { ok: false, message: SERVER_MESSAGES[code] ?? ONEDRIVE_MESSAGES.generic };
+      return {
+        ok: false,
+        message: SERVER_MESSAGES[code] ?? API_ERRORS[code] ?? ONEDRIVE_MESSAGES.generic,
+      };
     }
     return { ok: true, job: ((await res.json()) as { job: DriveJob }).job };
   } catch {

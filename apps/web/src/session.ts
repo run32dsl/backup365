@@ -1,3 +1,5 @@
+import { API_ERRORS, fallbackMessage } from './apiError.js';
+
 /** Rôles des comptes locaux (voir docs/adr/0008-comptes-locaux-et-sessions.md). */
 export type Role = 'admin' | 'operator';
 
@@ -24,7 +26,8 @@ export type Gate =
   | { status: 'ready'; session: SessionInfo };
 
 export type Outcome<T> =
-  { ok: true; value: T } | { ok: false; message: string; retryAfterSec?: number };
+  | { ok: true; value: T }
+  | { ok: false; message: string; retryAfterSec?: number; code?: string; requestId?: string };
 
 const MESSAGES: Record<string, string> = {
   invalid_credentials: 'Identifiant ou mot de passe incorrect.',
@@ -40,8 +43,6 @@ const MESSAGES: Record<string, string> = {
   last_admin: 'Impossible : c’est le dernier administrateur actif.',
   managed_by_oidc:
     'Ce compte Microsoft tient son rôle de ses groupes Entra : à modifier dans Entra ID.',
-  audit_unavailable: 'Journal d’audit indisponible : action refusée.',
-  auth_unavailable: 'Base des comptes indisponible.',
   bad_request:
     'Saisie invalide : 3 à 64 caractères (lettres, chiffres, . _ @ -) pour l’identifiant.',
 };
@@ -74,7 +75,7 @@ export async function errorMessage(res: Response): Promise<string> {
   if (code === 'too_many_attempts' && typeof body?.retryAfterSec === 'number') {
     return `Trop de tentatives. Réessayez dans ${body.retryAfterSec} secondes.`;
   }
-  return MESSAGES[code] ?? `Erreur inattendue (HTTP ${res.status}).`;
+  return MESSAGES[code] ?? API_ERRORS[code] ?? fallbackMessage(res.status);
 }
 
 /** Secondes avant un nouvel essai, d'après une réponse 429 (corps, sinon en-tête `Retry-After`). */

@@ -39,6 +39,8 @@ import {
   type PlansRoute,
   type ReasonKind,
 } from './plans.js';
+import type { Problem } from './apiError.js';
+import { FailureAlert } from './FailureAlert.js';
 import { AuditReminder, REASON, reasonLabel } from './RestoreJourney.js';
 import {
   Alert,
@@ -395,17 +397,19 @@ function RunDialog({
 }: {
   plan: PlanItem | null;
   onClose: () => void;
-  onRun: (plan: PlanItem, reason: string) => Promise<string | undefined>;
+  onRun: (plan: PlanItem, reason: string) => Promise<Problem | undefined>;
 }) {
   const [choice, setChoice] = useState('');
   const [detail, setDetail] = useState('');
   const [error, setError] = useState<string>();
+  const [problem, setProblem] = useState<Problem>();
   const [busy, setBusy] = useState(false);
   // Chaque ouverture repart d'un formulaire vide.
   useEffect(() => {
     setChoice('');
     setDetail('');
     setError(undefined);
+    setProblem(undefined);
     setBusy(false);
   }, [plan]);
   const missing = choice === '' || (choice === 'Autre (préciser)' && detail.trim() === '');
@@ -424,10 +428,11 @@ function RunDialog({
             setError(MESSAGES.runReason);
             return;
           }
+          setError(undefined);
           setBusy(true);
           void onRun(plan, runReasonText(choice, detail)).then((failure) => {
             setBusy(false);
-            setError(failure);
+            setProblem(failure);
           });
         }}
       >
@@ -450,6 +455,7 @@ function RunDialog({
           }}
         />
         <AuditReminder />
+        {problem && <FailureAlert problem={problem} />}
         <div className="button-row dialog-actions">
           <Button variant="secondary" data-safe onClick={onClose}>
             Annuler
@@ -470,9 +476,9 @@ function DeleteDialog({
 }: {
   plan: PlanItem | null;
   onClose: () => void;
-  onDelete: (plan: PlanItem) => Promise<string | undefined>;
+  onDelete: (plan: PlanItem) => Promise<Problem | undefined>;
 }) {
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<Problem>();
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     setError(undefined);
@@ -484,7 +490,7 @@ function DeleteDialog({
         Les sauvegardes existantes sont conservées jusqu’à la fin de leur durée de conservation.
         Aucune nouvelle sauvegarde ne sera faite.
       </p>
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && <FailureAlert problem={error} />}
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onClose}>
           Annuler
@@ -721,7 +727,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   };
   const onRun = async (plan: PlanItem, reason: string) => {
     const outcome = await runPlan(plan.id, reason);
-    if (!outcome.ok) return outcome.message;
+    if (!outcome.ok) return outcome;
     setRunTarget(null);
     setFlash({ tone: 'success', text: MESSAGES.runStarted });
     load();
@@ -729,7 +735,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   };
   const onDelete = async (plan: PlanItem) => {
     const outcome = await deletePlan(plan.id);
-    if (!outcome.ok) return outcome.message;
+    if (!outcome.ok) return outcome;
     setDeleteTarget(null);
     setFlash({ tone: 'success', text: MESSAGES.deleted });
     load();

@@ -145,6 +145,36 @@ export function buildApp({
     );
     done(null, payload);
   });
+  // Toute réponse d'erreur de l'API est journalisée et porte l'identifiant de requête, que
+  // l'interface affiche pour le support. Ni corps de requête ni contenu : le code métier seul.
+  app.addHook('onSend', (req, reply, payload, done) => {
+    const status = reply.statusCode;
+    if (status < 400 || !req.url.startsWith('/api/')) return done(null, payload);
+    let body: Record<string, unknown> | undefined;
+    if (typeof payload === 'string') {
+      try {
+        const parsed: unknown = JSON.parse(payload);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          body = parsed as Record<string, unknown>;
+        }
+      } catch {
+        body = undefined;
+      }
+    }
+    const code = typeof body?.error === 'string' ? body.error : undefined;
+    const entry = {
+      route: req.routeOptions.url ?? 'unmatched',
+      method: req.method,
+      status,
+      code,
+      reqId: req.id,
+      user: req.session?.username ?? 'anonymous',
+    };
+    if (status >= 500) req.log.error(entry, 'action en erreur');
+    else req.log.warn(entry, 'action refusée');
+    void reply.header('x-request-id', req.id);
+    done(null, payload);
+  });
   // Aucun message d'erreur interne (moteur SQLite, chemin) ne sort : 500 générique.
   app.setErrorHandler((err, _req, reply) => sendError(err, reply));
   registerAuthHook(app, auth);

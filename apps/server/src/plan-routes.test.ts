@@ -215,7 +215,7 @@ describe('API des plans', () => {
     const { app, audit } = setup();
     expect((await send(app, 'PUT', '/api/plans/inconnu', valid)).statusCode).toBe(404);
     expect((await send(app, 'DELETE', '/api/plans/inconnu')).statusCode).toBe(404);
-    expect(await log(audit)).toHaveLength(0);
+    expect((await log(audit)).map((e) => e.reason)).toEqual(['plan_not_found', 'plan_not_found']);
   });
 
   it('refuses invalid input with a clear message (400) and stores nothing', async () => {
@@ -248,7 +248,7 @@ describe('API des plans', () => {
       ).statusCode,
     ).toBe(400);
     expect(plans.list()).toEqual([]);
-    expect(await log(audit)).toHaveLength(0);
+    expect((await log(audit)).map((e) => e.action)).toEqual(Array(9).fill('access.denied'));
   });
 
   it('validates a replacement like a creation', async () => {

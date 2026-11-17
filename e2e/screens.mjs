@@ -348,6 +348,28 @@ export const SCREENS = [
     },
   },
   {
+    // Démo exposée sans identifiants Microsoft 365 : le serveur répond 503 backup_not_configured.
+    name: 'plans-lancer-erreur',
+    hash: '#/plans',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/plans/*/run', (route) =>
+        route.fulfill({
+          status: 503,
+          headers: { 'x-request-id': 'req-1a2b' },
+          json: { error: 'backup_not_configured' },
+        }),
+      );
+      await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
+      const dialog = page.getByRole('dialog', {
+        name: 'Lancer « Messagerie Direction » maintenant',
+      });
+      await dialog.getByLabel('Motif du lancement (obligatoire)').selectOption({ index: 1 });
+      await dialog.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
+      await dialog.getByText('Sauvegarde non configurée').waitFor();
+    },
+  },
+  {
     name: 'plans-supprimer',
     hash: '#/plans',
     role: 'admin',

@@ -667,6 +667,15 @@ select[aria-disabled='true'] {
   flex: 1;
   min-width: 12rem;
 }
+.alert-detail {
+  display: block;
+  margin-top: var(--space-1);
+}
+.request-id {
+  font-size: 0.8125rem;
+  opacity: 0.85;
+  overflow-wrap: anywhere;
+}
 .alert.alert-info {
   border-left-color: var(--info-fg);
   background: var(--info-bg);

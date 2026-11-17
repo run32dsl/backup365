@@ -8,6 +8,7 @@ import {
   type RpoHours,
   type RunStatus,
 } from '@backup365/core';
+import { readFailure } from './apiError.js';
 import { UNREACHABLE, type Outcome } from './session.js';
 import type { PillStatus } from './ui/index.js';
 
@@ -387,12 +388,8 @@ async function send<T>(
         : {}),
     });
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
-      const code = typeof body?.error === 'string' ? body.error : '';
-      return {
-        ok: false,
-        message: SERVER_MESSAGES[code] ?? `Erreur inattendue (HTTP ${res.status}).`,
-      };
+      const failure = await readFailure(res, SERVER_MESSAGES);
+      return { ok: false, ...failure };
     }
     return { ok: true, value: (await read?.(res)) as T };
   } catch {
