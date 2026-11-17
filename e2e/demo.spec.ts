@@ -263,7 +263,7 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
 
   await expect(page.getByRole('progressbar')).toBeVisible();
   await expect(
-    page.getByText(/Restauration terminée en \d+ s : 3 restaurés, 1 conservés, 0 erreurs/),
+    page.getByText(/3 éléments restaurés en \d+ s\. 1 élément déjà présent a été conservé\./),
   ).toBeVisible();
 
   await page.getByRole('link', { name: 'Voir dans le journal d’audit' }).click();
@@ -273,7 +273,7 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   await expect(
     page
       .getByRole('cell', {
-        name: /Réussie, \d+ (ms|s), bibliothèque, 1 conservés, 0 erreurs/,
+        name: /Réussie, \d+ (ms|s), bibliothèque, 1 élément conservé$/,
       })
       .first(),
   ).toBeVisible();
@@ -303,7 +303,7 @@ test('SharePoint : le site entier exige la case, puis le nom exact du site (admi
   await page.getByLabel('Tapez le nom du site pour confirmer').fill('Ressources humaines');
   await expect(go).not.toHaveAttribute('aria-disabled', 'true');
   await go.click();
-  await expect(page.getByText(/Restauration terminée en/)).toBeVisible();
+  await expect(page.getByText(/éléments? restaurés? en \d+ s/)).toBeVisible();
 });
 
 test('SharePoint : un accès direct au site entier est refusé à un opérateur', async ({
@@ -335,9 +335,9 @@ test('SharePoint : un échec affiche le résultat partiel et propose de réessay
   await expect(
     page
       .getByRole('alert')
-      .getByText('La restauration a échoué après 0 éléments. Rien n’a été écrasé.'),
+      .getByText('La restauration a échoué : aucun élément restauré. Rien n’a été écrasé.'),
   ).toBeVisible();
-  await expect(page.getByText('0 restaurés, 0 non traités, 1 erreurs.')).toBeVisible();
+  await expect(page.getByText('1 élément en erreur.')).toBeVisible();
   // Réessayer ramène au récapitulatif, motif et choix conservés.
   await page.getByRole('button', { name: 'Réessayer' }).click();
   await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();

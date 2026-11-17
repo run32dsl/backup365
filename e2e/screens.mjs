@@ -543,7 +543,7 @@ export const SCREENS = [
     prepare: async (page) => {
       await reachSiteSummary(page, SITES.atelier, 'folder', 'Documents partagés', 'Contrats');
       await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
-      await page.getByText(/Restauration terminée en/u).waitFor();
+      await page.getByText(/éléments? restaurés? en/u).waitFor();
     },
   },
   {
@@ -560,7 +560,7 @@ export const SCREENS = [
         'plan-b.pdf',
       );
       await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
-      await page.getByText(/La restauration a échoué après/u).waitFor();
+      await page.getByText(/La restauration a échoué : /u).waitFor();
     },
   },
   {

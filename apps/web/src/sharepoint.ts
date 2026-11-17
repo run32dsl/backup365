@@ -2,6 +2,7 @@ import { REASON } from './RestoreJourney.js';
 import type { DriveSnapshot, SiteEntry, SiteScope, SiteScopeSummary } from '@backup365/core';
 import { dayOf, dateTimeOf, sizeOf, type Loaded } from './onedrive.js';
 import { UNREACHABLE } from './session.js';
+import { elementsInError, elementsWhich } from './format.js';
 
 export type { SiteEntry, SiteScope, SiteScopeSummary };
 export { dayOf, dateTimeOf, sizeOf };
@@ -223,6 +224,41 @@ export function summaryOf(input: {
 
 /** `3 min 12 s` : voir `formatDuration` de `restore.ts`. */
 export { formatDuration } from './restore.js';
+
+/** Bilan d'une restauration réussie : les compteurs nuls sont omis, chaque nombre a son nom. */
+export function successSummary(
+  restored: number,
+  skipped: number,
+  errors: number,
+  duration: string,
+): string {
+  const parts = [
+    restored > 0
+      ? `${elementsWhich(restored, 'restauré')} en ${duration}.`
+      : `Aucun élément restauré en ${duration}.`,
+  ];
+  if (skipped > 0) {
+    parts.push(
+      `${skipped < 2 ? '1 élément déjà présent a été conservé' : `${skipped} éléments déjà présents ont été conservés`}.`,
+    );
+  }
+  if (errors > 0) parts.push(`${elementsInError(errors)}.`);
+  return parts.join(' ');
+}
+
+/** Phrase de l'alerte d'échec (hors état incertain) : ce qui a été restauré, rien d'écrasé. */
+export function failureSummary(restored: number): string {
+  const done = restored > 0 ? elementsWhich(restored, 'restauré') : 'aucun élément restauré';
+  return `La restauration a échoué : ${done}. Rien n’a été écrasé.`;
+}
+
+/** Ligne de détail de l'échec, sans zéros ; vide s'il n'y a rien à dire. */
+export function failureDetail(untreated: number, errors: number): string {
+  const parts: string[] = [];
+  if (untreated > 0) parts.push(elementsWhich(untreated, 'non traité'));
+  if (errors > 0) parts.push(elementsInError(errors));
+  return parts.length > 0 ? `${parts.join(', ')}.` : '';
+}
 
 export function failureCause(error: SiteJob['error']): string {
   if (error === 'restore_unreachable') return 'SharePoint injoignable pour le moment';

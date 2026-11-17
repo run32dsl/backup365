@@ -1,4 +1,4 @@
-import { dateTimeOf } from './format.js';
+import { dateTimeOf, elementsInError, elementsWhich } from './format.js';
 
 const REASON_LABELS: Record<string, string> = {
   forbidden: 'Accès refusé',
@@ -128,9 +128,13 @@ function restoreLabel(head: string): string {
   const scope = RESTORE_SCOPE_LABELS[fields.get('scope') ?? ''];
   if (scope) parts.push(scope);
   const skipped = fields.get('skipped');
-  if (skipped !== undefined && /^\d+$/.test(skipped)) parts.push(`${skipped} conservés`);
+  if (skipped !== undefined && /^\d+$/.test(skipped) && Number(skipped) > 0) {
+    parts.push(elementsWhich(Number(skipped), 'conservé'));
+  }
   const errors = fields.get('errors');
-  if (errors !== undefined && /^\d+$/.test(errors)) parts.push(`${errors} erreurs`);
+  if (errors !== undefined && /^\d+$/.test(errors) && Number(errors) > 0) {
+    parts.push(elementsInError(Number(errors)));
+  }
   return parts.join(', ');
 }
 

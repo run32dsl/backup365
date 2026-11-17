@@ -32,8 +32,11 @@ import {
   fetchSiteSnapshots,
   fetchSites,
   formatDuration,
+  failureDetail,
+  failureSummary,
   isOutcomeUncertain,
   pathLabel,
+  successSummary,
   breadcrumbLevels,
   breadcrumbLink,
   sharePointHash,
@@ -627,8 +630,7 @@ function TrackStep({
     // `job` ne change que par `onJob` ; `onJob` est stable (état du parent).
   }, [running, job.id, job.siteId]);
 
-  const treated = job.restored + job.skipped;
-  const untreated = Math.max(0, job.total - treated - job.errors);
+  const untreated = Math.max(0, job.total - job.restored - job.skipped - job.errors);
   let body: ReactNode;
   if (running) {
     body = (
@@ -644,11 +646,15 @@ function TrackStep({
       <>
         <div aria-live="polite">
           <Alert tone="success">
-            Restauration terminée en {formatDuration(job.durationMs ?? 0)} : {job.restored}{' '}
-            restaurés, {job.skipped} conservés, {job.errors} erreurs.
+            {successSummary(
+              job.restored,
+              job.skipped,
+              job.errors,
+              formatDuration(job.durationMs ?? 0),
+            )}
           </Alert>
         </div>
-        <p>Les éléments déjà présents ont été conservés ; aucun n’a été écrasé.</p>
+        <p>Aucun élément déjà présent n’a été écrasé.</p>
         <WizardActions
           back={
             <a className="btn btn-secondary" href="#/audit">
@@ -666,12 +672,10 @@ function TrackStep({
         <Alert tone="error">
           {isOutcomeUncertain(job.error)
             ? `La restauration a échoué : ${failureCause(job.error)}. L’état de SharePoint est incertain : vérifiez avant de réessayer.`
-            : `La restauration a échoué après ${treated} éléments. Rien n’a été écrasé.`}
+            : failureSummary(job.restored)}
         </Alert>
-        {!isOutcomeUncertain(job.error) && (
-          <p>
-            {job.restored} restaurés, {untreated} non traités, {job.errors} erreurs.
-          </p>
+        {!isOutcomeUncertain(job.error) && failureDetail(untreated, job.errors) && (
+          <p>{failureDetail(untreated, job.errors)}</p>
         )}
         <WizardActions
           back={
