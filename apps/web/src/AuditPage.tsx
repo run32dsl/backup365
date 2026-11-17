@@ -65,7 +65,7 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
         const detail = detailLabel(e.reason);
         return (
           <span>
-            {ACTION_LABELS[e.action]}
+            <span className="nowrap-wide">{ACTION_LABELS[e.action]}</span>
             {detail && <span className="cell-secondary">{detail}</span>}
           </span>
         );
@@ -73,7 +73,7 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
     },
     {
       header: 'Cible',
-      className: 'keep-words',
+      className: 'keep-words address',
       cell: (e) => {
         const { name, secondary } = targetView(e, planNames);
         return (
@@ -88,8 +88,12 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
         );
       },
     },
-    { header: 'Éléments', className: 'card-hidden', cell: (e) => e.count ?? '' },
-    { header: 'Motif', className: 'card-wide', cell: (e) => reasonLabel(e.reason) },
+    { header: 'Éléments', className: 'card-hidden num', cell: (e) => e.count ?? '' },
+    {
+      header: 'Motif',
+      className: 'card-wide keep-words col-reason',
+      cell: (e) => reasonLabel(e.reason),
+    },
   ];
 }
 
