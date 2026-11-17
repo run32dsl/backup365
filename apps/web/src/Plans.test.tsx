@@ -150,15 +150,19 @@ describe('list labels', () => {
   it('describes the last run', () => {
     expect(lastRunLabel(plan)).toMatch(/^Réussie, \d\d\/\d\d \d\d:\d\d$/);
     expect(lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, status: 'failed' } })).toMatch(
-      /^Échec,/,
+      /^Échec, \d\d\/\d\d \d\d:\d\d$/,
     );
     expect(
       lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, noSnapshotReason: 'no_content' } }),
-    ).toMatch(/^Succès, aucun contenu à sauvegarder, \d\d\/\d\d \d\d:\d\d$/);
+    ).toMatch(/^Réussie \(rien à sauvegarder\), \d\d\/\d\d \d\d:\d\d$/);
     expect(
       complianceView({ ...plan, compliance: { ...plan.compliance, lastRestorePointAt: null } })
         .label,
-    ).toBe('Conforme : rien à restaurer');
+    ).toBe('Conforme : rien à sauvegarder');
+    expect(
+      complianceView({ ...plan, compliance: { ...plan.compliance, lastRestorePointAt: null } })
+        .label,
+    ).not.toMatch(/restaurer/);
     expect(lastRunLabel({ ...plan, running: true })).toBe('En cours…');
     expect(lastRunLabel({ ...plan, lastRun: null })).toBe('Pas encore sauvegardé');
   });
