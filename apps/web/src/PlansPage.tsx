@@ -537,9 +537,10 @@ function planColumns(
   actions: { onRun: (p: PlanItem) => void; onDelete: (p: PlanItem) => void },
 ): Column<PlanItem>[] {
   const columns: Column<PlanItem>[] = [
-    { header: 'Plan', cell: (p) => p.name },
+    { header: 'Plan', cell: (p) => p.name, className: 'nowrap-wide' },
     {
       header: 'Conformité',
+      className: 'compliance-cell',
       cell: (p) => {
         const view = complianceView(p);
         return <StatusPill status={view.status} label={view.label} />;
@@ -562,18 +563,24 @@ function planColumns(
           >
             Lancer maintenant
           </Button>
-          <a className="btn btn-secondary" href={editHash(p.id)} aria-label={`Modifier ${p.name}`}>
-            Modifier
-          </a>
-          <Button
-            variant="danger"
-            aria-label={`Supprimer ${p.name}`}
-            onClick={() => {
-              actions.onDelete(p);
-            }}
-          >
-            Supprimer
-          </Button>
+          <div className="row-actions-more">
+            <a
+              className="btn btn-secondary"
+              href={editHash(p.id)}
+              aria-label={`Modifier ${p.name}`}
+            >
+              Modifier
+            </a>
+            <Button
+              variant="danger"
+              aria-label={`Supprimer ${p.name}`}
+              onClick={() => {
+                actions.onDelete(p);
+              }}
+            >
+              Supprimer
+            </Button>
+          </div>
         </div>
       ),
     });

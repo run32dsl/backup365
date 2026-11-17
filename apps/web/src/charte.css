@@ -492,6 +492,16 @@ select[aria-disabled='true'] {
     white-space: nowrap;
   }
 
+  /* Nom du plan sur une seule ligne en tableau ; en carte il passe à la ligne si besoin. */
+  .data-table .nowrap-wide {
+    white-space: nowrap;
+  }
+
+  /* Un libellé de conformité long passe à la ligne dans sa pastille plutôt que de déborder. */
+  .data-table .compliance-cell .badge {
+    white-space: normal;
+  }
+
   /* Cellules resserrées pour que le tableau de résultats tienne dans la page à 1280 px. */
   .data-table th,
   .data-table td {
@@ -762,10 +772,27 @@ a.btn-secondary {
   background: transparent;
   color: var(--accent);
 }
-.row-actions {
+.row-actions,
+.row-actions-more {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+/* Bureau : une seule rangée ; Modifier et Supprimer ne passent pas à la ligne. */
+@media (min-width: 40.01rem) {
+  .row-actions,
+  .row-actions-more {
+    flex-wrap: nowrap;
+  }
+  /* Actions secondaires discrètes : le contour est réservé à « Lancer maintenant ». */
+  .data-table .row-actions-more {
+    gap: 0;
+  }
+  .data-table .row-actions-more .btn {
+    border-color: transparent;
+    padding-inline: var(--space-2);
+    text-decoration: underline;
+  }
 }
 .choices {
   margin: 0 0 var(--space-3);
@@ -838,7 +865,14 @@ a.btn-secondary {
     flex-direction: column;
     align-items: stretch;
   }
-  .row-actions .btn,
+  /* Carte : « Lancer maintenant » en pleine largeur, puis Modifier et Supprimer côte à côte. */
+  .row-actions-more {
+    flex-direction: row;
+  }
+  .row-actions-more .btn {
+    flex: 1;
+  }
+  .row-actions > .btn,
   .wizard-actions .btn,
   .page-header .btn {
     width: 100%;

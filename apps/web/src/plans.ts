@@ -258,7 +258,7 @@ export function complianceView(plan: PlanItem): { status: PillStatus; label: str
   const { state, lastSuccessAt, lastRestorePointAt } = plan.compliance;
   if (state === 'compliant') {
     // Réussi, mais sans point de restauration : rien n'était à sauvegarder (issue #80).
-    const label = lastRestorePointAt === null ? 'Conforme : rien à restaurer' : 'Conforme';
+    const label = lastRestorePointAt === null ? 'Conforme : rien à sauvegarder' : 'Conforme';
     return { status: 'compliant', label };
   }
   if (lastSuccessAt === null) {
@@ -273,10 +273,10 @@ export function lastRunLabel(plan: PlanItem): string {
   const run = plan.lastRun;
   if (!run) return 'Pas encore sauvegardé';
   const at = shortDate(run.finishedAt ?? run.startedAt);
-  if (run.status === 'success' && run.noSnapshotReason === 'no_content') {
-    return `Succès, aucun contenu à sauvegarder, ${at}`;
-  }
-  return `${run.status === 'success' ? 'Réussie' : 'Échec'}, ${at}`;
+  if (run.status !== 'success') return `Échec, ${at}`;
+  const outcome =
+    run.noSnapshotReason === 'no_content' ? 'Réussie (rien à sauvegarder)' : 'Réussie';
+  return `${outcome}, ${at}`;
 }
 
 /** Message de succès d'une création : l'heure du premier créneau planifié. */
