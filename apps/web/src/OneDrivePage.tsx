@@ -38,7 +38,7 @@ import {
   stepOf,
 } from './RestoreJourney.js';
 import { formatDuration } from './restore.js';
-import { Alert, Button, DataTable, Dialog, EmptyState, Steps } from './ui/index.js';
+import { Alert, Button, DataTable, Dialog, EmptyState, Steps, WizardActions } from './ui/index.js';
 
 /** Élément choisi à l'étape 1 : un fichier ou un dossier, éventuellement une version précise. */
 interface Choice {
@@ -328,8 +328,8 @@ function BrowseStep({
         )}
       </div>
 
-      <div className="button-row">
-        <p aria-live="polite">{chosen ? '1 élément sélectionné' : 'Aucun élément sélectionné'}</p>
+      <p aria-live="polite">{chosen ? '1 élément sélectionné' : 'Aucun élément sélectionné'}</p>
+      <WizardActions>
         <Button
           aria-disabled={!configured || !chosen || undefined}
           aria-describedby={!configured ? hintId : undefined}
@@ -339,7 +339,7 @@ function BrowseStep({
         >
           {B.next}
         </Button>
-      </div>
+      </WizardActions>
       {!configured && <RestoreNotConfigured id={hintId} />}
 
       {versionsOf && (
@@ -385,12 +385,15 @@ function ReasonStep({
   return (
     <form onSubmit={submit} noValidate>
       <ReasonField value={reason} error={error} onChange={setReason} />
-      <div className="button-row dialog-actions">
-        <Button variant="secondary" data-safe onClick={onBack}>
-          {B.back}
-        </Button>
+      <WizardActions
+        back={
+          <Button variant="secondary" data-safe onClick={onBack}>
+            {B.back}
+          </Button>
+        }
+      >
         <Button type="submit">{B.next}</Button>
-      </div>
+      </WizardActions>
     </form>
   );
 }
@@ -509,14 +512,17 @@ function ConfirmStep({
         </div>
       )}
       {failure && <Alert tone="error">{failure}</Alert>}
-      <div className="button-row dialog-actions">
-        <Button variant="secondary" data-safe onClick={onBack}>
-          {B.back}
-        </Button>
+      <WizardActions
+        back={
+          <Button variant="secondary" data-safe onClick={onBack}>
+            {B.back}
+          </Button>
+        }
+      >
         <Button type="submit" busy={sending}>
           {B.confirm}
         </Button>
-      </div>
+      </WizardActions>
     </form>
   );
 }
@@ -586,12 +592,15 @@ function TrackStep({
           Restauration terminée en {formatDuration(job.durationMs ?? 0)}.
         </Alert>
         <p>Emplacement : {where}</p>
-        <div className="button-row">
-          <a className="btn btn-secondary" href="#/audit">
-            {B.audit}
-          </a>
+        <WizardActions
+          back={
+            <a className="btn btn-secondary" href="#/audit">
+              {B.audit}
+            </a>
+          }
+        >
           <Button onClick={onAgain}>{B.again}</Button>
-        </div>
+        </WizardActions>
       </>
     );
   } else {
@@ -603,12 +612,15 @@ function TrackStep({
             ? 'L’état de OneDrive est incertain : vérifiez avant de réessayer.'
             : 'Rien n’a été modifié.'}
         </Alert>
-        <div className="button-row">
+        <WizardActions
+          back={
+            <a className="btn btn-secondary" href="#/audit">
+              {B.audit}
+            </a>
+          }
+        >
           <Button onClick={onRetry}>{B.retry}</Button>
-          <a className="btn btn-secondary" href="#/audit">
-            {B.audit}
-          </a>
-        </div>
+        </WizardActions>
       </>
     );
   }

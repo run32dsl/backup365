@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { MAX_REASON_LENGTH } from './mail.js';
-import { Alert, FormField } from './ui/index.js';
+import { Alert, FormField, WIZARD_LABELS } from './ui/index.js';
 
 /**
  * Éléments communs aux trois parcours de restauration (mail, OneDrive, SharePoint) : mêmes
@@ -28,9 +28,9 @@ export const REASON = {
 
 /** Libellés des boutons, les mêmes dans les trois parcours. */
 export const RESTORE_BUTTONS = {
-  back: 'Précédent',
+  back: WIZARD_LABELS.back,
   cancel: 'Annuler',
-  next: 'Continuer',
+  next: WIZARD_LABELS.next,
   confirm: 'Restaurer',
   audit: 'Voir dans le journal d’audit',
   again: 'Nouvelle restauration',

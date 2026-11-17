@@ -298,7 +298,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByLabel('Nom du plan').fill('Messagerie Direction');
-      await page.getByRole('button', { name: 'Suivant' }).click();
+      await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByText('Étape 2 sur 3 : Objectifs').waitFor();
     },
   },
@@ -308,11 +308,11 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByLabel('Nom du plan').fill('Messagerie Direction');
-      await page.getByRole('button', { name: 'Suivant' }).click();
+      await page.getByRole('button', { name: 'Continuer' }).click();
       await page
         .getByLabel('Justification de cette durée')
         .selectOption({ label: 'Obligation légale' });
-      await page.getByRole('button', { name: 'Suivant' }).click();
+      await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByText('Étape 3 sur 3 : Récapitulatif').waitFor();
     },
   },

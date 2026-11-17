@@ -46,6 +46,8 @@ import {
   FormField,
   StatusPill,
   Steps,
+  WIZARD_LABELS,
+  WizardActions,
   type Column,
 } from './ui/index.js';
 
@@ -374,35 +376,38 @@ export function PlanWizard({
         </div>
       )}
 
-      <div className="button-row wizard-actions">
-        {step === 1 ? (
-          <Button
-            variant="secondary"
-            onClick={() => {
-              goTo(PLANS_HASH);
-            }}
-          >
-            Annuler
-          </Button>
-        ) : (
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setErrors({});
-              setStep((step - 1) as 1 | 2);
-            }}
-          >
-            ← Précédent
-          </Button>
-        )}
+      <WizardActions
+        back={
+          step === 1 ? (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                goTo(PLANS_HASH);
+              }}
+            >
+              Annuler
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setErrors({});
+                setStep((step - 1) as 1 | 2);
+              }}
+            >
+              {WIZARD_LABELS.back}
+            </Button>
+          )
+        }
+      >
         {step < 3 ? (
-          <Button type="submit">Suivant →</Button>
+          <Button type="submit">{WIZARD_LABELS.next}</Button>
         ) : (
           <Button type="submit" busy={saving}>
             {editing ? 'Enregistrer les modifications' : 'Créer le plan'}
           </Button>
         )}
-      </div>
+      </WizardActions>
     </form>
   );
 }

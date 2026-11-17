@@ -245,7 +245,7 @@ describe('PlanWizard', () => {
     expect(html).toContain('<legend>Données à sauvegarder</legend>');
     expect(html).toContain('<legend>Périmètre</legend>');
     expect(html).toContain('Nom du plan');
-    expect(html).toContain('Suivant');
+    expect(html).toContain('Continuer');
     expect(html).not.toContain('Précédent');
   });
 });
