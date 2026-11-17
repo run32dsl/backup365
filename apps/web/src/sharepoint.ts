@@ -252,14 +252,6 @@ export function failureSummary(restored: number): string {
   return `La restauration a échoué : ${done}. Rien n’a été écrasé.`;
 }
 
-/** Ligne de détail de l'échec, sans zéros ; vide s'il n'y a rien à dire. */
-export function failureDetail(untreated: number, errors: number): string {
-  const parts: string[] = [];
-  if (untreated > 0) parts.push(elementsWhich(untreated, 'non traité'));
-  if (errors > 0) parts.push(elementsInError(errors));
-  return parts.length > 0 ? `${parts.join(', ')}.` : '';
-}
-
 export function failureCause(error: SiteJob['error']): string {
   if (error === 'restore_unreachable') return 'SharePoint injoignable pour le moment';
   if (error === 'restore_lost') return 'le suivi a été perdu (service redémarré)';

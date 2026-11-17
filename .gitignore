@@ -13,6 +13,8 @@ CLAUDE.local.md
 .claude/agents/
 .review/
 .pr/
+# Notes de recette de l'hôte
+.recette/
 # Base de recherche (données personnelles)
 /data/
 # Captures d'écran du mode démo (pnpm run captures) et résultats de Playwright

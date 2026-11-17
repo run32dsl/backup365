@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { detailLabel } from './auditLabels.js';
-import { failureDetail, failureSummary, successSummary } from './sharepoint.js';
+import { failureSummary, successSummary } from './sharepoint.js';
 
 describe('SharePoint restore summary', () => {
   it('agrees restored, kept and error counts on success, and omits zeros', () => {
@@ -25,10 +25,6 @@ describe('SharePoint restore summary', () => {
     expect(failureSummary(4)).toBe(
       'La restauration a échoué : 4 éléments restaurés. Rien n’a été écrasé.',
     );
-    expect(failureDetail(0, 1)).toBe('1 élément en erreur.');
-    expect(failureDetail(1, 0)).toBe('1 élément non traité.');
-    expect(failureDetail(3, 2)).toBe('3 éléments non traités, 2 éléments en erreur.');
-    expect(failureDetail(0, 0)).toBe('');
   });
 
   it('uses the same agreement in the audit label', () => {

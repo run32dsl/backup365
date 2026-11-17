@@ -35,6 +35,8 @@ import {
   RESTORE_BUTTONS as B,
   RESTORE_STEPS,
   ReasonField,
+  RestoreResult,
+  ResultList,
   RunningProgress,
   stepOf,
 } from './RestoreJourney.js';
@@ -606,11 +608,23 @@ function TrackStep({
 
   const target = job.copyName ?? choice.entry.name;
   const where = folderLabel(job.path);
+  const items = (
+    <ResultList
+      rows={[
+        [
+          job.status === 'succeeded' ? 'Élément restauré' : 'Élément',
+          `${choice.entry.name} → ${target}`,
+        ],
+        ...(job.status === 'succeeded' ? [['Emplacement', where] as [string, string]] : []),
+      ]}
+    />
+  );
   let body: ReactNode;
   if (job.status === 'running') {
     body = (
       <>
         <RunningProgress />
+        {items}
         <p>Vous pouvez quitter cette page, la restauration continue.</p>
       </>
     );
@@ -620,7 +634,7 @@ function TrackStep({
         <Alert tone="success">
           Restauration terminée en {formatDuration(job.durationMs ?? 0)}.
         </Alert>
-        <p>Emplacement : {where}</p>
+        {items}
         <WizardActions
           back={
             <a className="btn btn-secondary" href="#/audit">
@@ -641,6 +655,7 @@ function TrackStep({
             ? 'L’état de OneDrive est incertain : vérifiez avant de réessayer.'
             : 'Rien n’a été modifié.'}
         </Alert>
+        {items}
         <WizardActions
           back={
             <a className="btn btn-secondary" href="#/audit">
@@ -653,14 +668,7 @@ function TrackStep({
       </>
     );
   }
-  return (
-    <>
-      <p>
-        {choice.entry.name} → {target}
-      </p>
-      {body}
-    </>
-  );
+  return <RestoreResult status={job.status}>{body}</RestoreResult>;
 }
 
 /** Restaurer depuis OneDrive : parcourir, motif et récapitulatif, suivi (`#/onedrive/<compte>/<chemin>`). */

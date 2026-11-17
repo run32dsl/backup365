@@ -8,6 +8,9 @@ import {
   REASON,
   RESTORE_BUTTONS,
   RESTORE_STEPS,
+  RESULT_TITLES,
+  RestoreResult,
+  ResultList,
   ReasonField,
   reasonLabel,
   RunningProgress,
@@ -19,9 +22,9 @@ const source = (name: string) => readFileSync(new URL(name, dir), 'utf8');
 const SCREENS = ['OneDrivePage.tsx', 'SharePointPage.tsx', 'RestoreAction.tsx'];
 
 describe('restore journey', () => {
-  it('uses the same three steps and keeps the tracking on the last one', () => {
+  it('uses the same three steps, all finished once the tracking starts', () => {
     expect(RESTORE_STEPS).toEqual(['Choisir', 'Motif', 'Confirmation']);
-    expect([1, 2, 3, 4].map(stepOf)).toEqual([1, 2, 3, 3]);
+    expect([1, 2, 3, 4, 5].map(stepOf)).toEqual([1, 2, 3, 4, 4]);
   });
 
   it('renders one reason block, limited by the same constant', () => {
@@ -121,5 +124,29 @@ describe('restore journey', () => {
       for (const phrase of banned) expect(text, `${file}: ${phrase}`).not.toContain(phrase);
     }
     expect(Object.values(RESTORE_BUTTONS)).not.toContain('Retour');
+  });
+});
+
+describe('restore result', () => {
+  it('shows one h2 title per status, followed by the labelled summary', () => {
+    const titles = ['running', 'succeeded', 'failed'] as const;
+    const heads = titles.map((s) =>
+      renderToStaticMarkup(
+        <RestoreResult status={s}>
+          <ResultList rows={[['Emplacement', 'Images']]} />
+        </RestoreResult>,
+      ),
+    );
+    expect(heads[0]).toContain('<h2 id="restore-result-title">Restauration en cours</h2>');
+    expect(heads[1]).toContain('>Restauration terminée</h2>');
+    expect(heads[2]).toContain('>Restauration échouée</h2>');
+    expect(heads[1]).toContain('<dt>Emplacement</dt><dd>Images</dd>');
+    expect(Object.values(RESULT_TITLES)).toHaveLength(3);
+  });
+
+  it('is used by both OneDrive and SharePoint', () => {
+    for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx']) {
+      expect(source(name)).toContain('<RestoreResult status={job.status}>');
+    }
   });
 });

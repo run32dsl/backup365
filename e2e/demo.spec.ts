@@ -182,7 +182,9 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   await expect(page.getByRole('progressbar')).toBeVisible();
   await expect(page.getByRole('status').getByText('Restauration en cours')).toBeVisible();
   await expect(page.getByText(/Restauration terminée en \d+ s\./)).toBeVisible();
-  await expect(page.getByText('Emplacement : Documents > Budget')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Restauration terminée' })).toBeVisible();
+  await expect(page.getByText('Emplacement', { exact: true })).toBeVisible();
+  await expect(page.getByText('Documents > Budget', { exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: 'Voir dans le journal d’audit' }).click();
   await expect(
@@ -337,7 +339,8 @@ test('SharePoint : un échec affiche le résultat partiel et propose de réessay
       .getByRole('alert')
       .getByText('La restauration a échoué : aucun élément restauré. Rien n’a été écrasé.'),
   ).toBeVisible();
-  await expect(page.getByText('1 élément en erreur.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Restauration échouée' })).toBeVisible();
+  await expect(page.getByText('Éléments en erreur', { exact: true })).toBeVisible();
   // Réessayer ramène au récapitulatif, motif et choix conservés.
   await page.getByRole('button', { name: 'Réessayer' }).click();
   await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();

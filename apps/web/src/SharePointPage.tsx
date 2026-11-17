@@ -14,6 +14,8 @@ import {
   RESTORE_BUTTONS as B,
   RESTORE_STEPS,
   ReasonField,
+  RestoreResult,
+  ResultList,
   RunningProgress,
   stepOf,
 } from './RestoreJourney.js';
@@ -32,7 +34,6 @@ import {
   fetchSiteSnapshots,
   fetchSites,
   formatDuration,
-  failureDetail,
   failureSummary,
   isOutcomeUncertain,
   pathLabel,
@@ -625,6 +626,13 @@ function TrackStep({
   }, [running, job.id, job.siteId]);
 
   const untreated = Math.max(0, job.total - job.restored - job.skipped - job.errors);
+  const failedNormally = job.status === 'failed' && !isOutcomeUncertain(job.error);
+  const countRows: [string, ReactNode][] = [];
+  if (failedNormally && untreated > 0) countRows.push(['Éléments non traités', untreated]);
+  if (job.status !== 'running' && job.errors > 0) {
+    countRows.push(['Éléments en erreur', job.errors]);
+  }
+  const counts = countRows.length > 0 ? <ResultList rows={countRows} /> : null;
   let body: ReactNode;
   if (running) {
     body = (
@@ -648,6 +656,7 @@ function TrackStep({
             )}
           </Alert>
         </div>
+        {counts}
         <p>Aucun élément déjà présent n’a été écrasé.</p>
         <WizardActions
           back={
@@ -668,9 +677,7 @@ function TrackStep({
             ? `La restauration a échoué : ${failureCause(job.error)}. L’état de SharePoint est incertain : vérifiez avant de réessayer.`
             : failureSummary(job.restored)}
         </Alert>
-        {!isOutcomeUncertain(job.error) && failureDetail(untreated, job.errors) && (
-          <p>{failureDetail(untreated, job.errors)}</p>
-        )}
+        {counts}
         <WizardActions
           back={
             <a className="btn btn-secondary" href="#/audit">
@@ -683,7 +690,7 @@ function TrackStep({
       </>
     );
   }
-  return <>{body}</>;
+  return <RestoreResult status={job.status}>{body}</RestoreResult>;
 }
 
 /** Restaurer SharePoint : choisir, motif, confirmation, suivi (`#/sharepoint/<site>/<granularité>`). */
