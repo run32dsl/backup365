@@ -234,7 +234,8 @@ export interface DriveRestoreInput {
   reason: string;
 }
 
-export type DriveRestoreResult = { ok: true; job: DriveJob } | { ok: false; message: string };
+export type DriveRestoreResult =
+  { ok: true; job: DriveJob } | { ok: false; message: string; requestId?: string };
 
 /** Lance la restauration. `message` est en français, sans détail technique. */
 export async function startDriveRestore(
@@ -251,9 +252,11 @@ export async function startDriveRestore(
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
       const code = typeof body?.error === 'string' ? body.error : '';
+      const requestId = res.headers.get('x-request-id') ?? undefined;
       return {
         ok: false,
         message: SERVER_MESSAGES[code] ?? API_ERRORS[code] ?? ONEDRIVE_MESSAGES.generic,
+        ...(requestId ? { requestId } : {}),
       };
     }
     return { ok: true, job: ((await res.json()) as { job: DriveJob }).job };

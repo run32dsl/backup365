@@ -132,10 +132,16 @@ describe('API des plans', () => {
   });
 
   it('answers 403 to a non-administrator on the write routes', async () => {
-    const { app } = setup('operator');
+    const { app, audit } = setup('operator');
     expect((await send(app, 'POST', '/api/plans', valid)).statusCode).toBe(403);
     expect((await send(app, 'PUT', '/api/plans/x', valid)).statusCode).toBe(403);
     expect((await send(app, 'DELETE', '/api/plans/x')).statusCode).toBe(403);
+    expect((await send(app, 'POST', '/api/plans/x/run', { reason: 'test' })).statusCode).toBe(403);
+    // Chaque refus est inscrit à l'audit, avec le code en motif.
+    const entries = await log(audit);
+    expect(entries.map((e) => [e.action, e.reason])).toEqual(
+      Array(4).fill(['access.denied', 'forbidden']),
+    );
   });
 
   it('creates, lists, replaces and deletes a plan', async () => {

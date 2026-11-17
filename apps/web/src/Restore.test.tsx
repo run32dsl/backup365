@@ -124,6 +124,20 @@ describe('restore requests', () => {
     expect(down.ok).toBe(false);
   });
 
+  it('carries the request id of a refused restoration', async () => {
+    const res = () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ error: 'forbidden' }), {
+          status: 403,
+          headers: { 'x-request-id': 'req-7' },
+        }),
+      );
+    expect(await startRestore('a', 'b', 'motif', res)).toMatchObject({
+      ok: false,
+      requestId: 'req-7',
+    });
+  });
+
   it('reads the last restoration and whether restoration is configured', async () => {
     expect(
       await fetchLastRestore('a', 'b', () => json({ last: job() }) as Promise<Response>),

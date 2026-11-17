@@ -1,4 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import type { Problem as FailureProblem } from './apiError.js';
+import { FailureAlert } from './FailureAlert.js';
 import { dateTimeOrDash } from './format.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
 import {
@@ -441,7 +443,7 @@ function ConfirmStep({
   const [understood, setUnderstood] = useState(false);
   const [typed, setTyped] = useState('');
   const [nameError, setNameError] = useState(false);
-  const [failure, setFailure] = useState<string | undefined>();
+  const [failure, setFailure] = useState<FailureProblem | undefined>();
   const [sending, setSending] = useState(false);
   const hintId = useId();
   const whole = choice.scope === 'site';
@@ -479,7 +481,7 @@ function ConfirmStep({
     }).then((result) => {
       setSending(false);
       if (result.ok) onStarted(result.job);
-      else setFailure(result.message);
+      else setFailure({ message: result.message, requestId: result.requestId });
     });
   }
 
@@ -530,7 +532,7 @@ function ConfirmStep({
       )}
       {summary === null && <p role="status">{T.loading}</p>}
       <p>Motif : {reason}</p>
-      {failure && <Alert tone="error">{failure}</Alert>}
+      {failure && <FailureAlert problem={failure} />}
       <WizardActions
         back={
           <Button variant="secondary" data-safe onClick={onBack}>

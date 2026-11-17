@@ -130,10 +130,12 @@ export async function authenticate(
   const res = await fetchFn(`/api/auth/${kind}`, json({ username, password }));
   if (!res.ok) {
     const retryAfterSec = res.status === 429 ? await retryAfterOf(res) : undefined;
+    const requestId = res.headers.get('x-request-id') ?? undefined;
     return {
       ok: false,
       message: await errorMessage(res),
       ...(retryAfterSec ? { retryAfterSec } : {}),
+      ...(requestId ? { requestId } : {}),
     };
   }
   return { ok: true, value: (await res.json()) as SessionInfo };

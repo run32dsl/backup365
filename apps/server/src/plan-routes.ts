@@ -53,12 +53,14 @@ export function registerPlanRoutes(
   scheduler?: PlanScheduler,
   backupConfigured = true,
 ) {
-  function guard(req: FastifyRequest, reply: FastifyReply, readOnlyOk = false) {
+  async function guard(req: FastifyRequest, reply: FastifyReply, readOnlyOk = false) {
     if (!req.session) {
       void reply.code(401).send({ error: 'unauthenticated' });
       return null;
     }
     if (!readOnlyOk && req.session.role !== 'admin') {
+      // Refus tracé quand le journal existe ; sans journal (503 plus bas), rien à écrire.
+      if (audit) await recordDenied(audit, req, 'plans', 'forbidden');
       void reply.code(403).send({ error: 'forbidden' });
       return null;
     }
@@ -94,9 +96,9 @@ export function registerPlanRoutes(
   const notFound = (req: FastifyRequest, reply: FastifyReply, resource: string) =>
     refuse(req, reply, resource, 404, { error: 'plan_not_found' });
 
-  app.get('/api/plans', (req, reply) => {
+  app.get('/api/plans', async (req, reply) => {
     // Seule route ouverte à l'opérateur (lecture seule, écran des plans).
-    const ctx = guard(req, reply, true);
+    const ctx = await guard(req, reply, true);
     if (!ctx) return reply;
     const now = new Date();
     const items = ctx.plans.list().map((plan) => {
@@ -139,8 +141,8 @@ export function registerPlanRoutes(
   });
 
   /** Les plans existent sans identifiants Microsoft 365, mais rien ne s'exécute (ADR 0009). */
-  app.get('/api/plans/execution', (req, reply) => {
-    const ctx = guard(req, reply);
+  app.get('/api/plans/execution', async (req, reply) => {
+    const ctx = await guard(req, reply);
     if (!ctx) return reply;
     return backupConfigured
       ? { configured: true, retention: 'not_enforced' }
@@ -148,7 +150,7 @@ export function registerPlanRoutes(
   });
 
   app.post('/api/plans', async (req, reply) => {
-    const ctx = guard(req, reply);
+    const ctx = await guard(req, reply);
     if (!ctx) return reply;
     const parsed = parseProtectionPlanInput(req.body);
     if (!parsed.ok) return invalid(req, reply, 'plan.create', parsed.errors);
@@ -171,7 +173,7 @@ export function registerPlanRoutes(
     '/api/plans/:id',
     { schema: { params: idParams } },
     async (req, reply) => {
-      const ctx = guard(req, reply);
+      const ctx = await guard(req, reply);
       if (!ctx) return reply;
       const parsed = parseProtectionPlanInput(req.body);
       if (!parsed.ok) return invalid(req, reply, 'plan.update', parsed.errors);
@@ -197,7 +199,7 @@ export function registerPlanRoutes(
     '/api/plans/:id',
     { schema: { params: idParams } },
     async (req, reply) => {
-      const ctx = guard(req, reply);
+      const ctx = await guard(req, reply);
       if (!ctx) return reply;
       if (!ctx.plans.delete(req.params.id)) return notFound(req, reply, 'plan.delete');
       await ctx.audit.record(auditEvent(req, 'plan.delete', 'plan', { target: req.params.id }));
@@ -208,8 +210,8 @@ export function registerPlanRoutes(
   app.get<{ Params: { id: string } }>(
     '/api/plans/:id/runs',
     { schema: { params: idParams } },
-    (req, reply) => {
-      const ctx = guard(req, reply);
+    async (req, reply) => {
+      const ctx = await guard(req, reply);
       if (!ctx) return reply;
       if (!ctx.plans.get(req.params.id)) return notFound(req, reply, 'plan.runs');
       return { items: ctx.plans.listRuns(req.params.id, RUNS_LIMIT) };
@@ -220,7 +222,7 @@ export function registerPlanRoutes(
     '/api/plans/:id/run',
     { schema: { params: idParams } },
     async (req, reply) => {
-      const ctx = guard(req, reply);
+      const ctx = await guard(req, reply);
       if (!ctx) return reply;
       const reason = parseReason(req.body);
       if (reason === undefined) {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { FailureAlert } from './FailureAlert.js';
 import { Alert, Button, FormField } from './ui/index.js';
 import {
   AUDIT_NOTICE,
@@ -87,6 +88,7 @@ export function ErrorView({ message, onRetry }: { message: string; onRetry?: () 
 export function CredentialsView({
   mode,
   error,
+  requestId,
   notice,
   busy = false,
   lockedSec = 0,
@@ -99,6 +101,8 @@ export function CredentialsView({
   microsoft?: boolean;
   mode: 'login' | 'setup';
   error?: string;
+  /** Identifiant de la requête refusée, à donner au support. */
+  requestId?: string;
   notice?: string;
   busy?: boolean;
   /** Secondes restantes de verrouillage (0 : pas verrouillé). */
@@ -163,7 +167,7 @@ export function CredentialsView({
             <p role="status">{setupRecap(typed.trim())}</p>
           </>
         )}
-        {error && !locked && <Alert tone="error">{error}</Alert>}
+        {error && !locked && <FailureAlert problem={{ message: error, requestId }} />}
         <Button type="submit" busy={busy} disabled={locked}>
           {setup ? 'Créer le compte administrateur' : 'Se connecter'}
         </Button>
@@ -196,6 +200,7 @@ export function CredentialsPage({
   onSession: (session: SessionInfo) => void;
 }) {
   const [error, setError] = useState<string>();
+  const [requestId, setRequestId] = useState<string>();
   const [busy, setBusy] = useState(false);
   // Fin du verrouillage (horloge murale) et secondes restantes, recalculées chaque seconde.
   const [until, setUntil] = useState<number>();
@@ -234,6 +239,7 @@ export function CredentialsPage({
     }
     setBusy(true);
     setError(undefined);
+    setRequestId(undefined);
     setAnnouncement('');
     authenticate(mode, text(form, 'username').trim(), text(form, 'password')).then(
       (outcome: Outcome<SessionInfo>) => {
@@ -243,7 +249,10 @@ export function CredentialsPage({
           setUntil(Date.now() + outcome.retryAfterSec * 1000);
           setLockedSec(outcome.retryAfterSec);
           setStartSec(outcome.retryAfterSec);
-        } else setError(outcome.message);
+        } else {
+          setError(outcome.message);
+          setRequestId(outcome.requestId);
+        }
       },
       () => {
         setBusy(false);
@@ -256,6 +265,7 @@ export function CredentialsPage({
       <CredentialsView
         mode={mode}
         error={error}
+        requestId={requestId}
         notice={notice}
         busy={busy}
         lockedSec={lockedSec}
