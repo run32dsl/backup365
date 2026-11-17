@@ -119,7 +119,7 @@ describe('deploy/synology', () => {
       }
     }
     expect(read('docs/installation-synology.md').split('\n').slice(0, 3).join(' ')).toContain(
-      'Réseau local uniquement',
+      'le réseau local par défaut',
     );
   });
 });
