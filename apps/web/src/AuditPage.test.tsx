@@ -34,6 +34,18 @@ describe('AuditView', () => {
     expect(html).toContain('data-table-compact');
   });
 
+  it('gives the reason, target and count columns their layout classes', () => {
+    const html = renderToString(
+      <AuditView state={{ total: 1, limit: 50, offset: 0, items: [entry] }} />,
+    );
+    const cls = (label: string) =>
+      new RegExp(`<td[^>]*data-label="${label}"[^>]*class="([^"]*)"`).exec(html)?.[1] ?? '';
+    expect(cls('Motif').split(' ')).toEqual(expect.arrayContaining(['keep-words', 'col-reason']));
+    expect(cls('Cible').split(' ')).toEqual(expect.arrayContaining(['keep-words', 'address']));
+    expect(cls('Éléments').split(' ')).toContain('num');
+    expect(html).toMatch(/<th[^>]*class="[^"]*col-reason[^"]*"[^>]*>Motif/);
+  });
+
   it('shows an empty state, loading and error', () => {
     expect(
       renderToString(<AuditView state={{ total: 0, limit: 50, offset: 0, items: [] }} />),

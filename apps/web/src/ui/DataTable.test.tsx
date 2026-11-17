@@ -20,6 +20,19 @@ describe('DataTable', () => {
     expect(html).toContain('Camille Durand');
   });
 
+  it('applies a column class to its header and to its cells', () => {
+    const html = renderToStaticMarkup(
+      <DataTable
+        caption="Comptes"
+        columns={[{ ...columns[0]!, className: 'num' }, columns[1]!]}
+        rows={rows}
+        rowKey={(r) => r.n}
+      />,
+    );
+    expect(html).toMatch(/<th[^>]*class="num"[^>]*>Nom/);
+    expect(html).toMatch(/<td[^>]*class="num"[^>]*>Camille/);
+  });
+
   it('keeps the table semantics with explicit roles for the stacked layout', () => {
     const html = renderToStaticMarkup(
       <DataTable caption="Comptes" columns={columns} rows={rows} rowKey={(r) => r.n} />,
