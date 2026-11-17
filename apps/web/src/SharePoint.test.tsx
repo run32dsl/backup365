@@ -21,7 +21,13 @@ import {
 } from './sharepoint.js';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { API_ERRORS } from './apiError.js';
-import { ConfirmStep, ContentTree, Problem, SiteDenied, SiteEntriesTable } from './SharePointPage.js';
+import {
+  ConfirmStep,
+  ContentTree,
+  Problem,
+  SiteDenied,
+  SiteEntriesTable,
+} from './SharePointPage.js';
 import { navEntries, screenOf } from './App.js';
 
 const json = (body: unknown, status = 200) =>
