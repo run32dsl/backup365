@@ -228,7 +228,7 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
 
   // Un opérateur ne peut pas restaurer le site entier : l'option dit pourquoi, en texte.
   await expect(page.getByLabel('Le site entier')).toBeDisabled();
-  await expect(page.getByText('(Réservé aux administrateurs)')).toBeVisible();
+  await expect(page.getByText('Réservé aux administrateurs')).toBeVisible();
 
   // Bibliothèque : « Continuer » reste inactif tant qu'aucune n'est ouverte.
   await page.getByLabel('Une bibliothèque').check();
