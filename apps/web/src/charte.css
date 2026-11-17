@@ -428,6 +428,9 @@ th {
 .field-help {
   margin: 0;
 }
+.export-help {
+  margin-top: var(--space-2);
+}
 .field-counter {
   margin-left: auto;
   white-space: nowrap;

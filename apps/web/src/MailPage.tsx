@@ -21,6 +21,12 @@ import { Alert, Button, FormField } from './ui/index.js';
 /** État de la fiche. */
 export type MailState = IndexedMail | 'loading' | 'error';
 
+/** Titre de la fiche : l'objet du mail, un repli s'il est vide, un titre générique sinon. */
+export function mailTitle(state: MailState): string {
+  if (typeof state !== 'object') return 'Fiche d’un mail';
+  return state.subject.trim() || '(sans objet)';
+}
+
 /** Métadonnées d'un mail sauvegardé (jamais le corps). */
 export function MailView({ state }: { state: MailState }) {
   if (state === 'loading') return <p role="status">Chargement de la fiche…</p>;
@@ -65,6 +71,7 @@ export function ExportForm({
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
 }) {
   const valid = isReasonValid(reason);
+  const empty = reason.trim() === '';
   return (
     <section aria-labelledby="export-title" className="mail-section">
       <h2 id="export-title">Exporter en EML</h2>
@@ -88,12 +95,12 @@ export function ExportForm({
           variant="secondary"
           busy={exporting === 'busy'}
           disabled={!valid}
-          aria-describedby={valid ? undefined : 'export-disabled-help'}
+          aria-describedby={empty ? 'export-disabled-help' : undefined}
         >
           Exporter en EML
         </Button>
-        {!valid && (
-          <p id="export-disabled-help" className="field-help">
+        {empty && (
+          <p id="export-disabled-help" className="field-help export-help">
             Saisissez un motif pour exporter
           </p>
         )}
@@ -194,9 +201,7 @@ export function MailPage({ mailboxId, messageId }: { mailboxId: string; messageI
       <p>
         <a href="#/search">Retour à la recherche</a>
       </p>
-      <h1>
-        {typeof state === 'object' ? state.subject.trim() || '(sans objet)' : 'Fiche d’un mail'}
-      </h1>
+      <h1>{mailTitle(state)}</h1>
       <MailView state={state} />
       {typeof state === 'object' && <RestoreSection mail={state} />}
       {typeof state === 'object' && (

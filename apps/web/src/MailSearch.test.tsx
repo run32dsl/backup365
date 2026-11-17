@@ -1,7 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
-import { ExportForm, MailPage, MailView } from './MailPage.js';
+import { ExportForm, MailPage, MailView, mailTitle } from './MailPage.js';
 import { SearchPage, SearchView } from './SearchPage.js';
 import {
   exportEml,
@@ -84,6 +84,27 @@ describe('MailPage', () => {
     expect(form).toContain('Saisissez un motif pour exporter');
     expect(form).toContain('aria-describedby="export-disabled-help"');
     expect(form).not.toContain('JSON');
+  });
+
+  it('titles the sheet with the subject, a fallback when blank, a generic title otherwise', () => {
+    expect(mailTitle(mail)).toBe(mail.subject);
+    expect(mailTitle({ ...mail, subject: '   ' })).toBe('(sans objet)');
+    expect(mailTitle('loading')).toBe('Fiche d’un mail');
+    expect(mailTitle('error')).toBe('Fiche d’un mail');
+  });
+
+  it('shows the empty-reason help only while the reason is empty', () => {
+    const render = (reason: string) =>
+      renderToString(
+        <ExportForm
+          reason={reason}
+          exporting="idle"
+          onReason={() => undefined}
+          onSubmit={() => undefined}
+        />,
+      );
+    expect(render('')).toContain('export-disabled-help');
+    expect(render('ab')).not.toContain('export-disabled-help');
   });
 
   it('keeps the generic title while the sheet is loading', () => {
