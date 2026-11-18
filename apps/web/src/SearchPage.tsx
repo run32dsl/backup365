@@ -48,7 +48,7 @@ const COLUMNS: Column<Hit>[] = [
   },
   {
     header: 'Boîte',
-    className: 'keep-words address',
+    className: 'keep-words col-mailbox',
     cell: (m) => <Address value={m.mailboxId} />,
   },
   { header: 'Dossier', className: 'nowrap', cell: (m) => folderLabel(m.folder) },

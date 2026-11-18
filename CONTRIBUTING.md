@@ -46,7 +46,8 @@ présente ; utiliser un `BACKUP365_DATA_DIR` jetable.
 
 - `pnpm run captures` construit, lance le mode démo sur un port libre et écrit
   `captures/<écran>-1280.png` et `-390.png` (dossier ignoré par git). Regarder les images avant
-  d'ouvrir la PR. `pnpm run captures --lang=en-US` (ou la variable `BACKUP365_LANG=en-US`) les
+  d'ouvrir la PR. La CI lance la même commande : un écran qui ne se capture plus la fait échouer.
+  `pnpm run captures --lang=en-US` (ou la variable `BACKUP365_LANG=en-US`) les
   prend avec un navigateur en anglais : le rendu doit rester identique, ce que vérifie
   `e2e/langue.spec.ts` pour les filtres de date. Un Chromium installé avec la seule langue `en-US`
   (conteneurs des agents) affiche ses champs natifs en anglais quelle que soit l'option : ne pas
