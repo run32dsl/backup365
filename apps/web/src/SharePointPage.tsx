@@ -10,7 +10,6 @@ import {
   RESTORE_STEPS,
   ReasonField,
   RestoreResult,
-  ResultList,
   RunningProgress,
   stepOf,
 } from './RestoreJourney.js';
@@ -59,6 +58,7 @@ import {
   FormField,
   Steps,
   WizardActions,
+  ResultList,
 } from './ui/index.js';
 
 /** Ce qui a été choisi à l'étape 1. */

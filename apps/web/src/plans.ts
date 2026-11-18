@@ -52,14 +52,6 @@ export const DATA_TYPE_LABELS: Record<DataType, string> = {
   contacts: 'Contacts',
 };
 
-/** Complément du nom dans la phrase du récapitulatif (« vos mails, fichiers… »). */
-const DATA_TYPE_PHRASES: Record<DataType, string> = {
-  mail: 'mails',
-  files: 'fichiers',
-  calendar: 'calendriers',
-  contacts: 'contacts',
-};
-
 export const RPO_CHOICES: readonly RpoHours[] = [4, 12, 24];
 export const RTO_CHOICES: readonly number[] = [8, 24, 72];
 /** Durées de conservation proposées, en jours. */
@@ -116,8 +108,6 @@ export const MESSAGES = {
   updated: 'Plan modifié.',
   deleted: 'Plan supprimé.',
   runStarted: 'Sauvegarde lancée. Motif enregistré au journal d’audit.',
-  auditTrail:
-    'Toute consultation, export ou restauration demandera un motif et sera inscrit au journal d’audit.',
 } as const;
 
 // ---- Formulaire -----------------------------------------------------------------------------
@@ -219,32 +209,27 @@ export function validateStep(form: PlanForm, step: 1 | 2): FormErrors {
   return errors;
 }
 
-/** Liste « a, b et c » ; une seule entrée reste telle quelle. */
-function enumerate(items: string[]): string {
-  if (items.length <= 1) return items.join('');
-  return `${items.slice(0, -1).join(', ')} et ${items.at(-1) ?? ''}`;
+/** Périmètre du plan, en clair. */
+function scopeLabel(form: PlanForm): string {
+  if (form.scope === 'all') return 'Toute l’organisation';
+  const n = form.selection.length;
+  if (n === 0) return 'Aucune boîte ou compte choisi';
+  return n === 1 ? '1 boîte ou compte choisi' : `${n} boîtes ou comptes choisis`;
 }
 
-/** Phrase du récapitulatif, en langage clair. */
-export function summarySentence(form: PlanForm): string {
-  const what = enumerate(
-    DATA_TYPES.filter((t) => form.dataTypes.includes(t)).map((t) => DATA_TYPE_PHRASES[t]),
-  );
-  const where =
-    form.scope === 'all'
-      ? 'de toute l’organisation'
-      : form.selection.length === 0
-        ? 'd’aucune boîte ou compte choisi'
-        : form.selection.length === 1
-          ? 'd’une boîte ou d’un compte choisi'
-          : `de ${form.selection.length} boîtes ou comptes choisis`;
-  // Plan sans données (import, API) : pas de segment vide ni d'espace en tête.
-  if (what === '') return 'Aucune donnée choisie : rien ne sera sauvegardé.';
-  return `Vos ${what} ${where} seront sauvegardés toutes les ${form.rpoHours} h et conservés ${retentionLabel(form.retentionDays)}.`;
+/** Lignes du récapitulatif (dernière étape de création) : libellé et valeur. */
+export function recapRows(form: PlanForm): [string, string][] {
+  const data = DATA_TYPES.filter((t) => form.dataTypes.includes(t)).map((t) => DATA_TYPE_LABELS[t]);
+  return [
+    ['Nom du plan', form.name.trim()],
+    ['Données', data.length === 0 ? 'Aucune donnée choisie' : data.join(', ')],
+    ['Périmètre', scopeLabel(form)],
+    ['Fréquence', `toutes les ${form.rpoHours} h`],
+    ['Remise en service visée', `sous ${form.rtoHours} h`],
+    ['Conservation', retentionLabel(form.retentionDays)],
+    ['Justification', justificationText(form.reasonKind || 'other', form.reasonDetail)],
+  ];
 }
-
-export const rtoSentence = (hours: number): string =>
-  `En cas de sinistre, la remise en service est visée sous ${hours} h.`;
 
 export const rpoHelp = (hours: number): string =>
   `Si un incident survient, vous pouvez perdre au plus ${hours} h de données.`;

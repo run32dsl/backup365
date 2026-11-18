@@ -19,17 +19,15 @@ import {
   fetchMailboxes,
   fetchPlans,
   formFromPlan,
-  justificationText,
   lastRunLabel,
   retentionLabel,
   withCurrent,
   retentionHelp,
   rpoHelp,
   rtoHelp,
-  rtoSentence,
+  recapRows,
   runPlan,
   runReasonText,
-  summarySentence,
   updatePlan,
   validateStep,
   type FormErrors,
@@ -48,6 +46,7 @@ import {
   ChoiceGroup,
   DataTable,
   Dialog,
+  ResultList,
   EmptyState,
   FormField,
   StatusPill,
@@ -181,7 +180,6 @@ export function PlanWizard({
     setSaving(false);
   };
   const messages = Object.values(errors);
-  const reasonText = justificationText(form.reasonKind || 'other', form.reasonDetail);
 
   return (
     <form
@@ -344,12 +342,11 @@ export function PlanWizard({
       )}
 
       {step === 3 && (
-        <div className="recap">
-          <p className="recap-sentence">{summarySentence(form)}</p>
-          <p>{rtoSentence(form.rtoHours)}</p>
-          <p>{`Justification : ${reasonText.charAt(0).toLowerCase()}${reasonText.slice(1)}.`}</p>
-          <p>{MESSAGES.auditTrail}</p>
-        </div>
+        <>
+          <h2>Récapitulatif</h2>
+          <ResultList rows={recapRows(form)} />
+          <AuditReminder />
+        </>
       )}
 
       <WizardActions

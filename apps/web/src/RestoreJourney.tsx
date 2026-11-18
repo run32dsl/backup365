@@ -36,20 +36,6 @@ export function RestoreResult({
   );
 }
 
-/** Récapitulatif libellé, comme la fiche d'un mail. */
-export function ResultList({ rows }: { rows: [string, ReactNode][] }) {
-  return (
-    <dl className="meta-list">
-      {rows.map(([label, value]) => (
-        <div key={label} className="meta-row">
-          <dt>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 /** Phrase de la charte (principe « Traçabilité »). */
 export const AUDIT_REMINDER =
   'Chaque consultation, export ou restauration est inscrite au journal d’audit.';

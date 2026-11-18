@@ -3,13 +3,7 @@ import type { IndexedMail } from '@backup365/core';
 import { API_ERRORS, type Problem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { isReasonValid } from './mail.js';
-import {
-  AuditReminder,
-  REASON,
-  RESTORE_BUTTONS as B,
-  ReasonField,
-  ResultList,
-} from './RestoreJourney.js';
+import { AuditReminder, REASON, RESTORE_BUTTONS as B, ReasonField } from './RestoreJourney.js';
 import {
   RESTORE_MESSAGES as T,
   announcement,
@@ -23,7 +17,7 @@ import {
   startRestore,
   type RestoreJob,
 } from './restore.js';
-import { Alert, Button, Dialog } from './ui/index.js';
+import { Alert, Button, Dialog, ResultList } from './ui/index.js';
 
 export type RestorableMail = Pick<IndexedMail, 'mailboxId' | 'messageId' | 'subject' | 'date'>;
 
