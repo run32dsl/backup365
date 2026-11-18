@@ -601,3 +601,43 @@ test('groupe d’options : légende, flèches du clavier, option désactivée', 
   await expect(item).toBeChecked();
   await expect(site).not.toBeChecked();
 });
+
+test.describe('recherche à 1280 px', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test('écran recherche : colonne Action alignée sur « Rechercher »', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signInAs(context, baseURL!, 'admin');
+    await page.goto('/#/search');
+    await page.getByLabel('Recherche').fill('devis');
+    await page.getByRole('button', { name: 'Rechercher' }).click();
+    await page.getByRole('table').waitFor();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      1280,
+    );
+    const button = await page.getByRole('button', { name: 'Rechercher' }).boundingBox();
+    const action = await page.getByRole('columnheader', { name: 'Action' }).boundingBox();
+    expect(button).not.toBeNull();
+    expect(action).not.toBeNull();
+    expect(action!.x + action!.width).toBeLessThanOrEqual(button!.x + button!.width + 1);
+    // La colonne Boîte passe à la ligne : elle reste étroite (11 rem = 176 px, plus les marges).
+    const mailbox = await page.getByRole('columnheader', { name: 'Boîte' }).boundingBox();
+    expect(mailbox!.width).toBeLessThanOrEqual(200);
+  });
+
+  test('écran recherche-boite : pas de défilement horizontal', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signInAs(context, baseURL!, 'admin');
+    await page.goto('/#/search?mailbox=paul.moreau%40exemple.fr');
+    await page.getByRole('table').waitFor();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      1280,
+    );
+  });
+});
