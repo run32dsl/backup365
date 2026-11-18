@@ -227,6 +227,16 @@ export const SCREENS = [
     },
   },
   {
+    name: 'recherche-date-invalide',
+    hash: '#/search',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Du', { exact: true }).fill('31/02/2026');
+      await page.getByRole('button', { name: 'Rechercher' }).click();
+      await page.getByText('Date attendue au format jj/mm/aaaa').waitFor();
+    },
+  },
+  {
     name: 'fiche-mail',
     hash: DEMO_MAIL_HASH,
     role: 'admin',

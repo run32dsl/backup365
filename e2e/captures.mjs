@@ -25,7 +25,7 @@ try {
       const context = await browser.newContext({
         viewport: { width, height: 800 },
         baseURL: server.baseURL,
-        locale: 'fr-FR',
+        locale: process.env['BACKUP365_LANG'] ?? 'fr-FR',
         timezoneId: 'UTC',
         colorScheme: screen.scheme ?? 'light',
       });

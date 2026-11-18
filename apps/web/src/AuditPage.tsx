@@ -2,8 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { AUDIT_ACTIONS, type AuditAction } from '@backup365/core';
 import {
   AUDIT_PAGE_SIZE,
+  DATE_HELP,
+  dateRange,
   fetchAudit,
+  formText,
   queryFromForm,
+  type DateRange,
   type AuditItem,
   type AuditQuery,
   type AuditResponse,
@@ -165,9 +169,15 @@ export function AuditPage() {
     );
   }, []);
 
+  const [errors, setErrors] = useState<DateRange>({ from: '', to: '' });
+
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setQuery(queryFromForm(new FormData(e.currentTarget)));
+    const form = new FormData(e.currentTarget);
+    const range = dateRange(formText(form, 'from'), formText(form, 'to'));
+    setErrors(range);
+    if (range.fromError || range.toError) return;
+    setQuery(queryFromForm(form));
   }
 
   return (
@@ -178,8 +188,22 @@ export function AuditPage() {
         pour retrouver un export ou une restauration.
       </p>
       <form onSubmit={submit} className="filters">
-        <FormField label="Du" type="datetime-local" name="from" />
-        <FormField label="Au (exclu)" type="datetime-local" name="to" />
+        <FormField
+          label="Du"
+          type="text"
+          name="from"
+          maxLength={10}
+          help={DATE_HELP}
+          error={errors.fromError}
+        />
+        <FormField
+          label="Au"
+          type="text"
+          name="to"
+          maxLength={10}
+          help={DATE_HELP}
+          error={errors.toError}
+        />
         <FormField label="Acteur" type="text" name="actor" maxLength={256} />
         <div className="field">
           <label htmlFor="audit-action">Action</label>

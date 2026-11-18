@@ -7,7 +7,10 @@ import { DEMO_LOGINS } from './demo-server.mjs';
 export function launchOptions(env = process.env) {
   const executablePath = env['BACKUP365_CHROMIUM'];
   return {
-    args: ['--disable-dev-shm-usage'],
+    args: [
+      '--disable-dev-shm-usage',
+      ...(env['BACKUP365_LANG'] ? [`--lang=${env['BACKUP365_LANG']}`] : []),
+    ],
     ...(executablePath ? { executablePath } : {}),
   };
 }

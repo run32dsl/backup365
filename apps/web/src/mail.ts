@@ -1,5 +1,5 @@
 import type { IndexedMail } from '@backup365/core';
-import { toUtcIso } from './audit.js';
+import { dateRange, formText } from './audit.js';
 
 export interface SearchQuery {
   q?: string;
@@ -46,17 +46,15 @@ export async function searchMails(
 
 /** Requête issue du formulaire : première page, dates locales converties en UTC. */
 export function searchQueryFromForm(form: FormData): SearchQuery {
-  const text = (name: string): string => {
-    const value = form.get(name);
-    return typeof value === 'string' ? value.trim() : '';
-  };
+  const text = (name: string): string => formText(form, name);
+  const range = dateRange(text('after'), text('before'));
   return {
     limit: SEARCH_PAGE_SIZE,
     offset: 0,
     q: text('q'),
     mailbox: text('mailbox'),
-    after: toUtcIso(text('after')),
-    before: toUtcIso(text('before')),
+    after: range.from,
+    before: range.to,
   };
 }
 

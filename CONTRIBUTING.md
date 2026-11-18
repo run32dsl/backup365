@@ -46,7 +46,8 @@ présente ; utiliser un `BACKUP365_DATA_DIR` jetable.
 
 - `pnpm run captures` construit, lance le mode démo sur un port libre et écrit
   `captures/<écran>-1280.png` et `-390.png` (dossier ignoré par git). Regarder les images avant
-  d'ouvrir la PR.
+  d'ouvrir la PR. `BACKUP365_LANG=en-US pnpm run captures` les prend avec un navigateur en
+  anglais (`--lang=en-US`) : le rendu doit rester identique.
 - **Ajouter un écran** : une entrée dans `e2e/screens.mjs` (`name`, `hash`, `role`, `prepare`
   éventuel pour les gestes préalables).
 - `pnpm run test:e2e` joue les tests Playwright (`e2e/*.spec.ts`) en mode démo. Installer le
