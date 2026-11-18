@@ -465,24 +465,40 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await run.getByLabel('Motif').selectOption({ label: 'Après un incident' });
   await submit.click();
 
-  // Le message, la consigne et l'identifiant de requête, au-dessus des boutons.
+  // Console non reliée : avertissement sans identifiant, au-dessus du seul bouton « Fermer ».
   const alert = run.getByRole('alert').filter({ hasText: 'Sauvegarde indisponible' });
   await expect(alert).toBeVisible();
   await expect(run.getByRole('link', { name: 'Configurer la connexion' })).toHaveCount(0);
-  await expect(
-    alert.getByText('Identifiant de requête : 3f2b8c1e-5a7d-4e0b-9c64-1d2a7b9e4f10'),
-  ).toBeVisible();
+  await expect(run.getByText('Identifiant de requête')).toHaveCount(0);
+  const close = run.locator('button.btn-primary', { hasText: 'Fermer' });
+  await expect(close).toBeVisible();
+  await expect(submit).toHaveCount(0);
+  await expect(run.getByRole('button', { name: 'Annuler' })).toHaveCount(0);
   const alertBox = (await alert.boundingBox())!;
-  const submitBox = (await submit.boundingBox())!;
-  expect(alertBox.y + alertBox.height).toBeLessThanOrEqual(submitBox.y);
-  // Le dialogue reste ouvert, le bouton redevient actif.
-  await expect(submit).toBeEnabled();
+  const closeBox = (await close.boundingBox())!;
+  expect(alertBox.y + alertBox.height).toBeLessThanOrEqual(closeBox.y);
+  await close.click();
+  await expect(run).toHaveCount(0);
 
-  // Une nouvelle tentative sans motif complet remplace l'échec par le rappel du motif.
+  // Autre échec (erreur serveur) : les boutons restent, un nouvel essai incomplet
+  // remplace l’échec par le rappel du motif.
+  await page.route('**/api/plans/*/run', (route) =>
+    route.fulfill({
+      status: 500,
+      headers: { 'x-request-id': '3f2b8c1e-5a7d-4e0b-9c64-1d2a7b9e4f10' },
+      json: { error: 'internal_error' },
+    }),
+  );
+  await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
+  await run.getByLabel('Motif').selectOption({ label: 'Après un incident' });
+  await submit.click();
+  await expect(run.getByRole('alert').filter({ hasText: 'Erreur du serveur' })).toBeVisible();
+  await expect(run.getByText('Identifiant de requête')).toHaveCount(0);
+  await expect(submit).toBeEnabled();
   await run.getByLabel('Motif').selectOption({ label: 'Autre (préciser)' });
   await submit.click();
   await expect(run.getByText('Indiquez un motif.')).toBeVisible();
-  await expect(run.getByText('Sauvegarde indisponible')).toHaveCount(0);
+  await expect(run.getByText('Erreur du serveur')).toHaveCount(0);
   await run.getByRole('button', { name: 'Annuler' }).click();
 
   // Suppression refusée : même alerte, le plan reste dans la liste.
@@ -500,7 +516,7 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await del.getByRole('button', { name: 'Supprimer le plan' }).click();
   const refused = del.getByRole('alert').filter({ hasText: 'Journal d’audit indisponible' });
   await expect(refused).toBeVisible();
-  await expect(refused.getByText('Identifiant de requête : req-3c4d')).toBeVisible();
+  await expect(del.getByText('Identifiant de requête')).toHaveCount(0);
   await expect(refused.getByRole('link')).toHaveCount(0);
   await del.getByRole('button', { name: 'Annuler' }).click();
   await expect(page.getByRole('cell', { name: 'Messagerie Direction', exact: true })).toBeVisible();
