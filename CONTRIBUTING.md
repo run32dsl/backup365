@@ -65,7 +65,8 @@ développement :
   sur `develop` pour la semaine écoulée, et la plus longue durée de `captures` relevée dans les
   fichiers `verifs` de la semaine ;
 - seuils d'alerte, tous deux sous le timeout de 15 min : 10 min pour le job `ci`, 5 min pour
-  `captures` (durée relevée sur l'hôte). Au-delà, le Product Owner ouvre une issue. Si la tendance inquiète, la CI publiera elle-même la durée dans le résumé du run.
+  `captures` (durée relevée sur l'hôte). Au-delà, le Product Owner ouvre une
+  issue. Si la tendance inquiète, la CI publiera elle-même la durée dans le résumé du run.
 
 ## Version affichée
 
