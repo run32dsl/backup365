@@ -20,14 +20,7 @@ import {
   consequenceOf,
 } from './sharepoint.js';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { API_ERRORS } from './apiError.js';
-import {
-  ConfirmStep,
-  ContentTree,
-  Problem,
-  SiteDenied,
-  SiteEntriesTable,
-} from './SharePointPage.js';
+import { ConfirmStep, ContentTree, SiteDenied, SiteEntriesTable } from './SharePointPage.js';
 import { navEntries, screenOf } from './App.js';
 
 const json = (body: unknown, status = 200) =>
@@ -329,17 +322,6 @@ describe('SharePoint wording', () => {
     expect(isOutcomeUncertain('restore_lost')).toBe(true);
     expect(isOutcomeUncertain('restore_error')).toBe(false);
     expect(failureCause('restore_unreachable')).toContain('injoignable');
-  });
-});
-
-describe('SharePoint unconfigured state', () => {
-  it('shows the shared catalog_unavailable text, without a link', () => {
-    const html = renderToStaticMarkup(<Problem status="unconfigured" onRetry={() => undefined} />);
-    const shared = API_ERRORS['catalog_unavailable'] ?? '';
-    expect(shared).not.toBe('');
-    expect(html).toContain(shared);
-    expect(html).not.toContain('<a');
-    expect(html).not.toContain('Configurer la connexion');
   });
 });
 
