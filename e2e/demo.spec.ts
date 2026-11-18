@@ -523,6 +523,12 @@ test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
   await expect(page.getByText('Action réservée aux administrateurs.')).toBeVisible();
 });
 
+// Le nom de l'écran sert de titre au test du bandeau : deux écrans de même nom se confondraient.
+test('chaque écran de la liste des captures a un nom distinct', () => {
+  const names = SCREENS.map((screen) => screen.name);
+  expect(names.filter((name, index) => names.indexOf(name) !== index)).toEqual([]);
+});
+
 // Un test par écran : un échec désigne l'écran fautif, et chacun reste sous le délai par défaut.
 for (const screen of SCREENS) {
   test(`le bandeau du mode démo est présent sur l’écran « ${screen.name} »`, async ({
