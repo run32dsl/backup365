@@ -13,7 +13,7 @@ import { parseOneDriveHash } from './onedrive.js';
 import { SharePointPage } from './SharePointPage.js';
 import { parseSharePointHash } from './sharepoint.js';
 import { SearchPage } from './SearchPage.js';
-import { parseMailHash } from './mail.js';
+import { parseMailHash, parseSearchHash } from './mail.js';
 import { PlansPage } from './PlansPage.js';
 import { parsePlansHash } from './plans.js';
 import { COMPONENTS_HASH } from './routes.js';
@@ -59,7 +59,7 @@ export function screenOf(
   if (parseOneDriveHash(hash)) return 'onedrive';
   if (parseSharePointHash(hash)) return 'sharepoint';
   if (hash === '#/audit') return 'audit';
-  if (hash === '#/search') return 'search';
+  if (hash === '#/search' || parseSearchHash(hash) !== null) return 'search';
   if (hash === '#/comptes') return 'accounts';
   if (hash === '#/password') return 'password';
   if (hash === COMPONENTS_HASH) return 'components';
@@ -310,7 +310,9 @@ export function Console({
       {screen === 'components' && <ComponentsPage />}
       {screen === 'unavailable' && <UnavailableView />}
       {screen === 'audit' && <AuditPage />}
-      {screen === 'search' && <SearchPage />}
+      {screen === 'search' && (
+        <SearchPage key={hash} mailbox={parseSearchHash(hash) ?? undefined} />
+      )}
       {screen === 'plans' && (
         <PlansPage route={parsePlansHash(hash) ?? { page: 'list' }} admin={admin} />
       )}

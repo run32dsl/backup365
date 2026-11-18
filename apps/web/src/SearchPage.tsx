@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   mailHref,
+  SEARCH_PAGE_SIZE,
   searchMails,
   searchQueryFromForm,
   type SearchQuery,
@@ -107,8 +108,10 @@ export function SearchView({
 }
 
 /** Écran de recherche : champ libre, boîte, plage de dates, résultats paginés. */
-export function SearchPage() {
-  const [query, setQuery] = useState<SearchQuery | null>(null);
+export function SearchPage({ mailbox }: { mailbox?: string }) {
+  const [query, setQuery] = useState<SearchQuery | null>(
+    mailbox ? { limit: SEARCH_PAGE_SIZE, offset: 0, mailbox } : null,
+  );
   const [state, setState] = useState<SearchState | null>(null);
   const [restoreConfigured, setRestoreConfigured] = useState<boolean | undefined>();
   useEffect(() => {
@@ -143,7 +146,13 @@ export function SearchPage() {
       <h1>Rechercher et restaurer</h1>
       <form onSubmit={submit} className="filters">
         <FormField label="Recherche" type="search" name="q" maxLength={256} />
-        <FormField label="Boîte" type="text" name="mailbox" maxLength={256} />
+        <FormField
+          label="Boîte"
+          type="text"
+          name="mailbox"
+          maxLength={256}
+          defaultValue={mailbox}
+        />
         <FormField label="Du" type="datetime-local" name="after" />
         <FormField label="Au (exclu)" type="datetime-local" name="before" />
         <Button type="submit">Rechercher</Button>

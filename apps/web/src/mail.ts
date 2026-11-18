@@ -60,6 +60,22 @@ export function searchQueryFromForm(form: FormData): SearchQuery {
   };
 }
 
+/** Ancre de la recherche filtrée sur une boîte. */
+export function searchHref(mailbox: string): string {
+  return `#/search?mailbox=${encodeURIComponent(mailbox)}`;
+}
+
+/** Boîte désignée par une ancre `#/search?mailbox=<boîte>` ; `null` sinon. */
+export function parseSearchHash(hash: string): string | null {
+  const match = /^#\/search\?mailbox=([^&]+)$/.exec(hash);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1] as string);
+  } catch {
+    return null;
+  }
+}
+
 /** Adresse de la fiche d'un mail (ancre de l'interface). */
 export function mailHref(mail: Pick<IndexedMail, 'mailboxId' | 'messageId'>): string {
   return `#/mail/${encodeURIComponent(mail.mailboxId)}/${encodeURIComponent(mail.messageId)}`;

@@ -585,6 +585,10 @@ select[aria-disabled='true'] {
   .data-table td {
     display: block;
   }
+  /* La légende occupe toute la largeur de la carte, comme un titre. */
+  .data-table caption {
+    display: block;
+  }
   .data-table thead {
     position: absolute;
     width: 1px;

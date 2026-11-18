@@ -10,6 +10,8 @@ import {
   isReasonValid,
   mailHref,
   parseMailHash,
+  parseSearchHash,
+  searchHref,
   searchMails,
   searchQueryFromForm,
 } from './mail.js';
@@ -207,6 +209,10 @@ describe('mail helpers', () => {
 
   it('routes the new screens', () => {
     expect(screenOf('#/search')).toBe('search');
+    expect(screenOf(searchHref('a@b.fr'))).toBe('search');
+    expect(parseSearchHash(searchHref('a b/é'))).toBe('a b/é');
+    expect(parseSearchHash('#/search')).toBeNull();
+    expect(parseSearchHash('#/search?mailbox=%E0')).toBeNull();
     expect(screenOf(mailHref(mail))).toBe('mail');
     expect(screenOf('#/mail/x')).toBe('home');
   });
