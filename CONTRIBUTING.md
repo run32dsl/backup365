@@ -53,6 +53,19 @@ présente ; utiliser un `BACKUP365_DATA_DIR` jetable.
   navigateur une fois avec `pnpm exec playwright install chromium`, ou pointer
   `BACKUP365_CHROMIUM` vers un exécutable Chromium existant.
 
+## Durées de la CI
+
+Le job `ci` porte `timeout-minutes: 15` (`.github/workflows/ci.yml`) ; `pnpm run captures` en est
+une étape, et sa durée croît avec le nombre d'écrans. Le suivi se fait sans réseau côté
+développement :
+
+- à chaque revue, l'hôte inscrit la durée de `pnpm run captures` dans `.review/verifs-<PR>.txt` ;
+- le bilan hebdomadaire du Product Owner reprend la durée médiane et la durée maximale du job `ci`
+  sur `develop` pour la semaine écoulée, et la plus longue durée de `captures` relevée dans les
+  fichiers `verifs` de la semaine ;
+- seuils d'alerte (le premier reste sous le timeout) : 10 min pour le job `ci`, 5 min pour `captures`. Au-delà, le Product Owner
+  ouvre une issue. Si la tendance inquiète, la CI publiera elle-même la durée dans le résumé du run.
+
 ## Version affichée
 
 Le pied de page de la console affiche la version du serveur (`/api/health`).
