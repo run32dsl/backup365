@@ -209,6 +209,14 @@ export const SCREENS = [
     },
   },
   {
+    name: 'recherche-boite',
+    hash: '#/search?mailbox=paul.moreau%40exemple.fr',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+    },
+  },
+  {
     name: 'recherche',
     hash: '#/search',
     role: 'admin',
