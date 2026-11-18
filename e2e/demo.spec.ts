@@ -529,6 +529,8 @@ test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
 });
 
 test('le bandeau du mode démo est présent sur chaque écran', async ({ browser, baseURL }) => {
+  // Le test parcourt tous les écrans de `screens.mjs` : sa durée croît avec la liste.
+  test.setTimeout(120_000);
   for (const screen of SCREENS) {
     const context = await browser.newContext({ baseURL: baseURL! });
     if (screen.role) await signInAs(context, baseURL!, screen.role);
