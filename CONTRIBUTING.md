@@ -60,11 +60,12 @@ une étape, et sa durée croît avec le nombre d'écrans. Le suivi se fait sans 
 développement :
 
 - à chaque revue, l'hôte inscrit la durée de `pnpm run captures` dans `.review/verifs-<PR>.txt` ;
+  c'est la durée mesurée sur l'hôte, distincte de celle de l'étape `captures` du job `ci` ;
 - le bilan hebdomadaire du Product Owner reprend la durée médiane et la durée maximale du job `ci`
   sur `develop` pour la semaine écoulée, et la plus longue durée de `captures` relevée dans les
   fichiers `verifs` de la semaine ;
-- seuils d'alerte (le premier reste sous le timeout) : 10 min pour le job `ci`, 5 min pour `captures`. Au-delà, le Product Owner
-  ouvre une issue. Si la tendance inquiète, la CI publiera elle-même la durée dans le résumé du run.
+- seuils d'alerte, tous deux sous le timeout de 15 min : 10 min pour le job `ci`, 5 min pour
+  `captures` (durée relevée sur l'hôte). Au-delà, le Product Owner ouvre une issue. Si la tendance inquiète, la CI publiera elle-même la durée dans le résumé du run.
 
 ## Version affichée
 
