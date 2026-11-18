@@ -1,7 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
-import { ExportForm, MailPage, MailView, mailTitle } from './MailPage.js';
+import { ExportForm, MailPage, MailView, RestoreSectionView, mailTitle } from './MailPage.js';
 import { AUDIT_REMINDER, REASON } from './RestoreJourney.js';
 import { SearchPage, SearchView } from './SearchPage.js';
 import {
@@ -191,6 +191,18 @@ describe('mail helpers', () => {
     expect(parseMailHash(mailHref(mail))).toEqual({ mailboxId: 'mbx 1', messageId: 'm/1=' });
     expect(parseMailHash('#/mail/a')).toBeNull();
     expect(parseMailHash('#/mail/%E0%A4%A/b')).toBeNull();
+  });
+
+  it('shows a warning alert and no Restaurer button when restore is not configured', () => {
+    const off = renderToString(<RestoreSectionView mail={mail} configured={false} last={null} />);
+    expect(off).toMatch(/class="alert alert-warning" role="alert"/);
+    expect(off).toContain('Restauration indisponible');
+    expect(off).toContain('Prévenez un administrateur.</span>');
+    expect(off).not.toContain('<button');
+    expect(off).not.toContain('Restaurer Facture');
+    const on = renderToString(<RestoreSectionView mail={mail} configured last={null} />);
+    expect(on).toContain('Restaurer Facture 1');
+    expect(on).not.toContain('role="alert"');
   });
 
   it('routes the new screens', () => {

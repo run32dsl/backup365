@@ -128,8 +128,8 @@ Ensuite, toute l'API sauf `/api/health` exige une session. Deux rôles : **admin
 (comptes et plans de protection) et **opérateur** (consultation, export, restauration avec
 motif ; il lit la liste des plans sans la modifier). Les deux peuvent restaurer un mail dans sa
 boîte d'origine (« Restaurer » depuis la recherche ou la fiche, motif obligatoire, demande et
-résultat inscrits au journal d'audit). Cette restauration passe par Graph : tant qu'aucun tenant
-n'est relié avec des identifiants en écriture (ADR 0012), le bouton est désactivé. L'écran
+résultat inscrits au journal d'audit). Cette restauration passe par Graph : tant qu'aucun accès
+en écriture n'est configuré (ADR 0012), la fiche d'un mail affiche un avertissement à la place du bouton. L'écran
 « OneDrive » (`#/onedrive/<compte>/<chemin>`) fait de même pour un fichier, un dossier ou une
 version antérieure : on parcourt la sauvegarde (lecture seule, journalisée), puis la
 restauration se fait par défaut en copie `nom (restauré jj-mm-aaaa).ext`, le remplacement d'un

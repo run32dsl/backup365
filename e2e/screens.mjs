@@ -392,7 +392,7 @@ export const SCREENS = [
       });
       await dialog.getByLabel('Motif du lancement (obligatoire)').selectOption({ index: 1 });
       await dialog.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
-      await dialog.getByText('Sauvegarde non configurée').waitFor();
+      await dialog.getByText('Sauvegarde indisponible').waitFor();
     },
   },
   {
@@ -454,7 +454,7 @@ export const SCREENS = [
         route.fulfill({ status: 200, json: { configured: false } }),
       );
       await page.reload();
-      await page.getByText('Restauration non configurée').waitFor();
+      await page.getByText('Restauration indisponible').waitFor();
     },
   },
   {

@@ -4,7 +4,7 @@
  */
 export const API_ERRORS: Record<string, string> = {
   backup_not_configured:
-    'Sauvegarde non configurée. Les identifiants Microsoft 365 se renseignent sur le serveur (fichiers de secrets). Voir la documentation d’installation, section « Exécution des plans ».',
+    'Sauvegarde indisponible : la console n’est pas encore reliée à Microsoft 365. Prévenez un administrateur.',
   audit_unavailable:
     'Journal d’audit indisponible : l’action est refusée tant qu’elle ne peut pas être tracée. Réessayez plus tard ou prévenez un administrateur.',
   search_unavailable:
@@ -20,9 +20,9 @@ export const API_ERRORS: Record<string, string> = {
   scheduler_unavailable:
     'Planificateur indisponible : aucune sauvegarde ne peut être lancée. Prévenez un administrateur.',
   items_unavailable:
-    'Impossible de lister les éléments à sauvegarder : le tenant ne répond pas. Réessayez plus tard.',
+    'Impossible de lister les éléments à sauvegarder : Microsoft 365 ne répond pas. Réessayez plus tard.',
   restore_unavailable:
-    'Restauration non configurée : aucun tenant n’est relié avec des droits en écriture. Prévenez un administrateur.',
+    'Restauration indisponible : la console n’a pas encore le droit d’écrire dans Microsoft 365. Prévenez un administrateur.',
   index_unavailable: 'Index indisponible. Réessayez dans quelques minutes.',
   internal_error: 'Erreur du serveur. Réessayez ; si elle persiste, prévenez un administrateur.',
 };

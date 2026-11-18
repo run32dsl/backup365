@@ -1146,6 +1146,9 @@ a.btn-secondary {
   color: var(--text);
   overflow-wrap: anywhere;
 }
+.restore-unavailable {
+  margin-top: var(--space-3);
+}
 .mail-section {
   margin-top: var(--space-4);
   padding-top: var(--space-4);

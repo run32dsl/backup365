@@ -109,7 +109,7 @@ function restoreUrl(mailboxId: string, messageId: string): string {
   return `/api/mails/${encodeURIComponent(mailboxId)}/${encodeURIComponent(messageId)}/restore`;
 }
 
-/** La restauration est-elle configurée (un tenant relié) ? En cas d'erreur : oui, le serveur tranchera. */
+/** La restauration est-elle configurée (droit d'écriture accordé) ? En cas d'erreur : oui, le serveur tranchera. */
 export async function fetchRestoreConfigured(fetchFn: typeof fetch = fetch): Promise<boolean> {
   try {
     const res = await fetchFn('/api/restore');

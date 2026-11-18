@@ -105,7 +105,7 @@ export const MESSAGES = {
   emptyAdmin: 'Vos données Microsoft 365 ne sont pas protégées.',
   emptyOperator: 'Aucun plan n’a encore été créé par un administrateur.',
   notConfigured: 'Sauvegarde non configurée',
-  notConfiguredHelp: 'Connectez d’abord votre tenant Microsoft 365 pour créer un plan.',
+  notConfiguredHelp: 'Connectez d’abord Microsoft 365 pour créer un plan.',
   notConfiguredOperator: 'Demandez à un administrateur de la configurer',
   name: 'Indiquez un nom pour le plan.',
   dataTypes: 'Choisissez au moins un type de données.',
