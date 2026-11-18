@@ -569,7 +569,7 @@ export function ConfirmStep({
 }
 
 /** Étape 3 : suivi. La restauration continue si l'on quitte la page. */
-function TrackStep({
+export function TrackStep({
   account,
   choice,
   job,
@@ -618,14 +618,14 @@ function TrackStep({
 
   const target = job.copyName ?? choice.entry.name;
   const where = folderLabel(job.path);
+  const versionAt = choice.version?.at ?? choice.entry.versionAt;
   const items = (
     <ResultList
       rows={[
-        [
-          job.status === 'succeeded' ? 'Élément restauré' : 'Élément',
-          `${choice.entry.name} → ${target}`,
-        ],
-        ...(job.status === 'succeeded' ? [['Emplacement', where] as [string, string]] : []),
+        ['Compte', account],
+        ['Élément restauré', `${choice.entry.name} → ${target}`],
+        ...(versionAt ? [['Version du', dateTimeOf(versionAt)] as [string, string]] : []),
+        ['Emplacement', where],
       ]}
     />
   );
