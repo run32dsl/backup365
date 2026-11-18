@@ -1,6 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { ConfirmStep, EntriesTable } from './OneDrivePage.js';
+import { ConfirmStep, EntriesTable, TrackStep } from './OneDrivePage.js';
 import {
   ONEDRIVE_MESSAGES,
   breadcrumbOf,
@@ -245,5 +245,80 @@ describe('OneDrive replace confirmation', () => {
     expect(out.indexOf('Mode')).toBeLessThan(out.indexOf('<h2>Récapitulatif</h2>'));
     expect(out.indexOf('<h2>Récapitulatif</h2>')).toBeLessThan(out.indexOf('<dt>Compte</dt>'));
     expect(out).toContain('Aucun fichier existant ne sera modifié.');
+  });
+});
+
+describe('OneDrive result list', () => {
+  const entry = {
+    name: 'budget.xlsx',
+    kind: 'file' as const,
+    path: '/Documents/Budget/budget.xlsx',
+    versionAt: '2026-11-10T18:30:00.000Z',
+  };
+  const job = {
+    id: 'j1',
+    ownerId: 'o1',
+    path: entry.path,
+    kind: 'file' as const,
+    mode: 'copy' as const,
+    versionAt: entry.versionAt,
+    startedAt: '2026-11-14T10:00:00.000Z',
+    finishedAt: null,
+    durationMs: null,
+    copyName: 'budget (restauré).xlsx',
+    error: null,
+  };
+  it.each([
+    ['running', null],
+    ['succeeded', null],
+    ['failed', 'restore_error'],
+  ] as const)('recalls account, version and location when %s', (status, error) => {
+    const out = renderToString(
+      <TrackStep
+        account="a@exemple.fr"
+        choice={{ entry: entry as never, snapshotId: 's1' }}
+        job={{ ...job, status, error }}
+        onJob={() => undefined}
+        onAgain={() => undefined}
+        onRetry={() => undefined}
+      />,
+    );
+    expect(out).toContain('<dt>Compte</dt><dd>a@exemple.fr</dd>');
+    expect(out).toContain('<dt>Version du</dt><dd>10/11/2026 18:30</dd>');
+    const at = ['Compte', 'Élément restauré', 'Version du', 'Emplacement'].map((l) =>
+      out.indexOf(`<dt>${l}</dt>`),
+    );
+    expect(at.every((i, n) => i >= 0 && (n === 0 || i > at[n - 1]!))).toBe(true);
+    expect(out).toContain('<dt>Élément restauré</dt><dd>budget.xlsx → budget (restauré).xlsx</dd>');
+    expect(out).toContain('<dt>Emplacement</dt><dd>Documents &gt; Budget</dd>');
+  });
+
+  function render(choice: object) {
+    return renderToString(
+      <TrackStep
+        account="a@exemple.fr"
+        choice={choice as never}
+        job={{ ...job, status: 'succeeded' }}
+        onJob={() => undefined}
+        onAgain={() => undefined}
+        onRetry={() => undefined}
+      />,
+    );
+  }
+
+  it('shows the date of the chosen version rather than the entry date', () => {
+    const out = render({
+      entry,
+      snapshotId: 's1',
+      version: { versionId: 'v1', at: '2026-10-01T08:00:00.000Z' },
+    });
+    expect(out).toContain('<dt>Version du</dt><dd>01/10/2026 08:00</dd>');
+  });
+
+  it('omits the version row when no version date is known', () => {
+    const out = render({ entry: { ...entry, versionAt: null }, snapshotId: 's1' });
+    expect(out).not.toContain('<dt>Version du</dt>');
+    expect(out).toContain('<dt>Compte</dt>');
+    expect(out).toContain('<dt>Emplacement</dt>');
   });
 });
