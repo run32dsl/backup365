@@ -8,7 +8,14 @@ import {
   type AuditQuery,
   type AuditResponse,
 } from './audit.js';
-import { actorLabel, auditDate, detailLabel, reasonLabel, targetView } from './auditLabels.js';
+import {
+  NO_TARGET,
+  actorLabel,
+  auditDate,
+  detailLabel,
+  reasonLabel,
+  targetView,
+} from './auditLabels.js';
 import { fetchPlans } from './plans.js';
 import {
   Address,
@@ -76,6 +83,8 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
       className: 'keep-words address',
       cell: (e) => {
         const { name, secondary } = targetView(e, planNames);
+        // Sans cible : cellule vide, comme Éléments et Motif (la carte l'omet).
+        if (name === NO_TARGET) return null;
         return (
           <span>
             <Address value={name} />
@@ -121,7 +130,6 @@ export function AuditView({
         caption="Entrées du journal d’audit"
         hideCaption
         columns={columns(planNames)}
-        compact
         rows={state.items}
         rowKey={(e) => e.seq}
       />

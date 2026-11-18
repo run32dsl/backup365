@@ -626,27 +626,14 @@ select[aria-disabled='true'] {
   .backups .ok-toggle {
     display: inline-flex;
   }
-  /* Carte compacte : une ligne par champ (étiquette à gauche), serrée ; cellules vides omises. */
-  .data-table-compact tr {
-    margin-bottom: var(--space-2);
-    padding: 2px 0;
-  }
-  .data-table-compact td {
-    padding-block: 0;
-    line-height: 1.3;
-    font-size: 0.9375rem;
-  }
-  .data-table-compact td.card-hidden,
-  .data-table-compact td:empty {
+  /* Une cellule sans valeur n'est pas affichée dans la carte, ni les colonnes réservées au tableau. */
+  .data-table td.card-hidden,
+  .data-table td:empty {
     display: none;
-  }
-  .data-table-compact .cell-secondary {
-    display: inline;
-    margin-left: var(--space-1);
   }
 }
 
-/* Précision en texte secondaire sous une valeur de tableau (en carte : à sa suite). */
+/* Précision en texte secondaire sous une valeur de tableau (sur sa propre ligne, sous la valeur). */
 .cell-secondary {
   display: block;
   color: var(--muted);

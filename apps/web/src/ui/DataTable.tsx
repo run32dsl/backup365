@@ -21,7 +21,6 @@ export function DataTable<T>({
   rowKey,
   empty,
   loading = false,
-  compact = false,
   rowClassName,
 }: {
   caption: string;
@@ -33,8 +32,6 @@ export function DataTable<T>({
   /** Phrase de l'état vide, avec au plus une action. */
   empty?: { message: string; action?: ReactNode };
   loading?: boolean;
-  /** Sous 900 px : carte compacte (étiquettes conservées, lignes serrées), cellules vides omises. */
-  compact?: boolean;
   /** Classe CSS ajoutée à une ligne. */
   rowClassName?: (row: T) => string | undefined;
 }) {
@@ -42,7 +39,7 @@ export function DataTable<T>({
   if (rows.length === 0 && empty)
     return <EmptyState action={empty.action}>{empty.message}</EmptyState>;
   return (
-    <table className={compact ? 'data-table data-table-compact' : 'data-table'} role="table">
+    <table className="data-table" role="table">
       <caption className={hideCaption ? 'sr-only' : 'table-caption'}>{caption}</caption>
       <thead role="rowgroup">
         <tr role="row">

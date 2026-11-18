@@ -27,11 +27,30 @@ describe('AuditView', () => {
     expect(html).toContain('b'.repeat(12));
   });
 
-  it('keeps the compact table layout', () => {
+  it('uses the regular card layout of DataTable', () => {
     const html = renderToString(
       <AuditView state={{ total: 1, limit: 50, offset: 0, items: [entry] }} />,
     );
-    expect(html).toContain('data-table-compact');
+    expect(html).toContain('class="data-table"');
+    expect(html).not.toContain('data-table-compact');
+  });
+
+  it('leaves the target, count and reason cells empty when there is no value', () => {
+    const base = { ...entry, target: undefined };
+    const html = renderToString(
+      <AuditView
+        state={{
+          total: 1,
+          limit: 50,
+          offset: 0,
+          items: [{ ...base, action: 'auth.login' as const, resource: 'session' }],
+        }}
+      />,
+    );
+    for (const label of ['Cible', 'Éléments', 'Motif']) {
+      expect(html).toMatch(new RegExp(`<td[^>]*data-label="${label}"[^>]*></td>`));
+    }
+    expect(html).not.toContain('>—<');
   });
 
   it('gives the reason, target and count columns their layout classes', () => {
