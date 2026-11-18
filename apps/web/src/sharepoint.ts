@@ -208,40 +208,38 @@ export function summaryCountOf(s: SiteScopeSummary): string {
   return `${plural(s.items, 'élément', 'éléments').replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}, ${size}`;
 }
 
-/** `à 02:00` de la date ISO (UTC). */
-function timeOf(iso: string): string {
-  return dateTimeOf(iso).slice(11);
-}
-
-/** Phrase de récapitulatif (élément, dossier, bibliothèque), en langage clair. */
-export function summaryOf(input: {
+/** Lignes du récapitulatif de confirmation, dans l'ordre des écrans de résultat. */
+export function confirmRowsOf(input: {
   scope: SiteScope;
   siteName: string;
   path: string;
   pointAt: string;
   summary: SiteScopeSummary | null;
-}): string {
-  const label = pathLabel(input.path);
-  const what =
-    input.scope === 'library'
-      ? `la bibliothèque « ${label} »`
-      : input.scope === 'folder'
-        ? `le dossier « ${label} »`
-        : input.scope === 'item'
-          ? `l’élément « ${label} »`
-          : 'le site entier';
-  const count = input.summary ? ` ${summaryCountOf(input.summary)}.` : '';
-  return `Vous allez restaurer ${what} du site « ${input.siteName} », tel qu’il était le ${dayOf(input.pointAt)} à ${timeOf(input.pointAt)}, à son emplacement d’origine. Les fichiers existants ne seront pas remplacés.${count}`;
+  reason: string;
+}): [string, string][] {
+  const rows: [string, string][] = [
+    ['Site', input.siteName],
+    ['Contenu', restoredContentLabel(input.scope, input.path)],
+    ['État au', dateTimeOf(input.pointAt)],
+  ];
+  if (input.summary) {
+    // Site entier : seul le nombre d'éléments est annoncé.
+    rows.push([
+      'Volume',
+      input.scope === 'site'
+        ? plural(input.summary.items, 'élément', 'éléments')
+        : summaryCountOf(input.summary),
+    ]);
+  }
+  rows.push(['Motif', input.reason]);
+  return rows;
 }
 
-/** Phrase de récapitulatif du site entier ; le nombre d'éléments suit quand il est connu. */
-export function wholeSiteSummaryOf(input: {
-  siteName: string;
-  pointAt: string;
-  items: number | null;
-}): string {
-  const count = input.items === null ? '' : ` : ${plural(input.items, 'élément', 'éléments')}`;
-  return `Vous allez restaurer le site « ${input.siteName} » tel qu’il était le ${dayOf(input.pointAt)} à ${timeOf(input.pointAt)}${count}. Les contenus manquants seront recréés.`;
+/** Conséquence de la restauration, en une phrase sous le récapitulatif. */
+export function consequenceOf(scope: SiteScope): string {
+  return scope === 'site'
+    ? 'Les contenus manquants seront recréés.'
+    : 'Les fichiers existants ne seront pas remplacés.';
 }
 
 /** `3 min 12 s` : voir `formatDuration` de `restore.ts`. */

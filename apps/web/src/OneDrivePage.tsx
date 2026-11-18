@@ -22,7 +22,8 @@ import {
   sizeOf,
   startDriveRestore,
   restoreBlocked,
-  summaryOf,
+  confirmRowsOf,
+  consequenceOf,
   type DriveEntry,
   type DriveJob,
   type DriveMode,
@@ -492,7 +493,6 @@ export function ConfirmStep({
 
   return (
     <form onSubmit={submit} noValidate>
-      <p>Motif : {reason}</p>
       <ChoiceGroup<DriveMode>
         legend="Mode"
         name="mode"
@@ -512,16 +512,18 @@ export function ConfirmStep({
         }}
       />
       <h2>Récapitulatif</h2>
-      <p>
-        {summaryOf({
+      <ResultList
+        rows={confirmRowsOf({
+          account,
           name: entry.name,
-          kind: entry.kind,
           mode,
           versionAt,
           folderLabel: folderLabel(entry.path),
           copyName,
+          reason,
         })}
-      </p>
+      />
+      <p>{consequenceOf(mode)}</p>
       {mode === 'replace' && (
         <div className="field">
           <label className="choice">
