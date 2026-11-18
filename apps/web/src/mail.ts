@@ -60,6 +60,11 @@ export function searchQueryFromForm(form: FormData): SearchQuery {
   };
 }
 
+/** Requête lancée à l'ouverture de l'écran : première page de la boîte demandée, sinon aucune. */
+export function initialSearchQuery(mailbox?: string): SearchQuery | null {
+  return mailbox ? { limit: SEARCH_PAGE_SIZE, offset: 0, mailbox } : null;
+}
+
 /** Ancre de la recherche filtrée sur une boîte. */
 export function searchHref(mailbox: string): string {
   return `#/search?mailbox=${encodeURIComponent(mailbox)}`;

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   mailHref,
-  SEARCH_PAGE_SIZE,
+  initialSearchQuery,
   searchMails,
   searchQueryFromForm,
   type SearchQuery,
@@ -109,9 +109,7 @@ export function SearchView({
 
 /** Écran de recherche : champ libre, boîte, plage de dates, résultats paginés. */
 export function SearchPage({ mailbox }: { mailbox?: string }) {
-  const [query, setQuery] = useState<SearchQuery | null>(
-    mailbox ? { limit: SEARCH_PAGE_SIZE, offset: 0, mailbox } : null,
-  );
+  const [query, setQuery] = useState<SearchQuery | null>(initialSearchQuery(mailbox));
   const [state, setState] = useState<SearchState | null>(null);
   const [restoreConfigured, setRestoreConfigured] = useState<boolean | undefined>();
   useEffect(() => {

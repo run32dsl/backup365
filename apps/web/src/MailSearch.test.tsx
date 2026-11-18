@@ -7,6 +7,7 @@ import { SearchPage, SearchView } from './SearchPage.js';
 import {
   exportEml,
   fetchMail,
+  initialSearchQuery,
   isReasonValid,
   mailHref,
   parseMailHash,
@@ -232,6 +233,17 @@ describe('mail helpers', () => {
     expect(url).toContain('q=facture');
     expect(url).not.toContain('mailbox');
     expect(url).not.toContain('before');
+  });
+
+  it('prefills the mailbox field and starts the search from the anchor mailbox', async () => {
+    expect(renderToString(<SearchPage mailbox="a@b.fr" />)).toContain('value="a@b.fr"');
+    expect(renderToString(<SearchPage />)).not.toContain('value="a@b.fr"');
+    expect(initialSearchQuery()).toBeNull();
+    const query = initialSearchQuery('a@b.fr');
+    expect(query).toEqual({ limit: 25, offset: 0, mailbox: 'a@b.fr' });
+    const fetchFn = vi.fn<typeof fetch>(() => json({ total: 0, limit: 25, offset: 0, items: [] }));
+    await searchMails(query!, fetchFn);
+    expect(String(fetchFn.mock.calls[0]?.[0] ?? '')).toContain('mailbox=a%40b.fr');
   });
 
   it('requires a reason of at least three characters', () => {
