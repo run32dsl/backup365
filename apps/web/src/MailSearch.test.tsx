@@ -58,6 +58,10 @@ describe('SearchView', () => {
     );
     expect(withRestore).toContain('>Action<');
     expect(withRestore).not.toContain('>Boîte<');
+    const empty = { total: 0, limit: 25, offset: 0, items: [] };
+    expect(renderToString(<SearchView state={empty} mailbox="paul.moreau@exemple.fr" />)).toContain(
+      'Aucun résultat',
+    );
   });
 
   it('shows empty, loading and error states, and escapes content', () => {

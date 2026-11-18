@@ -567,14 +567,22 @@ select[aria-disabled='true'] {
     padding-inline-start: var(--space-3);
   }
 
-  /* Objet : une seule ligne, tronquée par « … » (le titre complet est dans l'infobulle). */
+  /*
+   * Objet : une seule ligne, tronquée par « … » (le titre complet est dans l'infobulle). C'est la
+   * colonne élastique du tableau : `max-width: 0` retire son texte du calcul des largeurs, elle
+   * prend la place que laissent les autres colonnes (au moins 8rem) et le tableau ne dépasse pas
+   * son conteneur quand la police ou les adresses sont plus larges.
+   */
+  .data-table .subject {
+    width: 100%;
+    min-width: 8rem;
+    max-width: 0;
+  }
   .data-table .subject a {
-    display: inline-block;
-    max-width: 20rem;
+    display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    vertical-align: bottom;
   }
 }
 

@@ -26,6 +26,12 @@ export type SearchState = SearchResponse | 'loading' | 'error';
 
 type Hit = SearchResponse['items'][number];
 
+const MAILBOX_COLUMN: Column<Hit> = {
+  header: 'Boîte',
+  className: 'keep-words address',
+  cell: (m) => <Address value={m.mailboxId} />,
+};
+
 const COLUMNS: Column<Hit>[] = [
   { header: 'Date (UTC)', cell: (m) => <span className="nowrap">{dateTimeOf(m.date)}</span> },
   {
@@ -45,11 +51,7 @@ const COLUMNS: Column<Hit>[] = [
       );
     },
   },
-  {
-    header: 'Boîte',
-    className: 'keep-words address',
-    cell: (m) => <Address value={m.mailboxId} />,
-  },
+  MAILBOX_COLUMN,
   { header: 'Dossier', className: 'nowrap', cell: (m) => folderLabel(m.folder) },
 ];
 
@@ -74,7 +76,7 @@ export function SearchView({
   if (state === 'loading') return <p role="status">Recherche en cours…</p>;
   if (state === 'error') return <Alert tone="error">Recherche indisponible</Alert>;
   if (state.items.length === 0) return <EmptyState>Aucun résultat.</EmptyState>;
-  const base = mailbox ? COLUMNS.filter((c) => c.header !== 'Boîte') : COLUMNS;
+  const base = mailbox ? COLUMNS.filter((c) => c !== MAILBOX_COLUMN) : COLUMNS;
   const columns: Column<Hit>[] =
     restoreConfigured === undefined
       ? base

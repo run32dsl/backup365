@@ -602,31 +602,54 @@ test('groupe d’options : légende, flèches du clavier, option désactivée', 
   await expect(site).not.toBeChecked();
 });
 
-test('recherche à 1280 px : pas de défilement horizontal, avec ou sans filtre de boîte', async ({
+test('recherche à 1280 px : le tableau tient dans son conteneur, avec ou sans filtre de boîte', async ({
   page,
   context,
   baseURL,
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await signInAs(context, baseURL!, 'admin');
-  const fits = () => page.evaluate(() => document.documentElement.scrollWidth <= 1280);
+  // Dépassement du tableau hors de la zone de contenu de `main`, et de la page hors de la fenêtre.
+  const overflow = () =>
+    page.evaluate(() => {
+      const main = document.querySelector('main')!;
+      const inner =
+        main.getBoundingClientRect().right - parseFloat(getComputedStyle(main).paddingRight);
+      const table = document.querySelector('table')!.getBoundingClientRect().right;
+      return {
+        table: Math.max(0, Math.round(table - inner)),
+        page: Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
+      };
+    });
+  // « Objet » est la colonne élastique : la longueur des objets ne change pas la largeur du tableau.
+  const longSubjects = () =>
+    page.evaluate(() => {
+      const links = document.querySelectorAll('td.subject a');
+      for (const a of links) a.textContent = 'objet '.repeat(60);
+      return links.length;
+    });
+  const fitted = { table: 0, page: 0 };
 
   await page.goto('/#/search?mailbox=paul.moreau%40exemple.fr');
   await page.getByRole('table').waitFor();
   await expect(page.getByRole('columnheader', { name: 'Boîte' })).toHaveCount(0);
   await expect(page.getByRole('status').filter({ hasText: 'dans la boîte' })).toBeVisible();
-  expect(await fits()).toBe(true);
+  expect(await overflow()).toEqual(fitted);
   const search = (await page.getByRole('button', { name: 'Rechercher' }).boundingBox())!;
   const restore = (await page
     .getByRole('button', { name: /^Restaurer / })
     .last()
     .boundingBox())!;
   expect(restore.x + restore.width).toBeLessThanOrEqual(search.x + search.width + 1);
+  expect(await longSubjects()).toBeGreaterThan(0);
+  expect(await overflow()).toEqual(fitted);
 
   await page.goto('/#/search');
   await page.getByLabel('Recherche').fill('devis');
   await page.getByRole('button', { name: 'Rechercher' }).click();
   await page.getByRole('table').waitFor();
   await expect(page.getByRole('columnheader', { name: 'Boîte' })).toHaveCount(1);
-  expect(await fits()).toBe(true);
+  expect(await overflow()).toEqual(fitted);
+  expect(await longSubjects()).toBeGreaterThan(0);
+  expect(await overflow()).toEqual(fitted);
 });
