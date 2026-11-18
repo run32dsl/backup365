@@ -332,7 +332,7 @@ export function Console({
       {screen === 'onedrive' && (
         <OneDrivePage route={parseOneDriveHash(hash) ?? { account: '', path: '/' }} />
       )}
-      {screen === 'home' && <Home />}
+      {screen === 'home' && <Home admin={admin} />}
     </ConsoleView>
   );
 }

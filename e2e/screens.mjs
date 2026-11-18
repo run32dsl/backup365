@@ -185,6 +185,21 @@ export const SCREENS = [
   { name: 'tableau-de-bord', hash: '#/', role: 'admin' },
   { name: 'tableau-de-bord-sombre', hash: '#/', role: 'admin', scheme: 'dark' },
   {
+    // Démo exposée sans identifiants Microsoft 365 : le bloc montre les étapes côté serveur.
+    name: 'tableau-de-bord-non-configure',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/configuration', (route) =>
+        route.fulfill({
+          json: { microsoft: { connected: false }, workloads: ['mail', 'onedrive'] },
+        }),
+      );
+      await page.reload();
+      await page.getByText('Non configurée').waitFor();
+    },
+  },
+  {
     name: 'mot-de-passe',
     hash: '#/password',
     role: 'admin',
