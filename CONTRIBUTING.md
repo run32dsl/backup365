@@ -65,7 +65,7 @@ pnpm run build         # compile core, server et web
 pnpm run typecheck     # TypeScript strict, sans émission
 pnpm run lint          # ESLint
 pnpm run format:check  # Prettier (`pnpm run format` pour corriger)
-pnpm run test          # Vitest, sans accès réseau
+pnpm run test          # Vitest, sans accès réseau, puis test du contrôle DCO (bash et git)
 ```
 
 Ces cinq commandes doivent passer avant toute PR ; le job `ci` de GitHub Actions

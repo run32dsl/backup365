@@ -23,10 +23,12 @@ jobs:
         run: bash .github/scripts/check-dco.test.sh
       # Seules les PR venant d'un fork sont contrôlées : les autres sont écrites par les agents et
       # le mainteneur. Le script vient de la base, pas de la PR, pour qu'elle ne puisse pas
-      # l'affaiblir ; une modification de .github/ reste à relire (CODEOWNERS).
+      # l'affaiblir ; une modification de .github/ reste à relire (CODEOWNERS). Pas de tube vers
+      # bash : sans pipefail, un script absent de la base ferait passer l'étape à vide. La commande
+      # tient sur une ligne, check-dco.test.sh l'extrait et la rejoue.
       - name: Check every commit of a fork PR has a Signed-off-by line
         if: github.event.pull_request.head.repo.full_name != github.repository
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: git show "$BASE_SHA:.github/scripts/check-dco.sh" | bash -s -- "$BASE_SHA" "$HEAD_SHA"
+        run: git show "$BASE_SHA:.github/scripts/check-dco.sh" > "$RUNNER_TEMP/check-dco.sh" && bash "$RUNNER_TEMP/check-dco.sh" "$BASE_SHA" "$HEAD_SHA"
