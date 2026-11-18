@@ -176,8 +176,11 @@ export function ConsoleView({
   onLogout,
   footer,
   flash,
+  passwordCurrent = false,
   children,
 }: {
+  /** La page « Mot de passe » (lien du pied de barre) est ouverte. */
+  passwordCurrent?: boolean;
   user: User;
   entries: ReturnType<typeof navEntries>;
   menuOpen: boolean;
@@ -231,7 +234,11 @@ export function ConsoleView({
             </nav>
             <div className="sidebar-footer">
               <span>{`${user.username} (${ROLE_LABELS[user.role].toLowerCase()})`}</span>
-              {!user.oidc && <a href="#/password">Mot de passe</a>}
+              {!user.oidc && (
+                <a href="#/password" aria-current={passwordCurrent ? 'page' : undefined}>
+                  Mot de passe
+                </a>
+              )}
               <button type="button" onClick={onLogout}>
                 Se déconnecter
               </button>
@@ -254,14 +261,11 @@ export function Console({
   onLogout,
   health = 'failed',
   flash,
-  onPasswordChanged = () => undefined,
 }: {
   user: User;
   onLogout: () => void;
   health?: HealthState;
   flash?: string;
-  /** Appelé après un changement volontaire réussi, avant le retour au tableau de bord. */
-  onPasswordChanged?: () => void;
 }) {
   const demo = demoOf(health);
   const [hash, setHash] = useState(window.location.hash);
@@ -295,6 +299,7 @@ export function Console({
       }}
       onLogout={onLogout}
       flash={flash}
+      passwordCurrent={screen === 'password'}
       footer={
         <ConsoleFooter
           version={typeof health === 'object' ? health?.version : undefined}
@@ -312,14 +317,7 @@ export function Console({
       {screen === 'accounts' && <AccountsPage />}
       {screen === 'forbidden' && <ForbiddenView />}
       {screen === 'password' && (
-        <PasswordPage
-          forced={false}
-          onDone={() => {
-            onPasswordChanged();
-            goHome();
-          }}
-          onCancel={goHome}
-        />
+        <PasswordPage forced={false} onDone={() => undefined} onCancel={goHome} />
       )}
       {screen === 'mail' && mail && <MailPage key={hash} {...mail} />}
       {screen === 'sharepoint' && (
@@ -467,13 +465,7 @@ function AppGate({ health }: { health: HealthState }) {
           }}
         />
       ) : (
-        <Console
-          user={gate.session.user}
-          onLogout={leave}
-          health={health}
-          flash={flash}
-          onPasswordChanged={passwordChanged}
-        />
+        <Console user={gate.session.user} onLogout={leave} health={health} flash={flash} />
       );
   }
 }

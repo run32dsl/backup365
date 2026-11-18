@@ -44,6 +44,29 @@ describe('CredentialsView', () => {
   });
 });
 
+describe('voluntary password page', () => {
+  it('titles the page, links the help to the new password field, confirms under the title', () => {
+    const html = renderToString(<PasswordView forced={false} saved />);
+    expect(html).toContain('<h1>Mot de passe</h1>');
+    expect(html).toContain('Changez le mot de passe de votre compte de la console.');
+    const help = /<p id="([^"]+-help)" class="field-help">12 caractères minimum/.exec(html);
+    expect(help).not.toBeNull();
+    expect(html).toContain(`aria-describedby="${help![1]}"`);
+    expect(html.indexOf('Mot de passe modifié.')).toBeGreaterThan(html.indexOf('</h1>'));
+    expect(html.indexOf('Mot de passe modifié.')).toBeLessThan(html.indexOf('<form'));
+    expect(html).toContain('class="wizard-actions"');
+    expect(renderToString(<PasswordView forced={false} />)).not.toContain('Mot de passe modifié.');
+  });
+
+  it('keeps the forced screen title and button, without confirmation', () => {
+    const html = renderToString(<PasswordView forced />);
+    expect(html).toContain('<h1>Choisissez un nouveau mot de passe</h1>');
+    expect(html).toContain('>Enregistrer et continuer</button>');
+    expect(html).not.toContain('Annuler');
+    expect(html).not.toContain('Mot de passe modifié.');
+  });
+});
+
 describe('PasswordView', () => {
   it('explains the forced change after a reset', () => {
     expect(renderToString(<PasswordView forced />)).toContain('temporaire');
@@ -359,8 +382,8 @@ describe('maquette de l’issue #22', () => {
     expect(setup).toContain('>Créer le compte administrateur</button>');
     expect(setup).toContain('12 caractères minimum. Une phrase de passe convient.');
     const password = renderToString(<PasswordView forced={false} />);
-    expect(password).toContain('Choisissez un nouveau mot de passe');
-    expect(password).toContain('>Enregistrer et continuer</button>');
+    expect(password).toContain('<h1>Mot de passe</h1>');
+    expect(password).toContain('>Enregistrer</button>');
     const view = renderToString(<CreateAccountForm />);
     expect(view).toContain('>Créer le compte</button>');
     expect(view).toContain('>Annuler</button>');
@@ -532,6 +555,7 @@ describe('textes restants de la maquette de #22', () => {
           };
           for (const row of rows) for (const c of columns) find(c.cell(row), match, out);
         }
+        find(el.props?.back, match, out);
         find(el.props?.children, match, out);
         find(el.props?.['action'], match, out);
       }

@@ -204,7 +204,7 @@ export const SCREENS = [
       await page
         .getByLabel('Confirmer le nouveau mot de passe', { exact: true })
         .fill('nouveau mot de passe');
-      await page.getByRole('button', { name: 'Enregistrer et continuer' }).click();
+      await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
       await page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' }).first().waitFor();
     },
   },
