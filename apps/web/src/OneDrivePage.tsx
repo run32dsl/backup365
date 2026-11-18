@@ -40,7 +40,6 @@ import {
   RESTORE_STEPS,
   ReasonField,
   RestoreResult,
-  ResultList,
   RunningProgress,
   stepOf,
 } from './RestoreJourney.js';
@@ -54,6 +53,7 @@ import {
   EmptyState,
   Steps,
   WizardActions,
+  ResultList,
 } from './ui/index.js';
 
 /** Élément choisi à l'étape 1 : un fichier ou un dossier, éventuellement une version précise. */
