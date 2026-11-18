@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { DEMO_LOGINS } from './demo-server.mjs';
 import { expect, test } from './fixtures.js';
-import { RESTORE_REASON_LABEL, SCREENS, SITES } from './screens.mjs';
+import { RESTORE_REASON_LABEL, SCREENS, SITES, WIDTHS } from './screens.mjs';
 import { signInAs } from './browser.mjs';
 
 const BANNER = 'Mode démo : données fictives';
@@ -527,6 +527,44 @@ test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
   await page.goto('/#/plans/nouveau');
   await expect(page.getByText('Action réservée aux administrateurs.')).toBeVisible();
 });
+
+// Ce que montrent les captures `plans-liste-operateur` (1280 et 390 px), vérifié sans image.
+for (const width of WIDTHS) {
+  test(`plans : la liste de l’opérateur tient dans ${width} px, synthèse visible`, async ({
+    browser,
+    baseURL,
+  }) => {
+    const context = await browser.newContext({
+      baseURL: baseURL!,
+      viewport: { width, height: 800 },
+    });
+    try {
+      await signInAs(context, baseURL!, 'operator');
+      const page = await context.newPage();
+      await page.goto('/#/plans');
+      const rows = page.getByRole('table').locator('tbody tr');
+      await expect(rows).not.toHaveCount(0);
+      // Chaque plan montre son nom, son état et sa dernière exécution.
+      for (const row of await rows.all()) {
+        const cells = row.getByRole('cell');
+        await expect(cells).toHaveCount(3);
+        for (const cell of await cells.all()) await expect(cell).toBeVisible();
+      }
+      await expect(
+        page.getByText('Lecture seule : seul un administrateur peut modifier les plans.'),
+      ).toBeVisible();
+      await expect(page.getByRole('button', { name: /Lancer/ })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Créer un plan' })).toHaveCount(0);
+      // Aucun débordement horizontal : la page ne défile pas de côté.
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow).toBe(0);
+    } finally {
+      await context.close();
+    }
+  });
+}
 
 test('le bandeau du mode démo est présent sur chaque écran', async ({ browser, baseURL }) => {
   // Le test parcourt tous les écrans de `screens.mjs` : sa durée croît avec la liste.

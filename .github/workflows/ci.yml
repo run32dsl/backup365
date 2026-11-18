@@ -34,6 +34,11 @@ jobs:
       - run: pnpm run test
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm run test:e2e
+      # Les captures jouent le `prepare` de chaque écran, que les tests e2e ne jouent pas :
+      # un écran qui ne se capture plus fait échouer la CI. `test:e2e` vient de construire.
+      - run: pnpm run captures
+        env:
+          BACKUP365_SKIP_BUILD: '1'
 
   image:
     name: image
