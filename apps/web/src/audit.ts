@@ -75,6 +75,21 @@ export function dateRange(fromText: string, toText: string): DateRange {
   return out;
 }
 
+/**
+ * Décision de soumission d'un formulaire de filtres : `query` est `null` (aucune requête) tant
+ * qu'une date est invalide, et `errors` porte alors les messages à afficher sous les champs.
+ */
+export function submitFilters<Q>(
+  form: FormData,
+  fromName: string,
+  toName: string,
+  build: (form: FormData) => Q,
+): { errors: DateRange; query: Q | null } {
+  const errors = dateRange(formText(form, fromName), formText(form, toName));
+  const invalid = errors.fromError !== undefined || errors.toError !== undefined;
+  return { errors, query: invalid ? null : build(form) };
+}
+
 /** Valeur texte (rognée) d'un champ du formulaire. */
 export function formText(form: FormData, name: string): string {
   const value = form.get(name);

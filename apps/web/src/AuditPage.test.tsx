@@ -1,8 +1,8 @@
 import { renderToString } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
 import { AuditPage, AuditView } from './AuditPage.js';
-import { dateRange, fetchAudit, pageOffsets, queryFromForm } from './audit.js';
+import { dateRange, fetchAudit, pageOffsets, queryFromForm, submitFilters } from './audit.js';
 
 const entry = {
   seq: 2,
@@ -211,6 +211,18 @@ describe('helpers', () => {
       fromError: 'Date attendue au format jj/mm/aaaa',
       toError: 'Date attendue au format jj/mm/aaaa',
     });
+  });
+
+  it('submits no query and reports the error under the field when a date is invalid', () => {
+    const build = vi.fn(queryFromForm);
+    const bad = submitFilters(form({ from: '31/02/2026', to: '18/11/2026' }), 'from', 'to', build);
+    expect(bad.query).toBeNull();
+    expect(bad.errors.fromError).toBe('Date attendue au format jj/mm/aaaa');
+    expect(bad.errors.toError).toBeUndefined();
+    expect(build).not.toHaveBeenCalled();
+    const ok = submitFilters(form({ from: '18/11/2026', to: '' }), 'from', 'to', build);
+    expect(ok.query).toMatchObject({ from: '2026-11-18T00:00:00.000Z' });
+    expect(build).toHaveBeenCalledOnce();
   });
 
   it('renders text date fields with the jj/mm/aaaa help and no native date input', () => {

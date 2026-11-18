@@ -44,7 +44,7 @@ export async function searchMails(
   return (await res.json()) as SearchResponse;
 }
 
-/** Requête issue du formulaire : première page, dates locales converties en UTC. */
+/** Requête issue du formulaire : première page, dates jj/mm/aaaa converties en intervalle UTC. */
 export function searchQueryFromForm(form: FormData): SearchQuery {
   const text = (name: string): string => formText(form, name);
   const range = dateRange(text('after'), text('before'));

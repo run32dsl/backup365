@@ -253,6 +253,17 @@ export const SCREENS = [
     },
   },
   {
+    name: 'journal-audit-date-invalide',
+    hash: '#/audit',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+      await page.getByLabel('Du', { exact: true }).fill('31/02/2026');
+      await page.getByRole('button', { name: 'Filtrer' }).click();
+      await page.getByText('Date attendue au format jj/mm/aaaa').waitFor();
+    },
+  },
+  {
     name: 'administration-comptes',
     hash: '#/comptes',
     role: 'admin',

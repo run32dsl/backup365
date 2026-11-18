@@ -7,7 +7,7 @@ import {
   type SearchQuery,
   type SearchResponse,
 } from './mail.js';
-import { DATE_HELP, dateRange, formText, type DateRange } from './audit.js';
+import { DATE_HELP, submitFilters, type DateRange } from './audit.js';
 import { dateTimeOf, folderLabel, plural } from './format.js';
 import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
 import { fetchRestoreConfigured } from './restore.js';
@@ -140,10 +140,9 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    const range = dateRange(formText(form, 'after'), formText(form, 'before'));
-    setErrors(range);
-    if (range.fromError || range.toError) return;
-    setQuery(searchQueryFromForm(form));
+    const { errors, query } = submitFilters(form, 'after', 'before', searchQueryFromForm);
+    setErrors(errors);
+    if (query) setQuery(query);
   }
 
   return (

@@ -3,10 +3,9 @@ import { AUDIT_ACTIONS, type AuditAction } from '@backup365/core';
 import {
   AUDIT_PAGE_SIZE,
   DATE_HELP,
-  dateRange,
   fetchAudit,
-  formText,
   queryFromForm,
+  submitFilters,
   type DateRange,
   type AuditItem,
   type AuditQuery,
@@ -174,10 +173,9 @@ export function AuditPage() {
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    const range = dateRange(formText(form, 'from'), formText(form, 'to'));
-    setErrors(range);
-    if (range.fromError || range.toError) return;
-    setQuery(queryFromForm(form));
+    const { errors, query } = submitFilters(form, 'from', 'to', queryFromForm);
+    setErrors(errors);
+    if (query) setQuery(query);
   }
 
   return (
