@@ -46,6 +46,20 @@ describe('SearchView', () => {
     expect(html).toContain(`href="${mailHref(mail)}"`);
   });
 
+  it('drops the mailbox column and names the mailbox in the counter when filtered', () => {
+    const state = { total: 25, limit: 25, offset: 0, items: [mail] };
+    const filtered = renderToString(<SearchView state={state} mailbox="paul.moreau@exemple.fr" />);
+    expect(filtered).not.toContain('>Boîte<');
+    expect(filtered).toContain('25 résultats');
+    expect(filtered).toContain('dans la boîte paul.moreau@exemple.fr');
+    expect(renderToString(<SearchView state={state} />)).toContain('>Boîte<');
+    const withRestore = renderToString(
+      <SearchView state={state} mailbox="paul.moreau@exemple.fr" restoreConfigured />,
+    );
+    expect(withRestore).toContain('>Action<');
+    expect(withRestore).not.toContain('>Boîte<');
+  });
+
   it('shows empty, loading and error states, and escapes content', () => {
     const empty = { total: 0, limit: 25, offset: 0, items: [] };
     expect(renderToString(<SearchView state={empty} />)).toContain('Aucun résultat');

@@ -63,19 +63,23 @@ export function SearchView({
   state,
   restoreConfigured,
   onPage,
+  mailbox,
 }: {
   state: SearchState;
+  /** Boîte filtrée : la colonne « Boîte » disparaît et la boîte est rappelée dans le compteur. */
+  mailbox?: string;
   restoreConfigured?: boolean;
   onPage?: (offset: number) => void;
 }) {
   if (state === 'loading') return <p role="status">Recherche en cours…</p>;
   if (state === 'error') return <Alert tone="error">Recherche indisponible</Alert>;
   if (state.items.length === 0) return <EmptyState>Aucun résultat.</EmptyState>;
+  const base = mailbox ? COLUMNS.filter((c) => c.header !== 'Boîte') : COLUMNS;
   const columns: Column<Hit>[] =
     restoreConfigured === undefined
-      ? COLUMNS
+      ? base
       : [
-          ...COLUMNS,
+          ...base,
           {
             header: 'Action',
             className: 'card-action',
@@ -92,7 +96,9 @@ export function SearchView({
   return (
     <>
       <p role="status">
-        {plural(state.total, 'résultat')}, {state.offset + 1} à {state.offset + state.items.length}
+        {plural(state.total, 'résultat')}
+        {mailbox ? ` dans la boîte ${mailbox}` : ''}, {state.offset + 1} à{' '}
+        {state.offset + state.items.length}
       </p>
       {restoreConfigured === false && <RestoreNotConfigured id={RESTORE_HINT_ID} />}
       <DataTable
@@ -159,6 +165,7 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
         <SearchView
           state={state}
           restoreConfigured={restoreConfigured}
+          mailbox={query?.mailbox}
           onPage={(offset) => {
             if (query) setQuery({ ...query, offset });
           }}

@@ -601,3 +601,32 @@ test('groupe d’options : légende, flèches du clavier, option désactivée', 
   await expect(item).toBeChecked();
   await expect(site).not.toBeChecked();
 });
+
+test('recherche à 1280 px : pas de défilement horizontal, avec ou sans filtre de boîte', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signInAs(context, baseURL!, 'admin');
+  const fits = () => page.evaluate(() => document.documentElement.scrollWidth <= 1280);
+
+  await page.goto('/#/search?mailbox=paul.moreau%40exemple.fr');
+  await page.getByRole('table').waitFor();
+  await expect(page.getByRole('columnheader', { name: 'Boîte' })).toHaveCount(0);
+  await expect(page.getByRole('status').filter({ hasText: 'dans la boîte' })).toBeVisible();
+  expect(await fits()).toBe(true);
+  const search = (await page.getByRole('button', { name: 'Rechercher' }).boundingBox())!;
+  const restore = (await page
+    .getByRole('button', { name: /^Restaurer / })
+    .last()
+    .boundingBox())!;
+  expect(restore.x + restore.width).toBeLessThanOrEqual(search.x + search.width + 1);
+
+  await page.goto('/#/search');
+  await page.getByLabel('Recherche').fill('devis');
+  await page.getByRole('button', { name: 'Rechercher' }).click();
+  await page.getByRole('table').waitFor();
+  await expect(page.getByRole('columnheader', { name: 'Boîte' })).toHaveCount(1);
+  expect(await fits()).toBe(true);
+});
