@@ -523,17 +523,19 @@ test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
   await expect(page.getByText('Action réservée aux administrateurs.')).toBeVisible();
 });
 
-test('le bandeau du mode démo est présent sur chaque écran', async ({ browser, baseURL }) => {
-  for (const screen of SCREENS) {
-    const context = await browser.newContext({ baseURL: baseURL! });
+// Un test par écran : un échec désigne l'écran fautif, et chacun reste sous le délai par défaut.
+for (const screen of SCREENS) {
+  test(`le bandeau du mode démo est présent sur l’écran « ${screen.name} »`, async ({
+    page,
+    context,
+    baseURL,
+  }) => {
     if (screen.role) await signInAs(context, baseURL!, screen.role);
-    const page = await context.newPage();
     await page.goto(`/${screen.hash}`);
     await page.locator('main').waitFor();
-    await expect(page.getByText(BANNER), screen.name).toBeVisible();
-    await context.close();
-  }
-});
+    await expect(page.getByText(BANNER)).toBeVisible();
+  });
+}
 
 test('dialogue : focus piégé, Échap, retour du focus', async ({ page, context, baseURL }) => {
   await signInAs(context, baseURL!, 'admin');
