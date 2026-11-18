@@ -157,7 +157,8 @@ a {
 .sidebar-footer a:hover {
   background: var(--border-soft);
 }
-.nav-list a[aria-current='page'] {
+.nav-list a[aria-current='page'],
+.sidebar-footer a[aria-current='page'] {
   border-left-color: var(--accent);
   font-weight: 700;
   background: var(--border-soft);

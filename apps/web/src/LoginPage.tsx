@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { FailureAlert } from './FailureAlert.js';
-import { Alert, Button, FormField } from './ui/index.js';
+import { Alert, Button, FormField, WizardActions } from './ui/index.js';
 import {
   AUDIT_NOTICE,
   RETRY_NOW,
@@ -23,6 +23,7 @@ import {
  */
 export function Field({
   label,
+  help,
   name,
   type = 'text',
   autoComplete,
@@ -30,6 +31,7 @@ export function Field({
   onValue,
 }: {
   label: string;
+  help?: string;
   name: string;
   type?: 'text' | 'password';
   autoComplete: string;
@@ -41,6 +43,7 @@ export function Field({
   return (
     <FormField
       label={label}
+      help={help}
       name={name}
       type={secret && !shown ? 'password' : 'text'}
       autoComplete={autoComplete}
@@ -291,23 +294,33 @@ export function CredentialsPage({
   );
 }
 
-/** Changement de son mot de passe ; imposé après une réinitialisation par un administrateur. */
+/**
+ * Changement de son mot de passe ; imposé après une réinitialisation par un administrateur (titre
+ * propre à ce cas). `saved` affiche la confirmation sous le titre de la page volontaire.
+ */
 export function PasswordView({
   forced,
   error,
+  saved = false,
   onSubmit,
   onCancel,
 }: {
   forced: boolean;
   error?: string;
+  saved?: boolean;
   onSubmit?: (form: FormData) => void;
   /** Retour sans changer (absent quand le changement est imposé). */
   onCancel?: () => void;
 }) {
   return (
     <main tabIndex={-1}>
-      <h1>Choisissez un nouveau mot de passe</h1>
-      {forced && <p>Votre mot de passe est temporaire. Choisissez-en un nouveau pour continuer.</p>}
+      <h1>{forced ? 'Choisissez un nouveau mot de passe' : 'Mot de passe'}</h1>
+      {forced ? (
+        <p>Votre mot de passe est temporaire. Choisissez-en un nouveau pour continuer.</p>
+      ) : (
+        <p>Changez le mot de passe de votre compte de la console.</p>
+      )}
+      {saved && <Alert tone="success">{PASSWORD_CHANGED}</Alert>}
       <form
         onSubmit={(e: FormEvent<HTMLFormElement>) => {
           e.preventDefault();
@@ -325,8 +338,9 @@ export function PasswordView({
           name="next"
           type="password"
           autoComplete="new-password"
+          help="12 caractères minimum. Une phrase de passe convient."
         />
-        <p>12 caractères minimum. Une phrase de passe convient.</p>
+
         <Field
           label="Confirmer le nouveau mot de passe"
           name="confirm"
@@ -334,14 +348,17 @@ export function PasswordView({
           autoComplete="new-password"
         />
         {error && <Alert tone="error">{error}</Alert>}
-        <div className="button-row">
-          <Button type="submit">Enregistrer et continuer</Button>
-          {!forced && (
-            <Button variant="secondary" onClick={onCancel}>
-              Annuler
-            </Button>
-          )}
-        </div>
+        <WizardActions
+          back={
+            !forced && (
+              <Button variant="secondary" onClick={onCancel}>
+                Annuler
+              </Button>
+            )
+          }
+        >
+          <Button type="submit">{forced ? 'Enregistrer et continuer' : 'Enregistrer'}</Button>
+        </WizardActions>
       </form>
     </main>
   );
@@ -365,6 +382,7 @@ export function PasswordPage({
 }) {
   const [error, setError] = useState<string>();
   const [done, setDone] = useState(false);
+  const [saved, setSaved] = useState(0);
   const submit = (form: FormData) => {
     if (text(form, 'next') !== text(form, 'confirm')) {
       setError('Les deux mots de passe ne correspondent pas.');
@@ -374,7 +392,10 @@ export function PasswordPage({
       (outcome) => {
         if (outcome.ok) {
           setError(undefined);
-          setDone(true);
+          // Imposé : l'appelant ouvre la console. Volontaire : on reste sur la page, formulaire
+          // vidé (remonté par sa clé), confirmation sous le titre.
+          if (forced) setDone(true);
+          else setSaved((n) => n + 1);
           onDone();
         } else setError(outcome.message);
       },
@@ -388,5 +409,14 @@ export function PasswordPage({
       </main>
     );
   }
-  return <PasswordView forced={forced} error={error} onSubmit={submit} onCancel={onCancel} />;
+  return (
+    <PasswordView
+      key={saved}
+      forced={forced}
+      error={error}
+      saved={saved > 0}
+      onSubmit={submit}
+      onCancel={onCancel}
+    />
+  );
 }
