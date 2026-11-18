@@ -53,6 +53,15 @@ présente ; utiliser un `BACKUP365_DATA_DIR` jetable.
   navigateur une fois avec `pnpm exec playwright install chromium`, ou pointer
   `BACKUP365_CHROMIUM` vers un exécutable Chromium existant.
 
+## Version affichée
+
+Le pied de page de la console affiche la version du serveur (`/api/health`).
+
+- Le produit reste en 0.x, avec un incrément mineur à chaque promotion `develop` → `main`.
+- Le passage en 1.0.0 est décidé par le Product Manager (décision du 2026-11-18) : seulement quand
+  le MVP est jugé satisfaisant et validé par lui. Ni la promotion du MVP, ni un jalon technique
+  (par exemple la validation de la connexion Microsoft) ne suffisent à eux seuls.
+
 ## Conventions
 
 - Une issue = une branche `feat/<n>-<sujet>` ou `fix/<n>-<sujet>`, une PR vers `develop`.
