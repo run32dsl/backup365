@@ -1,0 +1,103 @@
+import { describe, expect, it } from 'vitest';
+import { buildApp } from './app.js';
+import { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
+import { buildTestApp, testAuth } from './test-support.js';
+import type { Overview } from './overview-routes.js';
+
+const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+
+const input = (name: string) => ({
+  name,
+  scope: 'all' as const,
+  selection: [],
+  dataTypes: ['mail' as const],
+  rpoHours: 4 as const,
+  rtoHours: null,
+  retentionDays: 90,
+  gdprJustification: 'Obligation de conservation.',
+});
+
+const run = (plans: SqlitePlanStore, planId: string, status: 'success' | 'failed', ago: number) => {
+  const id = plans.startRun(planId, 'item', hoursAgo(ago + 0.1));
+  plans.finishRun(id!, status, hoursAgo(ago));
+};
+
+const get = (plans?: SqlitePlanStore, role: 'admin' | 'operator' = 'admin') => {
+  const app = buildTestApp({ version: '1', role, ...(plans ? { plans } : {}) });
+  return app.inject({ method: 'GET', url: '/api/overview' });
+};
+
+describe('GET /api/overview', () => {
+  it('is unconfigured without any plan', async () => {
+    const res = await get(SqlitePlanStore.open(':memory:'));
+    expect(res.statusCode).toBe(200);
+    expect(res.json<Overview>()).toEqual({
+      state: 'unconfigured',
+      plans: { total: 0, operational: 0 },
+      lastBackupAt: null,
+    });
+  });
+
+  it('is unconfigured while no plan has run yet', async () => {
+    const plans = SqlitePlanStore.open(':memory:');
+    plans.create(input('Jamais lancé'));
+    const body = (await get(plans)).json<Overview>();
+    expect(body.state).toBe('unconfigured');
+    expect(body.plans).toEqual({ total: 1, operational: 0 });
+  });
+
+  it('is operational when the last run of every plan succeeded', async () => {
+    const plans = SqlitePlanStore.open(':memory:');
+    run(plans, plans.create(input('A')).id, 'success', 5);
+    run(plans, plans.create(input('B')).id, 'success', 3);
+    const body = (await get(plans)).json<Overview>();
+    expect(body.state).toBe('operational');
+    expect(body.plans).toEqual({ total: 2, operational: 2 });
+    expect(Date.now() - Date.parse(body.lastBackupAt!)).toBeLessThan(3.5 * 3_600_000);
+  });
+
+  it('is failed when a plan last run failed, and keeps the last success date', async () => {
+    const plans = SqlitePlanStore.open(':memory:');
+    const a = plans.create(input('A')).id;
+    run(plans, a, 'success', 30);
+    run(plans, a, 'failed', 2);
+    run(plans, plans.create(input('B')).id, 'success', 10);
+    const body = (await get(plans)).json<Overview>();
+    expect(body.state).toBe('failed');
+    expect(body.plans).toEqual({ total: 2, operational: 1 });
+    const age = Date.now() - Date.parse(body.lastBackupAt!);
+    expect(age).toBeGreaterThan(9.5 * 3_600_000);
+    expect(age).toBeLessThan(10.5 * 3_600_000);
+  });
+
+  it('ignores a running run: a relaunched failed plan stays failed, a first run is not a result', async () => {
+    const plans = SqlitePlanStore.open(':memory:');
+    const a = plans.create(input('A')).id;
+    run(plans, a, 'failed', 5);
+    plans.startRun(a, 'item', hoursAgo(0.5));
+    expect((await get(plans)).json<Overview>().state).toBe('failed');
+    const first = SqlitePlanStore.open(':memory:');
+    first.startRun(first.create(input('B')).id, 'item', hoursAgo(0.5));
+    const body = (await get(first)).json<Overview>();
+    expect(body.state).toBe('unconfigured');
+    expect(body.plans).toEqual({ total: 1, operational: 0 });
+  });
+
+  it('is open to the operator and carries no plan name', async () => {
+    const plans = SqlitePlanStore.open(':memory:');
+    run(plans, plans.create(input('Nom secret')).id, 'failed', 1);
+    const res = await get(plans, 'operator');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).not.toContain('Nom secret');
+  });
+
+  it('answers 503 without plan store and 401 without session', async () => {
+    expect((await get()).statusCode).toBe(503);
+    const app = buildApp({
+      version: '1',
+      plans: SqlitePlanStore.open(':memory:'),
+      auth: testAuth().auth,
+    });
+    expect((await app.inject({ method: 'GET', url: '/api/overview' })).statusCode).toBe(401);
+  });
+});

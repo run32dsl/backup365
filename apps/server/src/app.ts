@@ -33,6 +33,7 @@ import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 import type { SearchIndexer } from './search-indexer.js';
 import { registerSearchRoutes } from './search-routes.js';
 import { registerWebRoutes } from './static-web.js';
+import { registerOverviewRoutes } from './overview-routes.js';
 import { registerStatusRoutes, type StatusOptions } from './status-routes.js';
 
 export interface AppOptions {
@@ -196,6 +197,10 @@ export function buildApp({
   void app.register((scope, _opts, done) => {
     registerCatalogRoutes(scope, catalog, audit);
     registerStatusRoutes(scope, catalog, status, { index: searchIndex, indexer, plans });
+    done();
+  });
+  void app.register((scope, _opts, done) => {
+    registerOverviewRoutes(scope, plans);
     done();
   });
   void app.register((scope, _opts, done) => {

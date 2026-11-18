@@ -54,7 +54,10 @@ composant s'y ajoute avec ses tests de comportement.
 - **Tableau** : `<th scope="col">`, légende (masquée visuellement si le titre la remplace),
   texte qui passe à la ligne plutôt que de déborder.
 - **Badge d'état** (`.badge`) : « À jour » (`✔`), « En cours », « En retard » (`⚠`),
-  « En échec » (`✖`) ; mêmes libellés pour les plans et les sauvegardes.
+  « En échec » (`✖`) ; mêmes libellés pour les plans et les sauvegardes. L'accueil ajoute
+  « Opérationnelle » (`✔`, `--ok`) et « Non configurée » (`⚠`, `--warn`).
+- **Carte d'accueil** (`.overview-card`) : `<section aria-labelledby>` avec un `h2` ; trois cartes
+  en grille, deux colonnes dès 900 px, une seule dessous (bouton pleine largeur).
 - **Bandeau d'alerte** : `role="alert"` pour une erreur, `role="status"` pour une information ;
   sans détail technique.
 - **État vide** (`.empty`) : phrase claire et, au plus, un bouton d'action.

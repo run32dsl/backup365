@@ -32,6 +32,18 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   les plans (« À jour », « En retard », « En échec »).
 - Lecture de métadonnées seulement : pas d'entrée dans le journal d'audit (ADR 0002).
 
+### Accueil allégé (issue #239)
+
+- L'accueil ne montre plus le tableau ci-dessus (accessible par `GET /api/status`, sans page pour
+  l'instant) mais trois cartes alimentées par **une seule requête**, `GET /api/overview` :
+  `{ state, plans: { total, operational }, lastBackupAt }`. Compteurs et dates seulement, sans nom
+  de plan ; ouvert à l'opérateur (lecture seule), hors journal d'audit.
+- Un plan est « opérationnel » si sa dernière exécution a réussi. Le modèle n'a pas de plan
+  suspendu : tous les plans sont actifs, donc le critère « actif » est sans effet.
+- `state` : `failed` si la dernière exécution d'un plan au moins a échoué ; sinon `unconfigured`
+  si aucun plan n'a encore tourné (aucun plan compris) ; sinon `operational`.
+- `lastBackupAt` : fin de la dernière exécution réussie, tous plans confondus.
+
 ### Sites SharePoint sauvegardés (issue #31)
 
 - Port `BackupCatalog` : `listSites()` (sites ayant une sauvegarde, pas tous ceux du tenant) et
