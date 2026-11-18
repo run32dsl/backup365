@@ -393,7 +393,9 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await signInAs(context, baseURL!, 'admin');
   await page.goto('/#/plans');
   await expect(page.getByRole('heading', { name: 'Plans de protection', level: 1 })).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'Messagerie Direction', exact: true })).toBeVisible();
+  await expect(
+    page.locator('td[data-label="Plan"]').filter({ hasText: 'Messagerie Direction' }),
+  ).toBeVisible();
 
   await page.getByRole('button', { name: 'Créer un plan' }).click();
   await expect(page.getByText('Étape 1 sur 3 : Quoi protéger')).toBeVisible();
@@ -423,7 +425,9 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
     page.getByText(/Plan créé\. Première sauvegarde prévue à \d\d:\d\d\./),
   ).toBeVisible();
   await expect(page).toHaveURL(/#\/plans$/);
-  await expect(page.getByRole('cell', { name: 'Contacts Exemple', exact: true })).toBeVisible();
+  await expect(
+    page.locator('td[data-label="Plan"]').filter({ hasText: 'Contacts Exemple' }),
+  ).toBeVisible();
 
   // Lancement manuel : le motif est exigé, puis inscrit au journal d'audit.
   await page.getByRole('button', { name: 'Lancer Contacts Exemple maintenant' }).click();
@@ -442,7 +446,9 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await expect(del.getByRole('button', { name: 'Annuler' })).toBeFocused();
   await del.getByRole('button', { name: 'Supprimer le plan' }).click();
   await expect(page.getByText('Plan supprimé.')).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'Contacts Exemple', exact: true })).toHaveCount(0);
+  await expect(
+    page.locator('td[data-label="Plan"]').filter({ hasText: 'Contacts Exemple' }),
+  ).toHaveCount(0);
 
   await page.goto('/#/audit');
   await expect(page.getByText('Après un incident').first()).toBeVisible();
@@ -508,7 +514,9 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await expect(refused.getByText('Identifiant de requête : req-3c4d')).toBeVisible();
   await expect(refused.getByRole('link')).toHaveCount(0);
   await del.getByRole('button', { name: 'Annuler' }).click();
-  await expect(page.getByRole('cell', { name: 'Messagerie Direction', exact: true })).toBeVisible();
+  await expect(
+    page.locator('td[data-label="Plan"]').filter({ hasText: 'Messagerie Direction' }),
+  ).toBeVisible();
 });
 
 test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
@@ -518,7 +526,9 @@ test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
 }) => {
   await signInAs(context, baseURL!, 'operator');
   await page.goto('/#/plans');
-  await expect(page.getByRole('cell', { name: 'Messagerie Direction', exact: true })).toBeVisible();
+  await expect(
+    page.locator('td[data-label="Plan"]').filter({ hasText: 'Messagerie Direction' }),
+  ).toBeVisible();
   await expect(
     page.getByText('Lecture seule : seul un administrateur peut modifier les plans.'),
   ).toBeVisible();

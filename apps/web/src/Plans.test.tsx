@@ -217,16 +217,25 @@ describe('PlansListView', () => {
       rpoHours: 24,
       retentionDays: 1095,
     };
-    for (const admin of [true, false]) {
-      const html = list([plan, other], admin);
-      expect(html).toContain(
-        '<small class="state-note plan-summary">Mails, fichiers, calendriers et contacts · toute l’organisation · toutes les 12 h · conservés 1 an</small>',
-      );
-      expect(html).toContain(
-        '<small class="state-note plan-summary">Fichiers · 2 boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans</small>',
-      );
-    }
+    const all =
+      '<small class="state-note plan-summary">Mails, fichiers, calendriers et contacts · toute l’organisation · toutes les 12 h · conservés 1 an</small>';
+    const html = list([plan, other], true);
+    expect(html).toContain(all);
+    expect(html).toContain(
+      '<small class="state-note plan-summary">Fichiers · 2 boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans</small>',
+    );
+    // L'API n'envoie pas la sélection à l'opérateur : la page ne doit pas planter.
+    const forOperator = { ...other } as Partial<typeof other>;
+    delete forOperator.selection;
+    const operatorHtml = list([plan, forOperator as typeof other], false);
+    expect(operatorHtml).toContain(all);
+    expect(operatorHtml).toContain(
+      '<small class="state-note plan-summary">Fichiers · boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans</small>',
+    );
     expect(planSummary({ ...other, selection: ['a'] })).toContain('une boîte ou un compte choisi');
+    expect(planSummary({ ...other, dataTypes: [] })).toBe(
+      '2 boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans',
+    );
   });
 
   it('is read-only for an operator: no Actions column, a notice', () => {

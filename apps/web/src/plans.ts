@@ -245,7 +245,10 @@ export function summarySentence(form: PlanForm): string {
  * « Mails, fichiers et contacts · toute l'organisation · toutes les 12 h · conservés 1 an ».
  */
 export function planSummary(
-  plan: Pick<PlanItem, 'dataTypes' | 'scope' | 'selection' | 'rpoHours' | 'retentionDays'>,
+  plan: Pick<PlanItem, 'dataTypes' | 'scope' | 'rpoHours' | 'retentionDays'> & {
+    /** Absente pour un opérateur : l'API ne lui envoie pas la sélection. */
+    selection?: string[];
+  },
 ): string {
   const what = enumerate(
     DATA_TYPES.filter((t) => plan.dataTypes.includes(t)).map((t) => DATA_TYPE_PHRASES[t]),
@@ -253,15 +256,19 @@ export function planSummary(
   const where =
     plan.scope === 'all'
       ? 'toute l’organisation'
-      : plan.selection.length === 1
+      : plan.selection?.length === 1
         ? 'une boîte ou un compte choisi'
-        : `${plan.selection.length} boîtes ou comptes choisis`;
+        : plan.selection && plan.selection.length > 1
+          ? `${plan.selection.length} boîtes ou comptes choisis`
+          : 'boîtes ou comptes choisis';
   return [
     what.charAt(0).toUpperCase() + what.slice(1),
     where,
     `toutes les ${plan.rpoHours} h`,
     `conservés ${retentionLabel(plan.retentionDays)}`,
-  ].join(' · ');
+  ]
+    .filter((part) => part !== '')
+    .join(' · ');
 }
 
 export const rtoSentence = (hours: number): string =>
