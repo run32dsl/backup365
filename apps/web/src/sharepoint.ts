@@ -174,6 +174,13 @@ export function pathLabel(path: string): string {
   return path.split('/').filter(Boolean).join(' > ');
 }
 
+/** Ce qui a été restauré, pour l'écran de résultat : `Fichier : Documents partagés > plan-a.pdf`. */
+export function restoredContentLabel(scope: SiteScope, path: string): string {
+  if (scope === 'site') return 'Site entier';
+  const kind = scope === 'item' ? 'Fichier' : scope === 'folder' ? 'Dossier' : 'Bibliothèque';
+  return `${kind} : ${pathLabel(path)}`;
+}
+
 /** Choix valide pour la granularité ? Mêmes règles que le serveur (`isPathOfScope`). */
 export function canContinue(scope: SiteScope, path: string, file: string | null): boolean {
   const depth = path.split('/').filter(Boolean).length;

@@ -38,6 +38,7 @@ import {
   sharePointHash,
   sizeOf,
   startSiteRestore,
+  restoredContentLabel,
   summaryOf,
   wholeSiteSummaryOf,
   type Site,
@@ -558,13 +559,15 @@ export function ConfirmStep({
 }
 
 /** Étape 4 : progression, puis résultat. La restauration continue si l'on quitte la page. */
-function TrackStep({
+export function TrackStep({
   job,
+  siteName,
   onJob,
   onAgain,
   onRetry,
 }: {
   job: SiteJob;
+  siteName: string;
   onJob: (job: SiteJob) => void;
   onAgain: () => void;
   onRetry: () => void;
@@ -602,16 +605,21 @@ function TrackStep({
 
   const untreated = Math.max(0, job.total - job.restored - job.skipped - job.errors);
   const failedNormally = job.status === 'failed' && !isOutcomeUncertain(job.error);
-  const countRows: [string, ReactNode][] = [];
+  const countRows: [string, ReactNode][] = [
+    ['Site', siteName],
+    ['Contenu restauré', restoredContentLabel(job.scope, job.path)],
+  ];
+  if (job.status === 'succeeded' && job.copyName) countRows.push(['Restauré sous', job.copyName]);
   if (failedNormally && untreated > 0) countRows.push(['Éléments non traités', untreated]);
   if (job.status !== 'running' && job.errors > 0) {
     countRows.push(['Éléments en erreur', job.errors]);
   }
-  const counts = countRows.length > 0 ? <ResultList rows={countRows} /> : null;
+  const counts = <ResultList rows={countRows} />;
   let body: ReactNode;
   if (running) {
     body = (
       <>
+        {counts}
         <RunningProgress
           detail={`${job.total} ${job.total > 1 ? 'éléments' : 'élément'} à traiter`}
         />
@@ -632,7 +640,7 @@ function TrackStep({
           </Alert>
         </div>
         {counts}
-        <p>Aucun élément déjà présent n’a été écrasé.</p>
+        {job.skipped === 0 && <p>Aucun élément déjà présent n’a été écrasé.</p>}
         <WizardActions
           back={
             <a className="btn btn-secondary" href="#/audit">
@@ -777,6 +785,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
       <TrackStep
         key={job.id}
         job={job}
+        siteName={site.displayName}
         onJob={setJob}
         onAgain={reset}
         onRetry={() => {
