@@ -3,7 +3,6 @@ import type {
   BackupState,
   ComplianceState,
   PlanComplianceReport,
-  SourceKind,
   StatusReport,
 } from '@backup365/core';
 import { Alert, Button, DataTable, EmptyState, StatusPill, type Column } from './ui/index.js';
@@ -12,6 +11,11 @@ import { searchHref } from './mail.js';
 import { ageLabel, dateTimeOrDash, plural, workloadLabel } from './format.js';
 
 type Row = StatusReport['rows'][number];
+
+/** Ce qui est sauvegardé, avec les noms de la navigation : un site est un « Site SharePoint ». */
+function contentLabel(r: Row): string {
+  return r.kind === 'site' ? 'Site SharePoint' : workloadLabel(r.workload);
+}
 
 const COLUMNS: Column<Row>[] = [
   {
@@ -23,8 +27,7 @@ const COLUMNS: Column<Row>[] = [
         r.displayName
       ),
   },
-  { header: 'Type', cell: (r) => KIND_LABELS[r.kind] },
-  { header: 'Charge', cell: (r) => workloadLabel(r.workload) },
+  { header: 'Contenu', cell: contentLabel },
   { header: 'Dernière sauvegarde (UTC)', cell: (r) => dateTimeOrDash(r.lastSnapshotAt) },
   { header: 'Ancienneté', cell: (r) => ageLabel(r.ageHours) },
   { header: 'État', cell: (r) => <StateBadge state={r.state} /> },
@@ -62,8 +65,6 @@ export function sortRows(rows: Row[]): Row[] {
       (b.ageHours ?? Number.POSITIVE_INFINITY) - (a.ageHours ?? Number.POSITIVE_INFINITY),
   );
 }
-
-const KIND_LABELS: Record<SourceKind, string> = { mailbox: 'boîte', site: 'site SharePoint' };
 
 type PlanEntry = PlanComplianceReport['nonCompliant'][number];
 
@@ -158,7 +159,7 @@ function Backups({ report }: { report: StatusReport }) {
       <Counts counts={counts} />
       <div className={showOk ? 'backups show-ok' : 'backups'}>
         <DataTable
-          caption="État par boîte, site et charge"
+          caption="État par source et par contenu"
           hideCaption
           columns={COLUMNS}
           rows={rows}
@@ -188,7 +189,10 @@ export function StatusView({ state }: { state: StatusState }) {
   if (state === 'loading') return <p role="status">Chargement de l’état des sauvegardes…</p>;
   if (state === 'empty')
     return (
-      <EmptyState>Aucune sauvegarde trouvée : lancez une première sauvegarde Atlas.</EmptyState>
+      <EmptyState>
+        Aucune sauvegarde pour l’instant. Elle apparaîtra ici après la première exécution d’un plan
+        de protection.
+      </EmptyState>
     );
   if (state === 'error') return <Alert tone="error">État des sauvegardes indisponible</Alert>;
   return (

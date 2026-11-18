@@ -109,7 +109,7 @@ répond `backup_not_configured`.
 
 Ouvrir <http://127.0.0.1:3000>. `GET /api/health` doit répondre `ok`. Tant qu'aucune
 sauvegarde n'a créé le bucket, le catalogue répond 503 avec le code `no_backup_found`, et
-l'interface affiche « Aucune sauvegarde trouvée : lancez une première sauvegarde Atlas » ;
+l'interface affiche « Aucune sauvegarde pour l’instant » ;
 `/api/health` reste 200.
 
 ### Premier démarrage : créer l'administrateur
