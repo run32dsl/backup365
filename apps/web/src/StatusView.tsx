@@ -7,12 +7,22 @@ import type {
   StatusReport,
 } from '@backup365/core';
 import { Alert, Button, DataTable, EmptyState, StatusPill, type Column } from './ui/index.js';
+import { PLANS_HASH } from './plans.js';
+import { searchHref } from './mail.js';
 import { ageLabel, dateTimeOrDash, plural, workloadLabel } from './format.js';
 
 type Row = StatusReport['rows'][number];
 
 const COLUMNS: Column<Row>[] = [
-  { header: 'Source', cell: (r) => r.displayName },
+  {
+    header: 'Source',
+    cell: (r) =>
+      r.state !== 'ok' && r.kind === 'mailbox' && r.workload === 'mail' ? (
+        <a href={searchHref(r.sourceId)}>{r.displayName}</a>
+      ) : (
+        r.displayName
+      ),
+  },
   { header: 'Type', cell: (r) => KIND_LABELS[r.kind] },
   { header: 'Charge', cell: (r) => workloadLabel(r.workload) },
   { header: 'Dernière sauvegarde (UTC)', cell: (r) => dateTimeOrDash(r.lastSnapshotAt) },
@@ -58,7 +68,7 @@ const KIND_LABELS: Record<SourceKind, string> = { mailbox: 'boîte', site: 'site
 type PlanEntry = PlanComplianceReport['nonCompliant'][number];
 
 const PLAN_COLUMNS: Column<PlanEntry>[] = [
-  { header: 'Plan', cell: (p) => p.name },
+  { header: 'Plan', cell: (p) => <a href={PLANS_HASH}>{p.name}</a> },
   { header: 'Dernière réussite (UTC)', cell: (p) => dateTimeOrDash(p.lastSuccessAt) },
   { header: 'État', cell: (p) => <StatusPill status={p.state === 'failed' ? 'failed' : 'late'} /> },
 ];
@@ -92,11 +102,11 @@ function PlansCompliance({ plans }: { plans: PlanComplianceReport | null | undef
           <Counts counts={plans.counts} />
           {plans.nonCompliant.length > 0 && (
             <DataTable
-              caption="Plans non conformes"
+              caption="Plans en retard ou en échec"
               columns={PLAN_COLUMNS}
               rows={plans.nonCompliant}
               rowKey={(p) => p.id}
-              empty={{ message: 'Aucun plan non conforme.' }}
+              empty={{ message: 'Aucun plan en retard ou en échec.' }}
             />
           )}
         </>
@@ -119,10 +129,17 @@ function Summary({ report }: { report: StatusReport }) {
   // Pas de « tout est à jour » sans rien à constater, ni quand l'état des plans est inconnu.
   if (shown.length === 0 && (report.rows.length === 0 || report.plans === null)) return null;
   if (shown.length === 0) return <Alert tone="success">Toutes les sauvegardes sont à jour</Alert>;
+  const planIssues = (plans?.counts.late ?? 0) + (plans?.counts.failed ?? 0);
   const severe = count('missing') > 0 || (plans?.counts.failed ?? 0) > 0;
   return (
     <Alert tone={severe ? 'error' : 'warning'}>
       {shown.map(([n, noun, what]) => `${plural(n, noun)} ${what}`).join(', ')}
+      {planIssues > 0 && (
+        <>
+          {' '}
+          <a href={PLANS_HASH}>Voir les plans de protection</a>
+        </>
+      )}
     </Alert>
   );
 }

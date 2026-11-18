@@ -92,7 +92,9 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   seuil de 300 ms à 50 plans (seuil fixé par l'issue #88) : pas de cache. Ordre de grandeur,
   mesuré avec un banc jetable et non commité ; un disque plus lent allongerait ces temps. À reprendre si l'on dépasse environ 70 plans.
 - Écran d'accueil : section « Plans de protection » (décompte par état, pastille icône + texte)
-  avant le tableau des sources ; tableau des plans non conformes seulement s'il y en a.
+  avant le tableau des sources ; tableau des plans en retard ou en échec seulement s'il y en a.
+  Chaque anomalie mène à son écran : le bandeau et le nom du plan vers `#/plans`, la source
+  d'une boîte en retard ou en échec vers `#/search?mailbox=<boîte>`.
 
 ## Non vérifié
 
