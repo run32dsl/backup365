@@ -122,6 +122,30 @@ describe('plan form', () => {
     );
   });
 
+  it('words an empty selection without a count of zero', () => {
+    const s = summarySentence({ ...emptyForm(), scope: 'selection', selection: [] });
+    expect(s).toContain('d’aucune boîte ou compte choisi');
+    expect(s).not.toContain('0 boîtes');
+  });
+
+  it('leaves no leading separator for a plan without data', () => {
+    const s = summarySentence({ ...emptyForm(), dataTypes: [] });
+    expect(s).toBe('Aucune donnée choisie : rien ne sera sauvegardé.');
+    expect(
+      summarySentence({ ...emptyForm(), dataTypes: [], scope: 'selection', selection: [] }),
+    ).toBe(s);
+  });
+
+  it('counts a chosen selection', () => {
+    const form = { ...emptyForm(), scope: 'selection' as const };
+    expect(summarySentence({ ...form, selection: ['a'] })).toContain(
+      'd’une boîte ou d’un compte choisi',
+    );
+    expect(summarySentence({ ...form, selection: ['a', 'b'] })).toContain(
+      'de 2 boîtes ou comptes choisis',
+    );
+  });
+
   it('announces the first planned backup', () => {
     expect(createdMessage({ id: 'p1', rpoHours: 12 })).toMatch(
       /^Plan créé\. Première sauvegarde prévue à \d\d:\d\d\.$/,
