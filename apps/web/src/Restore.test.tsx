@@ -1,7 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { API_ERRORS } from './apiError.js';
-import { RestoreAction, dialogTitle } from './RestoreAction.js';
+import { RestoreAction, RestoreOutcome, dialogTitle } from './RestoreAction.js';
 import { SearchView } from './SearchPage.js';
 import {
   announcement,
@@ -153,6 +153,56 @@ describe('restore requests', () => {
     expect(
       await fetchRestoreConfigured(() => json({ configured: false }) as Promise<Response>),
     ).toBe(false);
+  });
+});
+
+describe('RestoreOutcome', () => {
+  const job: RestoreJob = {
+    id: 'j',
+    mailboxId: 'mbx 1',
+    messageId: 'm/1=',
+    status: 'succeeded',
+    startedAt: '2026-11-18T10:00:00.000Z',
+    finishedAt: '2026-11-18T10:00:02.000Z',
+    durationMs: 2000,
+    folder: 'Restauré par backup365 18/11/2026',
+    error: null,
+  };
+  const render = (j: Partial<RestoreJob>) =>
+    renderToString(
+      <RestoreOutcome job={{ ...job, ...j }} mail={mail} onClose={vi.fn()} onRetry={vi.fn()} />,
+    );
+
+  it('lists the mail, the mailbox and the folder on success', () => {
+    const html = render({});
+    expect(html).toContain('<dl class="meta-list">');
+    expect(html).toContain('<dt>Mail</dt><dd>Facture 1 · ');
+    expect(html).toContain('<dt>Boîte</dt><dd>mbx 1</dd>');
+    expect(html).toContain('<dt>Dossier</dt><dd>Restauré par backup365 18/11/2026</dd>');
+    expect(html).not.toContain('Dossier :');
+    expect(html).toContain('2 s<!-- -->.</span>');
+  });
+
+  it('falls back on "(sans objet)" and omits a missing date', () => {
+    const html = renderToString(
+      <RestoreOutcome
+        job={job}
+        mail={{ ...mail, subject: '', date: '' }}
+        onClose={vi.fn()}
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(html).toContain('<dt>Mail</dt><dd>(sans objet)</dd>');
+  });
+
+  it('recalls the mail and the mailbox on failure', () => {
+    const html = render({ status: 'failed', error: 'restore_error' });
+    expect(html).toContain('<dt>Mail</dt><dd>Facture 1 · ');
+    expect(html).toContain('<dt>Boîte</dt><dd>mbx 1</dd>');
+    expect(html).not.toContain('<dt>Dossier</dt>');
+    expect(html).toContain('après <!-- -->2 s<!-- -->.</span>');
+    expect(html).toContain('Rien n’a été modifié dans la boîte.');
+    expect(html.indexOf('Boîte')).toBeLessThan(html.indexOf('Cause :'));
   });
 });
 
