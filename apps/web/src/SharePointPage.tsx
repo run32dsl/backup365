@@ -39,8 +39,8 @@ import {
   sizeOf,
   startSiteRestore,
   restoredContentLabel,
-  summaryOf,
-  wholeSiteSummaryOf,
+  confirmRowsOf,
+  consequenceOf,
   type Site,
   type SiteEntry,
   type SiteJob,
@@ -486,23 +486,18 @@ export function ConfirmStep({
 
   return (
     <form onSubmit={submit} noValidate>
-      <p>Motif : {reason}</p>
       <h2>Récapitulatif</h2>
-      <p>
-        {whole
-          ? wholeSiteSummaryOf({
-              siteName: site.displayName,
-              pointAt: choice.pointAt,
-              items: counts ? counts.items : null,
-            })
-          : summaryOf({
-              scope: choice.scope,
-              siteName: site.displayName,
-              path: choice.path,
-              pointAt: choice.pointAt,
-              summary: counts,
-            })}
-      </p>
+      <ResultList
+        rows={confirmRowsOf({
+          scope: choice.scope,
+          siteName: site.displayName,
+          path: choice.path,
+          pointAt: choice.pointAt,
+          summary: counts,
+          reason,
+        })}
+      />
+      <p>{consequenceOf(choice.scope)}</p>
       {summary === null && <p role="status">{T.loading}</p>}
       {whole && (
         <>

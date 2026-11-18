@@ -167,12 +167,11 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
 
   // Confirmation : récapitulatif ; remplacer exige une confirmation explicite.
   await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
-  await expect(page.getByText(/version du \d\d\/\d\d\/\d{4} \d\d:\d\d/)).toBeVisible();
-  await expect(page.getByText(/en copie, sous un nom choisi par OneDrive/)).toBeVisible();
+  await expect(page.getByText('Version du', { exact: true })).toBeVisible();
+  await expect(page.getByText(/^\d\d\/\d\d\/\d{4} \d\d:\d\d$/)).toBeVisible();
+  await expect(page.getByText('Nom choisi par OneDrive')).toBeVisible();
   await page.getByLabel('Remplacer le fichier actuel').check();
-  await expect(
-    page.getByText(/La version actuelle reste dans l’historique OneDrive/),
-  ).toBeVisible();
+  await expect(page.getByText(/il reste dans l’historique OneDrive/)).toBeVisible();
   const replaceGo = page.getByRole('button', { name: 'Restaurer', exact: true });
   await expect(replaceGo).toHaveAttribute('aria-disabled', 'true');
   // Le bouton grisé reste cliquable : le clic affiche l’erreur.
@@ -259,11 +258,9 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
 
   // Récapitulatif en langage clair, sans écrasement.
   await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
-  await expect(
-    page.getByText(/Vous allez restaurer la bibliothèque « Documents partagés »/),
-  ).toBeVisible();
+  await expect(page.getByText('Bibliothèque : Documents partagés', { exact: true })).toBeVisible();
   await expect(page.getByText(/Les fichiers existants ne seront pas remplacés/)).toBeVisible();
-  await expect(page.getByText('Motif : Ticket #9 : essai trimestriel')).toBeVisible();
+  await expect(page.getByText('Ticket #9 : essai trimestriel', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
 
   await expect(page.getByRole('progressbar')).toBeVisible();

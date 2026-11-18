@@ -16,7 +16,8 @@ import {
   restoreBlocked,
   sizeOf,
   startDriveRestore,
-  summaryOf,
+  confirmRowsOf,
+  consequenceOf,
 } from './onedrive.js';
 import { screenOf } from './App.js';
 
@@ -67,23 +68,37 @@ describe('OneDrive wording', () => {
     );
   });
 
-  it('writes the summary in plain language for a copy and for a replacement', () => {
+  it('lists the summary rows for a copy and for a replacement', () => {
     const base = {
+      account: 'compte@exemple.test',
       name: 'budget.xlsx',
-      kind: 'file' as const,
       versionAt: '2026-11-10T18:30:00.000Z',
       folderLabel: 'Documents > Budget',
       copyName: 'budget (restauré 14-11-2026).xlsx',
+      reason: 'Reprise après incident',
     };
-    expect(summaryOf({ ...base, mode: 'copy' })).toBe(
-      'Vous allez restaurer le fichier « budget.xlsx », version du 10/11/2026 18:30, dans Documents > Budget, sous le nom « budget (restauré 14-11-2026).xlsx ». Aucun fichier existant ne sera modifié.',
+    expect(confirmRowsOf({ ...base, mode: 'copy' })).toEqual([
+      ['Compte', 'compte@exemple.test'],
+      ['Élément', 'budget.xlsx'],
+      ['Version du', '10/11/2026 18:30'],
+      ['Emplacement', 'Documents > Budget'],
+      ['Restauré sous le nom', 'budget (restauré 14-11-2026).xlsx'],
+      ['Motif', 'Reprise après incident'],
+    ]);
+    const replace = confirmRowsOf({ ...base, mode: 'replace' });
+    expect(replace).toContainEqual(['Fichier remplacé', 'budget.xlsx']);
+    expect(replace.map(([label]) => label)).not.toContain('Restauré sous le nom');
+    expect(confirmRowsOf({ ...base, versionAt: null, mode: 'copy' }).map(([l]) => l)).not.toContain(
+      'Version du',
     );
-    expect(summaryOf({ ...base, mode: 'replace' })).toContain(
-      'sera remplacé par la version du 10/11/2026. La version actuelle reste dans l’historique OneDrive.',
+    expect(consequenceOf('copy')).toBe('Aucun fichier existant ne sera modifié.');
+    expect(consequenceOf('replace')).toBe(
+      'Le fichier actuel sera remplacé ; il reste dans l’historique OneDrive.',
     );
-    expect(summaryOf({ ...base, kind: 'folder', versionAt: null, mode: 'copy' })).toContain(
-      'le dossier « budget.xlsx », dans',
-    );
+    expect(confirmRowsOf({ ...base, copyName: '', mode: 'copy' })).toContainEqual([
+      'Restauré sous le nom',
+      'Nom choisi par OneDrive',
+    ]);
   });
 
   it('says when the outcome is uncertain', () => {
@@ -234,5 +249,12 @@ describe('OneDrive replace confirmation', () => {
     const button = /<button[^>]*>Restaurer<\/button>/u.exec(out)?.[0];
     expect(button).toBeDefined();
     expect(button).not.toContain('aria-disabled');
+    // Récapitulatif libellé : le motif entre dans la liste, après le choix du mode.
+    expect(out).not.toContain('Vous allez restaurer');
+    expect(out).not.toContain('Motif : ');
+    expect(out).toContain('<dt>Motif</dt><dd>Ticket #1 : essai</dd>');
+    expect(out.indexOf('Mode')).toBeLessThan(out.indexOf('<h2>Récapitulatif</h2>'));
+    expect(out.indexOf('<h2>Récapitulatif</h2>')).toBeLessThan(out.indexOf('<dt>Compte</dt>'));
+    expect(out).toContain('Aucun fichier existant ne sera modifié.');
   });
 });
