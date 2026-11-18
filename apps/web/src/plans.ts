@@ -233,9 +233,13 @@ export function summarySentence(form: PlanForm): string {
   const where =
     form.scope === 'all'
       ? 'de toute l’organisation'
-      : form.selection.length === 1
-        ? 'd’une boîte ou d’un compte choisi'
-        : `de ${form.selection.length} boîtes ou comptes choisis`;
+      : form.selection.length === 0
+        ? 'd’aucune boîte ou compte choisi'
+        : form.selection.length === 1
+          ? 'd’une boîte ou d’un compte choisi'
+          : `de ${form.selection.length} boîtes ou comptes choisis`;
+  // Plan sans données (import, API) : pas de segment vide ni d'espace en tête.
+  if (what === '') return 'Aucune donnée choisie : rien ne sera sauvegardé.';
   return `Vos ${what} ${where} seront sauvegardés toutes les ${form.rpoHours} h et conservés ${retentionLabel(form.retentionDays)}.`;
 }
 
