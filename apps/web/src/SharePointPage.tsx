@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { API_ERRORS, type Problem as FailureProblem } from './apiError.js';
+import { type Problem as FailureProblem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
+import { StorageUnavailable } from './StorageUnavailable.js';
 import { dateTimeOrDash } from './format.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
 import {
@@ -78,7 +79,7 @@ export function Problem({
   onRetry: () => void;
 }) {
   if (status === 'unconfigured') {
-    return <EmptyState>{API_ERRORS['catalog_unavailable']}</EmptyState>;
+    return <StorageUnavailable onRetry={onRetry} />;
   }
   if (status === 'no_backup') {
     return (

@@ -467,7 +467,7 @@ export const SCREENS = [
         route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
       );
       await page.reload();
-      await page.getByText('Aucune sauvegarde accessible').waitFor();
+      await page.getByText('Sauvegardes inaccessibles').waitFor();
     },
   },
   {
@@ -483,7 +483,7 @@ export const SCREENS = [
         route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
       );
       await page.reload();
-      await page.getByText('Aucune sauvegarde accessible').waitFor();
+      await page.getByText('Sauvegardes inaccessibles').waitFor();
     },
   },
   {

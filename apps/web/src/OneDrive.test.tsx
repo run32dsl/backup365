@@ -1,7 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { API_ERRORS } from './apiError.js';
-import { ConfirmStep, EntriesTable, Problem } from './OneDrivePage.js';
+import { ConfirmStep, EntriesTable } from './OneDrivePage.js';
 import {
   ONEDRIVE_MESSAGES,
   breadcrumbOf,
@@ -105,16 +104,6 @@ describe('OneDrive wording', () => {
     expect(isOutcomeUncertain('restore_unreachable')).toBe(true);
     expect(isOutcomeUncertain('restore_error')).toBe(false);
     expect(failureCause('restore_error')).toContain('erreur');
-  });
-});
-
-describe('OneDrive unconfigured state', () => {
-  it('shows the shared catalog_unavailable text, without a link', () => {
-    const html = renderToString(<Problem status="unconfigured" onRetry={() => undefined} />);
-    const shared = API_ERRORS['catalog_unavailable'] ?? '';
-    expect(shared).not.toBe('');
-    expect(html).toContain(shared);
-    expect(html).not.toContain('<a');
   });
 });
 
