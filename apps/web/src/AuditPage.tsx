@@ -126,6 +126,9 @@ export function AuditView({
           ? '1 entrée'
           : `Entrées ${state.offset + 1} à ${state.offset + state.items.length} sur ${state.total}`}
       </p>
+      <div className="pager-top">
+        <Pager offset={state.offset} limit={state.limit} total={state.total} onPage={onPage} />
+      </div>
       <DataTable
         caption="Entrées du journal d’audit"
         hideCaption
@@ -170,7 +173,10 @@ export function AuditPage() {
   return (
     <main tabIndex={-1}>
       <h1>Journal d’audit</h1>
-      <p>La consultation de ce journal est elle-même inscrite au journal d’audit.</p>
+      <p>
+        La consultation de ce journal est elle-même inscrite au journal d’audit. Filtrez par action
+        pour retrouver un export ou une restauration.
+      </p>
       <form onSubmit={submit} className="filters">
         <FormField label="Du" type="datetime-local" name="from" />
         <FormField label="Au (exclu)" type="datetime-local" name="to" />

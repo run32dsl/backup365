@@ -40,7 +40,7 @@ export function toUtcIso(local: string): string {
 }
 
 /** Nombre d'entrées par page de l'écran. */
-export const AUDIT_PAGE_SIZE = 50;
+export const AUDIT_PAGE_SIZE = 25;
 
 /**
  * Requête issue du formulaire de filtres : retour à la première page, dates locales converties
