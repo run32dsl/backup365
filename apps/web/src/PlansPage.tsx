@@ -37,8 +37,7 @@ import {
   type PlansRoute,
   type ReasonKind,
 } from './plans.js';
-import { requestIdOf, type Problem } from './apiError.js';
-import { FailureAlert } from './FailureAlert.js';
+import { type Problem } from './apiError.js';
 import { AuditReminder, REASON, reasonLabel } from './RestoreJourney.js';
 import {
   Alert,
@@ -59,6 +58,12 @@ import {
 const goTo = (hash: string) => {
   window.location.hash = hash;
 };
+
+/** Échec d'une action sur les plans : la phrase pour l'utilisateur, sans détail technique. */
+export function PlanFailure({ problem }: { problem: Problem }) {
+  const tone = problem.code === 'backup_not_configured' ? 'warning' : 'error';
+  return <Alert tone={tone}>{problem.message}</Alert>;
+}
 
 type Flash = { tone: 'success' | 'error'; text: string };
 
@@ -201,7 +206,7 @@ export function PlanWizard({
           </ul>
         </Alert>
       )}
-      {failure && <FailureAlert problem={failure} />}
+      {failure && <PlanFailure problem={failure} />}
 
       {step === 1 && (
         <>
@@ -387,6 +392,41 @@ export function PlanWizard({
 
 // ---- Dialogues ------------------------------------------------------------------------------
 
+/** Échec éventuel du lancement et boutons : sans suite possible, seul « Fermer » reste. */
+export function RunFeedback({
+  problem,
+  busy,
+  onClose,
+}: {
+  problem?: Problem | undefined;
+  busy: boolean;
+  onClose: () => void;
+}) {
+  // Réessayer ne changerait rien tant que la console n'est pas reliée à Microsoft 365.
+  const notLinked = problem?.code === 'backup_not_configured';
+  return (
+    <>
+      {problem && <PlanFailure problem={problem} />}
+      <div className="button-row dialog-actions">
+        {notLinked ? (
+          <Button data-safe onClick={onClose}>
+            Fermer
+          </Button>
+        ) : (
+          <>
+            <Button variant="secondary" data-safe onClick={onClose}>
+              Annuler
+            </Button>
+            <Button type="submit" busy={busy}>
+              Lancer la sauvegarde
+            </Button>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
 function RunDialog({
   plan,
   onClose,
@@ -454,15 +494,7 @@ function RunDialog({
           }}
         />
         <AuditReminder />
-        {problem && <FailureAlert problem={problem} />}
-        <div className="button-row dialog-actions">
-          <Button variant="secondary" data-safe onClick={onClose}>
-            Annuler
-          </Button>
-          <Button type="submit" busy={busy}>
-            Lancer la sauvegarde
-          </Button>
-        </div>
+        <RunFeedback problem={problem} busy={busy} onClose={onClose} />
       </form>
     </Dialog>
   );
@@ -489,7 +521,7 @@ function DeleteDialog({
         Les sauvegardes existantes sont conservées jusqu’à la fin de leur durée de conservation.
         Aucune nouvelle sauvegarde ne sera faite.
       </p>
-      {error && <FailureAlert problem={error} />}
+      {error && <PlanFailure problem={error} />}
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onClose}>
           Annuler
@@ -584,7 +616,6 @@ export function PlansListView({
   admin,
   configured,
   onRetry,
-  loadRequestId,
   onRun,
   onDelete,
 }: {
@@ -592,8 +623,6 @@ export function PlansListView({
   admin: boolean;
   configured: boolean;
   onRetry: () => void;
-  /** Identifiant de la requête qui a échoué au chargement, pour le support. */
-  loadRequestId?: string | undefined;
   onRun: (p: PlanItem) => void;
   onDelete: (p: PlanItem) => void;
 }) {
@@ -618,11 +647,6 @@ export function PlansListView({
         }
       >
         {MESSAGES.loadError}
-        {loadRequestId ? (
-          <small className="alert-detail request-id">
-            Identifiant de requête : <code>{loadRequestId}</code>
-          </small>
-        ) : null}
       </Alert>
     );
   }
@@ -693,7 +717,6 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     mailboxes: [],
   });
   const [flash, setFlash] = useState<Flash>();
-  const [loadRequestId, setLoadRequestId] = useState<string>();
   const [runTarget, setRunTarget] = useState<PlanItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlanItem | null>(null);
 
@@ -703,8 +726,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         setState(plans);
         setBoxes(mailboxes);
       },
-      (e: unknown) => {
-        setLoadRequestId(requestIdOf(e));
+      () => {
         setState('error');
       },
     );
@@ -780,7 +802,6 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured={false}
         onRetry={reloadList}
-        loadRequestId={loadRequestId}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
       />
@@ -792,7 +813,6 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured
         onRetry={reloadList}
-        loadRequestId={loadRequestId}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
       />
@@ -816,7 +836,6 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured={boxes.configured}
         onRetry={reloadList}
-        loadRequestId={loadRequestId}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
       />
