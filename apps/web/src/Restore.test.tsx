@@ -204,6 +204,26 @@ describe('RestoreOutcome', () => {
     expect(html).toContain('Rien n’a été modifié dans la boîte.');
     expect(html.indexOf('Boîte')).toBeLessThan(html.indexOf('Cause :'));
   });
+
+  /** Boutons du `.dialog-actions` rendu, dans l'ordre du DOM. */
+  const actionsOf = (html: string) => {
+    const block = /<div class="button-row dialog-actions">(.*?)<\/div>/s.exec(html)?.[1] ?? '';
+    return [
+      ...block.matchAll(/<(?:a|button)[^>]*class="btn([^"]*)"[^>]*>(.*?)<\/(?:a|button)>/gs),
+    ].map((m) => ({ secondary: m[1]?.includes('btn-secondary') ?? false, label: m[2] ?? '' }));
+  };
+
+  it('puts the primary action last on success: audit outline, then Fermer filled', () => {
+    const actions = actionsOf(render({}));
+    expect(actions.map((a) => a.label)).toEqual(['Voir dans le journal d’audit', 'Fermer']);
+    expect(actions.map((a) => a.secondary)).toEqual([true, false]);
+  });
+
+  it('puts the primary action last on failure: Fermer outline, then Réessayer filled', () => {
+    const actions = actionsOf(render({ status: 'failed', error: 'restore_error' }));
+    expect(actions.map((a) => a.label)).toEqual(['Fermer', 'Réessayer']);
+    expect(actions.map((a) => a.secondary)).toEqual([true, false]);
+  });
 });
 
 describe('RestoreAction', () => {

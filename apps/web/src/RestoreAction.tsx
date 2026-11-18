@@ -79,13 +79,11 @@ export function RestoreOutcome({
       <>
         <Alert tone="success">Mail restauré en {formatDuration(job.durationMs ?? 0)}.</Alert>
         <ResultList rows={[...recall, ['Dossier', job.folder]]} />
-        <div className="button-row dialog-actions primary-first">
+        <div className="button-row dialog-actions">
           <a className="btn btn-secondary" href="#/audit">
             {B.audit}
           </a>
-          <Button variant="secondary" onClick={onClose}>
-            Fermer
-          </Button>
+          <Button onClick={onClose}>Fermer</Button>
         </div>
       </>
     );
@@ -98,11 +96,11 @@ export function RestoreOutcome({
       <ResultList rows={recall} />
       <p>Cause : {failureCause(job.error)}</p>
       <p>{isOutcomeUncertain(job.error) ? T.uncertain : T.untouched}</p>
-      <div className="button-row dialog-actions primary-first">
-        <Button onClick={onRetry}>{B.retry}</Button>
+      <div className="button-row dialog-actions">
         <Button variant="secondary" onClick={onClose}>
           Fermer
         </Button>
+        <Button onClick={onRetry}>{B.retry}</Button>
       </div>
     </>
   );

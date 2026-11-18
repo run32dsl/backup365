@@ -155,7 +155,10 @@ function VersionsDialog({
           ))}
         </fieldset>
       )}
-      <div className="button-row dialog-actions primary-first">
+      <div className="button-row dialog-actions">
+        <Button variant="secondary" data-safe onClick={onClose}>
+          Fermer
+        </Button>
         <Button
           disabled={rows.length === 0}
           onClick={() => {
@@ -164,9 +167,6 @@ function VersionsDialog({
           }}
         >
           Restaurer cette version
-        </Button>
-        <Button variant="secondary" data-safe onClick={onClose}>
-          Fermer
         </Button>
       </div>
     </Dialog>
