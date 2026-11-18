@@ -26,6 +26,13 @@ dans la liste la conformité et la dernière exécution, et laisser un opérateu
   Défauts : 12 h, 24 h, 1 an, tout protégé, toute l'organisation.
 - **Non configuré.** L'écran le déduit de `GET /api/mailboxes` (503 `catalog_unavailable`). Il n'existe
   pas encore d'écran de configuration : « Configurer la sauvegarde » renvoie au tableau de bord.
+- **Blocages de l'assistant (#240).** Aucun bouton n'est désactivé : au clic, chaque raison
+  s'affiche à côté de son champ (`aria-invalid`, `aria-describedby`), un bandeau court donne le
+  nombre de points, le focus va sur le premier champ en erreur et l'écran défile jusqu'à lui. Un nom
+  déjà utilisé (comparé comme le serveur : sans espaces autour ni différence de casse) est refusé dès
+  l'étape 1 ; s'il est refusé à l'envoi (409), l'assistant revient à l'étape 1. Un autre échec
+  d'envoi s'affiche au-dessus des boutons de l'étape 3 et prend le focus, saisies conservées. Après
+  la création, la confirmation de la liste reçoit le focus.
 - Ancres : `#/plans`, `#/plans/nouveau`, `#/plans/<id>/modifier`.
 
 ## Conséquences

@@ -19,6 +19,8 @@ import {
   runPlan,
   recapRows,
   validateStep,
+  isNameTaken,
+  errorSummary,
   type PlanItem,
 } from './plans.js';
 
@@ -81,17 +83,21 @@ describe('plan form', () => {
 
   it('refuses a missing name, no data type, an empty selection and a missing justification', () => {
     expect(validateStep({ ...emptyForm(), dataTypes: [] }, 1)).toEqual({
-      name: 'Indiquez un nom pour le plan.',
+      name: 'Saisissez un nom pour le plan.',
       dataTypes: 'Choisissez au moins un type de données.',
     });
     expect(
       validateStep({ ...emptyForm(), name: 'a', scope: 'selection' }, 1).selection,
     ).toBeDefined();
     expect(validateStep(emptyForm(), 2).justification).toBe(
-      'Indiquez la justification de la durée de conservation.',
+      'Indiquez pourquoi cette durée est nécessaire.',
     );
     expect(validateStep({ ...emptyForm(), reasonKind: 'other' }, 2).justification).toBeDefined();
     expect(validateStep({ ...emptyForm(), reasonKind: 'other', reasonDetail: 'x' }, 2)).toEqual({});
+    expect(validateStep({ ...emptyForm(), name: ' plan TEST 1 ' }, 1, ['Plan test 1']).name).toBe(
+      'Ce nom est déjà utilisé. Choisissez-en un autre.',
+    );
+    expect(validateStep({ ...emptyForm(), name: 'Autre' }, 1, ['Plan test 1'])).toEqual({});
   });
 
   it('writes and reads back the justification', () => {
@@ -265,6 +271,19 @@ describe('PlansListView', () => {
     const operator = list([], false, false);
     expect(operator).toContain('Demandez à un administrateur de la configurer');
     expect(operator).not.toContain('Configurer la sauvegarde');
+  });
+});
+
+describe('plan name and error summary', () => {
+  it('compares names like the server: trimmed and case-insensitive', () => {
+    expect(isNameTaken(' PLAN test 1', ['Plan test 1 '])).toBe(true);
+    expect(isNameTaken('Plan test 2', ['Plan test 1'])).toBe(false);
+    expect(isNameTaken('x', [])).toBe(false);
+  });
+
+  it('words the error banner in the singular and the plural', () => {
+    expect(errorSummary(1)).toBe('1 point à corriger avant de continuer');
+    expect(errorSummary(2)).toBe('2 points à corriger avant de continuer');
   });
 });
 

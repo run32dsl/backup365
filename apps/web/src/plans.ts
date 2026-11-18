@@ -99,10 +99,12 @@ export const MESSAGES = {
   notConfigured: 'Sauvegarde non configurée',
   notConfiguredHelp: 'Connectez d’abord Microsoft 365 pour créer un plan.',
   notConfiguredOperator: 'Demandez à un administrateur de la configurer',
-  name: 'Indiquez un nom pour le plan.',
+  name: 'Saisissez un nom pour le plan.',
+  nameTaken: 'Ce nom est déjà utilisé. Choisissez-en un autre.',
   dataTypes: 'Choisissez au moins un type de données.',
-  selection: 'Choisissez au moins une boîte ou un compte.',
-  justification: 'Indiquez la justification de la durée de conservation.',
+  selection: 'Choisissez au moins un élément à protéger.',
+  justification: 'Indiquez pourquoi cette durée est nécessaire.',
+  createFailed: 'Le plan n’a pas pu être créé. Vos choix sont conservés. Réessayez.',
   runReason: 'Indiquez un motif.',
   created: 'Plan créé.',
   updated: 'Plan modifié.',
@@ -191,11 +193,29 @@ export type FormErrors = Partial<
   Record<'name' | 'dataTypes' | 'selection' | 'justification', string>
 >;
 
-/** Erreurs de l'étape (1 ou 2) ; vide si elle peut être quittée. */
-export function validateStep(form: PlanForm, step: 1 | 2): FormErrors {
+/** Même règle que le serveur : noms comparés sans espaces autour ni différence de casse. */
+export function isNameTaken(name: string, takenNames: readonly string[]): boolean {
+  const wanted = name.trim().toLowerCase();
+  return takenNames.some((n) => n.trim().toLowerCase() === wanted);
+}
+
+/** Libellé du bandeau qui résume les erreurs de l'étape. */
+export const errorSummary = (count: number): string =>
+  `${count} ${count === 1 ? 'point' : 'points'} à corriger avant de continuer`;
+
+/**
+ * Erreurs de l'étape (1 ou 2) ; vide si elle peut être quittée. `takenNames` : noms des autres
+ * plans, déjà utilisés.
+ */
+export function validateStep(
+  form: PlanForm,
+  step: 1 | 2,
+  takenNames: readonly string[] = [],
+): FormErrors {
   const errors: FormErrors = {};
   if (step === 1) {
     if (form.name.trim() === '') errors.name = MESSAGES.name;
+    else if (isNameTaken(form.name, takenNames)) errors.name = MESSAGES.nameTaken;
     if (form.dataTypes.length === 0) errors.dataTypes = MESSAGES.dataTypes;
     if (form.scope === 'selection' && form.selection.length === 0) {
       errors.selection = MESSAGES.selection;
