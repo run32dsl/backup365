@@ -47,6 +47,18 @@ const plan: PlanItem = {
   },
 };
 
+/**
+ * Le plan tel que `GET /api/plans` l'envoie à un opérateur : sans sélection, délai de remise en
+ * service ni justification (le test de `plan-routes.ts` fige la même liste de champs).
+ */
+function asOperator(item: PlanItem): PlanItem {
+  const visible = { ...item };
+  delete visible.selection;
+  delete visible.rtoHours;
+  delete visible.gdprJustification;
+  return visible;
+}
+
 const noop = () => undefined;
 const list = (
   state: Parameters<typeof PlansListView>[0]['state'],
@@ -224,22 +236,24 @@ describe('PlansListView', () => {
     expect(html).toContain(
       '<small class="state-note plan-summary">Fichiers · 2 boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans</small>',
     );
-    // L'API n'envoie pas la sélection à l'opérateur : la page ne doit pas planter.
-    const forOperator = { ...other } as Partial<typeof other>;
-    delete forOperator.selection;
-    const operatorHtml = list([plan, forOperator as typeof other], false);
+    // L'API n'envoie pas la sélection à l'opérateur : la synthèse se passe du nombre.
+    const operatorHtml = list([plan, other].map(asOperator), false);
     expect(operatorHtml).toContain(all);
     expect(operatorHtml).toContain(
       '<small class="state-note plan-summary">Fichiers · boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans</small>',
     );
     expect(planSummary({ ...other, selection: ['a'] })).toContain('une boîte ou un compte choisi');
+    expect(planSummary({ ...other, selection: [] })).toBe(
+      'Fichiers · boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans',
+    );
     expect(planSummary({ ...other, dataTypes: [] })).toBe(
       '2 boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans',
     );
   });
 
   it('is read-only for an operator: no Actions column, a notice', () => {
-    const html = list([plan], false);
+    const html = list([asOperator(plan)], false);
+    expect(html).toContain('Messagerie Direction');
     expect(html).not.toContain('Actions');
     expect(html).not.toContain('Lancer');
     expect(html).toContain('Lecture seule : seul un administrateur peut modifier les plans.');

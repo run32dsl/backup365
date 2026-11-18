@@ -13,17 +13,22 @@ import { dateTimeOf } from './format.js';
 import { UNREACHABLE, type Outcome } from './session.js';
 import type { PillStatus } from './ui/index.js';
 
-/** Plan tel que `GET /api/plans` le rend : le plan, sa conformité et sa dernière exécution. */
+/**
+ * Plan tel que `GET /api/plans` le rend : le plan, sa conformité et sa dernière exécution. Les
+ * trois champs optionnels ne sont envoyés qu'à un administrateur : un opérateur ne reçoit ni
+ * sélection, ni délai de remise en service, ni justification. Tout code partagé par les deux
+ * rôles doit donc s'en passer.
+ */
 export interface PlanItem {
   id: string;
   name: string;
   scope: PlanScope;
   dataTypes: DataType[];
-  selection: string[];
+  selection?: string[];
   rpoHours: RpoHours;
-  rtoHours: number | null;
+  rtoHours?: number | null;
   retentionDays: number;
-  gdprJustification: string;
+  gdprJustification?: string;
   createdAt: string;
   compliance: {
     state: ComplianceState;
@@ -170,12 +175,12 @@ export function parseJustification(text: string): { kind: ReasonKind; detail: st
 }
 
 export function formFromPlan(plan: PlanItem): PlanForm {
-  const reason = parseJustification(plan.gdprJustification);
+  const reason = parseJustification(plan.gdprJustification ?? '');
   return {
     name: plan.name,
     dataTypes: plan.dataTypes,
     scope: plan.scope,
-    selection: plan.selection,
+    selection: plan.selection ?? [],
     rpoHours: plan.rpoHours,
     rtoHours: plan.rtoHours ?? 24,
     retentionDays: plan.retentionDays,
@@ -245,10 +250,7 @@ export function summarySentence(form: PlanForm): string {
  * « Mails, fichiers et contacts · toute l'organisation · toutes les 12 h · conservés 1 an ».
  */
 export function planSummary(
-  plan: Pick<PlanItem, 'dataTypes' | 'scope' | 'rpoHours' | 'retentionDays'> & {
-    /** Absente pour un opérateur : l'API ne lui envoie pas la sélection. */
-    selection?: string[];
-  },
+  plan: Pick<PlanItem, 'dataTypes' | 'scope' | 'selection' | 'rpoHours' | 'retentionDays'>,
 ): string {
   const what = enumerate(
     DATA_TYPES.filter((t) => plan.dataTypes.includes(t)).map((t) => DATA_TYPE_PHRASES[t]),

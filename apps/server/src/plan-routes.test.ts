@@ -60,6 +60,20 @@ describe('API des plans', () => {
     }>();
     expect(before.items[0]).not.toHaveProperty('gdprJustification');
     expect(before.items[0]).not.toHaveProperty('selection');
+    // Contrat lu par la console (`PlanItem` de apps/web) : ces champs et aucun autre. En changer
+    // la liste demande d'adapter l'écran des plans de l'opérateur et son test de rendu.
+    expect(Object.keys(before.items[0] ?? {}).sort()).toEqual([
+      'compliance',
+      'createdAt',
+      'dataTypes',
+      'id',
+      'lastRun',
+      'name',
+      'retentionDays',
+      'rpoHours',
+      'running',
+      'scope',
+    ]);
     expect((await send(app, 'GET', `/api/plans/${plan.id}/runs`)).statusCode).toBe(403);
     expect((await send(app, 'POST', `/api/plans/${plan.id}/run`, { reason: 'x' })).statusCode).toBe(
       403,
