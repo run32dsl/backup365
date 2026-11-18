@@ -412,9 +412,9 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
 
   // Étape 3 : récapitulatif en langage clair, puis création.
   await expect(page.getByText('Étape 3 sur 3 : Récapitulatif')).toBeFocused();
-  await expect(
-    page.getByText(/seront sauvegardés toutes les 12 h et conservés 3 ans/),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Récapitulatif' })).toBeVisible();
+  await expect(page.locator('dd', { hasText: 'Contacts Exemple' })).toBeVisible();
+  await expect(page.locator('dd', { hasText: '3 ans' }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Créer le plan' }).click();
   await expect(
     page.getByText(/Plan créé\. Première sauvegarde prévue à \d\d:\d\d\./),
