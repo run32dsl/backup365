@@ -383,7 +383,9 @@ export function PasswordPage({
   const [error, setError] = useState<string>();
   const [done, setDone] = useState(false);
   const [saved, setSaved] = useState(0);
+  const [confirmed, setConfirmed] = useState(false);
   const submit = (form: FormData) => {
+    setConfirmed(false);
     if (text(form, 'next') !== text(form, 'confirm')) {
       setError('Les deux mots de passe ne correspondent pas.');
       return;
@@ -395,7 +397,10 @@ export function PasswordPage({
           // Imposé : l'appelant ouvre la console. Volontaire : on reste sur la page, formulaire
           // vidé (remonté par sa clé), confirmation sous le titre.
           if (forced) setDone(true);
-          else setSaved((n) => n + 1);
+          else {
+            setSaved((n) => n + 1);
+            setConfirmed(true);
+          }
           onDone();
         } else setError(outcome.message);
       },
@@ -414,7 +419,7 @@ export function PasswordPage({
       key={saved}
       forced={forced}
       error={error}
-      saved={saved > 0}
+      saved={confirmed}
       onSubmit={submit}
       onCancel={onCancel}
     />
