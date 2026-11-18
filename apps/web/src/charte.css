@@ -954,9 +954,6 @@ a.btn-secondary {
   border: 1px solid var(--border-soft);
 }
 @media (max-width: 40rem) {
-  .wizard .steps ol {
-    display: none;
-  }
   .row-actions {
     flex-direction: column;
     align-items: stretch;
