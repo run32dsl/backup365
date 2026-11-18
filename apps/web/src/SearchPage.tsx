@@ -56,7 +56,7 @@ const RESTORE_HINT_ID = 'restore-not-configured';
 
 /**
  * Résultats de recherche : métadonnées seulement, chaque ligne mène à la fiche du mail. Avec
- * `restoreConfigured`, chaque ligne propose « Restaurer » (désactivé si aucun tenant n'est relié).
+ * `restoreConfigured`, chaque ligne propose « Restaurer » (désactivé si la restauration est indisponible).
  */
 export function SearchView({
   state,

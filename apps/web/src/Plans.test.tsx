@@ -237,7 +237,7 @@ describe('PlansListView', () => {
   it('explains that the backup is not configured', () => {
     const admin = list([], true, false);
     expect(admin).toContain('Sauvegarde non configurée');
-    expect(admin).toContain('Connectez d’abord votre tenant Microsoft 365 pour créer un plan.');
+    expect(admin).toContain('Connectez d’abord Microsoft 365 pour créer un plan.');
     expect(admin).toContain('Configurer la sauvegarde');
     const operator = list([], false, false);
     expect(operator).toContain('Demandez à un administrateur de la configurer');

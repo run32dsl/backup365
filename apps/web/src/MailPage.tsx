@@ -2,7 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { IndexedMail } from '@backup365/core';
 import { exportEml, fetchMail, isReasonValid, saveBlob } from './mail.js';
 import { dateTimeOrDash, folderLabel, sizeOf } from './format.js';
-import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
+import { API_ERRORS } from './apiError.js';
+import { RestoreAction } from './RestoreAction.js';
 import { AuditReminder, ReasonField } from './RestoreJourney.js';
 import {
   fetchLastRestore,
@@ -131,18 +132,33 @@ export function RestoreSection({ mail }: { mail: IndexedMail }) {
       clearInterval(timer);
     };
   }, [running, mail.mailboxId, mail.messageId]);
+  return <RestoreSectionView mail={mail} configured={configured} last={last} onJob={setLast} />;
+}
+
+/** Section de restauration : le bouton, ou un avertissement quand la restauration est indisponible. */
+export function RestoreSectionView({
+  mail,
+  configured,
+  last,
+  onJob,
+}: {
+  mail: IndexedMail;
+  configured: boolean;
+  last: RestoreJob | null;
+  onJob?: (job: RestoreJob) => void;
+}) {
   const label = lastRestoreLabel(last);
   return (
     <section aria-labelledby="restore-title" className="mail-section">
       <h2 id="restore-title">Restaurer dans la boîte d’origine</h2>
       <p>Remet une copie du mail dans sa boîte d’origine, sans rien écraser.</p>
-      <RestoreAction
-        mail={mail}
-        configured={configured}
-        hintId="restore-not-configured"
-        onJob={setLast}
-      />
-      {!configured && <RestoreNotConfigured id="restore-not-configured" />}
+      {configured ? (
+        <RestoreAction mail={mail} configured onJob={onJob} />
+      ) : (
+        <div className="restore-unavailable">
+          <Alert tone="warning">{API_ERRORS['restore_unavailable']}</Alert>
+        </div>
+      )}
       {label && <p role="status">{label}</p>}
     </section>
   );

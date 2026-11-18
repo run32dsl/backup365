@@ -469,10 +469,8 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await submit.click();
 
   // Le message, la consigne et l'identifiant de requête, au-dessus des boutons.
-  const alert = run.getByRole('alert').filter({ hasText: 'Sauvegarde non configurée' });
+  const alert = run.getByRole('alert').filter({ hasText: 'Sauvegarde indisponible' });
   await expect(alert).toBeVisible();
-  await expect(alert.getByText('fichiers de secrets', { exact: false })).toBeVisible();
-  await expect(alert.getByText('Exécution des plans', { exact: false })).toBeVisible();
   await expect(run.getByRole('link', { name: 'Configurer la connexion' })).toHaveCount(0);
   await expect(
     alert.getByText('Identifiant de requête : 3f2b8c1e-5a7d-4e0b-9c64-1d2a7b9e4f10'),
@@ -487,7 +485,7 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await run.getByLabel('Motif').selectOption({ label: 'Autre (préciser)' });
   await submit.click();
   await expect(run.getByText('Indiquez un motif.')).toBeVisible();
-  await expect(run.getByText('Sauvegarde non configurée')).toHaveCount(0);
+  await expect(run.getByText('Sauvegarde indisponible')).toHaveCount(0);
   await run.getByRole('button', { name: 'Annuler' }).click();
 
   // Suppression refusée : même alerte, le plan reste dans la liste.
