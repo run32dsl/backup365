@@ -92,7 +92,13 @@ describe('OneDrive wording', () => {
       'Version du',
     );
     expect(consequenceOf('copy')).toBe('Aucun fichier existant ne sera modifié.');
-    expect(consequenceOf('replace')).toContain('historique OneDrive');
+    expect(consequenceOf('replace')).toBe(
+      'Le fichier actuel sera remplacé ; il reste dans l’historique OneDrive.',
+    );
+    expect(confirmRowsOf({ ...base, copyName: '', mode: 'copy' })).toContainEqual([
+      'Restauré sous le nom',
+      'Nom choisi par OneDrive',
+    ]);
   });
 
   it('says when the outcome is uncertain', () => {
