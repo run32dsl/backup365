@@ -522,6 +522,11 @@ select[aria-disabled='true'] {
   color: var(--muted);
 }
 
+/* Synthèse d'un plan sous son nom : passe à la ligne sans élargir la page. */
+.plan-summary {
+  overflow-wrap: anywhere;
+}
+
 /* Adresse sur une seule ligne en tableau ; en carte (sous 900 px) elle peut passer à la ligne. */
 @media (min-width: 56.26rem) {
   .data-table .address {

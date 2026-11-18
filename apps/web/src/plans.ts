@@ -9,6 +9,7 @@ import {
   type RunStatus,
 } from '@backup365/core';
 import { readFailure, requestError } from './apiError.js';
+import { dateTimeOf } from './format.js';
 import { UNREACHABLE, type Outcome } from './session.js';
 import type { PillStatus } from './ui/index.js';
 
@@ -239,6 +240,30 @@ export function summarySentence(form: PlanForm): string {
   return `Vos ${what} ${where} seront sauvegardés toutes les ${form.rpoHours} h et conservés ${retentionLabel(form.retentionDays)}.`;
 }
 
+/**
+ * Synthèse d'un plan en une ligne pour la liste, mêmes termes que `summarySentence` :
+ * « Mails, fichiers et contacts · toute l'organisation · toutes les 12 h · conservés 1 an ».
+ */
+export function planSummary(
+  plan: Pick<PlanItem, 'dataTypes' | 'scope' | 'selection' | 'rpoHours' | 'retentionDays'>,
+): string {
+  const what = enumerate(
+    DATA_TYPES.filter((t) => plan.dataTypes.includes(t)).map((t) => DATA_TYPE_PHRASES[t]),
+  );
+  const where =
+    plan.scope === 'all'
+      ? 'toute l’organisation'
+      : plan.selection.length === 1
+        ? 'une boîte ou un compte choisi'
+        : `${plan.selection.length} boîtes ou comptes choisis`;
+  return [
+    what.charAt(0).toUpperCase() + what.slice(1),
+    where,
+    `toutes les ${plan.rpoHours} h`,
+    `conservés ${retentionLabel(plan.retentionDays)}`,
+  ].join(' · ');
+}
+
 export const rtoSentence = (hours: number): string =>
   `En cas de sinistre, la remise en service est visée sous ${hours} h.`;
 
@@ -254,12 +279,6 @@ export const retentionHelp = (days: number): string =>
 // ---- Affichage de la liste ------------------------------------------------------------------
 
 const pad = (n: number): string => String(n).padStart(2, '0');
-
-/** `14/11 06:00`, à l'heure locale. */
-export function shortDate(iso: string): string {
-  const d = new Date(iso);
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 /** `18:00`, à l'heure locale. */
 export const timeOf = (date: Date): string => `${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -300,7 +319,7 @@ export function lastRunLabel(plan: PlanItem): string {
   if (plan.running) return 'En cours…';
   const run = plan.lastRun;
   if (!run) return 'Pas encore sauvegardé';
-  const at = shortDate(run.finishedAt ?? run.startedAt);
+  const at = dateTimeOf(run.finishedAt ?? run.startedAt);
   if (run.status !== 'success') return `Échec, ${at}`;
   const outcome =
     run.noSnapshotReason === 'no_content' ? 'Réussie (rien à sauvegarder)' : 'Réussie';

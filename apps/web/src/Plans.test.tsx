@@ -9,6 +9,7 @@ import {
   formFromPlan,
   justificationText,
   lastRunLabel,
+  planSummary,
   parseJustification,
   parsePlansHash,
   RETENTION_CHOICES,
@@ -152,13 +153,13 @@ describe('list labels', () => {
   });
 
   it('describes the last run', () => {
-    expect(lastRunLabel(plan)).toMatch(/^Réussie, \d\d\/\d\d \d\d:\d\d$/);
+    expect(lastRunLabel(plan)).toBe('Réussie, 14/11/2026 06:00');
     expect(lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, status: 'failed' } })).toMatch(
-      /^Échec, \d\d\/\d\d \d\d:\d\d$/,
+      /^Échec, \d\d\/\d\d\/\d{4} \d\d:\d\d$/,
     );
     expect(
       lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, noSnapshotReason: 'no_content' } }),
-    ).toMatch(/^Réussie \(rien à sauvegarder\), \d\d\/\d\d \d\d:\d\d$/);
+    ).toMatch(/^Réussie \(rien à sauvegarder\), \d\d\/\d\d\/\d{4} \d\d:\d\d$/);
     // « rien à sauvegarder » : une seule fois par ligne.
     const empty = { ...plan.compliance, lastRestorePointAt: null };
     expect(complianceView({ ...plan, compliance: empty }).note).toBe(
@@ -192,6 +193,7 @@ describe('PlansListView', () => {
     const html = list([plan], true);
     expect(html).toContain('Messagerie Direction');
     expect(html).toContain('À jour');
+    expect(html).toContain('Dernière exécution (UTC)');
     expect(
       list(
         [{ ...plan, compliance: { ...plan.compliance, state: 'failed', lastSuccessAt: null } }],
@@ -202,6 +204,29 @@ describe('PlansListView', () => {
     expect(html).toContain('aria-label="Lancer Messagerie Direction maintenant"');
     expect(html).toContain('aria-label="Modifier Messagerie Direction"');
     expect(html).toContain('aria-label="Supprimer Messagerie Direction"');
+  });
+
+  it('summarises what each plan protects, for both roles', () => {
+    const other: PlanItem = {
+      ...plan,
+      id: 'p2',
+      name: 'Fichiers Services',
+      scope: 'selection',
+      selection: ['a', 'b'],
+      dataTypes: ['files'],
+      rpoHours: 24,
+      retentionDays: 1095,
+    };
+    for (const admin of [true, false]) {
+      const html = list([plan, other], admin);
+      expect(html).toContain(
+        '<small class="state-note plan-summary">Mails, fichiers, calendriers et contacts · toute l’organisation · toutes les 12 h · conservés 1 an</small>',
+      );
+      expect(html).toContain(
+        '<small class="state-note plan-summary">Fichiers · 2 boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans</small>',
+      );
+    }
+    expect(planSummary({ ...other, selection: ['a'] })).toContain('une boîte ou un compte choisi');
   });
 
   it('is read-only for an operator: no Actions column, a notice', () => {
