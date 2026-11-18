@@ -400,7 +400,13 @@ export const SCREENS = [
       });
       await dialog.getByLabel('Motif du lancement (obligatoire)').selectOption({ index: 1 });
       await dialog.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
-      await dialog.getByText('Sauvegarde indisponible').waitFor();
+      // Le titre devient celui du résultat : la boîte se retrouve par son nouveau nom.
+      const blocked = page.getByRole('dialog', { name: 'Lancement impossible' });
+      await blocked.getByText('Aucune sauvegarde n’a été lancée.').waitFor();
+      await blocked.locator('.dialog-actions').getByRole('button', { name: 'Fermer' }).waitFor();
+      if ((await blocked.locator('select, input').count()) > 0) {
+        throw new Error('Le formulaire de motif est encore affiché');
+      }
     },
   },
   {

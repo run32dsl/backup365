@@ -4,7 +4,7 @@ import { createAccount, fetchAccounts, resetPassword } from './accounts.js';
 import { requestIdOf } from './apiError.js';
 import { AccountsView, CreateAccountForm } from './AccountsPage.js';
 import { createPlan, emptyForm, fetchPlans } from './plans.js';
-import { PlanFailure, PlansListView, RunFeedback } from './PlansPage.js';
+import { PlanFailure, PlansListView, RunBlocked, RunFeedback, isRunBlocked } from './PlansPage.js';
 
 const failing = (): typeof fetch =>
   (() =>
@@ -74,27 +74,39 @@ describe('identifiant de requête des échecs', () => {
     expect(html).not.toContain('Identifiant de requête');
   });
 
-  it('turns an unlinked console into a warning with only « Fermer »', () => {
-    const close = () => undefined;
+  it('replaces the reason form with the result when the console is not linked', () => {
     const html = renderToStaticMarkup(
-      <RunFeedback
+      <RunBlocked
         problem={{ message: 'Sauvegarde indisponible', code: 'backup_not_configured' }}
-        busy={false}
-        onClose={close}
+        planName="Messagerie Direction"
+        reason="Contrôle de conformité"
+        onClose={() => undefined}
       />,
     );
     expect(html).toContain('alert-warning');
+    expect(html).toContain('Sauvegarde indisponible');
+    expect(html).toMatch(/Plan<[\s\S]*Messagerie Direction/);
+    expect(html).toMatch(/Motif<[\s\S]*Contrôle de conformité/);
+    expect(html).toContain('Aucune sauvegarde n’a été lancée.');
     expect(html).toContain('Fermer');
+    expect(html).not.toContain('<select');
+    expect(html).not.toContain('<input');
     expect(html).not.toContain('Lancer la sauvegarde');
     expect(html).not.toContain('Annuler');
+    expect(isRunBlocked({ message: 'x', code: 'backup_not_configured' })).toBe(true);
+    expect(isRunBlocked({ message: 'x', code: 'internal_error' })).toBe(false);
+  });
+
+  it('keeps the form buttons for a failure that can be retried', () => {
     const other = renderToStaticMarkup(
       <RunFeedback
         problem={{ message: 'x', code: 'internal_error' }}
         busy={false}
-        onClose={close}
+        onClose={() => undefined}
       />,
     );
     expect(other).toContain('alert-error');
+    expect(other).toContain('Annuler');
     expect(other).toContain('Lancer la sauvegarde');
   });
 });

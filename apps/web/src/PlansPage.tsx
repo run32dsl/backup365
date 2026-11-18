@@ -392,7 +392,44 @@ export function PlanWizard({
 
 // ---- Dialogues ------------------------------------------------------------------------------
 
-/** Échec éventuel du lancement et boutons : sans suite possible, seul « Fermer » reste. */
+/** Réessayer ne changerait rien tant que la console n'est pas reliée à Microsoft 365. */
+export function isRunBlocked(problem: Problem | undefined): problem is Problem {
+  return problem?.code === 'backup_not_configured';
+}
+
+/** Résultat d'un lancement impossible : avertissement, rappel de la demande, « Fermer ». */
+export function RunBlocked({
+  problem,
+  planName,
+  reason,
+  onClose,
+}: {
+  problem: Problem;
+  planName: string;
+  reason: string;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <PlanFailure problem={problem} />
+      <ResultList
+        rows={[
+          ['Plan', planName],
+          ['Motif', reason],
+        ]}
+      />
+      <p>Aucune sauvegarde n’a été lancée.</p>
+      <div className="button-row dialog-actions">
+        {/* Le formulaire vient d'être démonté : le focus passe au seul bouton restant. */}
+        <Button data-safe autoFocus onClick={onClose}>
+          Fermer
+        </Button>
+      </div>
+    </>
+  );
+}
+
+/** Échec éventuel d'un lancement qui peut être retenté, et boutons du formulaire. */
 export function RunFeedback({
   problem,
   busy,
@@ -402,26 +439,16 @@ export function RunFeedback({
   busy: boolean;
   onClose: () => void;
 }) {
-  // Réessayer ne changerait rien tant que la console n'est pas reliée à Microsoft 365.
-  const notLinked = problem?.code === 'backup_not_configured';
   return (
     <>
       {problem && <PlanFailure problem={problem} />}
       <div className="button-row dialog-actions">
-        {notLinked ? (
-          <Button data-safe onClick={onClose}>
-            Fermer
-          </Button>
-        ) : (
-          <>
-            <Button variant="secondary" data-safe onClick={onClose}>
-              Annuler
-            </Button>
-            <Button type="submit" busy={busy}>
-              Lancer la sauvegarde
-            </Button>
-          </>
-        )}
+        <Button variant="secondary" data-safe onClick={onClose}>
+          Annuler
+        </Button>
+        <Button type="submit" busy={busy}>
+          Lancer la sauvegarde
+        </Button>
       </div>
     </>
   );
@@ -449,53 +476,63 @@ function RunDialog({
     setProblem(undefined);
     setBusy(false);
   }, [plan]);
+  const blocked = isRunBlocked(problem);
   const missing = choice === '' || (choice === 'Autre (préciser)' && detail.trim() === '');
   return (
     <Dialog
       open={plan !== null}
-      title={`Lancer « ${plan?.name ?? ''} » maintenant`}
+      title={blocked ? 'Lancement impossible' : `Lancer « ${plan?.name ?? ''} » maintenant`}
       onClose={onClose}
     >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!plan || busy) return;
-          // Une nouvelle tentative efface l'échec précédent : un seul message à la fois.
-          setProblem(undefined);
-          if (missing) {
-            setError(MESSAGES.runReason);
-            return;
-          }
-          setError(undefined);
-          setBusy(true);
-          void onRun(plan, runReasonText(choice, detail)).then((failure) => {
-            setBusy(false);
-            setProblem(failure);
-          });
-        }}
-      >
-        <SelectField
-          id="run-reason"
-          label={reasonLabel('du lancement')}
-          help={REASON.help}
-          value={choice}
-          placeholder="Choisir un motif"
-          options={RUN_REASONS.map((r) => ({ value: r, label: r }))}
-          error={error}
-          onChange={setChoice}
+      {blocked ? (
+        <RunBlocked
+          problem={problem}
+          planName={plan?.name ?? ''}
+          reason={runReasonText(choice, detail)}
+          onClose={onClose}
         />
-        <FormField
-          label="Précision (facultatif)"
-          value={detail}
-          counterMax={REASON.maxLength}
-          onChange={(e) => {
-            setDetail(e.currentTarget.value);
+      ) : (
+        <form
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!plan || busy) return;
+            // Une nouvelle tentative efface l'échec précédent : un seul message à la fois.
+            setProblem(undefined);
+            if (missing) {
+              setError(MESSAGES.runReason);
+              return;
+            }
+            setError(undefined);
+            setBusy(true);
+            void onRun(plan, runReasonText(choice, detail)).then((failure) => {
+              setBusy(false);
+              setProblem(failure);
+            });
           }}
-        />
-        <AuditReminder />
-        <RunFeedback problem={problem} busy={busy} onClose={onClose} />
-      </form>
+        >
+          <SelectField
+            id="run-reason"
+            label={reasonLabel('du lancement')}
+            help={REASON.help}
+            value={choice}
+            placeholder="Choisir un motif"
+            options={RUN_REASONS.map((r) => ({ value: r, label: r }))}
+            error={error}
+            onChange={setChoice}
+          />
+          <FormField
+            label="Précision (facultatif)"
+            value={detail}
+            counterMax={REASON.maxLength}
+            onChange={(e) => {
+              setDetail(e.currentTarget.value);
+            }}
+          />
+          <AuditReminder />
+          <RunFeedback problem={problem} busy={busy} onClose={onClose} />
+        </form>
+      )}
     </Dialog>
   );
 }
