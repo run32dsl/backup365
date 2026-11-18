@@ -5,10 +5,13 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import { launchOptions, signInAs } from './browser.mjs';
 import { startDemoServer } from './demo-server.mjs';
+import { reportCapturesDuration } from './durees.mjs';
 import { SCREENS, WIDTHS } from './screens.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'captures');
+// La durée relevée couvre toute la commande, construction comprise quand elle a lieu.
+const startedAt = performance.now();
 
 // Construit d'abord : une capture d'une version périmée de l'interface serait trompeuse.
 if (process.env['BACKUP365_SKIP_BUILD'] !== '1') {
@@ -48,3 +51,4 @@ try {
   await server.stop();
 }
 for (const file of written) console.log(file.replace(`${root}/`, ''));
+reportCapturesDuration(performance.now() - startedAt, written.length);
