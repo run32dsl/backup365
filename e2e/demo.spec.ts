@@ -466,19 +466,21 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await submit.click();
 
   // Console non reliée : avertissement sans identifiant, au-dessus du seul bouton « Fermer ».
-  const alert = run.getByRole('alert').filter({ hasText: 'Sauvegarde indisponible' });
+  // Le titre de la boîte change : « Lancement impossible ».
+  const blocked = page.getByRole('dialog', { name: 'Lancement impossible' });
+  const alert = blocked.getByRole('alert').filter({ hasText: 'Sauvegarde indisponible' });
   await expect(alert).toBeVisible();
-  await expect(run.getByRole('link', { name: 'Configurer la connexion' })).toHaveCount(0);
-  await expect(run.getByText('Identifiant de requête')).toHaveCount(0);
-  const close = run.locator('button.btn-primary', { hasText: 'Fermer' });
+  await expect(blocked.getByRole('link', { name: 'Configurer la connexion' })).toHaveCount(0);
+  await expect(blocked.getByText('Identifiant de requête')).toHaveCount(0);
+  const close = blocked.locator('button.btn-primary', { hasText: 'Fermer' });
   await expect(close).toBeVisible();
-  await expect(submit).toHaveCount(0);
-  await expect(run.getByRole('button', { name: 'Annuler' })).toHaveCount(0);
+  await expect(blocked.getByRole('button', { name: 'Lancer la sauvegarde' })).toHaveCount(0);
+  await expect(blocked.getByRole('button', { name: 'Annuler' })).toHaveCount(0);
   const alertBox = (await alert.boundingBox())!;
   const closeBox = (await close.boundingBox())!;
   expect(alertBox.y + alertBox.height).toBeLessThanOrEqual(closeBox.y);
   await close.click();
-  await expect(run).toHaveCount(0);
+  await expect(blocked).toHaveCount(0);
 
   // Autre échec (erreur serveur) : les boutons restent, un nouvel essai incomplet
   // remplace l’échec par le rappel du motif.
