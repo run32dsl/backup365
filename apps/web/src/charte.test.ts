@@ -102,6 +102,17 @@ describe('charte.css data tables', () => {
   });
 });
 
+describe('charte.css steps indicator', () => {
+  it('never hides the list of steps, whatever the width or the journey', () => {
+    const rules = [...css.matchAll(/([^{}]*)\{([^{}]*)\}/g)];
+    const stepsRules = rules.filter((m) => /\.steps\b/.test(m[1]!));
+    expect(stepsRules.length).toBeGreaterThan(0);
+    for (const m of stepsRules) {
+      expect(m[2]).not.toMatch(/display:\s*none/);
+    }
+  });
+});
+
 describe('charte.css collapsible menu (keyboard access)', () => {
   const narrow = /@media \(max-width: 56\.25rem\)\s*\{([\s\S]*?)\n\}\n/.exec(css)?.[1] ?? '';
 
