@@ -221,6 +221,17 @@ export const SCREENS = [
       }),
   },
   {
+    name: 'accueil-sans-resultat',
+    hash: '#/',
+    role: 'admin',
+    prepare: (page) =>
+      overviewAs(page, {
+        state: 'pending',
+        plans: { total: 1, operational: 0 },
+        lastBackupAt: null,
+      }),
+  },
+  {
     name: 'accueil-non-configuree-operateur',
     hash: '#/',
     role: 'operator',

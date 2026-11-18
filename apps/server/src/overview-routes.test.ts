@@ -38,12 +38,28 @@ describe('GET /api/overview', () => {
     });
   });
 
-  it('is unconfigured while no plan has run yet', async () => {
+  it('is pending, never unconfigured, once a plan exists without any result', async () => {
     const plans = SqlitePlanStore.open(':memory:');
     plans.create(input('Jamais lancé'));
     const body = (await get(plans)).json<Overview>();
-    expect(body.state).toBe('unconfigured');
-    expect(body.plans).toEqual({ total: 1, operational: 0 });
+    expect(body).toEqual({
+      state: 'pending',
+      plans: { total: 1, operational: 0 },
+      lastBackupAt: null,
+    });
+  });
+
+  it('follows the last result as soon as one plan has one, even if another never ran', async () => {
+    const ok = SqlitePlanStore.open(':memory:');
+    ok.create(input('Jamais lancé'));
+    run(ok, ok.create(input('A')).id, 'success', 2);
+    const body = (await get(ok)).json<Overview>();
+    expect(body.state).toBe('operational');
+    expect(body.plans).toEqual({ total: 2, operational: 1 });
+    const ko = SqlitePlanStore.open(':memory:');
+    ko.create(input('Jamais lancé'));
+    run(ko, ko.create(input('B')).id, 'failed', 2);
+    expect((await get(ko)).json<Overview>().state).toBe('failed');
   });
 
   it('is operational when the last run of every plan succeeded', async () => {
@@ -79,7 +95,7 @@ describe('GET /api/overview', () => {
     const first = SqlitePlanStore.open(':memory:');
     first.startRun(first.create(input('B')).id, 'item', hoursAgo(0.5));
     const body = (await get(first)).json<Overview>();
-    expect(body.state).toBe('unconfigured');
+    expect(body.state).toBe('pending');
     expect(body.plans).toEqual({ total: 1, operational: 0 });
   });
 

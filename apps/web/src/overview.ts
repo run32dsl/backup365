@@ -1,6 +1,7 @@
 /** Réponse de `GET /api/overview` : les trois informations de l'accueil (voir overview-routes.ts du serveur). */
 export interface Overview {
-  state: 'operational' | 'unconfigured' | 'failed';
+  /** `unconfigured` : aucun plan. `pending` : des plans, mais aucun résultat encore. */
+  state: 'operational' | 'unconfigured' | 'pending' | 'failed';
   plans: { total: number; operational: number };
   lastBackupAt: string | null;
 }

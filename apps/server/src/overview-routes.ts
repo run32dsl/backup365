@@ -4,12 +4,14 @@ import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 /** Exécutions relues par plan : la dernière réussite se trouve parmi les plus récentes. */
 const RUNS_LIMIT = 500;
 
-export type BackupOverviewState = 'operational' | 'unconfigured' | 'failed';
+export type BackupOverviewState = 'operational' | 'unconfigured' | 'pending' | 'failed';
 
 export interface Overview {
   /**
-   * `unconfigured` : aucun plan, ou aucun plan n'a encore tourné ; `failed` : la dernière
-   * exécution d'au moins un plan a échoué ; `operational` sinon.
+   * `unconfigured` : aucun plan, et seulement dans ce cas. Dès qu'un plan existe, l'état suit le
+   * dernier résultat : `failed` si la dernière exécution terminée d'au moins un plan a échoué,
+   * `operational` si un plan au moins a un résultat et qu'aucun n'a échoué, `pending` tant
+   * qu'aucun plan n'a de résultat (jamais lancé, ou première exécution en cours).
    */
   state: BackupOverviewState;
   plans: {
@@ -53,7 +55,13 @@ export function registerOverviewRoutes(scope: FastifyInstance, plans: SqlitePlan
       }
     }
     const state: BackupOverviewState =
-      failed > 0 ? 'failed' : ran === 0 ? 'unconfigured' : 'operational';
+      all.length === 0
+        ? 'unconfigured'
+        : failed > 0
+          ? 'failed'
+          : ran === 0
+            ? 'pending'
+            : 'operational';
     const overview: Overview = {
       state,
       plans: { total: all.length, operational },

@@ -40,8 +40,12 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   de plan ; ouvert à l'opérateur (lecture seule), hors journal d'audit.
 - Un plan est « opérationnel » si sa dernière exécution a réussi. Le modèle n'a pas de plan
   suspendu : tous les plans sont actifs, donc le critère « actif » est sans effet.
-- `state` : `failed` si la dernière exécution d'un plan au moins a échoué ; sinon `unconfigured`
-  si aucun plan n'a encore tourné (aucun plan compris) ; sinon `operational`.
+- `state` : `unconfigured` seulement quand il n'y a aucun plan (maquette de l'issue). Dès qu'un
+  plan existe, l'état suit le dernier résultat : `failed` si la dernière exécution terminée d'un
+  plan au moins a échoué, sinon `operational` si un plan au moins a un résultat. Tant qu'aucun plan
+  n'a de résultat (jamais lancé, ou première exécution en cours), `state` vaut `pending` : l'accueil
+  n'affiche alors aucune pastille, seulement la phrase « Aucune sauvegarde n'est encore terminée. »,
+  sans bouton. La maquette ne nomme pas ce cas : libellé provisoire, question posée au PO.
 - `lastBackupAt` : fin de la dernière exécution réussie, tous plans confondus.
 
 ### Sites SharePoint sauvegardés (issue #31)

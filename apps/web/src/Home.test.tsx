@@ -20,6 +20,11 @@ const unconfigured: Overview = {
   plans: { total: 0, operational: 0 },
   lastBackupAt: null,
 };
+const pending: Overview = {
+  state: 'pending',
+  plans: { total: 1, operational: 0 },
+  lastBackupAt: null,
+};
 const failed: Overview = {
   state: 'failed',
   plans: { total: 4, operational: 2 },
@@ -67,6 +72,21 @@ describe('OverviewView', () => {
     expect(html).toContain(
       'Demandez à un administrateur de la console de configurer la sauvegarde.',
     );
+  });
+
+  it('pending (plans without any result): never Non configurée, no pill, no button', () => {
+    for (const admin of [true, false]) {
+      const html = render(pending, admin);
+      expect(html).not.toContain('Non configurée');
+      expect(html).not.toContain('Configurer');
+      expect(html).not.toContain('class="badge');
+      expect(html).not.toContain('<button');
+      expect(html).toContain('Aucune sauvegarde n’est encore terminée.');
+      expect(html).toContain('0 plan opérationnel sur 1');
+      expect(html).toContain('Voir les plans');
+      expect(html.match(/<section/g)).toHaveLength(3);
+      expect(html).not.toContain('Erreur inattendue');
+    }
   });
 
   it('failed: one Voir l’erreur button, a plain message, last success date', () => {
