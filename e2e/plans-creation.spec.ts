@@ -87,18 +87,71 @@ for (const width of WIDTHS) {
       await expect(page.getByLabel('Nom du plan')).toBeFocused();
     });
 
-    test('erreur serveur : message près du bouton, saisie conservée', async ({ page }) => {
+    test('erreur serveur : message près du bouton, saisie conservée', async ({
+      page,
+    }, testInfo) => {
+      // Le plan est réellement créé à la fin : nom distinct à chaque relance du test.
+      const name = `Plan en échec ${width}-${testInfo.retry}`;
       await page.route('**/api/plans', (route) =>
         route.request().method() === 'POST'
           ? route.fulfill({ status: 500, json: { error: 'boom' } })
           : route.fallback(),
       );
-      await toStep3(page, 'Plan en échec');
+      await toStep3(page, name);
       await page.getByRole('button', { name: 'Créer le plan' }).click();
       await expect(
         page.getByText('Le plan n’a pas pu être créé. Vos choix sont conservés. Réessayez.'),
       ).toBeInViewport();
       await expect(page.getByRole('button', { name: 'Créer le plan' })).toBeInViewport();
+      await expect(page.locator('.wizard-failure')).toBeFocused();
+      // Saisie conservée : le même envoi, relancé sans rien ressaisir, crée le plan.
+      await page.unroute('**/api/plans');
+      await page.getByRole('button', { name: 'Créer le plan' }).click();
+      await expect(page).toHaveURL(/#\/plans$/);
+      await expect(page.getByText(name, { exact: true })).toBeVisible();
+    });
+
+    test('erreur serveur puis « Précédent » : l’échec ne suit pas à l’étape 2', async ({
+      page,
+    }) => {
+      await page.route('**/api/plans', (route) =>
+        route.request().method() === 'POST'
+          ? route.fulfill({ status: 500, json: { error: 'boom' } })
+          : route.fallback(),
+      );
+      await toStep3(page, 'Plan abandonné');
+      await page.getByRole('button', { name: 'Créer le plan' }).click();
+      await expect(page.locator('.wizard-failure')).toBeFocused();
+      await page.getByRole('button', { name: 'Précédent' }).click();
+      await expect(page.getByText('Étape 2 sur 3 : Objectifs')).toBeFocused();
+      await expect(page.locator('.wizard-failure')).toHaveCount(0);
+      await page.getByRole('button', { name: 'Précédent' }).click();
+      await expect(page.getByLabel('Nom du plan')).toHaveValue('Plan abandonné');
+    });
+
+    test('correction : seule l’erreur du champ corrigé disparaît', async ({ page }) => {
+      await page.getByLabel('Boîtes et comptes choisis').check();
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await expect(page.getByRole('alert')).toHaveText(/2 points à corriger avant de continuer/);
+      const name = page.getByLabel('Nom du plan');
+      await name.fill('Plan corrigé');
+      await expect(page.getByText('Saisissez un nom pour le plan.')).toHaveCount(0);
+      await expect(name).not.toHaveAttribute('aria-invalid', 'true');
+      await expect(page.getByRole('alert')).toHaveText(/1 point à corriger avant de continuer/);
+      await expect(page.getByText('Choisissez au moins un élément à protéger.')).toBeVisible();
+      await page.locator('input[aria-invalid="true"]').check();
+      await expect(page.getByText('Choisissez au moins un élément à protéger.')).toHaveCount(0);
+      await expect(page.getByRole('alert')).toHaveCount(0);
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await expect(page.getByText('Étape 2 sur 3 : Objectifs')).toBeFocused();
+    });
+
+    test('modification : le nom inchangé du plan n’est pas « déjà utilisé »', async ({ page }) => {
+      await page.goto('/#/plans');
+      await page.getByLabel('Modifier Messagerie Direction').click();
+      await expect(page.getByLabel('Nom du plan')).toHaveValue('Messagerie Direction');
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await expect(page.getByText('Étape 2 sur 3 : Objectifs')).toBeFocused();
     });
   });
 }

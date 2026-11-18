@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { PlanWizard, PlansListView } from './PlansPage.js';
+import { PlanWizard, PlansListView, wizardFailure } from './PlansPage.js';
 import { AUDIT_REMINDER } from './RestoreJourney.js';
 import {
   complianceView,
@@ -21,6 +21,7 @@ import {
   validateStep,
   isNameTaken,
   errorSummary,
+  errorsAfterChange,
   type PlanItem,
 } from './plans.js';
 
@@ -284,6 +285,54 @@ describe('plan name and error summary', () => {
   it('words the error banner in the singular and the plural', () => {
     expect(errorSummary(1)).toBe('1 point à corriger avant de continuer');
     expect(errorSummary(2)).toBe('2 points à corriger avant de continuer');
+  });
+});
+
+describe('errors after a correction', () => {
+  const errors = { name: 'n', dataTypes: 'd', selection: 's', justification: 'j' };
+
+  it('clears only the error of the field that changed', () => {
+    expect(errorsAfterChange(errors, { name: 'x' })).toEqual({
+      dataTypes: 'd',
+      selection: 's',
+      justification: 'j',
+    });
+    expect(errorsAfterChange(errors, { dataTypes: [] })).not.toHaveProperty('dataTypes');
+    expect(errorsAfterChange(errors, { reasonDetail: 'x' })).not.toHaveProperty('justification');
+    expect(errorsAfterChange(errors, { reasonKind: 'legal' })).not.toHaveProperty('justification');
+  });
+
+  it('clears the selection error when the scope or the selection changes', () => {
+    expect(errorsAfterChange(errors, { scope: 'all' })).not.toHaveProperty('selection');
+    expect(errorsAfterChange(errors, { selection: ['a'] })).not.toHaveProperty('selection');
+  });
+
+  it('keeps every error when the changed field carries none', () => {
+    expect(errorsAfterChange(errors, { rtoHours: 4, retentionDays: 30 })).toEqual(errors);
+    expect(errorsAfterChange({}, { name: 'x' })).toEqual({});
+  });
+});
+
+describe('wizardFailure', () => {
+  const technical = { message: 'HTTP 500', code: 'boom', requestId: 'r1' };
+
+  it('replaces a technical creation failure and keeps the request id', () => {
+    expect(wizardFailure(technical, false)).toEqual({
+      message: 'Le plan n’a pas pu être créé. Vos choix sont conservés. Réessayez.',
+      code: 'boom',
+      requestId: 'r1',
+    });
+    expect(wizardFailure({ message: 'Serveur injoignable' }, false).message).toMatch(/créé/);
+  });
+
+  it('keeps the messages that tell the user what to do', () => {
+    for (const code of ['backup_not_configured', 'invalid_plan', 'forbidden']) {
+      expect(wizardFailure({ message: 'm', code }, false).message).toBe('m');
+    }
+  });
+
+  it('never says « créé » when a modification fails', () => {
+    expect(wizardFailure(technical, true)).toEqual(technical);
   });
 });
 

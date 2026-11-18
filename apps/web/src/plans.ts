@@ -193,6 +193,24 @@ export type FormErrors = Partial<
   Record<'name' | 'dataTypes' | 'selection' | 'justification', string>
 >;
 
+/** Erreur portée par chaque champ du formulaire : une seule règle relie la saisie à son message. */
+const ERROR_OF: Partial<Record<keyof PlanForm, keyof FormErrors>> = {
+  name: 'name',
+  dataTypes: 'dataTypes',
+  scope: 'selection',
+  selection: 'selection',
+  reasonKind: 'justification',
+  reasonDetail: 'justification',
+};
+
+/** Erreurs encore affichées après une saisie : seules celles des champs modifiés disparaissent. */
+export function errorsAfterChange(errors: FormErrors, change: Partial<PlanForm>): FormErrors {
+  const cleared = new Set(Object.keys(change).map((field) => ERROR_OF[field as keyof PlanForm]));
+  return Object.fromEntries(
+    Object.entries(errors).filter(([key]) => !cleared.has(key as keyof FormErrors)),
+  );
+}
+
 /** Même règle que le serveur : noms comparés sans espaces autour ni différence de casse. */
 export function isNameTaken(name: string, takenNames: readonly string[]): boolean {
   const wanted = name.trim().toLowerCase();

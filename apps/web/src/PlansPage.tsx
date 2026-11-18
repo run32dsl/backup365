@@ -19,6 +19,7 @@ import {
   emptyForm,
   fetchMailboxes,
   errorSummary,
+  errorsAfterChange,
   fetchPlans,
   formFromPlan,
   lastRunLabel,
@@ -147,7 +148,7 @@ function invalidProps(error: string | undefined, id: string) {
 }
 
 /** Phrase affichée pour un échec d'envoi : sans détail technique, saisies conservées. */
-function wizardFailure(problem: Problem, editing: boolean): Problem {
+export function wizardFailure(problem: Problem, editing: boolean): Problem {
   const keep =
     editing || ['backup_not_configured', 'invalid_plan', 'forbidden'].includes(problem.code ?? '');
   return keep ? problem : { ...problem, message: MESSAGES.createFailed };
@@ -205,8 +206,8 @@ export function PlanWizard({
 
   const patch = (change: Partial<PlanForm>) => {
     setForm((f) => ({ ...f, ...change }));
-    // Une erreur affichée porte sur l'ancienne saisie : elle disparaît dès qu'on corrige.
-    setErrors({});
+    // L'erreur du champ corrigé disparaît ; celles des autres champs restent affichées.
+    setErrors((e) => errorsAfterChange(e, change));
   };
   const next = () => {
     if (step === 3) return;
