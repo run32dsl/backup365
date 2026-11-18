@@ -413,6 +413,15 @@ select[aria-disabled='true'] {
   align-items: center;
   margin-bottom: var(--space-3);
 }
+/* Pagination répétée au-dessus des cartes : seulement en affichage mobile. */
+.pager-top {
+  display: none;
+}
+@media (max-width: 56.25rem) {
+  .pager-top {
+    display: block;
+  }
+}
 .filters {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));

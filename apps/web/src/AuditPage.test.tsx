@@ -101,6 +101,16 @@ describe('fetchAudit', () => {
     expect(url).toBe('/api/audit?actor=alice&action=item.export&limit=50');
   });
 
+  it('requests 25 entries per page from the filter form', async () => {
+    let url = '';
+    const fake = ((u: string) => {
+      url = u;
+      return Promise.resolve(Response.json({ total: 0, limit: 25, offset: 0, items: [] }));
+    }) as unknown as typeof fetch;
+    await fetchAudit(queryFromForm(new FormData()), fake);
+    expect(url).toContain('limit=25');
+  });
+
   it('rejects on a non-2xx response', async () => {
     const fake = (() => Promise.resolve(new Response('', { status: 503 }))) as typeof fetch;
     await expect(fetchAudit({}, fake)).rejects.toThrow('HTTP 503');
@@ -119,7 +129,7 @@ describe('queryFromForm', () => {
       form({ from: '2026-01-15T10:00', to: '', actor: '  alice ', action: 'access.denied' }),
     );
     expect(query).toEqual({
-      limit: 50,
+      limit: 25,
       offset: 0,
       from: toUtcIso('2026-01-15T10:00'),
       to: '',
@@ -130,7 +140,7 @@ describe('queryFromForm', () => {
 
   it('ignores an action outside the vocabulary and missing fields', () => {
     expect(queryFromForm(form({ action: 'drop table' }))).toEqual({
-      limit: 50,
+      limit: 25,
       offset: 0,
       from: '',
       to: '',
@@ -140,7 +150,7 @@ describe('queryFromForm', () => {
 });
 
 describe('AuditView counter and pager', () => {
-  const view = (total: number, limit = 50) =>
+  const view = (total: number, limit = 25) =>
     renderToString(<AuditView state={{ total, limit, offset: 0, items: [entry] }} />).replace(
       /<!-- -->/g,
       '',
@@ -154,9 +164,10 @@ describe('AuditView counter and pager', () => {
   });
 
   it('shows Précédent and Suivant only when there is more than one page', () => {
-    expect(view(28)).not.toContain('Suivant');
-    expect(view(28)).not.toContain('Précédent');
+    expect(view(25)).not.toContain('Suivant');
+    expect(view(25)).not.toContain('Précédent');
     expect(view(120)).toContain('Suivant');
+    expect(view(120).match(/Suivant/g)).toHaveLength(2);
     expect(view(120)).toContain('Précédent');
   });
 
