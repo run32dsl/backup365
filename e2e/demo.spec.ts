@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import type { BrowserContext } from '@playwright/test';
 import { DEMO_LOGINS } from './demo-server.mjs';
 import { expect, test } from './fixtures.js';
 import { RESTORE_REASON_LABEL, SCREENS, SITES } from './screens.mjs';
@@ -521,9 +522,24 @@ test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
 
 test('le bandeau du mode démo est présent sur chaque écran', async ({ browser, baseURL }) => {
   // Les variantes de thème ou de version reprennent des écrans déjà parcourus.
+  // Le test parcourt toute la liste des écrans : son délai ne peut pas être celui d'un écran.
+  test.setTimeout(120_000);
+  // Une seule connexion par rôle : la session est reprise d'un écran à l'autre. Une connexion
+  // par écran faisait dépasser le délai du test à mesure que la liste des écrans grandissait.
+  const sessions = new Map<string, Awaited<ReturnType<BrowserContext['storageState']>>>();
   for (const screen of SCREENS.filter((s) => !s.colorScheme && !s.buildCommit)) {
-    const context = await browser.newContext({ baseURL: baseURL! });
-    if (screen.role) await signInAs(context, baseURL!, screen.role);
+    let storageState = screen.role ? sessions.get(screen.role) : undefined;
+    if (screen.role && !storageState) {
+      const login = await browser.newContext({ baseURL: baseURL! });
+      await signInAs(login, baseURL!, screen.role);
+      storageState = await login.storageState();
+      sessions.set(screen.role, storageState);
+      await login.close();
+    }
+    const context = await browser.newContext({
+      baseURL: baseURL!,
+      ...(storageState ? { storageState } : {}),
+    });
     const page = await context.newPage();
     await page.goto(`/${screen.hash}`);
     await page.locator('main').waitFor();
