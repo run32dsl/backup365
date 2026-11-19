@@ -55,7 +55,7 @@ describe('OverviewView', () => {
   it('operational: pill, plans count with link, date, and no button', () => {
     const html = render(operational);
     expect(html).toContain('Opérationnelle');
-    expect(html).toContain('4 plans opérationnels sur 4');
+    expect(html).toContain('4 plans à jour sur 4');
     expect(html).toContain('href="#/plans"');
     expect(html).toContain('il y a 3 h');
     expect(html).toContain('<time dateTime="2026-11-18T14:02:00Z">18/11/2026 14:02</time>');
@@ -92,7 +92,7 @@ describe('OverviewView', () => {
       expect(html).toContain('role="status"');
       expect(html).not.toContain('<button');
       expect(html).toContain('Aucune sauvegarde n’est encore terminée.');
-      expect(html).toContain('0 plan opérationnel sur 1');
+      expect(html).toContain('0 plan à jour sur 1');
       expect(html).toContain('Voir les plans');
       expect(html.match(/<section/g)).toHaveLength(3);
       expect(html).not.toContain('Erreur inattendue');
@@ -105,7 +105,7 @@ describe('OverviewView', () => {
     expect(html).toContain('La dernière exécution a échoué.');
     expect(html.match(/<button/g)).toHaveLength(1);
     expect(html).toContain('Voir l’erreur');
-    expect(html).toContain('2 plans opérationnels sur 4');
+    expect(html).toContain('2 plans à jour sur 4');
     expect(html).toContain('il y a 2 j');
     expect(html).toContain('(dernière réussie)');
     expect(html).not.toContain('Erreur inattendue');
@@ -145,7 +145,7 @@ describe('retry after an error', () => {
     expect(html).not.toContain('role="alert"');
     const done = render(states[1]!);
     expect(done).not.toContain('aria-busy');
-    expect(done).toContain('4 plans opérationnels sur 4');
+    expect(done).toContain('4 plans à jour sur 4');
   });
 
   it('shows the alert again, without « Erreur inattendue », after a new error', async () => {
@@ -177,9 +177,9 @@ describe('retry after an error', () => {
 
 describe('labels', () => {
   it('writes the plans count in the singular and plural', () => {
-    expect(plansLabel(1, 1)).toBe('1 plan opérationnel sur 1');
-    expect(plansLabel(0, 3)).toBe('0 plan opérationnel sur 3');
-    expect(plansLabel(3, 4)).toBe('3 plans opérationnels sur 4');
+    expect(plansLabel(1, 1)).toBe('1 plan à jour sur 1');
+    expect(plansLabel(0, 3)).toBe('0 plan à jour sur 3');
+    expect(plansLabel(3, 4)).toBe('3 plans à jour sur 4');
   });
 
   it('writes the age in hours then days', () => {

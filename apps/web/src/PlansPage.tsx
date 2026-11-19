@@ -595,6 +595,7 @@ export type PlansState = PlanItem[] | 'loading' | 'error';
 
 function planColumns(
   admin: boolean,
+  mailboxes: readonly Mailbox[],
   actions: { onRun: (p: PlanItem) => void; onDelete: (p: PlanItem) => void },
 ): Column<PlanItem>[] {
   const columns: Column<PlanItem>[] = [
@@ -603,7 +604,7 @@ function planColumns(
       cell: (p) => (
         <div>
           <span className="nowrap-wide">{p.name}</span>
-          <small className="state-note plan-summary">{planSummary(p)}</small>
+          <small className="state-note plan-summary">{planSummary(p, mailboxes)}</small>
         </div>
       ),
     },
@@ -667,12 +668,14 @@ export function PlansListView({
   state,
   admin,
   configured,
+  mailboxes = [],
   onRetry,
   onRun,
   onDelete,
 }: {
   state: PlansState;
   admin: boolean;
+  mailboxes?: readonly Mailbox[];
   configured: boolean;
   onRetry: () => void;
   onRun: (p: PlanItem) => void;
@@ -751,7 +754,7 @@ export function PlansListView({
       <DataTable
         caption="Plans de protection"
         hideCaption
-        columns={planColumns(admin, { onRun, onDelete })}
+        columns={planColumns(admin, mailboxes, { onRun, onDelete })}
         rows={state}
         rowKey={(p) => p.id}
       />
@@ -887,6 +890,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         state={state}
         admin={admin}
         configured={boxes.configured}
+        mailboxes={boxes.mailboxes}
         onRetry={reloadList}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}

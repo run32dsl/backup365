@@ -49,12 +49,11 @@ const plan: PlanItem = {
 };
 
 /**
- * Le plan tel que `GET /api/plans` l'envoie à un opérateur : sans sélection, délai de remise en
+ * Le plan tel que `GET /api/plans` l'envoie à un opérateur : sans délai de remise en
  * service ni justification (le test de `plan-routes.ts` fige la même liste de champs).
  */
 function asOperator(item: PlanItem): PlanItem {
   const visible = { ...item };
-  delete visible.selection;
   delete visible.rtoHours;
   delete visible.gdprJustification;
   return visible;
@@ -263,25 +262,52 @@ describe('PlansListView', () => {
       retentionDays: 1095,
     };
     const all =
-      '<small class="state-note plan-summary">Mails, fichiers, calendriers et contacts · toute l’organisation · toutes les 12 h · conservés 1 an</small>';
+      '<small class="state-note plan-summary">Messagerie, fichiers, calendriers et contacts · toute l’organisation · toutes les 12 h · conservés 1 an</small>';
     const html = list([plan, other], true);
     expect(html).toContain(all);
     expect(html).toContain(
-      '<small class="state-note plan-summary">Fichiers · 2 boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans</small>',
+      '<small class="state-note plan-summary">Fichiers · 2 boîtes choisies · toutes les 24 h · conservés 3 ans</small>',
     );
-    // L'API n'envoie pas la sélection à l'opérateur : la synthèse se passe du nombre.
+    // Les deux rôles reçoivent la sélection : même plan, même synthèse.
     const operatorHtml = list([plan, other].map(asOperator), false);
     expect(operatorHtml).toContain(all);
-    expect(operatorHtml).toContain(
-      '<small class="state-note plan-summary">Fichiers · boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans</small>',
+    expect(operatorHtml).toContain('Fichiers · 2 boîtes choisies ·');
+  });
+
+  it('names the mailboxes of a restricted plan, the same way for both roles', () => {
+    const boxes = [
+      { id: 'a', displayName: 'claire.durand@exemple.fr' },
+      { id: 'b', displayName: 'paul.martin@exemple.fr' },
+    ];
+    const tail = 'toutes les 24 h · conservés 3 ans';
+    const restricted: PlanItem = {
+      ...plan,
+      scope: 'selection',
+      dataTypes: ['files'],
+      rpoHours: 24,
+      retentionDays: 1095,
+    };
+    const summary = (selection: string[], names = boxes) =>
+      planSummary({ ...restricted, selection }, names);
+    expect(summary(['a'])).toBe(`Fichiers · claire.durand@exemple.fr · ${tail}`);
+    expect(summary(['a', 'b'])).toBe(
+      `Fichiers · claire.durand@exemple.fr et paul.martin@exemple.fr · ${tail}`,
     );
-    expect(planSummary({ ...other, selection: ['a'] })).toContain('une boîte ou un compte choisi');
-    expect(planSummary({ ...other, selection: [] })).toBe(
-      'Fichiers · boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans',
+    expect(summary(['a', 'b', 'c', 'd', 'e'])).toBe(
+      `Fichiers · claire.durand@exemple.fr et 4 autres · ${tail}`,
     );
-    expect(planSummary({ ...other, dataTypes: [] })).toBe(
-      '2 boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans',
+    // Catalogue indisponible : le nombre, jamais un gabarit.
+    expect(summary([])).toBe(`Fichiers · aucune boîte choisie · ${tail}`);
+    expect(summary(['a', 'b'], boxes.slice(0, 1))).toBe(
+      `Fichiers · claire.durand@exemple.fr et 1 autre · ${tail}`,
     );
+    expect(summary(['a'], [])).toBe(`Fichiers · 1 boîte choisie · ${tail}`);
+    expect(summary(['a', 'b', 'c'], [])).toBe(`Fichiers · 3 boîtes choisies · ${tail}`);
+    // Mêmes données pour les deux rôles, avec ou sans champs d'administrateur.
+    const admin = { ...restricted, selection: ['a'] };
+    expect(planSummary(asOperator(admin), boxes)).toBe(planSummary(admin, boxes));
+    const html = list([{ ...admin, selection: ['a', 'b', 'c'] }], false);
+    expect(html).not.toContain('une boîte ou un compte');
   });
 
   it('is read-only for an operator: no Actions column, a notice', () => {

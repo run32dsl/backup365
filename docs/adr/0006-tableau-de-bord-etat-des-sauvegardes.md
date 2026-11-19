@@ -38,7 +38,7 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   l'instant) mais trois cartes alimentées par **une seule requête**, `GET /api/overview` :
   `{ state, plans: { total, operational }, lastBackupAt }`. Compteurs et dates seulement, sans nom
   de plan ; ouvert à l'opérateur (lecture seule), hors journal d'audit.
-- Un plan est « opérationnel » si sa dernière exécution a réussi. Le modèle n'a pas de plan
+- Un plan est « opérationnel » (affiché « à jour ») si sa dernière exécution a réussi. Le modèle n'a pas de plan
   suspendu : tous les plans sont actifs, donc le critère « actif » est sans effet.
 - `state` : `unconfigured` seulement quand il n'y a aucun plan (maquette de l'issue). Dès qu'un
   plan existe, l'état suit le dernier résultat : `failed` si la dernière exécution terminée d'un
