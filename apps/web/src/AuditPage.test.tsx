@@ -234,6 +234,25 @@ describe('helpers', () => {
     expect(build).toHaveBeenCalledOnce();
   });
 
+  it('refuses Du after Au under Au and submits no audit query', () => {
+    const build = vi.fn(queryFromForm);
+    const bad = submitFilters(form({ from: '20/11/2026', to: '18/11/2026' }), 'from', 'to', build);
+    expect(bad.query).toBeNull();
+    expect(bad.errors.toError).toBe('La date « Au » doit être égale ou postérieure à « Du »');
+    expect(bad.errors.fromError).toBeUndefined();
+    expect(build).not.toHaveBeenCalled();
+  });
+
+  it('accepts Du = Au and covers the whole UTC day', () => {
+    const same = form({ from: '18/11/2026', to: '18/11/2026' });
+    const ok = submitFilters(same, 'from', 'to', queryFromForm);
+    expect(ok.errors.toError).toBeUndefined();
+    expect(ok.query).toMatchObject({
+      from: '2026-11-18T00:00:00.000Z',
+      to: '2026-11-19T00:00:00.000Z',
+    });
+  });
+
   it('renders text date fields with the jj/mm/aaaa help and no native date input', () => {
     const html = renderToString(<AuditPage />);
     expect(html).not.toContain('datetime-local');
