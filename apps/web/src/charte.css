@@ -960,9 +960,15 @@ a.btn-secondary {
 .steps-title:focus {
   outline: none;
 }
-.error-list {
-  margin: 0;
-  padding-left: var(--space-3);
+/* Le focus programmatique (confirmation, échec d'envoi) n'ajoute pas de cadre autour du bloc ;
+   un champ en erreur amené à l'écran ne se glisse pas sous un en-tête fixe. */
+.flash:focus,
+.wizard-failure:focus {
+  outline: none;
+}
+.wizard input[aria-invalid='true'],
+.wizard select[aria-invalid='true'] {
+  scroll-margin-top: 3rem;
 }
 .skeleton {
   height: 8rem;

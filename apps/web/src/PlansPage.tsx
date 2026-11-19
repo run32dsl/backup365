@@ -18,6 +18,8 @@ import {
   editHash,
   emptyForm,
   fetchMailboxes,
+  errorSummary,
+  errorsAfterChange,
   fetchPlans,
   formFromPlan,
   lastRunLabel,
@@ -140,6 +142,18 @@ function SelectField({
 
 const STEP_NAMES = ['Quoi protéger', 'Objectifs', 'Récapitulatif'];
 
+/** Le premier champ d'un groupe porte l'erreur du groupe : c'est lui qui reçoit le focus. */
+function invalidProps(error: string | undefined, id: string) {
+  return error ? { 'aria-invalid': true as const, 'aria-describedby': id } : {};
+}
+
+/** Phrase affichée pour un échec d'envoi : sans détail technique, saisies conservées. */
+export function wizardFailure(problem: Problem, editing: boolean): Problem {
+  const keep =
+    editing || ['backup_not_configured', 'invalid_plan', 'forbidden'].includes(problem.code ?? '');
+  return keep ? problem : { ...problem, message: MESSAGES.createFailed };
+}
+
 function toggle<T>(list: T[], item: T): T[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
@@ -151,6 +165,7 @@ export function PlanWizard({
   mailboxes,
   onSubmit,
   initialStep = 1,
+  takenNames = [],
 }: {
   initial: PlanForm;
   editing: boolean;
@@ -159,6 +174,8 @@ export function PlanWizard({
   onSubmit: (form: PlanForm) => Promise<Problem | undefined>;
   /** Étape affichée à l'ouverture (tests). */
   initialStep?: 1 | 2 | 3;
+  /** Noms des autres plans : un nom déjà utilisé est refusé dès l'étape 1. */
+  takenNames?: readonly string[];
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(initialStep);
   const [form, setForm] = useState(initial);
@@ -166,6 +183,10 @@ export function PlanWizard({
   const [failure, setFailure] = useState<Problem>();
   const [saving, setSaving] = useState(false);
   const title = useRef<HTMLParagraphElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const failureRef = useRef<HTMLDivElement>(null);
+  // Chaque refus incrémente `attempt` : le focus va alors sur le premier champ en erreur.
+  const [attempt, setAttempt] = useState(0);
   const first = useRef(true);
   // Le titre de l'étape reçoit le focus à chaque changement (pas à l'arrivée sur l'écran).
   useEffect(() => {
@@ -173,27 +194,49 @@ export function PlanWizard({
     else title.current?.focus();
   }, [step]);
 
+  useEffect(() => {
+    if (attempt === 0) return;
+    const target =
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]') ?? failureRef.current;
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({ block: 'center', behavior: calm ? 'auto' : 'smooth' });
+  }, [attempt]);
+
   const patch = (change: Partial<PlanForm>) => {
     setForm((f) => ({ ...f, ...change }));
+    // L'erreur du champ corrigé disparaît ; celles des autres champs restent affichées.
+    setErrors((e) => errorsAfterChange(e, change));
   };
   const next = () => {
     if (step === 3) return;
-    const found = validateStep(form, step);
+    const found = validateStep(form, step, takenNames);
     setErrors(found);
     if (Object.keys(found).length === 0) setStep((step + 1) as 2 | 3);
+    else setAttempt((n) => n + 1);
   };
   const submit = async () => {
+    if (saving) return;
     setSaving(true);
     setFailure(undefined);
     const problem = await onSubmit(form);
     // En cas de succès la page quitte le parcours : seul l'échec rend la main, saisies conservées.
-    setFailure(problem);
     setSaving(false);
+    if (problem?.code === 'plan_name_taken') {
+      // Un plan est apparu entre-temps : retour à l'étape 1, l'erreur sur le champ Nom.
+      setErrors({ name: MESSAGES.nameTaken });
+      setStep(1);
+    } else {
+      setFailure(problem);
+    }
+    if (problem) setAttempt((n) => n + 1);
   };
-  const messages = Object.values(errors);
+  const count = Object.keys(errors).length;
 
   return (
     <form
+      ref={formRef}
       className="wizard"
       noValidate
       onSubmit={(e) => {
@@ -203,16 +246,7 @@ export function PlanWizard({
       }}
     >
       <Steps steps={STEP_NAMES} current={step} titleRef={title} />
-      {messages.length > 0 && (
-        <Alert tone="error">
-          <ul className="error-list">
-            {messages.map((m) => (
-              <li key={m}>{m}</li>
-            ))}
-          </ul>
-        </Alert>
-      )}
-      {failure && <PlanFailure problem={failure} />}
+      {count > 0 && <Alert tone="error">{errorSummary(count)}</Alert>}
 
       {step === 1 && (
         <>
@@ -226,17 +260,15 @@ export function PlanWizard({
               patch({ name: e.currentTarget.value });
             }}
           />
-          <fieldset
-            className="choices"
-            aria-describedby={errors.dataTypes ? 'data-types-error' : undefined}
-          >
+          <fieldset className="choices">
             <legend>Données à sauvegarder</legend>
             <div className="choice-row">
-              {DATA_TYPES.map((t: DataType) => (
+              {DATA_TYPES.map((t: DataType, i) => (
                 <label key={t} className="choice">
                   <input
                     type="checkbox"
                     checked={form.dataTypes.includes(t)}
+                    {...(i === 0 && invalidProps(errors.dataTypes, 'data-types-error'))}
                     onChange={() => {
                       patch({
                         dataTypes: DATA_TYPES.filter((d) => toggle(form.dataTypes, t).includes(d)),
@@ -262,18 +294,16 @@ export function PlanWizard({
             }}
           />
           {form.scope === 'selection' && (
-            <fieldset
-              className="choices"
-              aria-describedby={errors.selection ? 'selection-error' : undefined}
-            >
+            <fieldset className="choices">
               <legend>Boîtes et comptes</legend>
               {mailboxes.length === 0 && <p>Aucune boîte à choisir pour l’instant.</p>}
               <div className="choice-list">
-                {mailboxes.map((m) => (
+                {mailboxes.map((m, i) => (
                   <label key={m.id} className="choice">
                     <input
                       type="checkbox"
                       checked={form.selection.includes(m.id)}
+                      {...(i === 0 && invalidProps(errors.selection, 'selection-error'))}
                       onChange={() => {
                         patch({ selection: toggle(form.selection, m.id) });
                       }}
@@ -360,6 +390,12 @@ export function PlanWizard({
         </>
       )}
 
+      {failure && (
+        <div ref={failureRef} tabIndex={-1} className="wizard-failure">
+          <PlanFailure problem={wizardFailure(failure, editing)} />
+        </div>
+      )}
+
       <WizardActions
         back={
           step === 1 ? (
@@ -376,6 +412,7 @@ export function PlanWizard({
               variant="secondary"
               onClick={() => {
                 setErrors({});
+                setFailure(undefined);
                 setStep((step - 1) as 1 | 2);
               }}
             >
@@ -791,6 +828,12 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     if (wizardOpen) setFlash(undefined);
   }, [wizardOpen]);
 
+  // La confirmation reçoit le focus (comme #166) et reste affichée jusqu'à la prochaine action.
+  const flashRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (flash && !wizardOpen) flashRef.current?.focus();
+  }, [flash, wizardOpen]);
+
   const reloadList = () => {
     setState('loading');
     load();
@@ -869,6 +912,9 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         initial={plan ? formFromPlan(plan) : emptyForm()}
         editing={editing !== undefined}
         mailboxes={boxes.mailboxes}
+        takenNames={
+          Array.isArray(state) ? state.filter((p) => p.id !== editing).map((p) => p.name) : []
+        }
         onSubmit={save}
       />
     );
@@ -907,7 +953,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
           </Button>
         )}
       </div>
-      <div aria-live="polite">
+      <div ref={flashRef} tabIndex={-1} className="flash">
         {flash && !wizard && <Alert tone={flash.tone}>{flash.text}</Alert>}
       </div>
       {body}
