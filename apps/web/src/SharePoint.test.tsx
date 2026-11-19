@@ -98,8 +98,11 @@ describe('SharePoint route', () => {
     });
   });
 
-  it('adds a SharePoint entry to the navigation', () => {
-    expect(navEntries('sharepoint', false).find((e) => e.label === 'SharePoint')).toMatchObject({
+  it('adds a SharePoint entry to the navigation, under Restaurer', () => {
+    const links = navEntries('sharepoint', false).flatMap((e) =>
+      'children' in e ? e.children : [],
+    );
+    expect(links.find((e) => e.label === 'SharePoint')).toMatchObject({
       href: '#/sharepoint',
       current: true,
     });

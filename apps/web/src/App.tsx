@@ -81,20 +81,32 @@ export function screenFor(
   return screen === 'accounts' && !admin ? 'forbidden' : screen;
 }
 
+/** Entrée de navigation : un lien. */
+export type NavLink = { href: string; label: string; current: boolean };
+/** Rubrique de navigation : un lien, ou un libellé de groupe (sans lien) et ses liens. */
+export type NavEntry = NavLink | { label: string; children: NavLink[] };
+
 /**
- * Entrées de la navigation principale (7 au plus) : seules les entrées livrées apparaissent.
- * Administration (comptes) est réservée aux administrateurs.
+ * Entrées de la navigation principale (cinq rubriques au plus) : seules les entrées livrées
+ * apparaissent. « Restaurer » est un libellé de groupe, pas un lien : il regroupe les trois
+ * parcours de restauration (Messagerie, OneDrive, SharePoint). Administration (comptes) est
+ * réservée aux administrateurs.
  */
-export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean) {
-  const entries = [
+export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean): NavEntry[] {
+  const entries: NavEntry[] = [
     { href: '#/', label: 'Tableau de bord', current: screen === 'home' },
     {
-      href: '#/search',
-      label: 'Rechercher et restaurer',
-      current: screen === 'search' || screen === 'mail',
+      label: 'Restaurer',
+      children: [
+        {
+          href: '#/search',
+          label: 'Messagerie',
+          current: screen === 'search' || screen === 'mail',
+        },
+        { href: '#/onedrive', label: 'OneDrive', current: screen === 'onedrive' },
+        { href: '#/sharepoint', label: 'SharePoint', current: screen === 'sharepoint' },
+      ],
     },
-    { href: '#/onedrive', label: 'OneDrive', current: screen === 'onedrive' },
-    { href: '#/sharepoint', label: 'SharePoint', current: screen === 'sharepoint' },
     { href: '#/plans', label: 'Plans de protection', current: screen === 'plans' },
     { href: '#/audit', label: 'Journal d’audit', current: screen === 'audit' },
   ];
@@ -219,10 +231,25 @@ export function ConsoleView({
             <nav aria-label="Navigation principale">
               <ul className="nav-list">
                 {entries.map((e) => (
-                  <li key={e.href}>
-                    <a href={e.href} aria-current={e.current ? 'page' : undefined}>
-                      {e.label}
-                    </a>
+                  <li key={e.label}>
+                    {'children' in e ? (
+                      <>
+                        <span className="nav-group">{e.label}</span>
+                        <ul className="nav-list nav-sublist">
+                          {e.children.map((c) => (
+                            <li key={c.href}>
+                              <a href={c.href} aria-current={c.current ? 'page' : undefined}>
+                                {c.label}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <a href={e.href} aria-current={e.current ? 'page' : undefined}>
+                        {e.label}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>

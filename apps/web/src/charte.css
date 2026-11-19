@@ -153,6 +153,15 @@ a {
   color: var(--text);
   text-decoration: none;
 }
+.nav-group {
+  display: block;
+  padding: var(--space-1) var(--space-2);
+  color: var(--muted);
+}
+.nav-sublist {
+  padding-left: var(--space-3);
+}
+
 .nav-list a:hover,
 .sidebar-footer a:hover {
   background: var(--border-soft);
@@ -384,7 +393,7 @@ th {
   }
   .sidebar-collapsible {
     display: none;
-    width: 100%;
+    flex: 1 1 100%;
   }
   .sidebar-collapsible[data-open='true'] {
     display: flex;
