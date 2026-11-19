@@ -82,6 +82,30 @@ describe('audit labels', () => {
     });
   });
 
+  it('names the source and scope of a list view, never the search terms', () => {
+    expect(targetView({ resource: 'mail.search', target: 'paul@x.test' }, null)).toEqual({
+      name: 'Messagerie',
+      secondary: 'paul@x.test',
+    });
+    expect(targetView({ resource: 'mail.search', target: '*' }, null)).toEqual({
+      name: 'Messagerie',
+      secondary: 'toutes les boîtes',
+    });
+    expect(targetView({ resource: 'mail.search' }, null)).toEqual({ name: 'Messagerie' });
+    expect(
+      targetView({ resource: 'onedrive.items', target: 'claire@x.test/Documents/Budget' }, null),
+    ).toEqual({ name: 'OneDrive', secondary: 'claire@x.test' });
+    expect(
+      targetView(
+        { resource: 'sharepoint.items', target: 'site-1/Docs', targetName: 'Équipe commerciale' },
+        null,
+      ),
+    ).toEqual({ name: 'SharePoint', secondary: 'Équipe commerciale' });
+    expect(targetView({ resource: 'sharepoint.scope', target: 'gone/Docs' }, null)).toEqual({
+      name: 'SharePoint',
+    });
+  });
+
   it('writes the unidentified actor in French and the date with its year', () => {
     expect(actorLabel('anonymous')).toBe('Inconnu');
     expect(actorLabel('admin')).toBe('admin');

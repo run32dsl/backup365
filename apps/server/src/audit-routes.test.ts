@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import type { SearchIndex } from '@backup365/core';
+import { FakeBackupCatalog, type SearchIndex } from '@backup365/core';
 import { buildTestApp } from './test-support.js';
 import { main as auditVerifyMain, runAuditVerify } from './audit-verify.js';
 import { tryOpenAuditLog } from './sqlite/open-audit-log.js';
@@ -91,6 +91,23 @@ describe('GET /api/audit', () => {
     expect(found).toMatchObject({ targetName: 'Devis', targetMailbox: 'a@example.test' });
     expect(gone).not.toHaveProperty('targetName');
     expect((await audit.verify()).ok).toBe(true);
+  });
+
+  it('adds the name of the SharePoint site a list view targets', async () => {
+    const audit = SqliteAuditLog.open(':memory:');
+    const base = { at: '2026-01-01T10:00:00.000Z', actor: 'alice', action: 'list.view' } as const;
+    await audit.record({ ...base, resource: 'sharepoint.items', target: 'site-1/Documents' });
+    await audit.record({ ...base, resource: 'sharepoint.items', target: 'inconnu/Documents' });
+    const catalog = new FakeBackupCatalog({
+      mailboxes: [],
+      sites: [{ id: 'site-1', displayName: 'Équipe commerciale' }],
+      snapshots: {},
+    });
+    const app = buildTestApp({ version: '1', audit, catalog });
+    const res = await app.inject({ method: 'GET', url: '/api/audit' });
+    const [unknown, known] = res.json<{ items: Record<string, unknown>[] }>().items;
+    expect(known).toMatchObject({ targetName: 'Équipe commerciale' });
+    expect(unknown).not.toHaveProperty('targetName');
   });
 
   it('still answers when the search index fails, and names restore targets too', async () => {

@@ -94,6 +94,10 @@ Statut : **proposé** (issue #21, décisions du PO du 2026-11-13).
   `GET /api/audit` ajoute `targetName` (objet) et `targetMailbox` lus dans l'index à la
   consultation, hors chaîne d'empreintes ; ils restent absents si le mail n'est plus indexé. Le
   journal est réservé aux comptes authentifiés (ADR 0008)._
+  _Note (issue #321, proposé) : une consultation de liste enregistre son périmètre, jamais les
+  termes cherchés : `mail.search` a pour cible la boîte filtrée (seulement si elle est indexée)
+  ou `*` sans filtre ; les entrées antérieures n'ont pas de cible. Pour `sharepoint.items` et
+  `sharepoint.scope`, `GET /api/audit` ajoute `targetName` (nom du site, lu dans le catalogue)._
 - `access.denied` est émis quand le catalogue ou l'index est indisponible ou qu'un instantané est
   introuvable, sur l'ouverture d'un instantané et sur la recherche ; le refus d'authentification
   viendra avec l'authentification.

@@ -212,7 +212,7 @@ export function buildApp({
     done();
   });
   void app.register((scope, _opts, done) => {
-    registerAuditRoutes(scope, audit, searchIndex);
+    registerAuditRoutes(scope, audit, searchIndex, catalog);
     done();
   });
   void app.register((scope, _opts, done) => {
