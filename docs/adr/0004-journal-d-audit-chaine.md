@@ -73,7 +73,8 @@ Statut : **proposé** (issue #21, décisions du PO du 2026-11-13).
   externe »). **Obligatoire avant toute mise en production** (décision du PM du 2026-11-12), #21.
 - Écrit avant l'ADR 0008 : l'acteur valait `anonymous` et `GET /api/audit` était ouvert. Depuis,
   l'acteur est le compte de la session (`actorOf`) et la lecture du journal est elle-même
-  consignée (`list.view`, ressource `audit`).
+  consignée (`list.view`, ressource `audit`) ; la cible porte les filtres de période et d’action
+  (`from=…;to=…;action=…`), jamais l’acteur saisi.
 - `item.export` fait partie du vocabulaire mais **rien ne l'émet** : aucune route d'export
   n'existe, et le port `BackupCatalog` ne lit que des métadonnées (ADR 0002), pas le contenu d'un
   élément. L'événement sera émis par la route d'export, qui demande d'abord un port de lecture
