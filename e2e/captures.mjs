@@ -58,7 +58,9 @@ try {
         await page.locator('main').waitFor();
         await screen.prepare?.(page);
         const file = join(outDir, `${screen.name}-${width}.png`);
-        await page.screenshot({ path: file, fullPage: true });
+        // Une boîte de dialogue ouverte : capture à la taille de l'écran, comme la voit l'utilisateur.
+        const hasDialog = (await page.locator('.dialog-backdrop').count()) > 0;
+        await page.screenshot({ path: file, fullPage: !hasDialog });
         written.push(file);
       } finally {
         await context.close();

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { DialogPanel } from './Dialog.js';
@@ -91,5 +92,23 @@ describe('makeInert', () => {
     restore();
     expect(page.inert).toBe(false);
     expect(already.inert).toBe(true);
+  });
+});
+
+describe('mobile dialog rule', () => {
+  const css = readFileSync(new URL('../charte.css', import.meta.url), 'utf8');
+  const mobile = css.slice(css.indexOf('/* Feuille ancrée en bas'));
+  const block = mobile.slice(0, mobile.indexOf('/* Boutons empilés'));
+
+  it('no longer forces a full-height panel', () => {
+    expect(block).not.toMatch(/(^|[^-])height: 100%/m);
+    expect(block).toContain('height: auto');
+    expect(block).toContain('max-height: 100%');
+  });
+
+  it('anchors the sheet at the bottom with rounded top corners', () => {
+    expect(block).toContain('align-items: flex-end');
+    expect(block).toContain('border-radius: var(--radius) var(--radius) 0 0');
+    expect(block).toContain('overscroll-behavior: contain');
   });
 });
