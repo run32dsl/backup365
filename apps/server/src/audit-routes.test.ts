@@ -59,13 +59,19 @@ describe('GET /api/audit', () => {
     expect(page.items.map((i) => i.seq)).toEqual([1]);
   });
 
-  it.each(['action=nope', 'from=hier', 'limit=0', 'limit=101', 'offset=-1', 'actor='])(
-    'rejects invalid parameters (%s)',
-    async (qs) => {
-      const { app } = await seeded();
-      expect((await app.inject({ method: 'GET', url: `/api/audit?${qs}` })).statusCode).toBe(400);
-    },
-  );
+  it.each([
+    'action=nope',
+    'from=hier',
+    'from=2026-11-18',
+    'to=31/02/2026',
+    'limit=0',
+    'limit=101',
+    'offset=-1',
+    'actor=',
+  ])('rejects invalid parameters (%s)', async (qs) => {
+    const { app } = await seeded();
+    expect((await app.inject({ method: 'GET', url: `/api/audit?${qs}` })).statusCode).toBe(400);
+  });
 
   it('adds the subject and mailbox of the mail an entry targets, without touching the chain', async () => {
     const audit = SqliteAuditLog.open(':memory:');

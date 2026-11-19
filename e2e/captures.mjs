@@ -3,13 +3,15 @@ import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
-import { launchOptions, signInAs } from './browser.mjs';
+import { DEFAULT_LANG, launchOptions, requestedLang, signInAs } from './browser.mjs';
 import { startDemoServer } from './demo-server.mjs';
 import { reportCapturesDuration } from './durees.mjs';
 import { SCREENS, WIDTHS } from './screens.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'captures');
+// `pnpm run captures --lang=en-US` : même rendu attendu, quelle que soit la langue du navigateur.
+const lang = requestedLang();
 // La durée relevée couvre toute la commande, construction comprise quand elle a lieu.
 const startedAt = performance.now();
 
@@ -20,7 +22,7 @@ if (process.env['BACKUP365_SKIP_BUILD'] !== '1') {
 mkdirSync(outDir, { recursive: true });
 
 const server = await startDemoServer({ settled: true });
-const browser = await chromium.launch(launchOptions());
+const browser = await chromium.launch(launchOptions(process.env, lang));
 const written = [];
 try {
   for (const screen of SCREENS) {
@@ -28,7 +30,7 @@ try {
       const context = await browser.newContext({
         viewport: { width, height: 800 },
         baseURL: server.baseURL,
-        locale: 'fr-FR',
+        locale: lang ?? DEFAULT_LANG,
         timezoneId: 'UTC',
         colorScheme: screen.scheme ?? 'light',
       });
@@ -51,4 +53,5 @@ try {
   await server.stop();
 }
 for (const file of written) console.log(file.replace(`${root}/`, ''));
+console.log(`${written.length} captures, navigateur en ${lang ?? DEFAULT_LANG}`);
 reportCapturesDuration(performance.now() - startedAt, written.length);

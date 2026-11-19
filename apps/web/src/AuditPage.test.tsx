@@ -1,8 +1,8 @@
 import { renderToString } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
 import { AuditPage, AuditView } from './AuditPage.js';
-import { fetchAudit, pageOffsets, queryFromForm, toUtcIso } from './audit.js';
+import { dateRange, fetchAudit, pageOffsets, queryFromForm, submitFilters } from './audit.js';
 
 const entry = {
   seq: 2,
@@ -117,21 +117,21 @@ describe('fetchAudit', () => {
   });
 });
 
-describe('queryFromForm', () => {
-  const form = (fields: Record<string, string>) => {
-    const data = new FormData();
-    for (const [name, value] of Object.entries(fields)) data.set(name, value);
-    return data;
-  };
+const form = (fields: Record<string, string>) => {
+  const data = new FormData();
+  for (const [name, value] of Object.entries(fields)) data.set(name, value);
+  return data;
+};
 
+describe('queryFromForm', () => {
   it('builds the query sent on submit, back on the first page', () => {
     const query = queryFromForm(
-      form({ from: '2026-01-15T10:00', to: '', actor: '  alice ', action: 'access.denied' }),
+      form({ from: '15/01/2026', to: '', actor: '  alice ', action: 'access.denied' }),
     );
     expect(query).toEqual({
       limit: 25,
       offset: 0,
-      from: toUtcIso('2026-01-15T10:00'),
+      from: '2026-01-15T00:00:00.000Z',
       to: '',
       actor: 'alice',
       action: 'access.denied',
@@ -191,10 +191,55 @@ describe('pageOffsets', () => {
 });
 
 describe('helpers', () => {
-  it('converts a local date to UTC, and ignores an invalid one', () => {
-    expect(toUtcIso('2026-01-15T10:00')).toMatch(/^2026-01-15T\d\d:00:00\.000Z$/);
-    expect(toUtcIso('')).toBe('');
-    expect(toUtcIso('nope')).toBe('');
+  it('turns jj/mm/aaaa in Du and Au into the UTC interval [00:00, next day 00:00[', () => {
+    expect(dateRange('18/11/2026', '18/11/2026')).toEqual({
+      from: '2026-11-18T00:00:00.000Z',
+      to: '2026-11-19T00:00:00.000Z',
+    });
+    expect(queryFromForm(form({ from: '18/11/2026', to: '18/11/2026' }))).toMatchObject({
+      from: '2026-11-18T00:00:00.000Z',
+      to: '2026-11-19T00:00:00.000Z',
+    });
+    expect(dateRange('', '')).toEqual({ from: '', to: '' });
+    expect(dateRange('', '31/12/2026').to).toBe('2027-01-01T00:00:00.000Z');
+  });
+
+  it.each(['31/02/2026', '2026-11-18', '18/11/26', 'nope'])('flags %s as invalid', (text) => {
+    expect(dateRange(text, text)).toMatchObject({
+      from: '',
+      to: '',
+      fromError: 'Date attendue au format jj/mm/aaaa',
+      toError: 'Date attendue au format jj/mm/aaaa',
+    });
+  });
+
+  it('refuses 31/12/9999 in Au, whose next day leaves the 4-digit years', () => {
+    expect(dateRange('31/12/9999', '31/12/9999')).toEqual({
+      from: '9999-12-31T00:00:00.000Z',
+      to: '',
+      toError: 'Date attendue au format jj/mm/aaaa',
+    });
+    expect(dateRange('', '30/12/9999').to).toBe('9999-12-31T00:00:00.000Z');
+  });
+
+  it('submits no query and reports the error under the field when a date is invalid', () => {
+    const build = vi.fn(queryFromForm);
+    const bad = submitFilters(form({ from: '31/02/2026', to: '18/11/2026' }), 'from', 'to', build);
+    expect(bad.query).toBeNull();
+    expect(bad.errors.fromError).toBe('Date attendue au format jj/mm/aaaa');
+    expect(bad.errors.toError).toBeUndefined();
+    expect(build).not.toHaveBeenCalled();
+    const ok = submitFilters(form({ from: '18/11/2026', to: '' }), 'from', 'to', build);
+    expect(ok.query).toMatchObject({ from: '2026-11-18T00:00:00.000Z' });
+    expect(build).toHaveBeenCalledOnce();
+  });
+
+  it('renders text date fields with the jj/mm/aaaa help and no native date input', () => {
+    const html = renderToString(<AuditPage />);
+    expect(html).not.toContain('datetime-local');
+    expect(html).not.toContain('exclu');
+    expect(html).toContain('Date au format jj/mm/aaaa, en UTC comme le tableau');
+    expect(html).toMatch(/aria-describedby="[^"]+-help"/);
   });
 
   it('routes #/audit to the audit screen', () => {

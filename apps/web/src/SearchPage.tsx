@@ -7,6 +7,7 @@ import {
   type SearchQuery,
   type SearchResponse,
 } from './mail.js';
+import { DATE_HELP, submitFilters, type DateRange } from './audit.js';
 import { dateTimeOf, folderLabel, plural } from './format.js';
 import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
 import { fetchRestoreConfigured } from './restore.js';
@@ -134,9 +135,14 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
     };
   }, [query]);
 
+  const [errors, setErrors] = useState<DateRange>({ from: '', to: '' });
+
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setQuery(searchQueryFromForm(new FormData(e.currentTarget)));
+    const form = new FormData(e.currentTarget);
+    const { errors, query } = submitFilters(form, 'after', 'before', searchQueryFromForm);
+    setErrors(errors);
+    if (query) setQuery(query);
   }
 
   return (
@@ -151,8 +157,22 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
           maxLength={256}
           defaultValue={mailbox}
         />
-        <FormField label="Du" type="datetime-local" name="after" />
-        <FormField label="Au (exclu)" type="datetime-local" name="before" />
+        <FormField
+          label="Du"
+          type="text"
+          name="after"
+          maxLength={10}
+          help={DATE_HELP}
+          error={errors.fromError}
+        />
+        <FormField
+          label="Au"
+          type="text"
+          name="before"
+          maxLength={10}
+          help={DATE_HELP}
+          error={errors.toError}
+        />
         <Button type="submit">Rechercher</Button>
       </form>
       {state !== null && (
