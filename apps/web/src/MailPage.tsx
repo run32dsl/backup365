@@ -8,11 +8,11 @@ import { AuditReminder, REASON, RESTORE_BUTTONS as B, ReasonField } from './Rest
 import {
   fetchLastRestore,
   fetchRestoreConfigured,
-  lastRestoreLabel,
+  lastRestoreSummary,
   shortUtcDate,
   type RestoreJob,
 } from './restore.js';
-import { Alert, Button, Dialog } from './ui/index.js';
+import { Alert, Button, Dialog, StatusPill } from './ui/index.js';
 
 /** État de la fiche. */
 export type MailState = IndexedMail | 'loading' | 'error';
@@ -212,7 +212,7 @@ export function RestoreSectionView({
   last: RestoreJob | null;
   onJob?: (job: RestoreJob) => void;
 }) {
-  const label = lastRestoreLabel(last);
+  const summary = lastRestoreSummary(last);
   return (
     <section aria-labelledby="restore-title" className="mail-section">
       <h2 id="restore-title">Restaurer dans la boîte d’origine</h2>
@@ -224,7 +224,12 @@ export function RestoreSectionView({
           <Alert tone="warning">{API_ERRORS['restore_unavailable']}</Alert>
         </div>
       )}
-      {label && <p role="status">{label}</p>}
+      {summary && (
+        <p role="status">
+          Dernière restauration : <StatusPill status={summary.status} label={summary.label} />
+          {summary.duration ? ` ${summary.duration}` : ''}
+        </p>
+      )}
     </section>
   );
 }

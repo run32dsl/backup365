@@ -10,7 +10,6 @@ import {
   failureCause,
   isOutcomeUncertain,
   fetchLastRestore,
-  formatClock,
   formatDuration,
   restoreFolderName,
   shortUtcDate,
@@ -40,18 +39,41 @@ export function dialogTitle(job: RestoreJob | null): string {
   return job.status === 'succeeded' ? T.succeededTitle : T.failedTitle;
 }
 
-/** Suivi d'une restauration : la durée s'actualise chaque seconde, l'annonce vocale toutes les 15 s. */
-function Tracking({ job, now }: { job: RestoreJob; now: number }) {
+/** Rappel du mail et de la boîte, commun aux états en cours, réussi et échoué. */
+function recallRows(mail: RestorableMail): [string, string][] {
+  const date = shortUtcDate(mail.date);
+  const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
+  return [
+    ['Mail', date ? `${subject} · ${date}` : subject],
+    ['Boîte', mail.mailboxId],
+  ];
+}
+
+/** Restauration en cours : même modèle que les résultats (alerte, liste libellée, « Fermer »). */
+export function Tracking({
+  job,
+  mail,
+  now,
+  onClose,
+}: {
+  job: RestoreJob;
+  mail: RestorableMail;
+  now: number;
+  onClose: () => void;
+}) {
   const elapsed = Math.max(0, now - Date.parse(job.startedAt));
   return (
     <>
-      <p aria-hidden="true">
-        <span className="spinner" /> {T.running} {formatClock(elapsed)}
-      </p>
+      <Alert tone="info">
+        {T.running} {T.keepsRunning}
+      </Alert>
       <p className="sr-only" role="status" aria-live="polite">
         {announcement(elapsed)}
       </p>
-      <p>{T.keepsRunning}</p>
+      <ResultList rows={[...recallRows(mail), ['Dossier', job.folder]]} />
+      <div className="button-row dialog-actions">
+        <Button onClick={onClose}>Fermer</Button>
+      </div>
     </>
   );
 }
@@ -68,12 +90,7 @@ export function RestoreOutcome({
   onClose: () => void;
   onRetry: () => void;
 }) {
-  const date = shortUtcDate(mail.date);
-  const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
-  const recall: [string, string][] = [
-    ['Mail', date ? `${subject} · ${date}` : subject],
-    ['Boîte', mail.mailboxId],
-  ];
+  const recall = recallRows(mail);
   if (job.status === 'succeeded') {
     return (
       <>
@@ -256,14 +273,7 @@ export function RestoreAction({
           </form>
         )}
         {job?.status === 'running' && (
-          <>
-            <Tracking job={job} now={now} />
-            <div className="button-row dialog-actions">
-              <Button variant="secondary" onClick={closePanel}>
-                Fermer
-              </Button>
-            </div>
-          </>
+          <Tracking job={job} mail={mail} now={now} onClose={closePanel} />
         )}
         {(job?.status === 'succeeded' || job?.status === 'failed') && (
           <RestoreOutcome

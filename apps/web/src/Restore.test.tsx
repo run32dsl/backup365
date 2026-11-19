@@ -1,17 +1,16 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { API_ERRORS } from './apiError.js';
-import { RestoreAction, RestoreOutcome, dialogTitle } from './RestoreAction.js';
+import { RestoreAction, RestoreOutcome, Tracking, dialogTitle } from './RestoreAction.js';
 import { SearchView } from './SearchPage.js';
 import {
   announcement,
   failureCause,
   fetchLastRestore,
   fetchRestoreConfigured,
-  formatClock,
   formatDuration,
   isOutcomeUncertain,
-  lastRestoreLabel,
+  lastRestoreSummary,
   RESTORE_MESSAGES,
   restoreFolderName,
   startRestore,
@@ -58,8 +57,6 @@ describe('restore helpers', () => {
     expect(formatDuration(18_000)).toBe('18 s');
     expect(formatDuration(200)).toBe('1 s');
     expect(formatDuration(65_000)).toBe('1 min 05 s');
-    expect(formatClock(12_400)).toBe('00:12');
-    expect(formatClock(-5)).toBe('00:00');
   });
 
   it('announces the running state once, then every 15 seconds', () => {
@@ -70,12 +67,39 @@ describe('restore helpers', () => {
   });
 
   it('describes the last restoration on the sheet', () => {
-    expect(lastRestoreLabel(null)).toBeNull();
-    expect(lastRestoreLabel(job())).toBe('Dernière restauration : réussie, 18 s');
-    expect(lastRestoreLabel(job({ status: 'failed', durationMs: 45_000 }))).toBe(
-      'Dernière restauration : échouée, 45 s',
+    expect(lastRestoreSummary(null)).toBeNull();
+    expect(lastRestoreSummary(job())).toEqual({
+      status: 'compliant',
+      label: 'Réussie',
+      duration: '18 s',
+    });
+    expect(lastRestoreSummary(job({ status: 'failed', durationMs: 45_000 }))).toMatchObject({
+      status: 'failed',
+      label: 'En échec',
+      duration: '45 s',
+    });
+    expect(lastRestoreSummary(job({ status: 'running', durationMs: null }))).toMatchObject({
+      status: 'running',
+      duration: null,
+    });
+  });
+
+  it('recalls the mail, the mailbox and the folder while running, without a clock', () => {
+    const html = renderToString(
+      <Tracking
+        job={job({ status: 'running', durationMs: null })}
+        mail={mail}
+        now={Date.parse('2026-11-14T10:00:00.000Z')}
+        onClose={vi.fn()}
+      />,
     );
-    expect(lastRestoreLabel(job({ status: 'running', durationMs: null }))).toContain('en cours');
+    expect(html).toContain('alert-info');
+    expect(html).toContain('Vous pouvez fermer cette fenêtre, elle continue.');
+    expect(html).toContain('Facture 1');
+    expect(html).toContain('mbx 1');
+    expect(html).toContain('Restauré par backup365 14/11/2026');
+    expect(html).not.toContain('00:00');
+    expect(html.match(/<button/g)).toHaveLength(1);
   });
 
   it('titles the panel after the state and explains the cause of a failure', () => {
