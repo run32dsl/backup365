@@ -431,6 +431,14 @@ export const SCREENS = [
   },
   { name: 'page-reservee', hash: '#/comptes', role: 'operator' },
   {
+    name: 'etat-detaille',
+    hash: '#/etat',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('heading', { name: 'Sauvegardes' }).waitFor();
+    },
+  },
+  {
     name: 'plans-liste',
     hash: '#/plans',
     role: 'admin',

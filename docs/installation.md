@@ -142,6 +142,8 @@ objectifs (perte de données acceptable, remise en service, conservation et just
 demande un motif, inscrit au journal d'audit. L'administrateur crée, désactive et change le rôle des comptes dans l'écran « Comptes »
 (`#/comptes`) ; il ne peut pas désactiver ni rétrograder le dernier administrateur actif. Un mot
 de passe provisoire (création ou réinitialisation) est à changer à la connexion suivante.
+L'entrée « État détaillé » (`#/etat`, administrateurs) affiche l'état de chaque sauvegarde et la
+conformité des plans.
 
 Pour réinitialiser un mot de passe, l'administrateur choisit le compte, saisit un motif
 obligatoire, puis lit le mot de passe temporaire que la console a généré : il s'affiche une seule

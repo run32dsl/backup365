@@ -13,10 +13,11 @@ import { parseOneDriveHash } from './onedrive.js';
 import { SharePointPage } from './SharePointPage.js';
 import { parseSharePointHash } from './sharepoint.js';
 import { SearchPage } from './SearchPage.js';
+import { StatusPage } from './StatusPage.js';
 import { parseMailHash, parseSearchHash } from './mail.js';
 import { PlansPage } from './PlansPage.js';
 import { parsePlansHash } from './plans.js';
-import { COMPONENTS_HASH } from './routes.js';
+import { COMPONENTS_HASH, STATUS_HASH } from './routes.js';
 import { Alert, EmptyState } from './ui/index.js';
 import {
   ADMIN_ONLY,
@@ -49,6 +50,7 @@ export function screenOf(
   | 'search'
   | 'accounts'
   | 'plans'
+  | 'status'
   | 'password'
   | 'components'
   | 'mail'
@@ -61,6 +63,7 @@ export function screenOf(
   if (hash === '#/audit') return 'audit';
   if (hash === '#/search' || parseSearchHash(hash) !== null) return 'search';
   if (hash === '#/comptes') return 'accounts';
+  if (hash === STATUS_HASH) return 'status';
   if (hash === '#/password') return 'password';
   if (hash === COMPONENTS_HASH) return 'components';
   return parseMailHash(hash) ? 'mail' : 'home';
@@ -78,12 +81,12 @@ export function screenFor(
   const screen = screenOf(hash);
   // `null` : le serveur n'a pas encore dit s'il est en démo ; rien n'est affiché plutôt qu'un avis faux.
   if (screen === 'components') return demo === null ? 'pending' : demo ? screen : 'unavailable';
-  return screen === 'accounts' && !admin ? 'forbidden' : screen;
+  return (screen === 'accounts' || screen === 'status') && !admin ? 'forbidden' : screen;
 }
 
 /**
- * Entrées de la navigation principale (7 au plus) : seules les entrées livrées apparaissent.
- * Administration (comptes) est réservée aux administrateurs.
+ * Entrées de la navigation principale : seules les entrées livrées apparaissent. « État
+ * détaillé » et Administration (comptes) sont réservées aux administrateurs.
  */
 export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean) {
   const entries = [
@@ -99,6 +102,7 @@ export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean)
     { href: '#/audit', label: 'Journal d’audit', current: screen === 'audit' },
   ];
   if (admin) {
+    entries.push({ href: STATUS_HASH, label: 'État détaillé', current: screen === 'status' });
     entries.push({
       href: '#/comptes',
       label: 'Administration',
@@ -317,6 +321,7 @@ export function Console({
         <PlansPage route={parsePlansHash(hash) ?? { page: 'list' }} admin={admin} />
       )}
       {screen === 'accounts' && <AccountsPage />}
+      {screen === 'status' && <StatusPage />}
       {screen === 'forbidden' && <ForbiddenView />}
       {screen === 'password' && (
         <PasswordPage forced={false} onDone={() => undefined} onCancel={goHome} />
