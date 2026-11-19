@@ -31,7 +31,6 @@ import {
   fetchSiteSnapshots,
   fetchSites,
   formatDuration,
-  failureSummary,
   isOutcomeUncertain,
   pathLabel,
   successSummary,
@@ -641,8 +640,14 @@ export function TrackStep({
   const failedNormally = job.status === 'failed' && !isOutcomeUncertain(job.error);
   const countRows: [string, ReactNode][] = [
     ['Site', siteName],
-    [RESTORE_LABELS.itemRestored, restoredContentLabel(job.scope, job.path)],
+    [
+      job.status === 'succeeded' ? RESTORE_LABELS.itemRestored : RESTORE_LABELS.item,
+      restoredContentLabel(job.scope, job.path),
+    ],
   ];
+  if (job.status === 'failed' && job.restored > 0) {
+    countRows.push(['Éléments restaurés', job.restored]);
+  }
   if (pointAt) countRows.push([RESTORE_LABELS.backupAt, dateTimeOf(pointAt)]);
   if (job.status === 'succeeded' && job.copyName) countRows.push(['Restauré sous', job.copyName]);
   if (failedNormally && untreated > 0) countRows.push(['Éléments non traités', untreated]);
@@ -693,7 +698,7 @@ export function TrackStep({
         <Alert tone="error">
           {isOutcomeUncertain(job.error)
             ? `La restauration a échoué : ${failureCause(job.error)}. L’état de SharePoint est incertain : vérifiez avant de réessayer.`
-            : failureSummary(job.restored)}
+            : `La restauration a échoué : ${failureCause(job.error)}. ${job.restored > 0 ? 'Rien n’a été écrasé.' : 'Rien n’a été modifié.'}`}
         </Alert>
         {counts}
         <WizardActions

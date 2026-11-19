@@ -32,12 +32,13 @@ const render = (job: Partial<SiteJob>) =>
   );
 
 describe('SharePoint result', () => {
-  it('recalls the site and the item, in every state', () => {
+  it('recalls the site and the item, labelled Élément restauré only on success', () => {
     for (const status of ['running', 'succeeded', 'failed'] as const) {
       const html = render({ status, errors: status === 'failed' ? 1 : 0 });
+      const label = status === 'succeeded' ? 'Élément restauré' : 'Élément';
       expect(html).toContain('<dt>Site</dt><dd>Équipe commerciale</dd>');
       expect(html).toContain(
-        '<dt>Élément restauré</dt><dd>Fichier : Documents partagés &gt; Plans 2024 &gt; plan-a.pdf</dd>',
+        `<dt>${label}</dt><dd>Fichier : Documents partagés &gt; Plans 2024 &gt; plan-a.pdf</dd>`,
       );
     }
   });
@@ -45,9 +46,10 @@ describe('SharePoint result', () => {
   it('recalls the whole site, and puts the errors after the labels', () => {
     for (const status of ['succeeded', 'failed'] as const) {
       const html = render({ status, scope: 'site', path: '/', errors: 1 });
+      const label = status === 'succeeded' ? 'Élément restauré' : 'Élément';
       expect(html).toContain('<dt>Site</dt><dd>Équipe commerciale</dd>');
-      expect(html).toContain('<dt>Élément restauré</dt><dd>Site entier</dd>');
-      expect(html.indexOf('Élément restauré')).toBeLessThan(html.indexOf('Éléments en erreur'));
+      expect(html).toContain(`<dt>${label}</dt><dd>Site entier</dd>`);
+      expect(html.indexOf(`<dt>${label}`)).toBeLessThan(html.indexOf('Éléments en erreur'));
     }
   });
 
@@ -69,5 +71,25 @@ describe('SharePoint result', () => {
     );
     expect(render({ skipped: 1 })).not.toContain('n’a été écrasé');
     expect(render({})).toContain('n’a été écrasé');
+  });
+
+  it('writes the shared failure sentence, with no restored label', () => {
+    const html = render({ status: 'failed', restored: 0, errors: 1, error: 'restore_error' });
+    expect(html).toContain(
+      'La restauration a échoué : le service de restauration a signalé une erreur. Rien n’a été modifié.',
+    );
+    expect(html).not.toContain('Élément restauré');
+    expect(html).not.toContain('Éléments restaurés');
+  });
+
+  it('counts the restored items and keeps "écrasé" on a partial failure', () => {
+    const html = render({ status: 'failed', restored: 2, errors: 1, error: 'restore_error' });
+    expect(html).toContain('<dt>Éléments restaurés</dt><dd>2</dd>');
+    expect(html).toContain('Rien n’a été écrasé.');
+  });
+
+  it('says the state is uncertain when the outcome is unknown', () => {
+    const html = render({ status: 'failed', error: 'restore_lost' });
+    expect(html).toContain('L’état de SharePoint est incertain');
   });
 });

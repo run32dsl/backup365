@@ -29,7 +29,7 @@ export const RESTORE_MESSAGES = {
   keepsRunning: 'Vous pouvez fermer cette fenêtre : elle continue.',
   succeededTitle: 'Restauration réussie',
   failedTitle: 'Restauration échouée',
-  untouched: 'Rien n’a été modifié dans la boîte.',
+  untouched: 'Rien n’a été modifié.',
   uncertain:
     'L’état de la boîte est incertain : la restauration a peut-être abouti. Vérifiez le dossier daté avant de réessayer.',
   notAvailable: 'Ce mail n’est plus disponible dans la sauvegarde.',

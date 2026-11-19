@@ -655,7 +655,7 @@ export const SCREENS = [
     prepare: async (page) => {
       await openRestorePanel(page, 25);
       await confirmRestore(page);
-      await page.getByText(/La restauration a échoué après/u).waitFor();
+      await page.getByText(/La restauration a échoué : /u).waitFor();
     },
   },
   {

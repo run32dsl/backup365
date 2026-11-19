@@ -647,7 +647,9 @@ export function TrackStep({
     <ResultList
       rows={[
         ['Compte', account],
-        [RESTORE_LABELS.itemRestored, `${choice.entry.name} → ${target}`],
+        job.status === 'succeeded'
+          ? [RESTORE_LABELS.itemRestored, `${choice.entry.name} → ${target}`]
+          : [RESTORE_LABELS.item, choice.entry.name],
         [RESTORE_LABELS.backupAt, dateTimeOf(backupAt)],
         ...(versionAt ? [['Version du', dateTimeOf(versionAt)] as [string, string]] : []),
         ['Emplacement', where],

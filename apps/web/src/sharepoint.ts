@@ -268,12 +268,6 @@ export function successSummary(
   return parts.join(' ');
 }
 
-/** Phrase de l'alerte d'échec (hors état incertain) : ce qui a été restauré, rien d'écrasé. */
-export function failureSummary(restored: number): string {
-  const done = restored > 0 ? elementsWhich(restored, 'restauré') : 'aucun élément restauré';
-  return `La restauration a échoué : ${done}. Rien n’a été écrasé.`;
-}
-
 export function failureCause(error: SiteJob['error']): string {
   if (error === 'restore_unreachable') return 'SharePoint injoignable pour le moment';
   if (error === 'restore_lost') return 'le suivi a été perdu (service redémarré)';

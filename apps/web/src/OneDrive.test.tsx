@@ -293,13 +293,20 @@ describe('OneDrive result list', () => {
     );
     expect(out).toContain('<dt>Compte</dt><dd>a@exemple.fr</dd>');
     expect(out).toContain('<dt>Version du</dt><dd>10/11/2026 18:30</dd>');
-    const at = ['Compte', 'Élément restauré', 'Sauvegarde du', 'Version du', 'Emplacement'].map(
-      (l) => out.indexOf(`<dt>${l}</dt>`),
+    const label = status === 'succeeded' ? 'Élément restauré' : 'Élément';
+    const at = ['Compte', label, 'Sauvegarde du', 'Version du', 'Emplacement'].map((l) =>
+      out.indexOf(`<dt>${l}</dt>`),
     );
     expect(at.every((i, n) => i >= 0 && (n === 0 || i > at[n - 1]!))).toBe(true);
-    expect(out).toContain(
-      '<dt>Élément restauré</dt><dd>budget.xlsx → budget (restauré le 14.11.2026).xlsx</dd>',
-    );
+    if (status === 'succeeded') {
+      expect(out).toContain(
+        '<dt>Élément restauré</dt><dd>budget.xlsx → budget (restauré le 14.11.2026).xlsx</dd>',
+      );
+    } else {
+      expect(out).toContain('<dt>Élément</dt><dd>budget.xlsx</dd>');
+      expect(out).not.toContain('Élément restauré');
+      expect(out).not.toContain('→');
+    }
     expect(out).toContain('<dt>Emplacement</dt><dd>Documents &gt; Budget</dd>');
   });
 
