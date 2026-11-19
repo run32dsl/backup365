@@ -14,6 +14,8 @@ on:
     types: [created, edited]
   pull_request_review_comment:
     types: [created, edited]
+  pull_request_review:
+    types: [submitted, edited]
 
 permissions:
   contents: read
@@ -33,7 +35,7 @@ jobs:
         env:
           TITLE: ${{ github.event.pull_request.title || github.event.issue.title }}
           BODY: ${{ github.event.pull_request.body || github.event.issue.body }}
-          COMMENT: ${{ github.event.comment.body }}
+          COMMENT: ${{ github.event.comment.body || github.event.review.body }}
         run: |
           printf '%s\n%s\n%s\n' "$TITLE" "$BODY" "$COMMENT" > "$RUNNER_TEMP/text.md"
           bash .github/scripts/check-placeholders.sh "$RUNNER_TEMP/text.md"
