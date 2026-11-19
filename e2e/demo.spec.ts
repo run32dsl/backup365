@@ -136,8 +136,8 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
     .getByRole('link', { name: /Budget/ })
     .first()
     .click();
-  const path = page.getByRole('navigation', { name: 'Chemin' });
-  await expect(path.getByText('Budget')).toHaveAttribute('aria-current', 'page');
+  const path = page.getByRole('navigation', { name: "Fil d'Ariane" });
+  await expect(path.getByText('Budget')).toHaveAttribute('aria-current', 'location');
   await expect(page.getByRole('columnheader', { name: 'Version du' })).toBeVisible();
   await expect(
     page.getByRole('cell', { name: /\d\d\/\d\d\/\d{4} \d\d:\d\d/ }).first(),
@@ -237,7 +237,7 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
 
   // Un opérateur ne peut pas restaurer le site entier : l'option dit pourquoi, en texte.
   await expect(page.getByLabel('Le site entier')).toBeDisabled();
-  await expect(page.getByText('(Réservé aux administrateurs)')).toBeVisible();
+  await expect(page.getByText('Réservé aux administrateurs')).toBeVisible();
 
   // Bibliothèque : « Continuer » reste inactif tant qu'aucune n'est ouverte.
   await page.getByLabel('Une bibliothèque').check();
@@ -349,6 +349,58 @@ test('SharePoint : un échec affiche le résultat partiel et propose de réessay
   await page.getByRole('button', { name: 'Réessayer' }).click();
   await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Restaurer', exact: true })).toBeVisible();
+});
+
+test('SharePoint : fil d’Ariane à 390 px, séparateurs et liens par niveau', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await signInAs(context, baseURL!, 'operator');
+  // L'ancre porte le dossier : c'est ce qu'ouvre un clic milieu sur un niveau du fil.
+  const library = `#/sharepoint/${SITES.commerce}/item/Documents%20partag%C3%A9s`;
+  await page.goto(`/${library}/Plans%202024`);
+  const nav = page.getByRole('navigation', { name: "Fil d'Ariane" });
+  await expect(nav.getByText('Plans 2024')).toHaveAttribute('aria-current', 'location');
+  await expect(nav.getByRole('link')).toHaveCount(2);
+  const parent = nav.getByRole('link', { name: 'Documents partagés' });
+  await expect(parent).toHaveAttribute('href', library);
+
+  // Chaque « > » est dans le `li` du niveau qui le suit, donc sur sa ligne. Celui d'un niveau en
+  // début de ligne est hors du cadre rogné de la liste : il ne se voit pas.
+  const levels = await nav.locator('ol').evaluate((ol) => {
+    const clip = /inset\(\S+ \S+ \S+ ([\d.]+)px\)/.exec(getComputedStyle(ol).clipPath);
+    const visibleFrom = ol.getBoundingClientRect().left + Number(clip?.[1] ?? Number.NaN);
+    return [...ol.children].map((li) => {
+      const box = li.getBoundingClientRect();
+      const label = li.firstElementChild!.getBoundingClientRect();
+      const before = getComputedStyle(li, '::before');
+      const separatorEnd = box.left + parseFloat(before.width);
+      return {
+        top: Math.round(box.top),
+        separator: before.content,
+        separatorHidden: separatorEnd <= visibleFrom + 0.5,
+        labelVisible: label.left >= visibleFrom,
+        // Le libellé suit son séparateur, sur la même ligne.
+        glued: label.left >= separatorEnd && label.top < box.bottom && label.bottom > box.top,
+      };
+    });
+  });
+  expect(levels).toHaveLength(3);
+  // À 390 px, le chemin à trois niveaux du jeu de démo ne tient pas sur une ligne.
+  expect(new Set(levels.map((l) => l.top)).size).toBeGreaterThan(1);
+  for (const [i, level] of levels.entries()) {
+    const startsLine = i === 0 || levels[i - 1]!.top !== level.top;
+    expect(level.separator).toBe('">"');
+    expect(level.glued).toBe(true);
+    expect(level.labelVisible).toBe(true);
+    expect(level.separatorHidden).toBe(startsLine);
+  }
+
+  // Clic simple : on remonte d'un niveau sans quitter la page.
+  await parent.click();
+  await expect(nav.getByText('Documents partagés')).toHaveAttribute('aria-current', 'location');
 });
 
 test('navigation au clavier du menu replié à 390 px', async ({ page, context, baseURL }) => {

@@ -1005,6 +1005,24 @@ a.btn-secondary {
   margin: 0;
   font-weight: 400;
 }
+.choice-item {
+  display: flex;
+  flex-direction: column;
+}
+.choice-help {
+  margin: 0 0 var(--space-1) 2.25rem;
+  color: var(--muted);
+}
+@media (max-width: 37.5rem) {
+  .choices:has(.choice-item) {
+    display: flex;
+    flex-direction: column;
+  }
+  .choice-item .choice {
+    display: flex;
+    width: 100%;
+  }
+}
 .choice input {
   min-height: 0;
   width: 1.25rem;
@@ -1097,13 +1115,22 @@ a.btn-secondary {
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-4);
 }
+/*
+ * Fil d'Ariane. Chaque « > » appartient au niveau qui le suit (`li::before`) : il passe à la ligne
+ * avec lui. La liste est décalée vers la gauche de la largeur du séparateur et rognée d'autant :
+ * le « > » d'un niveau en début de ligne (le premier compris) tombe hors du cadre et ne se voit
+ * pas. La marge du séparateur (`--space-1`) reste visible : elle loge tout juste le contour de focus
+ * du lien (2 px à 2 px du bord). Un contour plus large demande une marge plus large ici.
+ */
 .breadcrumb {
+  --crumb-sep: 1rem;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
-  margin: 0 0 var(--space-3);
+  gap: 0 var(--space-1);
+  margin: 0 0 var(--space-3) calc(-1 * (var(--crumb-sep) + var(--space-1)));
   padding: 0;
   list-style: none;
+  clip-path: inset(-0.5rem -0.5rem -0.5rem var(--crumb-sep));
 }
 .breadcrumb li {
   display: inline-flex;
@@ -1121,9 +1148,12 @@ a.btn-secondary {
   color: var(--muted);
   font-size: 0.875em;
 }
-.breadcrumb li + li::before {
+.breadcrumb li::before {
   content: '>';
+  flex: none;
+  width: var(--crumb-sep);
   margin-right: var(--space-1);
+  text-align: center;
 }
 .breadcrumb a,
 .drive-list .data-table td a {

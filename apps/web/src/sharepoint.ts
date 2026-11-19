@@ -103,7 +103,8 @@ export function parseSharePointHash(hash: string): SharePointRoute | null {
     return {
       site,
       scope: found?.value ?? null,
-      path: path.length === 0 ? '/' : `/${path.join('/')}`,
+      // Sans granularité valide, l'ancre ne dit pas quoi ouvrir : la racine du site.
+      path: found && path.length > 0 ? `/${path.join('/')}` : '/',
     };
   } catch {
     return null;

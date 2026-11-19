@@ -77,6 +77,24 @@ describe('SharePoint route', () => {
     expect(screenOf('#/sharepoint/s')).toBe('sharepoint');
   });
 
+  it('carries the open folder after the scope, one segment per level', () => {
+    const hash = sharePointHash('s', 'folder', '/Documents partagés/Plans 2024');
+    expect(hash).toBe('#/sharepoint/s/folder/Documents%20partag%C3%A9s/Plans%202024');
+    expect(parseSharePointHash(hash)).toEqual({
+      site: 's',
+      scope: 'folder',
+      path: '/Documents partagés/Plans 2024',
+    });
+    expect(sharePointHash('s', 'folder', '/')).toBe('#/sharepoint/s/folder');
+    // Sans granularité valide, pas de dossier : l'ancre ne sait pas quoi ouvrir.
+    expect(sharePointHash('s', undefined, '/Docs')).toBe('#/sharepoint/s');
+    expect(parseSharePointHash('#/sharepoint/s/nimporte/Docs')).toMatchObject({ path: '/' });
+    // Aucun filtrage côté navigateur : le chemin part tel quel, le serveur refuse `..`.
+    expect(parseSharePointHash('#/sharepoint/s/folder/Docs/..')).toMatchObject({
+      path: '/Docs/..',
+    });
+  });
+
   it('adds a SharePoint entry to the navigation', () => {
     expect(navEntries('sharepoint', false).find((e) => e.label === 'SharePoint')).toMatchObject({
       href: '#/sharepoint',
@@ -182,7 +200,7 @@ describe('SharePoint breadcrumb', () => {
     );
     expect(html).toContain('href="#/sharepoint/a%2Cb/item"');
     expect(html).toContain('href="#/sharepoint/a%2Cb/item/Documents"');
-    expect(html).toContain('<span aria-current="page">Plans 2024</span>');
+    expect(html).toContain('<span aria-current="location">Plans 2024</span>');
   });
 
   it('navigates in the page on a plain click', () => {

@@ -53,7 +53,6 @@ import type { DriveSnapshot } from '@backup365/core';
 import {
   Alert,
   Button,
-  ChoiceGroup,
   DataTable,
   EmptyState,
   FormField,
@@ -205,16 +204,14 @@ export function ContentTree({
 
   return (
     <>
-      <nav aria-label="Chemin">
+      <nav aria-label="Fil d'Ariane">
         <ol className="breadcrumb">
           {crumbs.map((c, i) => (
             <li key={c.path}>
               {i === crumbs.length - 1 ? (
-                <span aria-current="page">{c.label}</span>
+                <span aria-current="location">{c.label}</span>
               ) : (
-                <a className="btn btn-secondary" {...breadcrumbLink(c, siteId, scope, go)}>
-                  {c.label}
-                </a>
+                <a {...breadcrumbLink(c, siteId, scope, go)}>{c.label}</a>
               )}
             </li>
           ))}
@@ -247,7 +244,7 @@ export function ContentTree({
 }
 
 /** Étape 1 : site, granularité, contenu et point de restauration. */
-function ChooseStep({
+export function ChooseStep({
   sites,
   site,
   snapshots,
@@ -264,6 +261,7 @@ function ChooseStep({
   snapshots: DriveSnapshot[];
   snapshotId: string;
   initialScope: SiteScope;
+  /** Dossier ouvert à l'arrivée : celui de l'ancre (lien du fil d'Ariane ouvert dans un onglet). */
   initialPath: string;
   admin: boolean;
   configured: boolean;
@@ -319,22 +317,37 @@ function ChooseStep({
         </div>
       </div>
 
-      <ChoiceGroup
-        legend="Restaurer"
-        name="scope"
-        value={scope}
-        options={SCOPE_OPTIONS.map((o) => ({
-          value: o.value,
-          label: o.label,
-          disabled: o.value === 'site' && !admin,
-          hint: o.value === 'site' && !admin ? T.adminOnly : undefined,
-        }))}
-        onChange={(next) => {
-          setScope(next);
-          setPath('/');
-          setFile(null);
-        }}
-      />
+      <fieldset className="choices">
+        <legend>Restaurer</legend>
+        {SCOPE_OPTIONS.map((o) => {
+          const locked = o.value === 'site' && !admin;
+          return (
+            <div key={o.value} className="choice-item">
+              <label className="choice">
+                <input
+                  type="radio"
+                  name="scope"
+                  value={o.value}
+                  checked={scope === o.value}
+                  disabled={locked}
+                  aria-describedby={locked ? `${hintId}-admin` : undefined}
+                  onChange={() => {
+                    setScope(o.value);
+                    setPath('/');
+                    setFile(null);
+                  }}
+                />
+                {o.label}
+              </label>
+              {locked && (
+                <p id={`${hintId}-admin`} className="field-help choice-help">
+                  {T.adminOnly}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </fieldset>
 
       {scope === 'site' ? (
         <p>Tout le contenu de « {site.displayName} » sera concerné.</p>
@@ -690,7 +703,10 @@ export function SiteDenied({ site }: { site: Site }) {
   );
 }
 
-/** Restaurer SharePoint : choisir, motif, confirmation, suivi (`#/sharepoint/<site>/<granularité>`). */
+/**
+ * Restaurer SharePoint : choisir, motif, confirmation, suivi
+ * (`#/sharepoint/<site>/<granularité>/<dossier>...`).
+ */
 export function SharePointPage({ route, admin }: { route: SharePointRoute; admin: boolean }) {
   const [sites, setSites] = useState<Loaded<Site[]> | null>(null);
   const [snapshots, setSnapshots] = useState<Loaded<DriveSnapshot[]> | null>(null);
