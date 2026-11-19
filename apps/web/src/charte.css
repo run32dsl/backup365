@@ -1435,6 +1435,7 @@ a.btn-secondary {
   width: 100%;
 }
 .login-card a.btn {
+  text-align: center;
   text-decoration: none;
 }
 .login-card .alert-title {
