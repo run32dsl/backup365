@@ -237,11 +237,17 @@ export function confirmRowsOf(input: {
   return rows;
 }
 
-/** Conséquence de la restauration, en une phrase sous le récapitulatif. */
-export function consequenceOf(scope: SiteScope): string {
-  return scope === 'site'
-    ? 'Les contenus manquants seront recréés.'
-    : 'Les fichiers existants ne seront pas remplacés.';
+/** Conséquence en texte courant sous le récapitulatif ; `null` quand un bandeau la porte. */
+export function consequenceOf(scope: SiteScope): string | null {
+  return scope === 'site' ? null : 'Les fichiers existants ne seront pas remplacés.';
+}
+
+/** Site entier : titre du bandeau d'avertissement. */
+export const SITE_WARNING_TITLE = 'Restauration du site entier';
+
+/** Site entier : conséquence, nommant le site. */
+export function siteWarningOf(siteName: string): string {
+  return `Les contenus manquants du site ${siteName} seront recréés. Les fichiers existants ne sont pas modifiés.`;
 }
 
 /** `3 min 12 s` : voir `formatDuration` de `restore.ts`. */

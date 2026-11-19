@@ -302,9 +302,7 @@ test('SharePoint : le site entier exige la case, puis le nom exact du site (admi
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #10 : reprise après incident');
   await page.getByRole('button', { name: 'Continuer' }).click();
 
-  await expect(
-    page.getByText('Restauration du site entier : action de grande ampleur'),
-  ).toBeVisible();
+  await expect(page.getByText('Restauration du site entier', { exact: true })).toBeVisible();
   const go = page.getByRole('button', { name: 'Restaurer', exact: true });
   await expect(go).toHaveAttribute('aria-disabled', 'true');
   await expect(page.getByText(/inactif tant que la case n’est pas cochée/)).toBeVisible();

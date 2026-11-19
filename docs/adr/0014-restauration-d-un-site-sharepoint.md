@@ -24,7 +24,7 @@ ADR 0002 et 0006).
   est revérifié contre la sauvegarde).
 - **Règle fixe, sans écrasement** : `restore` est toujours appelé avec `inPlace: true` et
   `conflictBehavior: 'rename'` (jamais `replace`) ; un élément seul reçoit en plus `renameTo:
-nom (restauré le jj.mm.aaaa).ext` (`jj.mm.aaaa` et non `jj/mm/aaaa` de la maquette : `/` est interdit
+nom (restauré le jj-mm-aaaa).ext` (`jj-mm-aaaa` et non `jj/mm/aaaa` de la maquette : `/` est interdit
   dans un nom de fichier, comme à l'ADR 0013). Le site entier n'a pas de `fileFilter`. Le résultat
   distingue restaurés, **conservés** (`filesSkipped`) et erreurs ; une restauration interrompue
   compte pour une erreur.

@@ -38,12 +38,12 @@ describe('normalizeDrivePath', () => {
 describe('copyNameOf', () => {
   const at = new Date('2026-11-14T23:30:00Z');
   it('suffixes before the extension, without slashes', () => {
-    expect(copyNameOf('budget.xlsx', 'file', at)).toBe('budget (restauré le 14.11.2026).xlsx');
+    expect(copyNameOf('budget.xlsx', 'file', at)).toBe('budget (restauré le 14-11-2026).xlsx');
     expect(copyNameOf('archive.tar.gz', 'file', at)).toBe(
-      'archive.tar (restauré le 14.11.2026).gz',
+      'archive.tar (restauré le 14-11-2026).gz',
     );
-    expect(copyNameOf('.profil', 'file', at)).toBe('.profil (restauré le 14.11.2026)');
-    expect(copyNameOf('2025.bak', 'folder', at)).toBe('2025.bak (restauré le 14.11.2026)');
+    expect(copyNameOf('.profil', 'file', at)).toBe('.profil (restauré le 14-11-2026)');
+    expect(copyNameOf('2025.bak', 'folder', at)).toBe('2025.bak (restauré le 14-11-2026)');
   });
 });
 

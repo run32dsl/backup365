@@ -91,7 +91,7 @@ export function breadcrumbOf(path: string): { label: string; path: string }[] {
   return out;
 }
 
-/** Copie : `budget.xlsx` → `budget (restauré le 14.11.2026).xlsx` (voir `copyNameOf` du serveur). */
+/** Copie : `budget.xlsx` → `budget (restauré le 14-11-2026).xlsx` (voir `copyNameOf` du serveur). */
 export { copyNameOf } from '@backup365/core';
 
 /** « Restaurer » reste inactif tant que le remplacement n'est pas confirmé par la case. */
@@ -128,11 +128,17 @@ export function confirmRowsOf(input: {
   return rows;
 }
 
-/** Conséquence de la restauration, en une phrase sous le récapitulatif. */
-export function consequenceOf(mode: DriveMode): string {
-  return mode === 'replace'
-    ? 'Le fichier actuel sera remplacé ; il reste dans l’historique OneDrive.'
-    : 'Aucun fichier existant ne sera modifié.';
+/** Mode copie : phrase rassurante en texte courant, sans bandeau. */
+export const COPY_CONSEQUENCE = 'Aucun fichier existant ne sera modifié.';
+
+/** Mode remplacement : titre du bandeau d'avertissement. */
+export const REPLACE_WARNING_TITLE = 'Remplacement du fichier actuel';
+
+/** Mode remplacement : conséquence, nommant le fichier et la version restaurée. */
+export function replaceWarningOf(name: string, versionAt: string | null): string {
+  const version =
+    versionAt === null ? 'la version sauvegardée' : `la version du ${dateTimeOf(versionAt)}`;
+  return `${name} sera remplacé par ${version}. L’actuel reste dans l’historique OneDrive.`;
 }
 
 export function failureCause(error: DriveJob['error']): string {

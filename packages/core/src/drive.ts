@@ -109,14 +109,14 @@ export function baseName(path: string): string {
 const pad = (n: number): string => String(n).padStart(2, '0');
 
 /**
- * `jj.mm.aaaa` (date UTC). Les `/` de `jj/mm/aaaa` sont interdits dans un nom de fichier
- * OneDrive : ils sont remplacés par des points (docs/adr/0013).
+ * `jj-mm-aaaa` (date UTC). Les `/` de `jj/mm/aaaa` sont interdits dans un nom de fichier
+ * OneDrive : ils sont remplacés par des tirets (docs/adr/0013).
  */
 export function copyDate(at: Date): string {
-  return `${pad(at.getUTCDate())}.${pad(at.getUTCMonth() + 1)}.${at.getUTCFullYear()}`;
+  return `${pad(at.getUTCDate())}-${pad(at.getUTCMonth() + 1)}-${at.getUTCFullYear()}`;
 }
 
-/** `budget.xlsx` → `budget (restauré le 14.11.2026).xlsx` ; un dossier n'a pas d'extension. */
+/** `budget.xlsx` → `budget (restauré le 14-11-2026).xlsx` ; un dossier n'a pas d'extension. */
 export function copyNameOf(name: string, kind: DriveItemKind, at: Date): string {
   const suffix = ` (restauré le ${copyDate(at)})`;
   const dot = name.lastIndexOf('.');
