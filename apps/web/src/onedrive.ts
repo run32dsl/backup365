@@ -1,5 +1,6 @@
 import { API_ERRORS } from './apiError.js';
 import { REASON } from './RestoreJourney.js';
+import { RESTORE_LABELS } from './restoreLabels.js';
 import type { DriveEntry, DriveSnapshot, DriveVersion } from '@backup365/core';
 import { UNREACHABLE } from './session.js';
 
@@ -90,7 +91,7 @@ export function breadcrumbOf(path: string): { label: string; path: string }[] {
   return out;
 }
 
-/** Copie : `budget.xlsx` → `budget (restauré 14-11-2026).xlsx` (voir `copyNameOf` du serveur). */
+/** Copie : `budget.xlsx` → `budget (restauré le 14.11.2026).xlsx` (voir `copyNameOf` du serveur). */
 export { copyNameOf } from '@backup365/core';
 
 /** « Restaurer » reste inactif tant que le remplacement n'est pas confirmé par la case. */
@@ -102,6 +103,7 @@ export function confirmRowsOf(input: {
   account: string;
   name: string;
   mode: DriveMode;
+  backupAt: string | null;
   versionAt: string | null;
   folderLabel: string;
   copyName: string;
@@ -109,7 +111,8 @@ export function confirmRowsOf(input: {
 }): [string, string][] {
   const rows: [string, string][] = [
     ['Compte', input.account],
-    ['Élément', input.name],
+    [RESTORE_LABELS.item, input.name],
+    [RESTORE_LABELS.backupAt, dateTimeOf(input.backupAt)],
   ];
   if (input.versionAt !== null) rows.push(['Version du', dateTimeOf(input.versionAt)]);
   rows.push(['Emplacement', input.folderLabel]);

@@ -4,6 +4,7 @@ import { FailureAlert } from './FailureAlert.js';
 import { AccessDenied } from './AccessDenied.js';
 import { StorageUnavailable } from './StorageUnavailable.js';
 import { dateTimeOrDash } from './format.js';
+import { RESTORE_LABELS } from './restoreLabels.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
 import {
   AuditReminder,
@@ -299,7 +300,7 @@ export function ChooseStep({
           </select>
         </div>
         <div className="field">
-          <label htmlFor="sp-point">Point de restauration</label>
+          <label htmlFor="sp-point">{RESTORE_LABELS.backupDate}</label>
           <select
             id="sp-point"
             value={snapshotId}
@@ -571,12 +572,14 @@ export function ConfirmStep({
 /** Étape 4 : progression, puis résultat. La restauration continue si l'on quitte la page. */
 export function TrackStep({
   job,
+  pointAt,
   siteName,
   onJob,
   onAgain,
   onRetry,
 }: {
   job: SiteJob;
+  pointAt?: string | undefined;
   siteName: string;
   onJob: (job: SiteJob) => void;
   onAgain: () => void;
@@ -617,8 +620,9 @@ export function TrackStep({
   const failedNormally = job.status === 'failed' && !isOutcomeUncertain(job.error);
   const countRows: [string, ReactNode][] = [
     ['Site', siteName],
-    ['Contenu restauré', restoredContentLabel(job.scope, job.path)],
+    [RESTORE_LABELS.itemRestored, restoredContentLabel(job.scope, job.path)],
   ];
+  if (pointAt) countRows.push([RESTORE_LABELS.backupAt, dateTimeOf(pointAt)]);
   if (job.status === 'succeeded' && job.copyName) countRows.push(['Restauré sous', job.copyName]);
   if (failedNormally && untreated > 0) countRows.push(['Éléments non traités', untreated]);
   if (job.status !== 'running' && job.errors > 0) {
@@ -629,10 +633,10 @@ export function TrackStep({
   if (running) {
     body = (
       <>
-        {counts}
         <RunningProgress
           detail={`${job.total} ${job.total > 1 ? 'éléments' : 'élément'} à traiter`}
         />
+        {counts}
         <p>Vous pouvez quitter cette page, la restauration continue.</p>
       </>
     );
@@ -793,6 +797,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
       <TrackStep
         key={job.id}
         job={job}
+        pointAt={choice?.pointAt}
         siteName={site.displayName}
         onJob={setJob}
         onAgain={reset}

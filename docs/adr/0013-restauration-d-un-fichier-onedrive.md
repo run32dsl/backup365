@@ -25,14 +25,14 @@ sans téléchargement intermédiaire.
   antérieur à la suppression). La date « Version du » est `lastModifiedAt`, à défaut `backupAt` ;
   pour un dossier, la plus récente de son contenu.
 - **Modes** : par défaut, **copie**, qui ne modifie rien :
-  - fichier : `restore` avec `fileFilter: [chemin]`, `inPlace`, `renameTo: nom (restauré
-jj-mm-aaaa).ext`, `conflictBehavior: 'rename'` ;
-  - dossier : `restore` avec `destination: <parent>/<nom> (restauré jj-mm-aaaa)` ;
+  - fichier : `restore` avec `fileFilter: [chemin]`, `inPlace`, `renameTo: nom (restauré le
+jj.mm.aaaa).ext`, `conflictBehavior: 'rename'` ;
+  - dossier : `restore` avec `destination: <parent>/<nom> (restauré le jj.mm.aaaa)` ;
   - version : `restoreVersion` avec `placement: 'copy'`.
     **Remplacer** n'existe que pour un fichier (ou une version) et exige la case de confirmation :
     `conflictBehavior: 'replace'` ou `placement: 'in-place'` ; l'ancienne version reste dans
     l'historique OneDrive. Remplacer un dossier entier n'est pas proposé.
-- **Date du nom de la copie** : `jj-mm-aaaa` (UTC, jour du lancement) et non `jj/mm/aaaa` comme
+- **Date du nom de la copie** : `jj.mm.aaaa` (UTC, jour du lancement) et non `jj/mm/aaaa` comme
   dans la maquette : `/` est interdit dans un nom de fichier OneDrive.
 - **Câblage** : comme pour le mail (ADR 0012), l'écriture passe par Graph, que la console n'a pas
   (ADR 0002). Le parcours fonctionne avec le seul stockage (lecture) ; la restauration n'est

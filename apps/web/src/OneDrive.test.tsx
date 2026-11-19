@@ -63,7 +63,7 @@ describe('OneDrive wording', () => {
 
   it('names the copy without slashes, as the server does', () => {
     expect(copyNameOf('budget.xlsx', 'file', new Date('2026-11-14T10:00:00Z'))).toBe(
-      'budget (restauré 14-11-2026).xlsx',
+      'budget (restauré le 14.11.2026).xlsx',
     );
   });
 
@@ -71,17 +71,19 @@ describe('OneDrive wording', () => {
     const base = {
       account: 'compte@exemple.test',
       name: 'budget.xlsx',
+      backupAt: '2026-11-14T09:00:00.000Z',
       versionAt: '2026-11-10T18:30:00.000Z',
       folderLabel: 'Documents > Budget',
-      copyName: 'budget (restauré 14-11-2026).xlsx',
+      copyName: 'budget (restauré le 14.11.2026).xlsx',
       reason: 'Reprise après incident',
     };
     expect(confirmRowsOf({ ...base, mode: 'copy' })).toEqual([
       ['Compte', 'compte@exemple.test'],
       ['Élément', 'budget.xlsx'],
+      ['Sauvegarde du', '14/11/2026 09:00'],
       ['Version du', '10/11/2026 18:30'],
       ['Emplacement', 'Documents > Budget'],
-      ['Restauré sous le nom', 'budget (restauré 14-11-2026).xlsx'],
+      ['Restauré sous le nom', 'budget (restauré le 14.11.2026).xlsx'],
       ['Motif', 'Reprise après incident'],
     ]);
     const replace = confirmRowsOf({ ...base, mode: 'replace' });
@@ -230,6 +232,7 @@ describe('OneDrive replace confirmation', () => {
       <ConfirmStep
         account="a@exemple.fr"
         choice={{ entry: entry as never, snapshotId: 's1' }}
+        backupAt="2026-11-14T09:00:00.000Z"
         reason="Ticket #1 : essai"
         onBack={() => undefined}
         onStarted={() => undefined}
@@ -265,7 +268,7 @@ describe('OneDrive result list', () => {
     startedAt: '2026-11-14T10:00:00.000Z',
     finishedAt: null,
     durationMs: null,
-    copyName: 'budget (restauré).xlsx',
+    copyName: 'budget (restauré le 14.11.2026).xlsx',
     error: null,
   };
   it.each([
@@ -277,6 +280,7 @@ describe('OneDrive result list', () => {
       <TrackStep
         account="a@exemple.fr"
         choice={{ entry: entry as never, snapshotId: 's1' }}
+        backupAt="2026-11-14T09:00:00.000Z"
         job={{ ...job, status, error }}
         onJob={() => undefined}
         onAgain={() => undefined}
@@ -285,11 +289,13 @@ describe('OneDrive result list', () => {
     );
     expect(out).toContain('<dt>Compte</dt><dd>a@exemple.fr</dd>');
     expect(out).toContain('<dt>Version du</dt><dd>10/11/2026 18:30</dd>');
-    const at = ['Compte', 'Élément restauré', 'Version du', 'Emplacement'].map((l) =>
-      out.indexOf(`<dt>${l}</dt>`),
+    const at = ['Compte', 'Élément restauré', 'Sauvegarde du', 'Version du', 'Emplacement'].map(
+      (l) => out.indexOf(`<dt>${l}</dt>`),
     );
     expect(at.every((i, n) => i >= 0 && (n === 0 || i > at[n - 1]!))).toBe(true);
-    expect(out).toContain('<dt>Élément restauré</dt><dd>budget.xlsx → budget (restauré).xlsx</dd>');
+    expect(out).toContain(
+      '<dt>Élément restauré</dt><dd>budget.xlsx → budget (restauré le 14.11.2026).xlsx</dd>',
+    );
     expect(out).toContain('<dt>Emplacement</dt><dd>Documents &gt; Budget</dd>');
   });
 
@@ -298,6 +304,7 @@ describe('OneDrive result list', () => {
       <TrackStep
         account="a@exemple.fr"
         choice={choice as never}
+        backupAt="2026-11-14T09:00:00.000Z"
         job={{ ...job, status: 'succeeded' }}
         onJob={() => undefined}
         onAgain={() => undefined}
