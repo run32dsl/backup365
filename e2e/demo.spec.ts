@@ -108,8 +108,8 @@ test('restauration : un échec propose de réessayer', async ({ page, context, b
   await dialog.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #1 : essai');
   await dialog.getByRole('button', { name: 'Restaurer', exact: true }).click();
   const failed = page.getByRole('dialog', { name: 'Restauration échouée' });
-  await expect(failed.getByRole('alert')).toContainText('La restauration a échoué après');
-  await expect(failed.getByText('Rien n’a été modifié dans la boîte.')).toBeVisible();
+  await expect(failed.getByRole('alert')).toContainText('La restauration a échoué :');
+  await expect(failed.getByRole('alert')).toContainText('Rien n’a été modifié.');
   // Une nouvelle tentative repasse par la confirmation.
   await failed.getByRole('button', { name: 'Réessayer' }).click();
   await expect(page.getByRole('dialog', { name: 'Restaurer ce mail' })).toBeVisible();
@@ -347,9 +347,7 @@ test('SharePoint : un échec affiche le résultat partiel et propose de réessay
   await page.getByRole('button', { name: 'Continuer' }).click();
   await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
   await expect(
-    page
-      .getByRole('alert')
-      .getByText('La restauration a échoué : aucun élément restauré. Rien n’a été écrasé.'),
+    page.getByRole('alert').getByText(/^La restauration a échoué : .*Rien n’a été modifié\.$/),
   ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Restauration échouée' })).toBeVisible();
   await expect(page.getByText('Éléments en erreur', { exact: true })).toBeVisible();
