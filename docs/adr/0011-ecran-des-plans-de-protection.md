@@ -19,7 +19,7 @@ dans la liste la conformité et la dernière exécution, et laisser un opérateu
   à l'heure du serveur.
 - **Lecture seule.** `GET /api/plans` est la seule route ouverte à l'opérateur ; création,
   modification, suppression, historique et lancement restent réservés aux administrateurs. Pour
-  l'opérateur, la liste omet la sélection, la justification et le RTO.
+  l'opérateur, la liste omet la justification et le RTO, mais garde la sélection : la synthèse nomme les boîtes, et l’opérateur peut déjà lister le catalogue (#295).
 - **Justification.** Le texte enregistré est le motif choisi (« Obligation légale », « Besoin
   métier », « Intérêt public », « Autre ») suivi de la précision : aucun champ de plus.
 - **Choix proposés.** Perte de données 4, 12 ou 24 h ; remise en service 8, 24 ou 72 h ; conservation 6 mois, 1 an ou 3 ans (ordre croissant, sans les sigles RPO ni RTO à l'écran).

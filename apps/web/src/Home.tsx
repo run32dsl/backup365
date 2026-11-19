@@ -22,9 +22,9 @@ export function agoLabel(iso: string, now: number): string {
   return hours < 24 ? `il y a ${hours} h` : `il y a ${Math.floor(hours / 24)} j`;
 }
 
-/** `3 plans opérationnels sur 4`, `1 plan opérationnel sur 1`. */
+/** `3 plans à jour sur 4`, `1 plan à jour sur 1` : le mot de la pastille « À jour » de la liste. */
 export const plansLabel = (operational: number, total: number): string =>
-  `${operational} ${operational < 2 ? 'plan opérationnel' : 'plans opérationnels'} sur ${total}`;
+  `${operational} ${operational < 2 ? 'plan' : 'plans'} à jour sur ${total}`;
 
 const goToPlans = () => {
   window.location.hash = PLANS_HASH;

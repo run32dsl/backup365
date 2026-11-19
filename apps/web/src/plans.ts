@@ -59,9 +59,9 @@ export const DATA_TYPE_LABELS: Record<DataType, string> = {
   contacts: 'Contacts',
 };
 
-/** Complément du nom dans la synthèse de la liste (« mails, fichiers… »). */
+/** Complément du nom dans la synthèse de la liste (« messagerie, fichiers… »). */
 const DATA_TYPE_PHRASES: Record<DataType, string> = {
-  mail: 'mails',
+  mail: 'messagerie',
   files: 'fichiers',
   calendar: 'calendriers',
   contacts: 'contacts',
@@ -246,6 +246,26 @@ export function recapRows(form: PlanForm): [string, string][] {
   ];
 }
 
+/**
+ * Périmètre restreint, nommé : l'adresse pour une ou deux boîtes, sinon la première et le nombre
+ * des autres. Sans nom connu (catalogue indisponible), seul le nombre est dit.
+ */
+function selectionLabel(selection: readonly string[] | undefined, mailboxes: readonly Mailbox[]) {
+  const ids = selection ?? [];
+  const name = (id: string | undefined) => mailboxes.find((m) => m.id === id)?.displayName;
+  const first = name(ids[0]);
+  if (ids.length === 0) return 'aucune boîte choisie';
+  if (first === undefined) {
+    return ids.length === 1 ? '1 boîte choisie' : `${ids.length} boîtes choisies`;
+  }
+  if (ids.length === 1) return first;
+  if (ids.length === 2) {
+    const second = name(ids[1]);
+    return second === undefined ? `${first} et 1 autre` : `${first} et ${second}`;
+  }
+  return `${first} et ${ids.length - 1} autres`;
+}
+
 /** Liste « a, b et c » ; une seule entrée reste telle quelle. */
 function enumerate(items: string[]): string {
   if (items.length <= 1) return items.join('');
@@ -254,22 +274,17 @@ function enumerate(items: string[]): string {
 
 /**
  * Synthèse d'un plan en une ligne pour la liste, avec les termes du récapitulatif de l'assistant :
- * « Mails, fichiers et contacts · toute l'organisation · toutes les 12 h · conservés 1 an ».
+ * « Messagerie, fichiers et contacts · toute l'organisation · toutes les 12 h · conservés 1 an ».
  */
 export function planSummary(
   plan: Pick<PlanItem, 'dataTypes' | 'scope' | 'selection' | 'rpoHours' | 'retentionDays'>,
+  mailboxes: readonly Mailbox[] = [],
 ): string {
   const what = enumerate(
     DATA_TYPES.filter((t) => plan.dataTypes.includes(t)).map((t) => DATA_TYPE_PHRASES[t]),
   );
   const where =
-    plan.scope === 'all'
-      ? 'toute l’organisation'
-      : plan.selection?.length === 1
-        ? 'une boîte ou un compte choisi'
-        : plan.selection && plan.selection.length > 1
-          ? `${plan.selection.length} boîtes ou comptes choisis`
-          : 'boîtes ou comptes choisis';
+    plan.scope === 'all' ? 'toute l’organisation' : selectionLabel(plan.selection, mailboxes);
   return [
     what.charAt(0).toUpperCase() + what.slice(1),
     where,

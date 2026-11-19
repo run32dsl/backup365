@@ -104,7 +104,8 @@ export function registerPlanRoutes(
     const items = ctx.plans.list().map((plan) => {
       const runs = ctx.plans.listRuns(plan.id, RUNS_LIMIT);
       const last = runs[0];
-      // L'opérateur ne reçoit que ce que la liste affiche : ni sélection ni justification.
+      // L'opérateur ne reçoit que ce que la liste affiche : la sélection (la synthèse nomme les
+      // boîtes), mais ni délai de remise en service ni justification.
       const visible =
         req.session?.role === 'admin'
           ? plan
@@ -113,6 +114,7 @@ export function registerPlanRoutes(
               name: plan.name,
               scope: plan.scope,
               dataTypes: plan.dataTypes,
+              selection: plan.selection,
               rpoHours: plan.rpoHours,
               retentionDays: plan.retentionDays,
               createdAt: plan.createdAt,
