@@ -1,7 +1,16 @@
 import { renderToStaticMarkup, renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { ConsoleFooter } from './ConsoleFooter.js';
-import { OverviewView, Home, agoLabel, plansLabel } from './Home.js';
+import {
+  OverviewView,
+  Home,
+  agoLabel,
+  announcementOf,
+  focusAfterRetry,
+  loadOverview,
+  plansLabel,
+  type OverviewState,
+} from './Home.js';
 import { fetchHealth } from './health.js';
 import { fetchOverview, type Overview } from './overview.js';
 
@@ -116,6 +125,53 @@ describe('OverviewView', () => {
     expect(html.match(/<section[^>]*aria-labelledby/g)).toHaveLength(3);
     expect(html.indexOf('>Sauvegarde<')).toBeLessThan(html.indexOf('>Plans<'));
     expect(html.indexOf('>Plans<')).toBeLessThan(html.indexOf('>Dernière sauvegarde<'));
+  });
+});
+
+describe('retry after an error', () => {
+  const run = async (fetcher: () => Promise<Overview>) => {
+    const states: OverviewState[] = [];
+    await loadOverview((s) => states.push(s), fetcher);
+    return states;
+  };
+  const fail = () => Promise.reject(new Error('HTTP 503'));
+
+  it('goes back to loading (aria-busy) then shows the data', async () => {
+    expect(await run(fail)).toEqual(['loading', 'error']);
+    const states = await run(() => Promise.resolve(operational));
+    expect(states).toEqual(['loading', operational]);
+    const html = render(states[0]!);
+    expect(html).toContain('aria-busy="true"');
+    expect(html).not.toContain('role="alert"');
+    const done = render(states[1]!);
+    expect(done).not.toContain('aria-busy');
+    expect(done).toContain('4 plans opérationnels sur 4');
+  });
+
+  it('shows the alert again, without « Erreur inattendue », after a new error', async () => {
+    const states = await run(fail);
+    expect(states.at(-1)).toBe('error');
+    const html = render('error');
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('Réessayer');
+    expect(html).not.toContain('Erreur inattendue');
+  });
+
+  it('announces the new state inside a role="status" zone', () => {
+    expect(renderToString(<Home />)).toMatch(/<div role="status"[^>]*><\/div>/);
+    expect(announcementOf('loading')).toBe('Chargement de l’état de la sauvegarde…');
+    expect(announcementOf(operational)).toBe('État de la sauvegarde mis à jour.');
+    expect(announcementOf('error')).toBe('');
+  });
+
+  it('puts the focus on the Sauvegarde title, else on the h1, never on body', () => {
+    const focused: string[] = [];
+    const el = (name: string) => ({ focus: () => focused.push(name) });
+    focusAfterRetry({ querySelector: (q) => (q === '#overview-backup' ? el('card') : el('h1')) });
+    focusAfterRetry({ querySelector: (q) => (q === 'h1' ? el('h1') : null) });
+    expect(focused).toEqual(['card', 'h1']);
+    expect(render(operational)).toContain('<h2 id="overview-backup" tabindex="-1">Sauvegarde</h2>');
+    expect(renderToStaticMarkup(<Home />)).toContain('<h1 tabindex="-1">Tableau de bord</h1>');
   });
 });
 
