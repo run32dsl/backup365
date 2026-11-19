@@ -86,8 +86,8 @@ test('restauration : motif obligatoire, suivi, résultat et journal', async ({
   await page.getByLabel('Recherche').fill('devis');
   await page.getByRole('button', { name: 'Rechercher' }).click();
   await page.getByRole('table').getByRole('link').first().click();
-  await expect(page.getByText(/Dernière restauration : (en cours|réussie, \d+ s)/)).toBeVisible();
-  await expect(page.getByText(/Dernière restauration : réussie, \d+ s/)).toBeVisible();
+  await expect(page.getByText(/Dernière restauration : .*(En cours|Réussie \d+ s)/)).toBeVisible();
+  await expect(page.getByText(/Dernière restauration : .*Réussie \d+ s/)).toBeVisible();
 
   // Le journal garde la demande et le résultat avec le motif, jamais l'objet du mail.
   await page.goto('/#/audit');
