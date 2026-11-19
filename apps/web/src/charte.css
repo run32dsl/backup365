@@ -528,12 +528,6 @@ select[aria-disabled='true'] {
 .field-help {
   margin: 0;
 }
-.export-help {
-  margin-top: var(--space-2);
-}
-.export-note {
-  margin-bottom: var(--space-2);
-}
 .export-result {
   margin-top: var(--space-2);
 }

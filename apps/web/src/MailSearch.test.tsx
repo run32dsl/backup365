@@ -1,8 +1,14 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
-import { ExportForm, MailPage, MailView, RestoreSectionView, mailTitle } from './MailPage.js';
-import { AUDIT_REMINDER, REASON } from './RestoreJourney.js';
+import {
+  ExportSection,
+  MailPage,
+  MailView,
+  RestoreSectionView,
+  mailTitle,
+  runExport,
+} from './MailPage.js';
 import { submitFilters } from './audit.js';
 import { SearchPage, SearchView } from './SearchPage.js';
 import {
@@ -120,18 +126,7 @@ describe('MailPage', () => {
     const html = renderToString(<MailView state={{ ...mail, recipients: [] }} />);
     expect(html).not.toContain('Destinataires');
     expect(html).toContain('Expéditeur');
-    const form = renderToString(
-      <ExportForm
-        reason=""
-        exporting="idle"
-        onReason={() => undefined}
-        onSubmit={() => undefined}
-      />,
-    );
-    expect(form).toContain('<h2');
-    expect(form).toContain('Saisissez un motif pour exporter.');
-    expect(form).toContain('aria-describedby="export-disabled-help"');
-    expect(form).not.toContain('JSON');
+    expect(html).not.toContain('JSON');
   });
 
   it('titles the sheet with the subject, a fallback when blank, a generic title otherwise', () => {
@@ -141,44 +136,31 @@ describe('MailPage', () => {
     expect(mailTitle('error')).toBe('Fiche d’un mail');
   });
 
-  it('shows the empty-reason help only while the reason is empty', () => {
-    const render = (reason: string) =>
-      renderToString(
-        <ExportForm
-          reason={reason}
-          exporting="idle"
-          onReason={() => undefined}
-          onSubmit={() => undefined}
-        />,
-      );
-    expect(render('')).toContain('export-disabled-help');
-    expect(render('ab')).not.toContain('export-disabled-help');
+  it('shows no reason field nor disabled button on the sheet, only the closed export action', () => {
+    const html = renderToString(<ExportSection mail={mail} />);
+    expect(html).toContain('Télécharge une copie du mail au format .eml, lisible par Outlook.');
+    expect(html).toContain('>Exporter</h2>');
+    expect(html).not.toContain('EML');
+    expect(html).not.toContain('disabled');
+    expect(html).not.toContain('<input');
+    expect(html).not.toContain('Saisissez un motif');
   });
 
-  it('orders the export box: reason, attachments note, audit reminder, button, then result', () => {
-    const render = (exporting: 'idle' | 'done' | 'error') =>
-      renderToString(
-        <ExportForm
-          reason="ab"
-          exporting={exporting}
-          onReason={() => undefined}
-          onSubmit={() => undefined}
-        />,
-      );
-    const idle = render('idle');
-    const reason = idle.indexOf('<label');
-    expect(reason).toBeGreaterThan(-1);
-    expect(reason).toBeLessThan(idle.indexOf('pièces jointes'));
-    expect(idle.indexOf('pièces jointes')).toBeLessThan(idle.indexOf('alert-info'));
-    expect(idle.indexOf('alert-info')).toBeLessThan(idle.indexOf('<button'));
-    const done = render('done');
-    const afterButton = done.indexOf('</button>') + '</button>'.length;
-    expect(done.slice(afterButton)).toMatch(
-      /^<div class="export-result">.*Export inscrit au journal d’audit\./,
+  it('refuses an export without reason, and sends one with a reason (recorded by the route)', async () => {
+    const request = vi.fn<(reason: string) => Promise<Blob>>(() =>
+      Promise.resolve(new Blob(['x'])),
     );
-    expect(render('error').indexOf('export-result')).toBeGreaterThan(
-      render('error').indexOf('</button>'),
-    );
+    const save = vi.fn();
+    expect(await runExport('  ', request, save)).toBe('invalid');
+    expect(await runExport('ab', request, save)).toBe('invalid');
+    expect(request).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+    expect(await runExport('Ticket INC-1', request, save)).toBe('done');
+    expect(request).toHaveBeenCalledWith('Ticket INC-1');
+    expect(save).toHaveBeenCalledTimes(1);
+    const refused = () => Promise.reject(new Error('HTTP 503'));
+    expect(await runExport('Ticket INC-1', refused, save)).toBe('error');
+    expect(save).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the generic title while the sheet is loading', () => {
@@ -190,24 +172,7 @@ describe('MailPage', () => {
     expect(renderToString(<MailView state="error" />)).toContain('indisponible');
     const html = renderToString(<MailPage mailboxId="mbx-1" messageId="m1" />);
     expect(html).toContain('Chargement');
-    expect(html).not.toContain('Exporter en EML');
-  });
-});
-
-describe('ExportForm', () => {
-  it('shows the label, the ticket placeholder and the no-personal-data guidance', () => {
-    const html = renderToString(
-      <ExportForm
-        reason=""
-        exporting="idle"
-        onReason={() => undefined}
-        onSubmit={() => undefined}
-      />,
-    );
-    expect(html).toContain('Motif de l’export (obligatoire)');
-    expect(html).toContain('maxLength="120"');
-    expect(html).toContain(REASON.help);
-    expect(html).toContain(AUDIT_REMINDER);
+    expect(html).not.toContain('Exporter');
   });
 });
 

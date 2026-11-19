@@ -599,6 +599,17 @@ export const SCREENS = [
     },
   },
   {
+    name: 'export-formulaire',
+    hash: DEMO_MAIL_HASH,
+    role: 'operator',
+    prepare: async (page) => {
+      await page.getByText('Expéditeur').first().waitFor();
+      await page.getByRole('button', { name: /^Exporter /u }).click();
+      await page.getByRole('dialog', { name: 'Exporter ce mail' }).waitFor();
+      await page.getByRole('dialog').getByRole('button', { name: 'Exporter', exact: true }).click();
+    },
+  },
+  {
     name: 'restauration-formulaire',
     hash: DEMO_MAIL_HASH,
     role: 'operator',

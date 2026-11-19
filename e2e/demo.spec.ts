@@ -23,12 +23,15 @@ test('recherche, puis export d’un mail avec motif', async ({ page, context, ba
   await page.getByLabel('Recherche').fill('devis');
   await page.getByRole('button', { name: 'Rechercher' }).click();
   await page.getByRole('table').getByRole('link').first().click();
-  await expect(page.getByRole('heading', { level: 2, name: 'Exporter en EML' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Exporter' })).toBeVisible();
   await expect(page.getByText('@exemple.fr').first()).toBeVisible();
 
-  const reason = page.getByLabel('Motif de l’export (obligatoire)');
-  const exportButton = page.getByRole('button', { name: 'Exporter en EML' });
-  await expect(exportButton).toBeDisabled();
+  await page.getByRole('button', { name: /^Exporter / }).click();
+  const dialog = page.getByRole('dialog', { name: 'Exporter ce mail' });
+  const reason = dialog.getByLabel('Motif de l’export (obligatoire)');
+  const exportButton = dialog.getByRole('button', { name: 'Exporter', exact: true });
+  await exportButton.click();
+  await expect(dialog.getByText('Indiquez un motif pour continuer.')).toBeVisible();
   await reason.fill('Ticket INC-20001');
   const [download] = await Promise.all([page.waitForEvent('download'), exportButton.click()]);
   const eml = readFileSync(await download.path(), 'utf8');
