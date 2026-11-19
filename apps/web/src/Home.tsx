@@ -2,8 +2,13 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ConfigurationNotice, connectionLine, useConfiguration } from './ConfigurationBlock.js';
 import { dateTimeOf } from './format.js';
 import { fetchOverview, type Overview } from './overview.js';
-import { MESSAGES as PLAN_MESSAGES, PLANS_HASH } from './plans.js';
-import { Alert, Button, StatusPill } from './ui/index.js';
+import {
+  FAILED_PLANS_HASH,
+  MESSAGES as PLAN_MESSAGES,
+  NEW_PLAN_HASH,
+  PLANS_HASH,
+} from './plans.js';
+import { Alert, Button, EmptyState, StatusPill } from './ui/index.js';
 
 /** État du chargement de l'accueil. */
 export type OverviewState = Overview | 'loading' | 'error';
@@ -29,6 +34,22 @@ export const plansLabel = (operational: number, total: number): string =>
 const goToPlans = () => {
   window.location.hash = PLANS_HASH;
 };
+
+/** « Voir l'erreur » : la liste des plans, réduite à ceux en échec, avec la cause. */
+const goToFailedPlans = () => {
+  window.location.hash = FAILED_PLANS_HASH;
+};
+
+/** `3 plans à jour sur 4 · 1 en échec · 1 en retard` : les états anormaux sont nommés. */
+export function plansSummary(plans: Overview['plans']): string {
+  return [
+    plansLabel(plans.operational, plans.total),
+    plans.failed > 0 && `${plans.failed} en échec`,
+    plans.late > 0 && `${plans.late} en retard`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
 
 function Card({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
@@ -65,7 +86,7 @@ function PlanActivity({ running, queued }: { running: number; queued: number }) 
 
 /** Action unique de la carte « Sauvegarde » : « Configurer » (administrateur) ou « Voir l'erreur ». */
 function BackupAction({ state, admin }: { state: Overview['state']; admin: boolean }) {
-  if (state === 'failed') return <Button onClick={goToPlans}>Voir l’erreur</Button>;
+  if (state === 'failed') return <Button onClick={goToFailedPlans}>Voir l’erreur</Button>;
   if (state !== 'unconfigured') return null;
   return admin ? (
     <Button onClick={goToPlans}>Configurer</Button>
@@ -126,10 +147,26 @@ export function OverviewView({
       </Card>
       <Card id="overview-plans" title="Plans">
         {plans.total === 0 ? (
-          <p>Aucun plan</p>
+          <EmptyState
+            action={
+              admin ? (
+                <Button
+                  onClick={() => {
+                    window.location.hash = NEW_PLAN_HASH;
+                  }}
+                >
+                  Créer un plan
+                </Button>
+              ) : undefined
+            }
+          >
+            {admin
+              ? 'Aucun plan : vos données Microsoft 365 ne sont pas protégées.'
+              : 'Aucun plan n’a encore été créé par un administrateur.'}
+          </EmptyState>
         ) : (
           <>
-            <p>{plansLabel(plans.operational, plans.total)}</p>
+            <p>{plansSummary(plans)}</p>
             <PlanActivity running={plans.running} queued={plans.queued} />
             <a href={PLANS_HASH}>Voir les plans</a>
           </>

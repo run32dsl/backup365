@@ -86,6 +86,8 @@ export {
 export {
   DATA_TYPES,
   DEFAULT_RPO_HOURS,
+  FAILURE_CAUSES,
+  failureCauseOf,
   RPO_HOURS,
   buildPlanComplianceReport,
   nextRunAt,
@@ -101,6 +103,7 @@ export {
   staggerOffsetMinutes,
   type Compliance,
   type ComplianceState,
+  type FailureCause,
   type PlanComplianceEntry,
   type PlanComplianceReport,
   type DataType,

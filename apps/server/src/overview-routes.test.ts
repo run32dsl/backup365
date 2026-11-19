@@ -34,7 +34,7 @@ describe('GET /api/overview', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json<Overview>()).toEqual({
       state: 'unconfigured',
-      plans: { total: 0, operational: 0, running: 0, queued: 0 },
+      plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
       lastBackupAt: null,
     });
   });
@@ -45,7 +45,7 @@ describe('GET /api/overview', () => {
     const body = (await get(plans)).json<Overview>();
     expect(body).toEqual({
       state: 'pending',
-      plans: { total: 1, operational: 0, running: 0, queued: 0 },
+      plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 1 },
       lastBackupAt: null,
     });
   });
@@ -65,7 +65,7 @@ describe('GET /api/overview', () => {
 
   it('is operational when the last run of every plan succeeded', async () => {
     const plans = SqlitePlanStore.open(':memory:');
-    run(plans, plans.create(input('A')).id, 'success', 5);
+    run(plans, plans.create(input('A')).id, 'success', 3.5);
     run(plans, plans.create(input('B')).id, 'success', 3);
     const body = (await get(plans)).json<Overview>();
     expect(body.state).toBe('operational');
@@ -81,7 +81,7 @@ describe('GET /api/overview', () => {
     run(plans, plans.create(input('B')).id, 'success', 10);
     const body = (await get(plans)).json<Overview>();
     expect(body.state).toBe('failed');
-    expect(body.plans).toMatchObject({ total: 2, operational: 1 });
+    expect(body.plans).toMatchObject({ total: 2, operational: 0, failed: 1, late: 1 });
     const age = Date.now() - Date.parse(body.lastBackupAt!);
     expect(age).toBeGreaterThan(9.5 * 3_600_000);
     expect(age).toBeLessThan(10.5 * 3_600_000);
@@ -97,7 +97,14 @@ describe('GET /api/overview', () => {
     first.startRun(first.create(input('B')).id, 'item', hoursAgo(0.5));
     const body = (await get(first)).json<Overview>();
     expect(body.state).toBe('pending');
-    expect(body.plans).toEqual({ total: 1, operational: 0, running: 1, queued: 0 });
+    expect(body.plans).toEqual({
+      total: 1,
+      operational: 0,
+      running: 1,
+      queued: 0,
+      failed: 0,
+      late: 1,
+    });
   });
 
   it('counts running and queued plans like GET /api/plans, without changing the state', async () => {
@@ -105,8 +112,8 @@ describe('GET /api/overview', () => {
     const a = plans.create(input('A')).id;
     const b = plans.create(input('B')).id;
     const c = plans.create(input('C')).id;
-    run(plans, a, 'success', 5);
-    run(plans, b, 'success', 4);
+    run(plans, a, 'success', 3.5);
+    run(plans, b, 'success', 3.2);
     run(plans, c, 'success', 3);
     plans.startRun(a, 'item', hoursAgo(0.1));
     // Le planificateur dit qui attend ; un plan déjà en cours n'est pas compté deux fois.
@@ -115,7 +122,14 @@ describe('GET /api/overview', () => {
     } as unknown as PlanScheduler;
     const app = buildTestApp({ version: '1', plans, planScheduler });
     const body = (await app.inject({ method: 'GET', url: '/api/overview' })).json<Overview>();
-    expect(body.plans).toEqual({ total: 3, operational: 3, running: 1, queued: 1 });
+    expect(body.plans).toEqual({
+      total: 3,
+      operational: 3,
+      running: 1,
+      queued: 1,
+      failed: 0,
+      late: 0,
+    });
     expect(body.state).toBe('operational');
     // Sans planificateur (sauvegarde non configurée) : aucune file.
     expect((await get(plans)).json<Overview>().plans).toMatchObject({ running: 1, queued: 0 });

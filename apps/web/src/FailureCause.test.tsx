@@ -1,0 +1,118 @@
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import { OverviewView, plansSummary } from './Home.js';
+import type { Overview } from './overview.js';
+import { PlansListView } from './PlansPage.js';
+import { FAILED_PLANS_HASH, complianceView, parsePlansHash, type PlanItem } from './plans.js';
+
+const noop = () => undefined;
+
+const okPlan: PlanItem = {
+  id: 'p1',
+  name: 'Messagerie Direction',
+  scope: 'all',
+  dataTypes: ['mail'],
+  rpoHours: 12,
+  retentionDays: 365,
+  createdAt: '2026-11-01T08:00:00.000Z',
+  compliance: {
+    state: 'compliant',
+    lastSuccessAt: '2026-11-19T06:00:00.000Z',
+    lastRestorePointAt: '2026-11-19T06:00:00.000Z',
+  },
+  running: false,
+  lastRun: {
+    status: 'success',
+    startedAt: '2026-11-19T05:59:00.000Z',
+    finishedAt: '2026-11-19T06:00:00.000Z',
+    noSnapshotReason: null,
+  },
+};
+const failedPlan: PlanItem = {
+  ...okPlan,
+  id: 'p2',
+  name: 'Plan en échec',
+  compliance: { state: 'failed', lastSuccessAt: null, lastRestorePointAt: null },
+  lastRun: {
+    status: 'failed',
+    startedAt: '2026-11-19T17:54:00.000Z',
+    finishedAt: '2026-11-19T17:55:00.000Z',
+    noSnapshotReason: null,
+    failureCause: 'interrupted',
+  },
+};
+
+const list = (state: PlanItem[], failedOnly: boolean) =>
+  renderToStaticMarkup(
+    <PlansListView
+      state={state}
+      admin
+      configured
+      failedOnly={failedOnly}
+      onRetry={noop}
+      onRun={noop}
+      onDelete={noop}
+    />,
+  );
+
+describe('failure cause on the plans list', () => {
+  it('writes the cause in French under the pill, with no code', () => {
+    expect(complianceView(failedPlan)).toEqual({
+      status: 'failed',
+      label: 'En échec',
+      note: 'Sauvegarde interrompue · Aucune sauvegarde réussie',
+    });
+    const html = list([failedPlan], false);
+    expect(html).toContain('Sauvegarde interrompue');
+    expect(html).not.toContain('interrupted');
+  });
+
+  it('opens on the failed plans only when asked, with a link to the whole list', () => {
+    const html = list([okPlan, failedPlan], true);
+    expect(html).toContain('Plan en échec');
+    expect(html).not.toContain('Messagerie Direction');
+    expect(html).toContain('Voir tous les plans');
+    expect(list([okPlan, failedPlan], false)).toContain('Messagerie Direction');
+    // Aucun plan en échec : la liste entière, pas une page vide.
+    expect(list([okPlan], true)).toContain('Messagerie Direction');
+  });
+
+  it('counts a plan whose last run failed even when it is still up to date, and says why', () => {
+    const recent: PlanItem = { ...failedPlan, compliance: okPlan.compliance };
+    expect(complianceView(recent)).toMatchObject({
+      status: 'compliant',
+      note: 'Dernière exécution en échec : sauvegarde interrompue',
+    });
+    expect(list([okPlan, recent], true)).not.toContain('Messagerie Direction');
+  });
+
+  it('Voir l’erreur targets the filtered list', () => {
+    expect(parsePlansHash(FAILED_PLANS_HASH)).toEqual({ page: 'list', failedOnly: true });
+  });
+});
+
+describe('plans card of the dashboard', () => {
+  const overview = (plans: Overview['plans']): Overview => ({
+    state: 'failed',
+    plans,
+    lastBackupAt: null,
+  });
+  const render = (plans: Overview['plans'], admin: boolean) =>
+    renderToStaticMarkup(<OverviewView state={overview(plans)} admin={admin} onRetry={noop} />);
+
+  it('names the failed and late plans', () => {
+    const plans = { total: 4, operational: 2, running: 0, queued: 0, failed: 1, late: 1 };
+    expect(plansSummary(plans)).toBe('2 plans à jour sur 4 · 1 en échec · 1 en retard');
+    expect(plansSummary({ ...plans, failed: 0, late: 0 })).toBe('2 plans à jour sur 4');
+  });
+
+  it('without plan: an empty state, with Créer un plan for an administrator only', () => {
+    const none = { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 };
+    const admin = render(none, true);
+    expect(admin).toContain('class="empty"');
+    expect(admin).toContain('Créer un plan');
+    const operator = render(none, false);
+    expect(operator).toContain('class="empty"');
+    expect(operator).not.toContain('Créer un plan');
+  });
+});

@@ -223,7 +223,7 @@ export const SCREENS = [
     prepare: async (page) => {
       await overviewAs(page, {
         state: 'operational',
-        plans: { total: 2, operational: 2, running: 0, queued: 0 },
+        plans: { total: 2, operational: 2, running: 0, queued: 0, failed: 0, late: 0 },
         lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
       });
       await page.getByText('Microsoft 365 connecté').waitFor();
@@ -237,7 +237,7 @@ export const SCREENS = [
     prepare: async (page) => {
       await overviewAs(page, {
         state: 'operational',
-        plans: { total: 3, operational: 3, running: 1, queued: 1 },
+        plans: { total: 3, operational: 3, running: 1, queued: 1, failed: 0, late: 0 },
         lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
       });
       await page.getByText('En file d’attente').waitFor();
@@ -250,7 +250,7 @@ export const SCREENS = [
     prepare: (page) =>
       overviewAs(page, {
         state: 'unconfigured',
-        plans: { total: 0, operational: 0, running: 0, queued: 0 },
+        plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
         lastBackupAt: null,
       }),
   },
@@ -261,7 +261,7 @@ export const SCREENS = [
     prepare: (page) =>
       overviewAs(page, {
         state: 'pending',
-        plans: { total: 1, operational: 0, running: 0, queued: 0 },
+        plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
         lastBackupAt: null,
       }),
   },
@@ -272,7 +272,7 @@ export const SCREENS = [
     prepare: (page) =>
       overviewAs(page, {
         state: 'unconfigured',
-        plans: { total: 0, operational: 0, running: 0, queued: 0 },
+        plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
         lastBackupAt: null,
       }),
   },
@@ -446,6 +446,15 @@ export const SCREENS = [
     },
   },
   { name: 'page-reservee', hash: '#/comptes', role: 'operator' },
+  {
+    // Bouton « Voir l'erreur » de l'accueil : la liste réduite au plan en échec, avec sa cause.
+    name: 'plans-liste-en-echec',
+    hash: '#/plans?etat=echec',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+    },
+  },
   {
     name: 'plans-liste',
     hash: '#/plans',

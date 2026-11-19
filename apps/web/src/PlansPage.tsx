@@ -21,6 +21,7 @@ import {
   fetchMailboxes,
   fetchPlans,
   formFromPlan,
+  isFailed,
   lastRunLabel,
   planSummary,
   runFlashText,
@@ -689,12 +690,15 @@ export function PlansListView({
   admin,
   configured,
   mailboxes = [],
+  failedOnly = false,
   onRetry,
   onRun,
   onDelete,
 }: {
   state: PlansState;
   admin: boolean;
+  /** Réduit la liste aux plans en échec (s'il y en a) ; un lien rend la liste entière. */
+  failedOnly?: boolean;
   mailboxes?: readonly Mailbox[];
   configured: boolean;
   onRetry: () => void;
@@ -767,10 +771,18 @@ export function PlansListView({
       </EmptyState>
     );
   }
+  const failed = state.filter(isFailed);
+  const filtered = failedOnly && failed.length > 0;
   return (
     <>
       {notice}
       {!admin && <p>{MESSAGES.readOnly}</p>}
+      {filtered && (
+        <p>
+          {failed.length === 1 ? 'Plan en échec' : `${failed.length} plans en échec`} ·{' '}
+          <a href={PLANS_HASH}>Voir tous les plans</a>
+        </p>
+      )}
       <DataTable
         caption="Plans de protection"
         hideCaption
@@ -778,7 +790,7 @@ export function PlansListView({
           onRun,
           onDelete,
         })}
-        rows={state}
+        rows={filtered ? failed : state}
         rowKey={(p) => p.id}
       />
     </>
@@ -917,6 +929,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured={boxes.configured}
         mailboxes={boxes.mailboxes}
+        failedOnly={route.page === 'list' && route.failedOnly === true}
         onRetry={reloadList}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}

@@ -554,5 +554,5 @@ function seedDemoPlans(plans: SqlitePlanStore, now: number): void {
   const ok = plans.startRun(compliant.id, first!.id, at);
   if (ok !== undefined) plans.finishRun(ok, 'success', at);
   const ko = plans.startRun(failing.id, second!.id, at);
-  if (ko !== undefined) plans.finishRun(ko, 'failed', at, 'demo_failure');
+  if (ko !== undefined) plans.finishRun(ko, 'failed', at, 'backup_errors');
 }
