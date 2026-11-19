@@ -172,7 +172,7 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
 
   return (
     <main tabIndex={-1}>
-      <h1>Rechercher et restaurer</h1>
+      <h1>Restaurer depuis la messagerie</h1>
       <form onSubmit={submit} className="filters">
         <FormField label="Recherche" type="search" name="q" maxLength={256} />
         <FormField

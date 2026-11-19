@@ -77,10 +77,15 @@ composant s'y ajoute avec ses tests de comportement.
 
 ## Navigation principale
 
-Cinq entrées au plus : Tableau de bord, Plans de protection, Rechercher et restaurer, Journal
-d'audit, Administration (comptes). Seules les entrées livrées apparaissent, sans entrée
-grisée. Aujourd'hui : Tableau de bord, Rechercher et restaurer, Journal d'audit, et
-Administration pour les administrateurs.
+Cinq rubriques de premier niveau au plus : Tableau de bord, Restaurer, Plans de protection,
+Journal d'audit, Administration (comptes). « Restaurer » est un libellé de groupe en `--muted`,
+ni lien ni bouton, avec une liste imbriquée dans le même `<nav>` : Messagerie (`#/search`,
+active aussi sur la fiche d'un mail), OneDrive et SharePoint. Ce sont des `<a href>` natifs,
+en retrait de `--space-3`, l'entrée active portant `aria-current="page"`. Le menu repliable
+sous 900 px a le même regroupement. Les titres des trois écrans suivent le même modèle :
+« Restaurer depuis la messagerie », « Restaurer depuis OneDrive », « Restaurer depuis
+SharePoint ». Seules les entrées livrées apparaissent, sans entrée grisée. Administration
+n'est visible que des administrateurs.
 
 ## Vocabulaire de référence
 

@@ -334,6 +334,16 @@ export const SCREENS = [
     },
   },
   {
+    name: 'navigation-restaurer',
+    hash: '#/search',
+    role: 'admin',
+    prepare: async (page) => {
+      const menu = page.getByRole('button', { name: 'Menu' });
+      if (await menu.isVisible()) await menu.click();
+      await page.getByRole('link', { name: 'Messagerie' }).waitFor();
+    },
+  },
+  {
     name: 'recherche-date-invalide',
     hash: '#/search',
     role: 'admin',
