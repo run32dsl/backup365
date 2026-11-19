@@ -1396,3 +1396,73 @@ a.btn-secondary {
     gap: 0;
   }
 }
+
+/* Connexion : carte centrée sous le nom du produit ; le pied (version) reste sous la carte. */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-4) var(--space-3) 0;
+}
+.login-page-body {
+  width: 100%;
+  max-width: 28rem;
+  margin-top: 8vh;
+}
+.login-brand {
+  text-align: center;
+  margin-bottom: var(--space-3);
+}
+.login-brand p {
+  margin: 0;
+}
+.login-brand-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.login-brand-tagline {
+  color: var(--muted);
+}
+.login-card {
+  padding: var(--space-4);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.login-card form > .btn,
+.login-card > .btn {
+  width: 100%;
+}
+.login-card a.btn {
+  text-decoration: none;
+}
+.login-card .alert-title {
+  display: block;
+}
+.login-or {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  color: var(--muted);
+}
+.login-or::before,
+.login-or::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--border-soft);
+}
+.login-audit {
+  color: var(--muted);
+}
+.login-page .console-footer {
+  border-top: none;
+  justify-content: center;
+  margin-top: auto;
+}
+@media (max-width: 56.25rem) {
+  .login-page-body {
+    margin-top: var(--space-3);
+  }
+}
