@@ -1,0 +1,34 @@
+name: Placeholders
+
+# Refuse un nom provisoire « SUIVIn » dans une PR ou une issue (voir #268). `pull_request` et
+# `issues` avec un jeton en lecture seule ; le texte passe par une variable d'environnement et un
+# fichier, jamais interpolé dans la commande. Pour une issue, le contrôle signale (run en échec) :
+# GitHub ne permet pas de bloquer la publication.
+on:
+  pull_request:
+    branches: [develop, main]
+    types: [opened, edited, synchronize, reopened]
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  placeholders:
+    name: placeholders
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Check the script refuses a provisional name
+        run: bash .github/scripts/check-placeholders.test.sh
+      - name: Check the title and body
+        env:
+          TITLE: ${{ github.event.pull_request.title || github.event.issue.title }}
+          BODY: ${{ github.event.pull_request.body || github.event.issue.body }}
+        run: |
+          printf '%s\n%s\n' "$TITLE" "$BODY" > "$RUNNER_TEMP/text.md"
+          bash .github/scripts/check-placeholders.sh "$RUNNER_TEMP/text.md"

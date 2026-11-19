@@ -20,6 +20,14 @@ vous avez le droit de proposer ce code, aux conditions du
 si un commit n'est pas signé. Pour corriger : `git rebase --signoff origin/develop`, puis
 `git push --force-with-lease` sur votre fork.
 
+### Renvois vers les issues de suivi
+
+Un renvoi cite le numéro réel de l'issue (`#NNN`), jamais un nom provisoire comme « SUIVI2 ».
+Le job `placeholders` (`.github/workflows/placeholders.yml`, script
+`.github/scripts/check-placeholders.sh`) fait échouer une PR ou une issue dont le titre ou le
+corps contient encore « SUIVI » suivi d'un chiffre. Pour une issue, il signale seulement : GitHub
+ne permet pas de bloquer sa publication.
+
 ### Données
 
 Uniquement des données fictives (domaine `exemple.fr`) ou un tenant de test : jamais de donnée
