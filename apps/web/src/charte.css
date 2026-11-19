@@ -885,13 +885,18 @@ select[aria-disabled='true'] {
   margin-top: var(--space-3);
 }
 @media (max-width: 37.5rem) {
+  /* Feuille ancrée en bas, ajustée à son contenu, fond assombri conservé. */
   .dialog-backdrop {
+    align-items: flex-end;
     padding: 0;
   }
   .dialog {
-    height: 100%;
+    height: auto;
+    max-height: 100%;
     max-width: none;
-    border-radius: 0;
+    border-bottom-width: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    overscroll-behavior: contain;
   }
   /* Boutons empilés, action principale en haut, cibles tactiles de 44 px au moins. */
   .dialog-actions {
