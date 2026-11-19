@@ -1,14 +1,18 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
-import { ExportForm, MailPage, MailView, mailTitle } from './MailPage.js';
+import { ExportForm, MailPage, MailView, RestoreSectionView, mailTitle } from './MailPage.js';
+import { AUDIT_REMINDER, REASON } from './RestoreJourney.js';
 import { SearchPage, SearchView } from './SearchPage.js';
 import {
   exportEml,
   fetchMail,
+  initialSearchQuery,
   isReasonValid,
   mailHref,
   parseMailHash,
+  parseSearchHash,
+  searchHref,
   searchMails,
   searchQueryFromForm,
 } from './mail.js';
@@ -42,6 +46,24 @@ describe('SearchView', () => {
     expect(html).toContain(`href="${mailHref(mail)}"`);
   });
 
+  it('drops the mailbox column and names the mailbox in the counter when filtered', () => {
+    const state = { total: 25, limit: 25, offset: 0, items: [mail] };
+    const filtered = renderToString(<SearchView state={state} mailbox="paul.moreau@exemple.fr" />);
+    expect(filtered).not.toContain('>Boîte<');
+    expect(filtered).toContain('25 résultats');
+    expect(filtered).toContain('dans la boîte paul.moreau@exemple.fr');
+    expect(renderToString(<SearchView state={state} />)).toContain('>Boîte<');
+    const withRestore = renderToString(
+      <SearchView state={state} mailbox="paul.moreau@exemple.fr" restoreConfigured />,
+    );
+    expect(withRestore).toContain('>Action<');
+    expect(withRestore).not.toContain('>Boîte<');
+    const empty = { total: 0, limit: 25, offset: 0, items: [] };
+    expect(renderToString(<SearchView state={empty} mailbox="paul.moreau@exemple.fr" />)).toContain(
+      'Aucun résultat',
+    );
+  });
+
   it('shows empty, loading and error states, and escapes content', () => {
     const empty = { total: 0, limit: 25, offset: 0, items: [] };
     expect(renderToString(<SearchView state={empty} />)).toContain('Aucun résultat');
@@ -51,6 +73,23 @@ describe('SearchView', () => {
       <SearchView state={{ ...empty, total: 1, items: [{ ...mail, subject: '<img src=x>' }] }} />,
     );
     expect(html).not.toContain('<img');
+  });
+
+  it('shows Précédent and Suivant only when there is more than one page', () => {
+    const many = renderToString(
+      <SearchView state={{ total: 40, limit: 25, offset: 0, items: [mail] }} />,
+    );
+    expect(many).toContain('Précédent');
+    expect(many).toContain('Suivant');
+    const one = renderToString(
+      <SearchView state={{ total: 10, limit: 25, offset: 0, items: [mail] }} />,
+    );
+    expect(one).not.toContain('Précédent');
+    expect(one).not.toContain('Suivant');
+  });
+
+  it('uses the shared filters container', () => {
+    expect(renderToString(<SearchPage />)).toContain('class="filters"');
   });
 
   it('renders the search form with the free text, mailbox and date filters', () => {
@@ -81,7 +120,7 @@ describe('MailPage', () => {
       />,
     );
     expect(form).toContain('<h2');
-    expect(form).toContain('Saisissez un motif pour exporter');
+    expect(form).toContain('Saisissez un motif pour exporter.');
     expect(form).toContain('aria-describedby="export-disabled-help"');
     expect(form).not.toContain('JSON');
   });
@@ -107,6 +146,32 @@ describe('MailPage', () => {
     expect(render('ab')).not.toContain('export-disabled-help');
   });
 
+  it('orders the export box: reason, attachments note, audit reminder, button, then result', () => {
+    const render = (exporting: 'idle' | 'done' | 'error') =>
+      renderToString(
+        <ExportForm
+          reason="ab"
+          exporting={exporting}
+          onReason={() => undefined}
+          onSubmit={() => undefined}
+        />,
+      );
+    const idle = render('idle');
+    const reason = idle.indexOf('<label');
+    expect(reason).toBeGreaterThan(-1);
+    expect(reason).toBeLessThan(idle.indexOf('pièces jointes'));
+    expect(idle.indexOf('pièces jointes')).toBeLessThan(idle.indexOf('alert-info'));
+    expect(idle.indexOf('alert-info')).toBeLessThan(idle.indexOf('<button'));
+    const done = render('done');
+    const afterButton = done.indexOf('</button>') + '</button>'.length;
+    expect(done.slice(afterButton)).toMatch(
+      /^<div class="export-result">.*Export inscrit au journal d’audit\./,
+    );
+    expect(render('error').indexOf('export-result')).toBeGreaterThan(
+      render('error').indexOf('</button>'),
+    );
+  });
+
   it('keeps the generic title while the sheet is loading', () => {
     const html = renderToString(<MailPage mailboxId="mbx-1" messageId="m1" />);
     expect(html).toContain('<h1>Fiche d’un mail</h1>');
@@ -130,12 +195,10 @@ describe('ExportForm', () => {
         onSubmit={() => undefined}
       />,
     );
-    expect(html).toContain('Motif de l’export');
-    expect(html).toContain('placeholder="Ticket INC-12345"');
+    expect(html).toContain('Motif de l’export (obligatoire)');
     expect(html).toContain('maxLength="120"');
-    expect(html).toContain(
-      'Indiquez de préférence le numéro du ticket interne. N’y saisissez pas de donnée personnelle (nom, adresse, contenu du mail).',
-    );
+    expect(html).toContain(REASON.help);
+    expect(html).toContain(AUDIT_REMINDER);
   });
 });
 
@@ -151,8 +214,24 @@ describe('mail helpers', () => {
     expect(parseMailHash('#/mail/%E0%A4%A/b')).toBeNull();
   });
 
+  it('shows a warning alert and no Restaurer button when restore is not configured', () => {
+    const off = renderToString(<RestoreSectionView mail={mail} configured={false} last={null} />);
+    expect(off).toMatch(/class="alert alert-warning" role="alert"/);
+    expect(off).toContain('Restauration indisponible');
+    expect(off).toContain('Prévenez un administrateur.</span>');
+    expect(off).not.toContain('<button');
+    expect(off).not.toContain('Restaurer Facture');
+    const on = renderToString(<RestoreSectionView mail={mail} configured last={null} />);
+    expect(on).toContain('Restaurer Facture 1');
+    expect(on).not.toContain('role="alert"');
+  });
+
   it('routes the new screens', () => {
     expect(screenOf('#/search')).toBe('search');
+    expect(screenOf(searchHref('a@b.fr'))).toBe('search');
+    expect(parseSearchHash(searchHref('a b/é'))).toBe('a b/é');
+    expect(parseSearchHash('#/search')).toBeNull();
+    expect(parseSearchHash('#/search?mailbox=%E0')).toBeNull();
     expect(screenOf(mailHref(mail))).toBe('mail');
     expect(screenOf('#/mail/x')).toBe('home');
   });
@@ -161,17 +240,41 @@ describe('mail helpers', () => {
     const form = new FormData();
     form.set('q', ' facture ');
     form.set('mailbox', '');
-    form.set('after', '2026-01-01T10:00');
-    form.set('before', '');
+    form.set('after', '18/11/2026');
+    form.set('before', '18/11/2026');
     const query = searchQueryFromForm(form);
-    expect(query).toMatchObject({ q: 'facture', limit: 25, offset: 0, before: '' });
-    expect(query.after).toMatch(/^2026-01-01T\d\d:00:00\.000Z$/);
+    expect(query).toMatchObject({
+      q: 'facture',
+      limit: 25,
+      offset: 0,
+      after: '2026-11-18T00:00:00.000Z',
+      before: '2026-11-19T00:00:00.000Z',
+    });
     const fetchFn = vi.fn<typeof fetch>(() => json({ total: 0, limit: 25, offset: 0, items: [] }));
     await searchMails(query, fetchFn);
     const url = String(fetchFn.mock.calls[0]?.[0] ?? '');
     expect(url).toContain('q=facture');
     expect(url).not.toContain('mailbox');
-    expect(url).not.toContain('before');
+    expect(url).toContain('after=2026-11-18T00%3A00%3A00.000Z');
+    expect(url).toContain('before=2026-11-19T00%3A00%3A00.000Z');
+  });
+
+  it('shows jj/mm/aaaa text fields, without the native date input or « exclu »', () => {
+    const html = renderToString(<SearchPage />);
+    expect(html).not.toContain('datetime-local');
+    expect(html).not.toContain('exclu');
+    expect(html).toContain('Date au format jj/mm/aaaa, en UTC comme le tableau');
+  });
+
+  it('prefills the mailbox field and starts the search from the anchor mailbox', async () => {
+    expect(renderToString(<SearchPage mailbox="a@b.fr" />)).toContain('value="a@b.fr"');
+    expect(renderToString(<SearchPage />)).not.toContain('value="a@b.fr"');
+    expect(initialSearchQuery()).toBeNull();
+    const query = initialSearchQuery('a@b.fr');
+    expect(query).toEqual({ limit: 25, offset: 0, mailbox: 'a@b.fr' });
+    const fetchFn = vi.fn<typeof fetch>(() => json({ total: 0, limit: 25, offset: 0, items: [] }));
+    await searchMails(query!, fetchFn);
+    expect(String(fetchFn.mock.calls[0]?.[0] ?? '')).toContain('mailbox=a%40b.fr');
   });
 
   it('requires a reason of at least three characters', () => {

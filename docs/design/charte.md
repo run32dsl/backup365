@@ -42,7 +42,7 @@ Texte sur fond : au moins 4,5:1 ; contour des contrôles : au moins 3:1.
 
 ## Composants de base
 
-Les composants communs sont dans `apps/web/src/ui/` (`Button`, `FormField`, `DataTable`,
+Les composants communs sont dans `apps/web/src/ui/` (`Button`, `FormField`, `ChoiceGroup`, `DataTable`,
 `Dialog`, `EmptyState`, `Alert`, `Steps`, `StatusPill`) : un écran les utilise au lieu de
 refaire ses boutons, tableaux et formulaires. La page `#/composants`, visible en mode démo
 seulement (lien « Composants » en pied de page), les montre dans tous leurs états. Un nouveau
@@ -54,7 +54,11 @@ composant s'y ajoute avec ses tests de comportement.
 - **Tableau** : `<th scope="col">`, légende (masquée visuellement si le titre la remplace),
   texte qui passe à la ligne plutôt que de déborder.
 - **Badge d'état** (`.badge`) : « À jour » (`✔`), « En cours », « En retard » (`⚠`),
-  « En échec » (`✖`) ; mêmes libellés pour les plans et les sauvegardes.
+  « En échec » (`✖`) ; mêmes libellés pour les plans et les sauvegardes. L'accueil ajoute
+  « Opérationnelle » (`✔`, `--ok`) et « Non configurée » (`⚠`, `--warn`, seulement sans plan) ;
+  des plans sans aucun résultat : pas de badge, une phrase.
+- **Carte d'accueil** (`.overview-card`) : `<section aria-labelledby>` avec un `h2` ; trois cartes
+  en grille, deux colonnes dès 900 px, une seule dessous (bouton pleine largeur).
 - **Bandeau d'alerte** : `role="alert"` pour une erreur, `role="status"` pour une information ;
   sans détail technique.
 - **État vide** (`.empty`) : phrase claire et, au plus, un bouton d'action.

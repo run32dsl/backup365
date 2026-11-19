@@ -1,28 +1,33 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type Ref } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type Ref } from 'react';
 import { RESET_TEXTS } from './accounts.js';
-import { Alert, Button, Dialog, FormField } from './ui/index.js';
+import type { Problem } from './apiError.js';
+import { FailureAlert } from './FailureAlert.js';
+import { AuditReminder, REASON, ReasonField } from './RestoreJourney.js';
+import { Alert, Button, Dialog } from './ui/index.js';
 
 /** Étape 2 : récapitulatif et motif obligatoire. Sans état : le motif vide donne `error`. */
 export function ResetReasonForm({
   username,
   error,
+  failure,
   busy = false,
   onSubmit,
   onCancel,
 }: {
   username: string;
   error?: string;
+  failure?: Problem | undefined;
   busy?: boolean;
   onSubmit?: (reason: string) => void;
   onCancel?: () => void;
 }) {
+  const [reason, setReason] = useState('');
   return (
     <form
       noValidate
       onSubmit={(e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const reason = new FormData(e.currentTarget).get('reason');
-        onSubmit?.(typeof reason === 'string' ? reason.trim() : '');
+        onSubmit?.(reason.trim());
       }}
     >
       <p>
@@ -32,14 +37,9 @@ export function ResetReasonForm({
         Un mot de passe temporaire sera créé et affiché une seule fois. {username} devra le changer
         à sa prochaine connexion.
       </p>
-      <FormField
-        label={RESET_TEXTS.reasonLabel}
-        name="reason"
-        maxLength={200}
-        autoComplete="off"
-        error={error}
-      />
-      <Alert tone="info">{RESET_TEXTS.audit}</Alert>
+      <ReasonField of="de la réinitialisation" value={reason} error={error} onChange={setReason} />
+      {failure && <FailureAlert problem={failure} />}
+      <AuditReminder extra={RESET_TEXTS.audit} />
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onCancel}>
           Annuler
@@ -72,11 +72,10 @@ export function TemporaryPasswordView({
   onHanded?: (checked: boolean) => void;
   onDone?: () => void;
 }) {
-  const checkId = useId();
   return (
     <div>
       <p>{RESET_TEXTS.once}</p>
-      <div className="button-row">
+      <div className="button-row temp-password-row">
         <code
           ref={codeRef}
           className="temp-password"
@@ -101,15 +100,16 @@ export function TemporaryPasswordView({
       </div>
       {copyFailed && <Alert tone="warning">{RESET_TEXTS.copyFailed}</Alert>}
       <p className="field-help">La boîte ne se ferme qu’après avoir coché la case ci-dessous.</p>
-      <p>
-        <input
-          id={checkId}
-          type="checkbox"
-          checked={handed}
-          onChange={(e) => onHanded?.(e.currentTarget.checked)}
-        />{' '}
-        <label htmlFor={checkId}>{RESET_TEXTS.handed}</label>
-      </p>
+      <div className="field">
+        <label className="choice">
+          <input
+            type="checkbox"
+            checked={handed}
+            onChange={(e) => onHanded?.(e.currentTarget.checked)}
+          />
+          {RESET_TEXTS.handed}
+        </label>
+      </div>
       <div className="button-row dialog-actions">
         <Button
           type="button"
@@ -134,10 +134,11 @@ export function ResetPasswordDialog({
   onClose,
 }: {
   username: string | null;
-  run: (reason: string) => Promise<{ password: string } | { error: string }>;
+  run: (reason: string) => Promise<{ password: string } | { error: Problem }>;
   onClose: () => void;
 }) {
   const [error, setError] = useState<string>();
+  const [failure, setFailure] = useState<Problem>();
   const [busy, setBusy] = useState(false);
   const [password, setPassword] = useState<string>();
   const [copied, setCopied] = useState(false);
@@ -146,6 +147,7 @@ export function ResetPasswordDialog({
   const code = useRef<HTMLElement>(null);
   useEffect(() => {
     setError(undefined);
+    setFailure(undefined);
     setBusy(false);
     setPassword(undefined);
     setCopied(false);
@@ -185,20 +187,22 @@ export function ResetPasswordDialog({
         <ResetReasonForm
           username={username ?? ''}
           error={error}
+          failure={failure}
           busy={busy}
           onCancel={onClose}
           onSubmit={(reason) => {
             if (busy) return;
             if (!reason) {
-              setError(RESET_TEXTS.reasonMissing);
+              setError(REASON.error);
               return;
             }
             setError(undefined);
+            setFailure(undefined);
             setBusy(true);
             void run(reason).then((result) => {
               setBusy(false);
               if ('password' in result) setPassword(result.password);
-              else setError(result.error);
+              else setFailure(result.error);
             });
           }}
         />

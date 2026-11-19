@@ -1,5 +1,9 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { parentOf } from '@backup365/core';
+import { type Problem as FailureProblem } from './apiError.js';
+import { FailureAlert } from './FailureAlert.js';
+import { StorageUnavailable } from './StorageUnavailable.js';
+import { dateTimeOrDash } from './format.js';
 import { isReasonValid } from './mail.js';
 import {
   ONEDRIVE_MESSAGES as T,
@@ -18,7 +22,9 @@ import {
   oneDriveHash,
   sizeOf,
   startDriveRestore,
-  summaryOf,
+  restoreBlocked,
+  confirmRowsOf,
+  consequenceOf,
   type DriveEntry,
   type DriveJob,
   type DriveMode,
@@ -34,11 +40,22 @@ import {
   RESTORE_BUTTONS as B,
   RESTORE_STEPS,
   ReasonField,
+  RestoreResult,
   RunningProgress,
   stepOf,
 } from './RestoreJourney.js';
 import { formatDuration } from './restore.js';
-import { Alert, Button, DataTable, Dialog, EmptyState, Steps, WizardActions } from './ui/index.js';
+import {
+  Alert,
+  Button,
+  ChoiceGroup,
+  DataTable,
+  Dialog,
+  EmptyState,
+  Steps,
+  WizardActions,
+  ResultList,
+} from './ui/index.js';
 
 /** Élément choisi à l'étape 1 : un fichier ou un dossier, éventuellement une version précise. */
 interface Choice {
@@ -53,7 +70,7 @@ function folderLabel(path: string): string {
   return parent === '/' ? 'la racine' : parent.split('/').filter(Boolean).join(' > ');
 }
 
-function Problem({
+export function Problem({
   status,
   onRetry,
 }: {
@@ -61,9 +78,7 @@ function Problem({
   onRetry: () => void;
 }) {
   if (status === 'unconfigured') {
-    return (
-      <EmptyState action={<a href="#/">Configurer la connexion</a>}>{T.notConfigured}</EmptyState>
-    );
+    return <StorageUnavailable onRetry={onRetry} />;
   }
   if (status === 'no_backup') {
     return (
@@ -140,7 +155,10 @@ function VersionsDialog({
           ))}
         </fieldset>
       )}
-      <div className="button-row dialog-actions primary-first">
+      <div className="button-row dialog-actions">
+        <Button variant="secondary" data-safe onClick={onClose}>
+          Fermer
+        </Button>
         <Button
           disabled={rows.length === 0}
           onClick={() => {
@@ -150,11 +168,86 @@ function VersionsDialog({
         >
           Restaurer cette version
         </Button>
-        <Button variant="secondary" data-safe onClick={onClose}>
-          Fermer
-        </Button>
       </div>
     </Dialog>
+  );
+}
+
+/** Liste des éléments d'un dossier sauvegardé : le bouton radio porte le nom de l'élément. */
+export function EntriesTable({
+  account,
+  rows,
+  selected,
+  emptyMessage,
+  onSelect,
+  onVersions,
+}: {
+  account: string;
+  rows: DriveEntry[];
+  selected: string | null;
+  emptyMessage: string;
+  onSelect: (path: string) => void;
+  onVersions: (entry: DriveEntry, button: HTMLButtonElement) => void;
+}) {
+  const prefix = useId();
+  const nameId = (e: DriveEntry) => `${prefix}-${rows.indexOf(e)}`;
+  const radio = (e: DriveEntry, labelledBy?: string) => (
+    <input
+      type="radio"
+      name="selection"
+      aria-labelledby={labelledBy}
+      checked={selected === e.path}
+      onChange={() => {
+        onSelect(e.path);
+      }}
+    />
+  );
+  return (
+    <DataTable
+      caption="Contenu du dossier sauvegardé"
+      hideCaption
+      rows={rows}
+      rowKey={(e) => e.path}
+      empty={{ message: emptyMessage }}
+      columns={[
+        {
+          header: 'Nom',
+          cell: (e) =>
+            e.kind === 'folder' ? (
+              <span className="choice">
+                {radio(e, nameId(e))}
+                <a id={nameId(e)} href={oneDriveHash(account, e.path)}>
+                  {e.name}
+                </a>
+                <span className="cell-secondary-inline">dossier</span>
+              </span>
+            ) : (
+              <label className="choice">
+                {radio(e)} {e.name}
+              </label>
+            ),
+        },
+        { header: 'Version du (UTC)', cell: (e) => dateTimeOrDash(e.versionAt) },
+        { header: 'Taille', cell: (e) => (e.sizeBytes === null ? '—' : sizeOf(e.sizeBytes)) },
+        {
+          header: 'Versions',
+          cell: (e) =>
+            e.kind === 'file' ? (
+              <Button
+                variant="secondary"
+                aria-label={`Versions de ${e.name}`}
+                onClick={(ev) => {
+                  onVersions(e, ev.currentTarget);
+                }}
+              >
+                Versions
+              </Button>
+            ) : (
+              '—'
+            ),
+        },
+      ]}
+    />
   );
 }
 
@@ -266,63 +359,16 @@ function BrowseStep({
         {entries?.status === 'ok' && (
           <fieldset className="choices drive-list">
             <legend className="sr-only">Éléments de {breadcrumbOf(path).at(-1)?.label}</legend>
-            <DataTable
-              caption="Contenu du dossier sauvegardé"
-              hideCaption
+            <EntriesTable
+              account={account}
               rows={rows}
-              rowKey={(e) => e.path}
-              empty={{
-                message: `Ce dossier est vide dans la sauvegarde du ${dayOf(snapshot?.createdAt ?? null)}.`,
+              selected={selected}
+              emptyMessage={`Ce dossier est vide dans la sauvegarde du ${dayOf(snapshot?.createdAt ?? null)}.`}
+              onSelect={setSelected}
+              onVersions={(entry, button) => {
+                versionsButton.current = button;
+                setVersionsOf(entry);
               }}
-              columns={[
-                {
-                  header: 'Choix',
-                  cell: (e) => (
-                    <input
-                      type="radio"
-                      name="selection"
-                      aria-label={`Sélectionner ${e.name}`}
-                      checked={selected === e.path}
-                      onChange={() => {
-                        setSelected(e.path);
-                      }}
-                    />
-                  ),
-                },
-                {
-                  header: 'Nom',
-                  cell: (e) =>
-                    e.kind === 'folder' ? (
-                      <a href={oneDriveHash(account, e.path)}>
-                        <span aria-hidden="true">📁</span> {e.name}
-                        <span className="sr-only"> (dossier)</span>
-                      </a>
-                    ) : (
-                      <span>
-                        <span aria-hidden="true">📄</span> {e.name}
-                        <span className="sr-only"> (fichier)</span>
-                      </span>
-                    ),
-                },
-                { header: 'Version du', cell: (e) => dateTimeOf(e.versionAt) },
-                { header: 'Taille', cell: (e) => sizeOf(e.sizeBytes) },
-                {
-                  header: 'Versions',
-                  cell: (e) =>
-                    e.kind === 'file' ? (
-                      <Button
-                        variant="secondary"
-                        aria-label={`Versions de ${e.name}`}
-                        onClick={(ev) => {
-                          versionsButton.current = ev.currentTarget;
-                          setVersionsOf(e);
-                        }}
-                      >
-                        Versions
-                      </Button>
-                    ) : null,
-                },
-              ]}
             />
           </fieldset>
         )}
@@ -399,7 +445,7 @@ function ReasonStep({
 }
 
 /** Étape 3 : mode et récapitulatif. */
-function ConfirmStep({
+export function ConfirmStep({
   account,
   choice,
   reason,
@@ -416,8 +462,9 @@ function ConfirmStep({
   const [mode, setMode] = useState<DriveMode>('copy');
   const [confirmed, setConfirmed] = useState(false);
   const [confirmError, setConfirmError] = useState(false);
-  const [failure, setFailure] = useState<string | undefined>();
+  const [failure, setFailure] = useState<FailureProblem | undefined>();
   const [sending, setSending] = useState(false);
+  const blocked = restoreBlocked(mode, confirmed);
   const canReplace = entry.kind === 'file';
   const versionAt = version?.at ?? entry.versionAt;
   const copyName = version ? '' : copyNameOf(entry.name, entry.kind, new Date());
@@ -442,53 +489,43 @@ function ConfirmStep({
     }).then((result) => {
       setSending(false);
       if (result.ok) onStarted(result.job);
-      else setFailure(result.message);
+      else setFailure({ message: result.message, requestId: result.requestId });
     });
   }
 
   return (
     <form onSubmit={submit} noValidate>
-      <p>Motif : {reason}</p>
-      <fieldset className="choices">
-        <legend>Mode</legend>
-        <label className="choice">
-          <input
-            type="radio"
-            name="mode"
-            checked={mode === 'copy'}
-            onChange={() => {
-              setMode('copy');
-              setConfirmed(false);
-              setConfirmError(false);
-            }}
-          />{' '}
-          Restaurer en copie (recommandé)
-        </label>
-        {canReplace && (
-          <label className="choice">
-            <input
-              type="radio"
-              name="mode"
-              checked={mode === 'replace'}
-              onChange={() => {
-                setMode('replace');
-              }}
-            />{' '}
-            Remplacer le fichier actuel
-          </label>
-        )}
-      </fieldset>
-      <h3>Récapitulatif</h3>
-      <p>
-        {summaryOf({
+      <ChoiceGroup<DriveMode>
+        legend="Mode"
+        name="mode"
+        value={mode}
+        options={[
+          { value: 'copy', label: 'Restaurer en copie (recommandé)' },
+          ...(canReplace
+            ? [{ value: 'replace' as const, label: 'Remplacer le fichier actuel' }]
+            : []),
+        ]}
+        onChange={(next) => {
+          setMode(next);
+          if (next === 'copy') {
+            setConfirmed(false);
+            setConfirmError(false);
+          }
+        }}
+      />
+      <h2>Récapitulatif</h2>
+      <ResultList
+        rows={confirmRowsOf({
+          account,
           name: entry.name,
-          kind: entry.kind,
           mode,
           versionAt,
           folderLabel: folderLabel(entry.path),
           copyName,
+          reason,
         })}
-      </p>
+      />
+      <p>{consequenceOf(mode)}</p>
       {mode === 'replace' && (
         <div className="field">
           <label className="choice">
@@ -511,7 +548,7 @@ function ConfirmStep({
           )}
         </div>
       )}
-      {failure && <Alert tone="error">{failure}</Alert>}
+      {failure && <FailureAlert problem={failure} />}
       <WizardActions
         back={
           <Button variant="secondary" data-safe onClick={onBack}>
@@ -519,7 +556,12 @@ function ConfirmStep({
           </Button>
         }
       >
-        <Button type="submit" busy={sending}>
+        <Button
+          type="submit"
+          busy={sending}
+          aria-disabled={blocked || undefined}
+          className={blocked ? 'is-inactive' : undefined}
+        >
           {B.confirm}
         </Button>
       </WizardActions>
@@ -528,7 +570,7 @@ function ConfirmStep({
 }
 
 /** Étape 3 : suivi. La restauration continue si l'on quitte la page. */
-function TrackStep({
+export function TrackStep({
   account,
   choice,
   job,
@@ -577,11 +619,23 @@ function TrackStep({
 
   const target = job.copyName ?? choice.entry.name;
   const where = folderLabel(job.path);
+  const versionAt = choice.version?.at ?? choice.entry.versionAt;
+  const items = (
+    <ResultList
+      rows={[
+        ['Compte', account],
+        ['Élément restauré', `${choice.entry.name} → ${target}`],
+        ...(versionAt ? [['Version du', dateTimeOf(versionAt)] as [string, string]] : []),
+        ['Emplacement', where],
+      ]}
+    />
+  );
   let body: ReactNode;
   if (job.status === 'running') {
     body = (
       <>
         <RunningProgress />
+        {items}
         <p>Vous pouvez quitter cette page, la restauration continue.</p>
       </>
     );
@@ -591,7 +645,7 @@ function TrackStep({
         <Alert tone="success">
           Restauration terminée en {formatDuration(job.durationMs ?? 0)}.
         </Alert>
-        <p>Emplacement : {where}</p>
+        {items}
         <WizardActions
           back={
             <a className="btn btn-secondary" href="#/audit">
@@ -612,6 +666,7 @@ function TrackStep({
             ? 'L’état de OneDrive est incertain : vérifiez avant de réessayer.'
             : 'Rien n’a été modifié.'}
         </Alert>
+        {items}
         <WizardActions
           back={
             <a className="btn btn-secondary" href="#/audit">
@@ -624,14 +679,7 @@ function TrackStep({
       </>
     );
   }
-  return (
-    <>
-      <p>
-        {choice.entry.name} → {target}
-      </p>
-      {body}
-    </>
-  );
+  return <RestoreResult status={job.status}>{body}</RestoreResult>;
 }
 
 /** Restaurer depuis OneDrive : parcourir, motif et récapitulatif, suivi (`#/onedrive/<compte>/<chemin>`). */

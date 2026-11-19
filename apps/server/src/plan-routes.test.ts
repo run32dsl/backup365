@@ -60,6 +60,20 @@ describe('API des plans', () => {
     }>();
     expect(before.items[0]).not.toHaveProperty('gdprJustification');
     expect(before.items[0]).not.toHaveProperty('selection');
+    // Contrat lu par la console (`PlanItem` de apps/web) : ces champs et aucun autre. En changer
+    // la liste demande d'adapter l'écran des plans de l'opérateur et son test de rendu.
+    expect(Object.keys(before.items[0] ?? {}).sort()).toEqual([
+      'compliance',
+      'createdAt',
+      'dataTypes',
+      'id',
+      'lastRun',
+      'name',
+      'retentionDays',
+      'rpoHours',
+      'running',
+      'scope',
+    ]);
     expect((await send(app, 'GET', `/api/plans/${plan.id}/runs`)).statusCode).toBe(403);
     expect((await send(app, 'POST', `/api/plans/${plan.id}/run`, { reason: 'x' })).statusCode).toBe(
       403,
@@ -132,10 +146,16 @@ describe('API des plans', () => {
   });
 
   it('answers 403 to a non-administrator on the write routes', async () => {
-    const { app } = setup('operator');
+    const { app, audit } = setup('operator');
     expect((await send(app, 'POST', '/api/plans', valid)).statusCode).toBe(403);
     expect((await send(app, 'PUT', '/api/plans/x', valid)).statusCode).toBe(403);
     expect((await send(app, 'DELETE', '/api/plans/x')).statusCode).toBe(403);
+    expect((await send(app, 'POST', '/api/plans/x/run', { reason: 'test' })).statusCode).toBe(403);
+    // Chaque refus est inscrit à l'audit, avec le code en motif.
+    const entries = await log(audit);
+    expect(entries.map((e) => [e.action, e.reason])).toEqual(
+      Array(4).fill(['access.denied', 'forbidden']),
+    );
   });
 
   it('creates, lists, replaces and deletes a plan', async () => {
@@ -215,7 +235,7 @@ describe('API des plans', () => {
     const { app, audit } = setup();
     expect((await send(app, 'PUT', '/api/plans/inconnu', valid)).statusCode).toBe(404);
     expect((await send(app, 'DELETE', '/api/plans/inconnu')).statusCode).toBe(404);
-    expect(await log(audit)).toHaveLength(0);
+    expect((await log(audit)).map((e) => e.reason)).toEqual(['plan_not_found', 'plan_not_found']);
   });
 
   it('refuses invalid input with a clear message (400) and stores nothing', async () => {
@@ -248,7 +268,7 @@ describe('API des plans', () => {
       ).statusCode,
     ).toBe(400);
     expect(plans.list()).toEqual([]);
-    expect(await log(audit)).toHaveLength(0);
+    expect((await log(audit)).map((e) => e.action)).toEqual(Array(9).fill('access.denied'));
   });
 
   it('validates a replacement like a creation', async () => {

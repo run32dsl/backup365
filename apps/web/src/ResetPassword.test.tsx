@@ -6,9 +6,11 @@ describe('réinitialisation : étape 2', () => {
   it('summarises the account, asks for a reason and says it is audited without the password', () => {
     const html = renderToStaticMarkup(<ResetReasonForm username="jean.exemple" />);
     expect(html).toContain('jean.exemple');
-    expect(html).toContain('Motif (obligatoire)');
+    expect(html).toContain('Motif de la réinitialisation (obligatoire)');
     expect(html).toContain('affiché une seule fois');
-    expect(html).toContain('Cette action sera journalisée (sans le mot de passe).');
+    expect(html).toContain(
+      'Chaque consultation, export ou restauration est inscrite au journal d’audit. Le mot de passe n’y figure pas.',
+    );
     expect(html).toContain('>Réinitialiser</button>');
     expect(html).toContain('>Annuler</button>');
   });
@@ -34,6 +36,13 @@ describe('réinitialisation : étape 3', () => {
     expect(html).toContain('>Copier</button>');
     expect(html).toContain('J’ai transmis le mot de passe');
     expect(html).toMatch(/<button[^>]*aria-disabled="true"[^>]*>Terminer/);
+  });
+
+  it('wraps the checkbox in a label.choice carrying the text, so a click on the text checks it', () => {
+    const html = renderToStaticMarkup(<TemporaryPasswordView password={password} />);
+    expect(html).toMatch(
+      /<label class="choice"><input type="checkbox"[^>]*\/>J’ai transmis le mot de passe<\/label>/,
+    );
   });
 
   it('enables Terminer once the box is checked, and reports a copy', () => {

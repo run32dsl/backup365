@@ -1,5 +1,6 @@
 import { DATA_TYPES, type DataType, type RpoHours } from '@backup365/core';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ConfigurationLink } from './ConfigurationBlock.js';
 import {
   DATA_TYPE_LABELS,
   MESSAGES,
@@ -19,15 +20,16 @@ import {
   fetchMailboxes,
   fetchPlans,
   formFromPlan,
-  justificationText,
   lastRunLabel,
+  planSummary,
   retentionLabel,
   withCurrent,
+  retentionHelp,
   rpoHelp,
-  rtoSentence,
+  rtoHelp,
+  recapRows,
   runPlan,
   runReasonText,
-  summarySentence,
   updatePlan,
   validateStep,
   type FormErrors,
@@ -37,11 +39,15 @@ import {
   type PlansRoute,
   type ReasonKind,
 } from './plans.js';
+import { type Problem } from './apiError.js';
+import { AuditReminder, REASON, reasonLabel } from './RestoreJourney.js';
 import {
   Alert,
   Button,
+  ChoiceGroup,
   DataTable,
   Dialog,
+  ResultList,
   EmptyState,
   FormField,
   StatusPill,
@@ -54,6 +60,17 @@ import {
 const goTo = (hash: string) => {
   window.location.hash = hash;
 };
+
+/** Échec d'une action sur les plans : la phrase pour l'utilisateur, sans détail technique. */
+export function PlanFailure({ problem }: { problem: Problem }) {
+  const tone = problem.code === 'backup_not_configured' ? 'warning' : 'error';
+  return (
+    <Alert tone={tone}>
+      {problem.message}
+      {problem.code === 'backup_not_configured' ? <ConfigurationLink /> : null}
+    </Alert>
+  );
+}
 
 type Flash = { tone: 'success' | 'error'; text: string };
 
@@ -68,51 +85,6 @@ function ErrorText({ id, children }: { id: string; children?: string }) {
   );
 }
 
-/** Groupe de boutons radio natifs : flèches du clavier, `fieldset` et `legend`. */
-function RadioGroup<V extends string | number>({
-  legend,
-  name,
-  value,
-  options,
-  help,
-  onChange,
-}: {
-  legend: string;
-  name: string;
-  value: V;
-  options: { value: V; label: string }[];
-  help?: string;
-  onChange: (value: V) => void;
-}) {
-  const helpId = `${name}-help`;
-  return (
-    <fieldset className="choices" aria-describedby={help ? helpId : undefined}>
-      <legend>{legend}</legend>
-      <div className="choice-row">
-        {options.map((o) => (
-          <label key={o.value} className="choice">
-            <input
-              type="radio"
-              name={name}
-              value={o.value}
-              checked={o.value === value}
-              onChange={() => {
-                onChange(o.value);
-              }}
-            />
-            {o.label}
-          </label>
-        ))}
-      </div>
-      {help && (
-        <p id={helpId} className="field-help">
-          {help}
-        </p>
-      )}
-    </fieldset>
-  );
-}
-
 /** Liste déroulante native avec libellé relié, aide d'erreur reliée par `aria-describedby`. */
 function SelectField({
   id,
@@ -121,9 +93,11 @@ function SelectField({
   placeholder,
   options,
   error,
+  help,
   onChange,
 }: {
   id: string;
+  help?: string;
   label: string;
   value: string;
   placeholder: string;
@@ -138,7 +112,10 @@ function SelectField({
         id={id}
         value={value}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
+        aria-describedby={
+          [help ? `${id}-help` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ') ||
+          undefined
+        }
         onChange={(e) => {
           onChange(e.currentTarget.value);
         }}
@@ -150,6 +127,11 @@ function SelectField({
           </option>
         ))}
       </select>
+      {help && (
+        <p id={`${id}-help`} className="field-help">
+          {help}
+        </p>
+      )}
       <ErrorText id={`${id}-error`}>{error}</ErrorText>
     </div>
   );
@@ -169,17 +151,20 @@ export function PlanWizard({
   editing,
   mailboxes,
   onSubmit,
+  initialStep = 1,
 }: {
   initial: PlanForm;
   editing: boolean;
   mailboxes: Mailbox[];
-  /** Renvoie le message d'échec, ou `undefined` si l'enregistrement a réussi. */
-  onSubmit: (form: PlanForm) => Promise<string | undefined>;
+  /** Renvoie le problème, ou `undefined` si l'enregistrement a réussi. */
+  onSubmit: (form: PlanForm) => Promise<Problem | undefined>;
+  /** Étape affichée à l'ouverture (tests). */
+  initialStep?: 1 | 2 | 3;
 }) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(initialStep);
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [failure, setFailure] = useState<string>();
+  const [failure, setFailure] = useState<Problem>();
   const [saving, setSaving] = useState(false);
   const title = useRef<HTMLParagraphElement>(null);
   const first = useRef(true);
@@ -201,13 +186,12 @@ export function PlanWizard({
   const submit = async () => {
     setSaving(true);
     setFailure(undefined);
-    const message = await onSubmit(form);
+    const problem = await onSubmit(form);
     // En cas de succès la page quitte le parcours : seul l'échec rend la main, saisies conservées.
-    setFailure(message);
+    setFailure(problem);
     setSaving(false);
   };
   const messages = Object.values(errors);
-  const reasonText = justificationText(form.reasonKind || 'other', form.reasonDetail);
 
   return (
     <form
@@ -229,7 +213,7 @@ export function PlanWizard({
           </ul>
         </Alert>
       )}
-      {failure && <Alert tone="error">{failure}</Alert>}
+      {failure && <PlanFailure problem={failure} />}
 
       {step === 1 && (
         <>
@@ -266,7 +250,7 @@ export function PlanWizard({
             </div>
             <ErrorText id="data-types-error">{errors.dataTypes}</ErrorText>
           </fieldset>
-          <RadioGroup
+          <ChoiceGroup
             legend="Périmètre"
             name="scope"
             value={form.scope}
@@ -307,8 +291,8 @@ export function PlanWizard({
 
       {step === 2 && (
         <>
-          <RadioGroup<RpoHours>
-            legend="Perte de données acceptable (RPO)"
+          <ChoiceGroup<RpoHours>
+            legend="Perte de données acceptable"
             name="rpo"
             value={form.rpoHours}
             options={RPO_CHOICES.map((h) => ({ value: h, label: `${h} h` }))}
@@ -317,19 +301,20 @@ export function PlanWizard({
               patch({ rpoHours });
             }}
           />
-          <RadioGroup<number>
-            legend="Remise en service souhaitée (RTO)"
+          <ChoiceGroup<number>
+            legend="Remise en service souhaitée"
             name="rto"
             value={form.rtoHours}
             options={withCurrent(RTO_CHOICES, form.rtoHours).map((h) => ({
               value: h,
               label: `${h} h`,
             }))}
+            help={rtoHelp(form.rtoHours)}
             onChange={(rtoHours) => {
               patch({ rtoHours });
             }}
           />
-          <RadioGroup<number>
+          <ChoiceGroup<number>
             legend="Durée de conservation"
             name="retention"
             value={form.retentionDays}
@@ -337,6 +322,7 @@ export function PlanWizard({
               value: d,
               label: retentionLabel(d),
             }))}
+            help={retentionHelp(form.retentionDays)}
             onChange={(retentionDays) => {
               patch({ retentionDays });
             }}
@@ -368,12 +354,11 @@ export function PlanWizard({
       )}
 
       {step === 3 && (
-        <div className="recap">
-          <p className="recap-sentence">{summarySentence(form)}</p>
-          <p>{rtoSentence(form.rtoHours)}</p>
-          <p>{`Justification : ${reasonText.charAt(0).toLowerCase()}${reasonText.slice(1)}.`}</p>
-          <p>{MESSAGES.auditTrail}</p>
-        </div>
+        <>
+          <h2>Récapitulatif</h2>
+          <ResultList rows={recapRows(form)} />
+          <AuditReminder />
+        </>
       )}
 
       <WizardActions
@@ -414,6 +399,68 @@ export function PlanWizard({
 
 // ---- Dialogues ------------------------------------------------------------------------------
 
+/** Réessayer ne changerait rien tant que la console n'est pas reliée à Microsoft 365. */
+export function isRunBlocked(problem: Problem | undefined): problem is Problem {
+  return problem?.code === 'backup_not_configured';
+}
+
+/** Résultat d'un lancement impossible : avertissement, rappel de la demande, « Fermer ». */
+export function RunBlocked({
+  problem,
+  planName,
+  reason,
+  onClose,
+}: {
+  problem: Problem;
+  planName: string;
+  reason: string;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <PlanFailure problem={problem} />
+      <ResultList
+        rows={[
+          ['Plan', planName],
+          ['Motif', reason],
+        ]}
+      />
+      <p>Aucune sauvegarde n’a été lancée.</p>
+      <div className="button-row dialog-actions">
+        {/* Le formulaire vient d'être démonté : le focus passe au seul bouton restant. */}
+        <Button data-safe autoFocus onClick={onClose}>
+          Fermer
+        </Button>
+      </div>
+    </>
+  );
+}
+
+/** Échec éventuel d'un lancement qui peut être retenté, et boutons du formulaire. */
+export function RunFeedback({
+  problem,
+  busy,
+  onClose,
+}: {
+  problem?: Problem | undefined;
+  busy: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      {problem && <PlanFailure problem={problem} />}
+      <div className="button-row dialog-actions">
+        <Button variant="secondary" data-safe onClick={onClose}>
+          Annuler
+        </Button>
+        <Button type="submit" busy={busy}>
+          Lancer la sauvegarde
+        </Button>
+      </div>
+    </>
+  );
+}
+
 function RunDialog({
   plan,
   onClose,
@@ -421,69 +468,78 @@ function RunDialog({
 }: {
   plan: PlanItem | null;
   onClose: () => void;
-  onRun: (plan: PlanItem, reason: string) => Promise<string | undefined>;
+  onRun: (plan: PlanItem, reason: string) => Promise<Problem | undefined>;
 }) {
   const [choice, setChoice] = useState('');
   const [detail, setDetail] = useState('');
   const [error, setError] = useState<string>();
+  const [problem, setProblem] = useState<Problem>();
   const [busy, setBusy] = useState(false);
   // Chaque ouverture repart d'un formulaire vide.
   useEffect(() => {
     setChoice('');
     setDetail('');
     setError(undefined);
+    setProblem(undefined);
     setBusy(false);
   }, [plan]);
+  const blocked = isRunBlocked(problem);
   const missing = choice === '' || (choice === 'Autre (préciser)' && detail.trim() === '');
   return (
     <Dialog
       open={plan !== null}
-      title={`Lancer « ${plan?.name ?? ''} » maintenant`}
+      title={blocked ? 'Lancement impossible' : `Lancer « ${plan?.name ?? ''} » maintenant`}
       onClose={onClose}
     >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!plan || busy) return;
-          if (missing) {
-            setError(MESSAGES.runReason);
-            return;
-          }
-          setBusy(true);
-          void onRun(plan, runReasonText(choice, detail)).then((failure) => {
-            setBusy(false);
-            setError(failure);
-          });
-        }}
-      >
-        <SelectField
-          id="run-reason"
-          label="Motif *"
-          value={choice}
-          placeholder="Choisir un motif"
-          options={RUN_REASONS.map((r) => ({ value: r, label: r }))}
-          error={error}
-          onChange={setChoice}
+      {blocked ? (
+        <RunBlocked
+          problem={problem}
+          planName={plan?.name ?? ''}
+          reason={runReasonText(choice, detail)}
+          onClose={onClose}
         />
-        <FormField
-          label="Précision"
-          value={detail}
-          maxLength={150}
-          onChange={(e) => {
-            setDetail(e.currentTarget.value);
+      ) : (
+        <form
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!plan || busy) return;
+            // Une nouvelle tentative efface l'échec précédent : un seul message à la fois.
+            setProblem(undefined);
+            if (missing) {
+              setError(MESSAGES.runReason);
+              return;
+            }
+            setError(undefined);
+            setBusy(true);
+            void onRun(plan, runReasonText(choice, detail)).then((failure) => {
+              setBusy(false);
+              setProblem(failure);
+            });
           }}
-        />
-        <Alert tone="info">Cette action sera inscrite au journal d’audit.</Alert>
-        <div className="button-row dialog-actions">
-          <Button variant="secondary" data-safe onClick={onClose}>
-            Annuler
-          </Button>
-          <Button type="submit" busy={busy}>
-            Lancer la sauvegarde
-          </Button>
-        </div>
-      </form>
+        >
+          <SelectField
+            id="run-reason"
+            label={reasonLabel('du lancement')}
+            help={REASON.help}
+            value={choice}
+            placeholder="Choisir un motif"
+            options={RUN_REASONS.map((r) => ({ value: r, label: r }))}
+            error={error}
+            onChange={setChoice}
+          />
+          <FormField
+            label="Précision (facultatif)"
+            value={detail}
+            counterMax={REASON.maxLength}
+            onChange={(e) => {
+              setDetail(e.currentTarget.value);
+            }}
+          />
+          <AuditReminder />
+          <RunFeedback problem={problem} busy={busy} onClose={onClose} />
+        </form>
+      )}
     </Dialog>
   );
 }
@@ -495,9 +551,9 @@ function DeleteDialog({
 }: {
   plan: PlanItem | null;
   onClose: () => void;
-  onDelete: (plan: PlanItem) => Promise<string | undefined>;
+  onDelete: (plan: PlanItem) => Promise<Problem | undefined>;
 }) {
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<Problem>();
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     setError(undefined);
@@ -509,7 +565,7 @@ function DeleteDialog({
         Les sauvegardes existantes sont conservées jusqu’à la fin de leur durée de conservation.
         Aucune nouvelle sauvegarde ne sera faite.
       </p>
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && <PlanFailure problem={error} />}
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onClose}>
           Annuler
@@ -542,16 +598,29 @@ function planColumns(
   actions: { onRun: (p: PlanItem) => void; onDelete: (p: PlanItem) => void },
 ): Column<PlanItem>[] {
   const columns: Column<PlanItem>[] = [
-    { header: 'Plan', cell: (p) => p.name, className: 'nowrap-wide' },
     {
-      header: 'Conformité',
+      header: 'Plan',
+      cell: (p) => (
+        <div>
+          <span className="nowrap-wide">{p.name}</span>
+          <small className="state-note plan-summary">{planSummary(p)}</small>
+        </div>
+      ),
+    },
+    {
+      header: 'État',
       className: 'compliance-cell',
       cell: (p) => {
         const view = complianceView(p);
-        return <StatusPill status={view.status} label={view.label} />;
+        return (
+          <div>
+            <StatusPill status={view.status} label={view.label} />
+            {view.note && <small className="state-note">{view.note}</small>}
+          </div>
+        );
       },
     },
-    { header: 'Dernière exécution', cell: lastRunLabel },
+    { header: 'Dernière exécution (UTC)', cell: lastRunLabel },
   ];
   if (admin) {
     columns.push({
@@ -741,7 +810,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   };
   const onRun = async (plan: PlanItem, reason: string) => {
     const outcome = await runPlan(plan.id, reason);
-    if (!outcome.ok) return outcome.message;
+    if (!outcome.ok) return outcome;
     setRunTarget(null);
     setFlash({ tone: 'success', text: MESSAGES.runStarted });
     load();
@@ -749,7 +818,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   };
   const onDelete = async (plan: PlanItem) => {
     const outcome = await deletePlan(plan.id);
-    if (!outcome.ok) return outcome.message;
+    if (!outcome.ok) return outcome;
     setDeleteTarget(null);
     setFlash({ tone: 'success', text: MESSAGES.deleted });
     load();
@@ -760,14 +829,14 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   const plan = Array.isArray(state) && editing ? state.find((p) => p.id === editing) : undefined;
   const wizard = route.page !== 'list';
 
-  const save = async (form: PlanForm): Promise<string | undefined> => {
+  const save = async (form: PlanForm): Promise<Problem | undefined> => {
     if (editing) {
       const outcome = await updatePlan(editing, form);
-      if (!outcome.ok) return outcome.message;
+      if (!outcome.ok) return outcome;
       setFlash({ tone: 'success', text: MESSAGES.updated });
     } else {
       const outcome = await createPlan(form);
-      if (!outcome.ok) return outcome.message;
+      if (!outcome.ok) return outcome;
       setFlash({ tone: 'success', text: createdMessage(outcome.value) });
     }
     load();

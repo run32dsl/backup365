@@ -157,7 +157,8 @@ a {
 .sidebar-footer a:hover {
   background: var(--border-soft);
 }
-.nav-list a[aria-current='page'] {
+.nav-list a[aria-current='page'],
+.sidebar-footer a[aria-current='page'] {
   border-left-color: var(--accent);
   font-weight: 700;
   background: var(--border-soft);
@@ -292,6 +293,46 @@ th {
   color: var(--info-fg);
 }
 
+/* Accueil : trois cartes, deux colonnes dès 900 px (l'état de la sauvegarde sur toute la largeur). */
+.overview {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 1fr;
+}
+.overview-card {
+  padding: var(--space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.overview-card h2 {
+  margin: 0 0 var(--space-2);
+}
+.overview-card p {
+  margin: var(--space-2) 0;
+}
+.overview-card .btn {
+  width: 100%;
+  min-height: 2.75rem;
+}
+.overview-card a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+@media (min-width: 900px) {
+  .overview {
+    grid-template-columns: 1fr 1fr;
+  }
+  .overview-card:first-child {
+    grid-column: 1 / -1;
+  }
+  .overview-card .btn {
+    width: auto;
+  }
+}
+
 [role='alert'],
 .banner {
   padding: var(--space-2) var(--space-3);
@@ -413,11 +454,40 @@ select[aria-disabled='true'] {
   align-items: center;
   margin-bottom: var(--space-3);
 }
-.form-row {
-  display: flex;
-  flex-wrap: wrap;
+/* Pagination répétée au-dessus des cartes : seulement en affichage mobile. */
+.pager-top {
+  display: none;
+}
+@media (max-width: 56.25rem) {
+  .pager-top {
+    display: block;
+  }
+}
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
   gap: var(--space-2) var(--space-3);
-  align-items: flex-end;
+  align-items: start;
+}
+.filters .field {
+  max-width: none;
+  margin: 0;
+}
+.filters input,
+.filters select,
+.filters .btn {
+  width: 100%;
+  box-sizing: border-box;
+}
+@media (min-width: 56.26rem) {
+  .filters > .btn {
+    grid-column: -2 / -1;
+  }
+}
+@media (max-width: 56.25rem) {
+  .filters {
+    grid-template-columns: 1fr;
+  }
 }
 
 .field {
@@ -449,6 +519,15 @@ select[aria-disabled='true'] {
 }
 .export-help {
   margin-top: var(--space-2);
+}
+.export-note {
+  margin-bottom: var(--space-2);
+}
+.export-result {
+  margin-top: var(--space-2);
+}
+.export-result .alert {
+  margin-bottom: 0;
 }
 .field-counter {
   margin-left: auto;
@@ -487,6 +566,17 @@ select[aria-disabled='true'] {
   content: '\200b';
 }
 
+/* Explication d'un état, sous la pastille. */
+.state-note {
+  display: block;
+  color: var(--muted);
+}
+
+/* Synthèse d'un plan sous son nom : passe à la ligne sans élargir la page. */
+.plan-summary {
+  overflow-wrap: anywhere;
+}
+
 /* Adresse sur une seule ligne en tableau ; en carte (sous 900 px) elle peut passer à la ligne. */
 @media (min-width: 56.26rem) {
   .data-table .address {
@@ -498,9 +588,9 @@ select[aria-disabled='true'] {
     white-space: nowrap;
   }
 
-  /* Un libellé de conformité long passe à la ligne dans sa pastille plutôt que de déborder. */
+  /* Pastille courte sur une ligne ; l'explication passe en texte secondaire dessous. */
   .data-table .compliance-cell .badge {
-    white-space: normal;
+    white-space: nowrap;
   }
 
   /* Cellules resserrées pour que le tableau de résultats tienne dans la page à 1280 px. */
@@ -513,14 +603,37 @@ select[aria-disabled='true'] {
     padding-inline: 0.625rem;
   }
 
-  /* Objet : une seule ligne, tronquée par « … » (le titre complet est dans l'infobulle). */
+  /* Nombre aligné à droite ; la colonne `col-reason` qui suit en est séparée d'au moins `--space-3`. */
+  .data-table .num {
+    text-align: right;
+  }
+  .data-table .col-reason {
+    min-width: 12rem;
+    padding-inline-start: var(--space-3);
+  }
+
+  /* Boîte : l'adresse passe à la ligne (après le « @ », sinon n'importe où) quand le tableau ne tient pas. */
+  .data-table .col-mailbox {
+    width: 11rem;
+    overflow-wrap: anywhere;
+  }
+
+  /*
+   * Objet : une seule ligne, tronquée par « … » (le titre complet est dans l'infobulle). C'est la
+   * colonne élastique du tableau : `max-width: 0` retire son texte du calcul des largeurs, elle
+   * prend la place que laissent les autres colonnes (au moins 8rem) et le tableau ne dépasse pas
+   * son conteneur quand la police ou les adresses sont plus larges.
+   */
+  .data-table .subject {
+    width: 100%;
+    min-width: 8rem;
+    max-width: 0;
+  }
   .data-table .subject a {
-    display: inline-block;
-    max-width: 20rem;
+    display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    vertical-align: bottom;
   }
 }
 
@@ -529,6 +642,10 @@ select[aria-disabled='true'] {
   .data-table tbody,
   .data-table tr,
   .data-table td {
+    display: block;
+  }
+  /* La légende occupe toute la largeur de la carte, comme un titre. */
+  .data-table caption {
     display: block;
   }
   .data-table thead {
@@ -553,9 +670,22 @@ select[aria-disabled='true'] {
   /* Cellule d'action : le bouton seul, sans étiquette à gauche. */
   .data-table td.card-action {
     display: block;
+    /* Séparation entre la dernière ligne de données et les actions. */
+    padding-top: var(--space-2);
   }
   .data-table td.card-action::before {
     display: none;
+  }
+  /* La pastille garde sa largeur naturelle au lieu d'être étirée par la grille. */
+  .data-table td > .badge {
+    justify-self: start;
+  }
+  /* Plusieurs actions dans une carte : chacune en pleine largeur, sans débordement. */
+  .data-table td.card-action .button-row {
+    margin-bottom: 0;
+  }
+  .data-table td.card-action .button-row .btn {
+    flex: 1 1 100%;
   }
   .data-table td::before {
     content: attr(data-label);
@@ -569,24 +699,18 @@ select[aria-disabled='true'] {
   .backups .ok-toggle {
     display: inline-flex;
   }
-  /* Carte compacte : deux cellules par ligne, sans étiquette ; le motif prend toute la largeur. */
-  .data-table-compact tr {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0 var(--space-2);
-  }
-  .data-table-compact td {
-    display: block;
-  }
-  .data-table-compact td::before,
-  .data-table-compact td.card-hidden,
-  .data-table-compact td:empty {
+  /* Une cellule sans valeur n'est pas affichée dans la carte, ni les colonnes réservées au tableau. */
+  .data-table td.card-hidden,
+  .data-table td:empty {
     display: none;
   }
-  .data-table-compact td.card-wide {
-    grid-column: 1 / -1;
-    color: var(--muted);
-  }
+}
+
+/* Précision en texte secondaire sous une valeur de tableau (sur sa propre ligne, sous la valeur). */
+.cell-secondary {
+  display: block;
+  color: var(--muted);
+  font-size: 0.875em;
 }
 
 .alert {
@@ -602,6 +726,15 @@ select[aria-disabled='true'] {
 .alert-text {
   flex: 1;
   min-width: 12rem;
+}
+.alert-detail {
+  display: block;
+  margin-top: var(--space-1);
+}
+.request-id {
+  font-size: 0.8125rem;
+  opacity: 0.85;
+  overflow-wrap: anywhere;
 }
 .alert.alert-info {
   border-left-color: var(--info-fg);
@@ -691,6 +824,12 @@ select[aria-disabled='true'] {
 .wizard-actions > :last-child {
   margin-left: auto;
 }
+.wizard-actions > :only-child {
+  margin-left: 0;
+}
+.empty + .wizard-actions {
+  margin-top: var(--space-3);
+}
 @media (max-width: 37.5rem) {
   .dialog-backdrop {
     padding: 0;
@@ -704,9 +843,6 @@ select[aria-disabled='true'] {
   .dialog-actions {
     flex-direction: column-reverse;
     align-items: stretch;
-  }
-  .dialog-actions.primary-first {
-    flex-direction: column;
   }
   .dialog-actions .btn {
     min-height: 2.75rem;
@@ -723,10 +859,43 @@ select[aria-disabled='true'] {
   flex: 1;
   width: 100%;
 }
+/* Confirmation passagère au-dessus de l'écran, alignée sur le contenu. */
+.content > [role='status'] > .alert {
+  margin: var(--space-4) var(--space-4) calc(-1 * var(--space-3));
+  max-width: 70rem;
+}
+@media (max-width: 56.25rem) {
+  .content > [role='status'] > .alert {
+    margin: var(--space-3) var(--space-3) calc(-1 * var(--space-2));
+  }
+}
 .console-footer {
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border-soft);
   color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-3);
+}
+/* Chaque élément reste entier : le retour à la ligne se fait entre la version et le lien. */
+.console-footer-item {
+  white-space: nowrap;
+}
+.console-footer-link {
+  display: inline-flex;
+  align-items: center;
+}
+.console-footer-link a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+/* Sous 900 px, même marge que le contenu (`main`) : la version s'aligne sur le texte au-dessus. */
+@media (max-width: 56.25rem) {
+  .console-footer {
+    padding-inline: var(--space-3);
+  }
 }
 .toc {
   display: flex;
@@ -872,17 +1041,6 @@ a.btn-secondary {
   margin: 0;
   padding-left: var(--space-3);
 }
-.recap {
-  padding: var(--space-3);
-  margin-bottom: var(--space-3);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-.recap-sentence {
-  font-size: 1.125rem;
-  font-weight: 600;
-}
 .skeleton {
   height: 8rem;
   border-radius: var(--radius);
@@ -890,9 +1048,6 @@ a.btn-secondary {
   border: 1px solid var(--border-soft);
 }
 @media (max-width: 40rem) {
-  .wizard .steps ol {
-    display: none;
-  }
   .row-actions {
     flex-direction: column;
     align-items: stretch;
@@ -944,6 +1099,14 @@ a.btn-secondary {
   form > .btn {
     width: 100%;
   }
+  /* Mot de passe temporaire : le champ et « Copier » prennent chacun toute la largeur. */
+  .temp-password-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .temp-password-row .btn {
+    width: 100%;
+  }
 }
 
 /* Restauration OneDrive : sélecteurs, fil d'Ariane, tableau des éléments */
@@ -977,6 +1140,14 @@ a.btn-secondary {
 .drive-list .data-table td {
   vertical-align: middle;
 }
+.drive-list .data-table td .choice {
+  flex-wrap: wrap;
+}
+.cell-secondary-inline {
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.875em;
+}
 .breadcrumb li::before {
   content: '>';
   flex: none;
@@ -1003,51 +1174,12 @@ a.btn-secondary {
   }
 }
 
-/* Restauration SharePoint : arborescence du site, barre de progression */
-.site-tree {
-  margin: 0 0 var(--space-3);
-  padding: 0;
-  list-style: none;
-  max-height: 20rem;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-.site-node {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-2);
-  min-height: 2.75rem;
-  padding: 0 var(--space-3);
-  border-bottom: 1px solid var(--border-soft);
-  cursor: pointer;
-}
-.site-node:last-child {
-  border-bottom: 0;
-}
+/* Restauration SharePoint : barre de progression */
 .button-row + .field-help {
   margin-top: var(--space-3);
 }
 .btn.is-inactive {
   opacity: 0.6;
-}
-.site-node[aria-disabled='true'] {
-  color: var(--muted);
-  cursor: default;
-}
-.site-node.is-selected {
-  background: var(--info-bg);
-  color: var(--info-fg);
-  font-weight: 600;
-}
-.site-node-meta {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-.site-node.is-selected .site-node-meta {
-  color: inherit;
 }
 .progress {
   height: 0.75rem;
@@ -1075,12 +1207,6 @@ a.btn-secondary {
     animation: none;
   }
 }
-@media (max-width: 40rem) {
-  .site-node-meta {
-    margin-left: 0;
-    flex-basis: 100%;
-  }
-}
 .meta-list {
   margin: 0 0 var(--space-4);
 }
@@ -1098,6 +1224,9 @@ a.btn-secondary {
   margin: 0;
   color: var(--text);
   overflow-wrap: anywhere;
+}
+.restore-unavailable {
+  margin-top: var(--space-3);
 }
 .mail-section {
   margin-top: var(--space-4);

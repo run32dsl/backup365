@@ -90,6 +90,10 @@ Statut : **proposé** (issue #21, décisions du PO du 2026-11-13).
 - `GET /api/audit` n'est pas elle-même consignée : le journal n'est pas un élément sauvegardé,
   mais il contient des identifiants de boîte. Confirmé par le PM le 2026-11-12 (issue #23), valable
   jusqu'à l'authentification ; la consignation de cette lecture est suivie dans #22.
+  _Note (issue #124, proposé) : pour les entrées visant un mail (`mail`, `mail.restore`),
+  `GET /api/audit` ajoute `targetName` (objet) et `targetMailbox` lus dans l'index à la
+  consultation, hors chaîne d'empreintes ; ils restent absents si le mail n'est plus indexé. Le
+  journal est réservé aux comptes authentifiés (ADR 0008)._
 - `access.denied` est émis quand le catalogue ou l'index est indisponible ou qu'un instantané est
   introuvable, sur l'ouverture d'un instantané et sur la recherche ; le refus d'authentification
   viendra avec l'authentification.

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   LAST_ADMIN_NOTICE,
+  OIDC_PASSWORD_NOTICE,
   RESET_TEXTS,
   NO_OPERATOR,
   ROLE_DESCRIPTIONS,
@@ -12,19 +13,22 @@ import {
   updateAccount,
   type AccountInfo,
 } from './accounts.js';
+import { requestIdOf, type Problem } from './apiError.js';
+import { FailureAlert } from './FailureAlert.js';
 import { ErrorView, Field } from './LoginPage.js';
 import { ResetPasswordDialog } from './ResetPassword.js';
 import { AUDIT_NOTICE, UNREACHABLE, type Outcome, type Role } from './session.js';
-import { Alert, Button, DataTable, StatusPill, type Column } from './ui/index.js';
+import { Alert, Button, DataTable, Dialog, StatusPill, type Column } from './ui/index.js';
 
 export type AccountsState = AccountInfo[] | 'loading' | 'error';
 
 export interface AccountActions {
   onRole: (id: number, role: Role) => void;
   onDisabled: (id: number, disabled: boolean) => void;
-  /** Résout à `true` si la requête a réussi : le formulaire n'est vidé qu'alors. */
-  onCreate: (form: FormData) => Promise<boolean> | void;
-  onReset: (form: FormData) => Promise<boolean> | void;
+  /** Résout à `true` si le compte est créé (la boîte se ferme), sinon au message d'erreur affiché dans la boîte. */
+  onCreate: (form: FormData) => Promise<true | Problem>;
+  /** Ouvre la boîte de réinitialisation du compte de la ligne. */
+  onReset: (id: number) => void;
 }
 
 const stateOf = (a: AccountInfo) =>
@@ -87,41 +91,62 @@ const columns = (
   { header: 'État', cell: stateOf },
   {
     header: 'Actions',
+    className: 'card-action',
     cell: (a) => {
       const last = isLastAdmin(state, a);
       return (
-        <Button
-          variant="secondary"
-          aria-disabled={last || undefined}
-          aria-describedby={last ? `last-admin-${a.id}` : undefined}
-          onClick={() => {
-            if (!last) actions?.onDisabled?.(a.id, !a.disabled);
-          }}
-        >
-          {a.disabled ? 'Réactiver' : 'Désactiver'}
-        </Button>
+        <div className="button-row">
+          {a.oidc ? (
+            <span className="cell-secondary">{OIDC_PASSWORD_NOTICE}</span>
+          ) : (
+            <Button
+              variant="secondary"
+              aria-label={`${RESET_TEXTS.title} : ${a.username}`}
+              onClick={() => actions?.onReset?.(a.id)}
+            >
+              {RESET_TEXTS.title}
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            aria-disabled={last || undefined}
+            aria-describedby={last ? `last-admin-${a.id}` : undefined}
+            onClick={() => {
+              if (!last) actions?.onDisabled?.(a.id, !a.disabled);
+            }}
+          >
+            {a.disabled ? 'Réactiver' : 'Désactiver'}
+          </Button>
+          {last && (
+            <span id={`last-admin-${a.id}`} className="cell-secondary">
+              {LAST_ADMIN_NOTICE}
+            </span>
+          )}
+        </div>
       );
     },
   },
 ];
 
-/** Tableau des comptes et formulaires de création et de réinitialisation. */
+/** Tableau des comptes ; la création et la réinitialisation s'ouvrent en boîtes (`dialog`). */
 export function AccountsView({
   state,
   message,
   actions,
   dialog,
   onRetry,
+  loadRequestId,
 }: {
-  /** Boîte de réinitialisation (étapes 2 et 3). */
+  /** Boîtes de création et de réinitialisation (étapes 2 et 3). */
   dialog?: ReactNode;
   state: AccountsState;
-  message?: { kind: 'error' | 'status'; text: string };
+  message?: { kind: 'error' | 'status'; text: string; requestId?: string | undefined };
   actions?: Partial<AccountActions>;
   onRetry?: () => void;
+  loadRequestId?: string | undefined;
 }) {
-  // La boîte reste montée même si la liste charge ou échoue : elle porte le mot de passe
-  // temporaire, qui ne peut pas être relu.
+  // Les boîtes restent montées même si la liste charge ou échoue : celle du mot de passe
+  // temporaire porte un mot de passe qui ne peut pas être relu.
   if (state === 'loading')
     return (
       <>
@@ -132,29 +157,18 @@ export function AccountsView({
   if (state === 'error')
     return (
       <>
-        <ErrorView message="Comptes indisponibles" onRetry={onRetry} />
+        <ErrorView message="Comptes indisponibles" requestId={loadRequestId} onRetry={onRetry} />
         {dialog}
       </>
     );
-  const submit =
-    (handler?: (form: FormData) => Promise<boolean> | void) => (e: FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      const form = e.currentTarget;
-      void Promise.resolve(handler?.(new FormData(form))).then((ok) => {
-        if (ok === true) form.reset();
-      });
-    };
-  const lastAdmin = state.find((a) => isLastAdmin(state, a));
   return (
     <>
-      {message && (
-        <Alert tone={message.kind === 'error' ? 'error' : 'success'}>{message.text}</Alert>
-      )}
-      {lastAdmin && (
-        <Alert id={`last-admin-${lastAdmin.id}`} tone="info">
-          {LAST_ADMIN_NOTICE}
-        </Alert>
-      )}
+      {message &&
+        (message.kind === 'error' ? (
+          <FailureAlert problem={{ message: message.text, requestId: message.requestId }} />
+        ) : (
+          <Alert tone="success">{message.text}</Alert>
+        ))}
       <h2>Comptes de la console</h2>
       <DataTable
         caption="Comptes de la console"
@@ -164,63 +178,113 @@ export function AccountsView({
         rowKey={(a) => a.id}
       />
       {!state.some((a) => a.role === 'operator') && <p>{NO_OPERATOR}</p>}
-      <h2>Créer un compte</h2>
-      <form onSubmit={submit(actions?.onCreate)}>
-        <p>
-          <label>
-            Identifiant <input name="username" autoComplete="off" required />
-          </label>
-        </p>
-        <p>
-          <label>
-            Rôle <RoleSelect name="role" value="operator" />
-          </label>
-        </p>
-        <Field
-          label="Mot de passe temporaire (12 caractères au minimum)"
-          name="password"
-          type="password"
-          autoComplete="new-password"
-        />
-        <ul>
-          {(Object.keys(ROLE_LABELS) as Role[]).map((role) => (
-            <li key={role}>
-              {ROLE_LABELS[role]} : {ROLE_DESCRIPTIONS[role]}
-            </li>
-          ))}
-        </ul>
-        <div className="button-row">
-          <Button type="submit">Nouveau compte</Button>
-          <Button type="reset" variant="secondary">
-            Annuler
-          </Button>
-        </div>
-      </form>
-      <h2>Réinitialiser un mot de passe</h2>
-      <p>
-        Un mot de passe temporaire est généré et affiché une seule fois ; l’utilisateur devra le
-        changer à sa prochaine connexion.
-      </p>
-      <form onSubmit={submit(actions?.onReset)}>
-        <p>
-          <label>
-            Compte{' '}
-            <select name="id" required>
-              {state.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.username}
-                </option>
-              ))}
-            </select>
-          </label>
-        </p>
-        <div className="button-row">
-          <Button type="submit">{RESET_TEXTS.title}</Button>
-        </div>
-      </form>
       {dialog}
       <p>{AUDIT_NOTICE}</p>
     </>
+  );
+}
+
+/** Contenu de la boîte « Créer un compte ». Sans état : `error` et `busy` viennent de la boîte. */
+export function CreateAccountForm({
+  error,
+  busy = false,
+  onSubmit,
+  onCancel,
+}: {
+  error?: Problem | undefined;
+  busy?: boolean;
+  onSubmit?: (form: FormData) => void;
+  onCancel?: () => void;
+}) {
+  return (
+    <form
+      onSubmit={(e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        onSubmit?.(new FormData(e.currentTarget));
+      }}
+    >
+      {error && <FailureAlert problem={error} />}
+      <p>
+        <label>
+          Identifiant <input name="username" autoComplete="off" required />
+        </label>
+      </p>
+      <p>
+        <label>
+          Rôle <RoleSelect name="role" value="operator" />
+        </label>
+      </p>
+      <Field
+        label="Mot de passe temporaire (12 caractères au minimum)"
+        name="password"
+        type="password"
+        autoComplete="new-password"
+      />
+      <ul>
+        {(Object.keys(ROLE_LABELS) as Role[]).map((role) => (
+          <li key={role}>
+            {ROLE_LABELS[role]} : {ROLE_DESCRIPTIONS[role]}
+          </li>
+        ))}
+      </ul>
+      <div className="button-row dialog-actions">
+        <Button variant="secondary" data-safe onClick={onCancel}>
+          Annuler
+        </Button>
+        <Button type="submit" busy={busy}>
+          Créer le compte
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** Décide de la suite d'une création : la boîte se ferme si elle a réussi, sinon elle reste. */
+export async function submitCreate(
+  create: (form: FormData) => Promise<true | Problem>,
+  form: FormData,
+  close: () => void,
+): Promise<Problem | undefined> {
+  const result = await create(form);
+  if (result === true) {
+    close();
+    return undefined;
+  }
+  return result;
+}
+
+/** Boîte « Créer un compte » : se ferme sur « Annuler » ou quand la création a réussi. */
+export function CreateAccountDialog({
+  open,
+  onCreate,
+  onClose,
+}: {
+  open: boolean;
+  onCreate: (form: FormData) => Promise<true | Problem>;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<Problem>();
+  useEffect(() => {
+    setBusy(false);
+    setError(undefined);
+  }, [open]);
+  return (
+    <Dialog open={open} title="Créer un compte" onClose={onClose}>
+      <CreateAccountForm
+        error={error}
+        busy={busy}
+        onCancel={onClose}
+        onSubmit={(form) => {
+          if (busy) return;
+          setBusy(true);
+          void submitCreate(onCreate, form, onClose).then((failure) => {
+            setBusy(false);
+            setError(failure);
+          });
+        }}
+      />
+    </Dialog>
   );
 }
 
@@ -232,11 +296,20 @@ const text = (form: FormData, name: string): string => {
 /** Gestion des comptes (écran `#/comptes`, administrateur seulement). */
 export function AccountsPage() {
   const [state, setState] = useState<AccountsState>('loading');
-  const [message, setMessage] = useState<{ kind: 'error' | 'status'; text: string }>();
+  const [message, setMessage] = useState<{
+    kind: 'error' | 'status';
+    text: string;
+    requestId?: string | undefined;
+  }>();
   const [reset, setReset] = useState<{ id: number; username: string } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [loadRequestId, setLoadRequestId] = useState<string>();
   const resetDone = useRef(false);
   const reload = useCallback(() => {
-    fetchAccounts().then(setState, () => setState('error'));
+    fetchAccounts().then(setState, (e: unknown) => {
+      setLoadRequestId(requestIdOf(e));
+      setState('error');
+    });
   }, []);
   useEffect(reload, [reload]);
 
@@ -244,14 +317,18 @@ export function AccountsPage() {
     return request.then(
       (outcome) => {
         setMessage(
-          outcome.ok ? { kind: 'status', text: done } : { kind: 'error', text: outcome.message },
+          outcome.ok
+            ? { kind: 'status', text: done }
+            : { kind: 'error', text: outcome.message, requestId: outcome.requestId },
         );
         reload();
-        return outcome.ok;
+        return outcome.ok
+          ? (true as const)
+          : { message: outcome.message, requestId: outcome.requestId };
       },
       () => {
         setMessage({ kind: 'error', text: UNREACHABLE });
-        return false;
+        return { message: UNREACHABLE };
       },
     );
   };
@@ -271,43 +348,62 @@ export function AccountsPage() {
           text(form, 'role') as Role,
         ),
       ),
-    // Étape 1 : ouvre la boîte du compte choisi (étapes 2 et 3).
-    onReset: (form) => {
-      const id = Number(text(form, 'id'));
+    // Étape 1 : ouvre la boîte du compte de la ligne (étapes 2 et 3).
+    onReset: (id) => {
       setReset({ id, username: nameOf(id) });
     },
   };
   const runReset = async (reason: string) => {
-    if (!reset) return { error: UNREACHABLE };
+    if (!reset) return { error: { message: UNREACHABLE } };
     try {
       const outcome = await resetPassword(reset.id, reason);
       if (outcome.ok) {
         resetDone.current = true;
         return { password: outcome.value };
       }
-      return { error: outcome.message };
+      return { error: { message: outcome.message, requestId: outcome.requestId } };
     } catch {
-      return { error: UNREACHABLE };
+      return { error: { message: UNREACHABLE } };
     }
   };
   return (
     <main tabIndex={-1}>
-      <h1>Administration</h1>
+      <div className="page-header">
+        <h1>Administration</h1>
+        <Button
+          onClick={() => {
+            setCreating(true);
+          }}
+        >
+          <span aria-hidden="true">+ </span>
+          Créer un compte
+        </Button>
+      </div>
       <AccountsView
         state={state}
         message={message}
+        loadRequestId={loadRequestId}
         actions={actions}
         dialog={
-          <ResetPasswordDialog
-            username={reset?.username ?? null}
-            run={runReset}
-            onClose={() => {
-              setReset(null);
-              // Rechargement après la lecture du mot de passe : la session du compte est révoquée.
-              if (resetDone.current) reload();
-              resetDone.current = false;
-            }}
-          />
+          <>
+            <CreateAccountDialog
+              open={creating}
+              onCreate={actions.onCreate}
+              onClose={() => {
+                setCreating(false);
+              }}
+            />
+            <ResetPasswordDialog
+              username={reset?.username ?? null}
+              run={runReset}
+              onClose={() => {
+                setReset(null);
+                // Rechargement après la lecture du mot de passe : la session du compte est révoquée.
+                if (resetDone.current) reload();
+                resetDone.current = false;
+              }}
+            />
+          </>
         }
         onRetry={() => {
           setState('loading');

@@ -10,8 +10,31 @@ import { Alert, FormField, WIZARD_LABELS } from './ui/index.js';
 /** Étapes de OneDrive et de SharePoint ; `Steps` les affiche à chaque écran, fin comprise. */
 export const RESTORE_STEPS = ['Choisir', 'Motif', 'Confirmation'];
 
-/** Rang de l'écran dans `RESTORE_STEPS` : le suivi se tient sur la dernière étape. */
-export const stepOf = (n: number): number => Math.min(n, RESTORE_STEPS.length);
+/** Rang de l'écran pour `Steps` : au-delà de la dernière étape (suivi), toutes sont terminées. */
+export const stepOf = (n: number): number => Math.min(n, RESTORE_STEPS.length + 1);
+
+/** Titre du suivi, identique pour OneDrive et SharePoint (mêmes mots que le mail). */
+export const RESULT_TITLES = {
+  running: 'Restauration en cours',
+  succeeded: 'Restauration terminée',
+  failed: 'Restauration échouée',
+} as const;
+
+/** Suivi d'une restauration : titre `h2`, puis le contenu (l'alerte juste dessous). */
+export function RestoreResult({
+  status,
+  children,
+}: {
+  status: keyof typeof RESULT_TITLES;
+  children: ReactNode;
+}) {
+  return (
+    <section aria-labelledby="restore-result-title">
+      <h2 id="restore-result-title">{RESULT_TITLES[status]}</h2>
+      {children}
+    </section>
+  );
+}
 
 /** Phrase de la charte (principe « Traçabilité »). */
 export const AUDIT_REMINDER =
@@ -26,6 +49,9 @@ export const REASON = {
   maxLength: MAX_REASON_LENGTH,
 } as const;
 
+/** Libellé du motif : « Motif <of> (obligatoire) », ex. « du lancement ». */
+export const reasonLabel = (of: string): string => `Motif ${of} (obligatoire)`;
+
 /** Libellés des boutons, les mêmes dans les trois parcours. */
 export const RESTORE_BUTTONS = {
   back: WIZARD_LABELS.back,
@@ -38,23 +64,31 @@ export const RESTORE_BUTTONS = {
 } as const;
 
 /** Rappel d'audit : `Alert` d'information, au même endroit sur chaque étape. */
-export function AuditReminder() {
-  return <Alert tone="info">{AUDIT_REMINDER}</Alert>;
+export function AuditReminder({ extra }: { extra?: string }) {
+  return (
+    <Alert tone="info">
+      {AUDIT_REMINDER}
+      {extra ? ` ${extra}` : ''}
+    </Alert>
+  );
 }
 
 /** Bloc motif : texte libre, même libellé, même aide, même limite. */
 export function ReasonField({
   value,
   error,
+  of,
   onChange,
 }: {
+  /** Complément du libellé : « de la restauration » (défaut), « de l’export »… */
+  of?: string;
   value: string;
   error?: string | undefined;
   onChange: (value: string) => void;
 }) {
   return (
     <FormField
-      label={REASON.label}
+      label={of === undefined ? REASON.label : reasonLabel(of)}
       type="text"
       name="reason"
       required

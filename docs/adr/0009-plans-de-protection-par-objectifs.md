@@ -130,7 +130,7 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
   tout l'historique ; ce champ est propre à cette route, le type `Compliance` du core (partagé
   avec le tableau de bord) ne change pas. `lastSuccessAt` (qui fonde la conformité) compte
   toujours une réussite vide. L'écran des plans écrit « Réussie (rien à sauvegarder) » et,
-  si aucune réussite n'a créé de point, « Conforme : rien à sauvegarder ».
+  si aucune réussite n'a créé de point, « À jour » avec la note « Rien à sauvegarder pour l’instant » (une seule mention par ligne).
 - Identifiants : `BACKUP365_M365_CLIENT_ID` et `BACKUP365_M365_CLIENT_SECRET` (variante
   `_FILE`). Un seul des deux : démarrage refusé, l'erreur nomme la variable. Aucun : « sauvegarde
   non configurée » ; hors démo, aucun planificateur n'est créé, donc aucune exécution ni ligne de

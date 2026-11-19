@@ -2,13 +2,23 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { AUDIT_ACTIONS, type AuditAction } from '@backup365/core';
 import {
   AUDIT_PAGE_SIZE,
+  DATE_HELP,
   fetchAudit,
-  pageOffsets,
   queryFromForm,
+  submitFilters,
+  type DateRange,
+  type AuditItem,
   type AuditQuery,
   type AuditResponse,
 } from './audit.js';
-import { auditDate, reasonLabel, resourceLabel, targetLabel } from './auditLabels.js';
+import {
+  NO_TARGET,
+  actorLabel,
+  auditDate,
+  detailLabel,
+  reasonLabel,
+  targetView,
+} from './auditLabels.js';
 import { fetchPlans } from './plans.js';
 import {
   Address,
@@ -17,6 +27,7 @@ import {
   DataTable,
   EmptyState,
   FormField,
+  Pager,
   type Column,
 } from './ui/index.js';
 
@@ -41,7 +52,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   'restore.result': 'Résultat de restauration',
 };
 
-type Entry = AuditResponse['items'][number];
+type Entry = AuditItem;
 
 /** Colonnes du tableau ; l'empreinte n'y figure pas (elle reste dans l'infobulle du numéro et dans l'API). */
 function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[] {
@@ -52,24 +63,49 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
       cell: (e) => <span title={`Empreinte : ${e.hash}`}>{e.seq}</span>,
     },
     {
-      header: 'Date',
+      header: 'Date (UTC)',
       className: 'nowrap',
-      cell: (e) => <span title={e.at}>{auditDate(e.at)}</span>,
+      cell: (e) => <span title={e.at}>{auditDate(e.at) || '—'}</span>,
     },
-    { header: 'Acteur', className: 'keep-words', cell: (e) => e.actor },
-    { header: 'Action', className: 'keep-words', cell: (e) => ACTION_LABELS[e.action] },
+    { header: 'Acteur', className: 'keep-words', cell: (e) => actorLabel(e.actor) },
     {
-      header: 'Ressource',
-      className: 'keep-words card-hidden',
-      cell: (e) => resourceLabel(e.resource),
+      header: 'Action',
+      className: 'keep-words',
+      cell: (e) => {
+        const detail = detailLabel(e.reason);
+        return (
+          <span>
+            <span className="nowrap-wide">{ACTION_LABELS[e.action]}</span>
+            {detail && <span className="cell-secondary">{detail}</span>}
+          </span>
+        );
+      },
     },
     {
       header: 'Cible',
-      className: 'keep-words',
-      cell: (e) => <Address value={targetLabel(e.target, e.resource, planNames)} />,
+      className: 'keep-words address',
+      cell: (e) => {
+        const { name, secondary } = targetView(e, planNames);
+        // Sans cible : cellule vide, comme Éléments et Motif (la carte l'omet).
+        if (name === NO_TARGET) return null;
+        return (
+          <span>
+            <Address value={name} />
+            {secondary && (
+              <span className="cell-secondary">
+                <Address value={secondary} />
+              </span>
+            )}
+          </span>
+        );
+      },
     },
-    { header: 'Éléments', className: 'card-hidden', cell: (e) => e.count ?? '' },
-    { header: 'Motif', className: 'card-wide', cell: (e) => reasonLabel(e.reason) },
+    { header: 'Éléments', className: 'card-hidden num', cell: (e) => e.count ?? '' },
+    {
+      header: 'Motif',
+      className: 'card-wide keep-words col-reason',
+      cell: (e) => reasonLabel(e.reason),
+    },
   ];
 }
 
@@ -77,9 +113,11 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
 export function AuditView({
   state,
   planNames = null,
+  onPage,
 }: {
   state: AuditState;
   planNames?: ReadonlyMap<string, string> | null;
+  onPage?: (offset: number) => void;
 }) {
   if (state === 'loading') return <p role="status">Chargement du journal…</p>;
   if (state === 'error') return <Alert tone="error">Journal d’audit indisponible</Alert>;
@@ -87,16 +125,21 @@ export function AuditView({
   return (
     <>
       <p role="status">
-        {state.total} entrée(s), {state.offset + 1} à {state.offset + state.items.length}
+        {state.total === 1
+          ? '1 entrée'
+          : `Entrées ${state.offset + 1} à ${state.offset + state.items.length} sur ${state.total}`}
       </p>
+      <div className="pager-top">
+        <Pager offset={state.offset} limit={state.limit} total={state.total} onPage={onPage} />
+      </div>
       <DataTable
         caption="Entrées du journal d’audit"
         hideCaption
         columns={columns(planNames)}
-        compact
         rows={state.items}
         rowKey={(e) => e.seq}
       />
+      <Pager offset={state.offset} limit={state.limit} total={state.total} onPage={onPage} />
     </>
   );
 }
@@ -125,27 +168,44 @@ export function AuditPage() {
     );
   }, []);
 
+  const [errors, setErrors] = useState<DateRange>({ from: '', to: '' });
+
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setQuery(queryFromForm(new FormData(e.currentTarget)));
+    const form = new FormData(e.currentTarget);
+    const { errors, query } = submitFilters(form, 'from', 'to', queryFromForm);
+    setErrors(errors);
+    if (query) setQuery(query);
   }
 
-  const pages = pageOffsets(
-    query.offset ?? 0,
-    query.limit ?? AUDIT_PAGE_SIZE,
-    typeof state === 'object' ? state.total : 0,
-  );
   return (
     <main tabIndex={-1}>
       <h1>Journal d’audit</h1>
-      <p>La consultation de ce journal est elle-même journalisée.</p>
-      <form onSubmit={submit} className="form-row">
-        <FormField label="Du" type="datetime-local" name="from" />
-        <FormField label="Au (exclu)" type="datetime-local" name="to" />
+      <p>
+        La consultation de ce journal est elle-même inscrite au journal d’audit. Filtrez par action
+        pour retrouver un export ou une restauration.
+      </p>
+      <form onSubmit={submit} className="filters">
+        <FormField
+          label="Du"
+          type="text"
+          name="from"
+          maxLength={10}
+          help={DATE_HELP}
+          error={errors.fromError}
+        />
+        <FormField
+          label="Au"
+          type="text"
+          name="to"
+          maxLength={10}
+          help={DATE_HELP}
+          error={errors.toError}
+        />
         <FormField label="Acteur" type="text" name="actor" maxLength={256} />
-        <label>
-          Action{' '}
-          <select name="action" defaultValue="">
+        <div className="field">
+          <label htmlFor="audit-action">Action</label>
+          <select id="audit-action" name="action" defaultValue="">
             <option value="">Toutes</option>
             {AUDIT_ACTIONS.map((a) => (
               <option key={a} value={a}>
@@ -153,30 +213,14 @@ export function AuditPage() {
               </option>
             ))}
           </select>
-        </label>
+        </div>
         <Button type="submit">Filtrer</Button>
       </form>
-      <AuditView state={state} planNames={planNames} />
-      <div className="button-row">
-        <Button
-          variant="secondary"
-          disabled={pages.previous === null}
-          onClick={() => {
-            if (pages.previous !== null) setQuery({ ...query, offset: pages.previous });
-          }}
-        >
-          Précédent
-        </Button>
-        <Button
-          variant="secondary"
-          disabled={pages.next === null}
-          onClick={() => {
-            if (pages.next !== null) setQuery({ ...query, offset: pages.next });
-          }}
-        >
-          Suivant
-        </Button>
-      </div>
+      <AuditView
+        state={state}
+        planNames={planNames}
+        onPage={(offset) => setQuery({ ...query, offset })}
+      />
     </main>
   );
 }

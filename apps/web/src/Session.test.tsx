@@ -1,7 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { Console, ForbiddenView, screenFor, screenOf } from './App.js';
-import { AccountsPage, AccountsView } from './AccountsPage.js';
+import { AccountsPage, AccountsView, CreateAccountForm, submitCreate } from './AccountsPage.js';
 import { AuditPage } from './AuditPage.js';
 import { CredentialsView, ErrorView, Field, PasswordView } from './LoginPage.js';
 import { createAccount, isLastAdmin, resetPassword } from './accounts.js';
@@ -41,6 +41,29 @@ describe('CredentialsView', () => {
     expect(html).toContain('role="alert"');
     expect(html).not.toContain('value=');
     expect(html).not.toContain('name="confirm"');
+  });
+});
+
+describe('voluntary password page', () => {
+  it('titles the page, links the help to the new password field, confirms under the title', () => {
+    const html = renderToString(<PasswordView forced={false} saved />);
+    expect(html).toContain('<h1>Mot de passe</h1>');
+    expect(html).toContain('Changez le mot de passe de votre compte de la console.');
+    const help = /<p id="([^"]+-help)" class="field-help">12 caractères minimum/.exec(html);
+    expect(help).not.toBeNull();
+    expect(html).toContain(`aria-describedby="${help![1]}"`);
+    expect(html.indexOf('Mot de passe modifié.')).toBeGreaterThan(html.indexOf('</h1>'));
+    expect(html.indexOf('Mot de passe modifié.')).toBeLessThan(html.indexOf('<form'));
+    expect(html).toContain('class="wizard-actions"');
+    expect(renderToString(<PasswordView forced={false} />)).not.toContain('Mot de passe modifié.');
+  });
+
+  it('keeps the forced screen title and button, without confirmation', () => {
+    const html = renderToString(<PasswordView forced />);
+    expect(html).toContain('<h1>Choisissez un nouveau mot de passe</h1>');
+    expect(html).toContain('>Enregistrer et continuer</button>');
+    expect(html).not.toContain('Annuler');
+    expect(html).not.toContain('Mot de passe modifié.');
   });
 });
 
@@ -93,6 +116,25 @@ describe('AccountsView', () => {
       '<span aria-hidden="true">⚠</span> Mot de passe à changer',
     );
   });
+  it('uses the regular card layout', () => {
+    const html = renderToString(<AccountsView state={accounts} actions={{}} />);
+    expect(html).toContain('class="data-table"');
+  });
+  it('offers the password reset only to local accounts', () => {
+    const html = renderToString(
+      <AccountsView state={[accounts[0]!, { ...accounts[1]!, oidc: true }]} actions={{}} />,
+    );
+    expect(html.match(/Réinitialiser le mot de passe : /g)).toHaveLength(1);
+    expect(html).toContain('Réinitialiser le mot de passe : root');
+    expect(html).not.toContain('Réinitialiser le mot de passe : bob');
+    expect(html).toContain('Mot de passe géré par Microsoft');
+  });
+  it('keeps both mentions, and a valid aria-describedby, on a Microsoft last administrator', () => {
+    const html = renderToString(<AccountsView state={[{ ...accounts[0]!, oidc: true }]} />);
+    expect(html).toContain('Mot de passe géré par Microsoft');
+    expect(html).toContain('id="last-admin-1"');
+    expect(html).toContain('aria-describedby="last-admin-1"');
+  });
   it('shows loading and error states', () => {
     expect(renderToString(<AccountsView state="loading" />)).toContain('Chargement');
     expect(renderToString(<AccountsView state="error" />)).toContain('indisponibles');
@@ -102,6 +144,52 @@ describe('AccountsView', () => {
         'BOITE-MDP',
       );
     }
+  });
+});
+
+describe('Administration page structure', () => {
+  const account = (id: number, username: string) => ({
+    id,
+    username,
+    role: 'operator' as const,
+    disabled: false,
+    mustChangePassword: false,
+    createdAt: '',
+  });
+  const html = renderToString(
+    <AccountsView state={[account(1, 'ann'), account(2, 'bob')]} actions={{}} />,
+  );
+
+  it('has no inline form and no account dropdown any more', () => {
+    expect(html).not.toContain('<form');
+    expect(html).not.toContain('Réinitialiser un mot de passe');
+    expect(html).not.toContain('<h2>Créer un compte</h2>');
+    // Un seul menu par ligne : le rôle.
+    expect(html.match(/<select/g)).toHaveLength(2);
+  });
+
+  it('offers an outlined reset button on every row, naming the account', () => {
+    expect(html.match(/btn-secondary[^>]*>Réinitialiser le mot de passe</g)).toHaveLength(2);
+    expect(html).toContain('aria-label="Réinitialiser le mot de passe : bob"');
+    expect(html).toContain(AUDIT_NOTICE);
+  });
+
+  it('keeps one filled button on the page, « + Créer un compte », next to the title', () => {
+    const page = renderToString(<AccountsPage />);
+    expect(page).toContain('<div class="page-header"><h1>Administration</h1>');
+    expect(page.match(/btn-primary/g)).toHaveLength(1);
+    expect(page.replaceAll('<!-- -->', '')).toContain('+ </span>Créer un compte</button>');
+  });
+
+  it('closes the creation box once the account is created, and keeps it on failure', async () => {
+    const form = new FormData();
+    const close = vi.fn();
+    await expect(submitCreate(() => Promise.resolve(true), form, close)).resolves.toBeUndefined();
+    expect(close).toHaveBeenCalledTimes(1);
+    const kept = vi.fn();
+    const taken = { message: 'Cet identifiant est déjà utilisé.', requestId: 'req-7' };
+    await expect(submitCreate(() => Promise.resolve(taken), form, kept)).resolves.toEqual(taken);
+    expect(kept).not.toHaveBeenCalled();
   });
 });
 
@@ -224,7 +312,7 @@ describe('maquette de l’issue #22', () => {
       expect(html).toContain('Identifiant');
       expect(html).not.toContain('utilisateur');
     }
-    const accounts = renderToString(<AccountsView state={[]} />);
+    const accounts = renderToString(<CreateAccountForm />);
     expect(accounts).toContain('Identifiant');
     expect(accounts).not.toContain('Nom d’utilisateur');
   });
@@ -283,7 +371,7 @@ describe('maquette de l’issue #22', () => {
   });
 
   it('gives the account creation form an Afficher / Masquer button', () => {
-    const html = renderToString(<AccountsView state={[]} />);
+    const html = renderToString(<CreateAccountForm />);
     expect(html.match(/Afficher</g)).toHaveLength(1);
     expect(html).toContain('Identifiant');
   });
@@ -294,10 +382,12 @@ describe('maquette de l’issue #22', () => {
     expect(setup).toContain('>Créer le compte administrateur</button>');
     expect(setup).toContain('12 caractères minimum. Une phrase de passe convient.');
     const password = renderToString(<PasswordView forced={false} />);
-    expect(password).toContain('Choisissez un nouveau mot de passe');
-    expect(password).toContain('>Enregistrer et continuer</button>');
-    const view = renderToString(<AccountsView state={[]} />);
-    expect(view).toContain('>Nouveau compte</button>');
+    expect(password).toContain('<h1>Mot de passe</h1>');
+    expect(password).toContain('>Enregistrer</button>');
+    const view = renderToString(<CreateAccountForm />);
+    expect(view).toContain('>Créer le compte</button>');
+    expect(view).toContain('>Annuler</button>');
+    expect(view).not.toContain('Nouveau compte');
   });
 
   it('names the console in the accounts title and says the journal is audited', () => {
@@ -309,7 +399,7 @@ describe('maquette de l’issue #22', () => {
     ])
       expect(html).toContain(AUDIT_NOTICE);
     expect(renderToString(<AuditPage />)).toContain(
-      'La consultation de ce journal est elle-même journalisée.',
+      'La consultation de ce journal est elle-même inscrite au journal d’audit.',
     );
     expect(UNREACHABLE).toBe('Impossible de joindre la console. Réessayez.');
   });
@@ -335,7 +425,11 @@ describe('textes restants de la maquette de #22', () => {
   it('tells an operator that the accounts page is reserved, with a link home', () => {
     const html = renderToString(<ForbiddenView />);
     expect(html).toContain('Cette page est réservée aux administrateurs.');
+    expect(html).toContain('<h1>Administration</h1>');
+    expect(html).toContain('Demandez à un administrateur');
     expect(html).toContain('href="#/"');
+    expect(html).toContain('Retour au tableau de bord');
+    expect(html).not.toContain('alert-error');
     expect(ADMIN_ONLY).toBe('Cette page est réservée aux administrateurs.');
   });
 
@@ -357,12 +451,15 @@ describe('textes restants de la maquette de #22', () => {
     expect(html.match(/aria-disabled="true"/g)).toHaveLength(2);
     expect(html.match(/aria-describedby="last-admin-1"/g)).toHaveLength(2);
     expect(html).toContain('id="last-admin-1"');
-    // La mention n'est plus dans la cellule « Actions ».
+    // Plus de bandeau en tête de page : la phrase est dans la cellule « Actions » du compte.
+    expect(html).not.toContain('class="alert');
     const cells = [...html.matchAll(/<td[^>]*data-label="Actions"[^>]*>(.*?)<\/td>/g)].map(
       (m) => m[1],
     );
     expect(cells).toHaveLength(2);
-    expect(cells.join()).not.toContain('Dernier administrateur');
+    expect(cells[0]).toContain('id="last-admin-1"');
+    expect(cells[0]).toContain('Dernier administrateur');
+    expect(cells[1]).not.toContain('Dernier administrateur');
     const two = [account(1, 'admin'), account(2, 'admin'), account(3, 'admin', true)];
     expect(isLastAdmin(two, two[0]!)).toBe(false);
     expect(renderToString(<AccountsView state={two} />)).not.toContain('Dernier administrateur');
@@ -372,7 +469,7 @@ describe('textes restants de la maquette de #22', () => {
   });
 
   it('describes each role in the create form', () => {
-    const html = renderToString(<AccountsView state={[]} />);
+    const html = renderToString(<CreateAccountForm />);
     expect(html).toContain('gère les comptes, les plans et les restaurations.');
     expect(html).toContain('consulte, exporte et restaure, avec un motif.');
   });
@@ -394,7 +491,7 @@ describe('textes restants de la maquette de #22', () => {
   });
 
   it('says « Mot de passe temporaire » on the account forms, never « provisoire »', () => {
-    const html = renderToString(<AccountsView state={[]} />);
+    const html = renderToString(<CreateAccountForm />);
     expect(html).toContain('>Mot de passe temporaire (12 caractères au minimum)</label>');
     expect(html).not.toContain('provisoire');
   });
@@ -436,42 +533,8 @@ describe('textes restants de la maquette de #22', () => {
     expect(html).toContain('class="skip-link"');
   });
 
-  it('clears an account form only when the request succeeded', async () => {
-    type El = { type?: unknown; props?: { children?: unknown; [k: string]: unknown } };
-    vi.stubGlobal('FormData', class {});
-    const submitWith = async (result: boolean) => {
-      const reset = vi.fn();
-      const tree = AccountsView({
-        state: [],
-        actions: { onCreate: () => Promise.resolve(result) },
-      });
-      const forms: El[] = [];
-      const walk = (n: unknown): void => {
-        if (Array.isArray(n)) n.forEach(walk);
-        else if (n && typeof n === 'object') {
-          const el = n as El;
-          if (el.type === 'form') forms.push(el);
-          walk(el.props?.children);
-        }
-      };
-      walk(tree);
-      (forms[0]!.props!.onSubmit as (e: unknown) => void)({
-        preventDefault: () => undefined,
-        currentTarget: { reset },
-      });
-      await new Promise((r) => setTimeout(r, 0));
-      return reset;
-    };
-    try {
-      expect(await submitWith(false)).not.toHaveBeenCalled();
-      expect(await submitWith(true)).toHaveBeenCalledOnce();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
   it('offers Annuler on the account forms and on a voluntary password change', () => {
-    expect(renderToString(<AccountsView state={[]} />).match(/>Annuler</g)).toHaveLength(1);
+    expect(renderToString(<CreateAccountForm />).match(/>Annuler</g)).toHaveLength(1);
     expect(renderToString(<PasswordView forced={false} />)).toContain('>Annuler</button>');
     expect(renderToString(<PasswordView forced />)).not.toContain('Annuler');
   });
@@ -492,6 +555,7 @@ describe('textes restants de la maquette de #22', () => {
           };
           for (const row of rows) for (const c of columns) find(c.cell(row), match, out);
         }
+        find(el.props?.back, match, out);
         find(el.props?.children, match, out);
         find(el.props?.['action'], match, out);
       }
@@ -508,6 +572,16 @@ describe('textes restants de la maquette de #22', () => {
     const other = find(tree, (e) => isButton(e) && e.props?.children === 'Désactiver');
     (other.find((e) => e.props?.['aria-disabled'] === undefined)!.props!.onClick as () => void)();
     expect(onDisabled).toHaveBeenCalledWith(2, true);
+
+    // « Réinitialiser le mot de passe » ouvre la boîte du compte de sa ligne, sans choix de compte.
+    const onReset = vi.fn();
+    const resets = find(
+      AccountsView({ state: only, actions: { onReset } }),
+      (e) => isButton(e) && e.props?.children === 'Réinitialiser le mot de passe',
+    );
+    expect(resets).toHaveLength(2);
+    (resets[1]!.props!.onClick as () => void)();
+    expect(onReset).toHaveBeenCalledExactlyOnceWith(2);
 
     const onRetry = vi.fn();
     const retry = find(ErrorView({ message: 'x', onRetry }), isButton);

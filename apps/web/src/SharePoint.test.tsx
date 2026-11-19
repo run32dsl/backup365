@@ -5,6 +5,9 @@ import {
   continueHint,
   failureCause,
   fetchScope,
+  breadcrumbLevels,
+  breadcrumbLink,
+  followInApp,
   fetchSiteSnapshots,
   fetchSites,
   isOutcomeUncertain,
@@ -13,35 +16,61 @@ import {
   sharePointHash,
   startSiteRestore,
   summaryCountOf,
-  summaryOf,
+  confirmRowsOf,
+  consequenceOf,
 } from './sharepoint.js';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { ConfirmStep, ContentTree, SiteDenied, SiteEntriesTable } from './SharePointPage.js';
 import { navEntries, screenOf } from './App.js';
 
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
 
+describe('SharePoint right refusal', () => {
+  it('names the site, shows no error banner and leads back to the Choose step', () => {
+    const html = renderToStaticMarkup(
+      <SiteDenied site={{ id: 'abc', displayName: 'Équipe commerciale' }} />,
+    );
+    expect(html).toContain('le site « Équipe commerciale »');
+    expect(html).toContain('Choisir un autre site');
+    expect(html).not.toContain('alert-error');
+    const href = /href="([^"]+)"/u.exec(html)?.[1];
+    expect(href).toBe(sharePointHash('abc'));
+    // Sans granularité : l'étape « Choisir » du site.
+    expect(parseSharePointHash(href ?? '')).toEqual({ site: 'abc', scope: null, path: '/' });
+  });
+});
+
 describe('SharePoint route', () => {
   it('parses #/sharepoint[/<site>[/<granularité>]] and round-trips', () => {
-    expect(parseSharePointHash('#/sharepoint')).toEqual({ site: '', scope: null, path: '/' });
+    const root = '/';
+    expect(parseSharePointHash('#/sharepoint')).toEqual({ site: '', scope: null, path: root });
     expect(parseSharePointHash('#/sharepoint/site-1')).toEqual({
       site: 'site-1',
       scope: null,
-      path: '/',
+      path: root,
     });
     expect(parseSharePointHash('#/sharepoint/a%2Cb/site')).toEqual({
       site: 'a,b',
       scope: 'site',
-      path: '/',
+      path: root,
     });
     expect(parseSharePointHash('#/sharepoint/s/nimporte')).toEqual({
       site: 's',
       scope: null,
-      path: '/',
+      path: root,
     });
     expect(parseSharePointHash(sharePointHash('a,b', 'library'))).toEqual({
       site: 'a,b',
       scope: 'library',
-      path: '/',
+      path: root,
+    });
+    const deep = sharePointHash('a,b', 'item', '/Documents/Plans 2024');
+    expect(deep).toBe('#/sharepoint/a%2Cb/item/Documents/Plans%202024');
+    expect(parseSharePointHash(deep)).toEqual({
+      site: 'a,b',
+      scope: 'item',
+      path: '/Documents/Plans 2024',
     });
     expect(parseSharePointHash('#/sharepointx')).toBeNull();
     expect(parseSharePointHash('#/sharepoint/%E0%A4%A')).toBeNull();
@@ -74,6 +103,151 @@ describe('SharePoint route', () => {
   });
 });
 
+describe('SharePoint entries table', () => {
+  const rows = [
+    {
+      name: 'Documents',
+      path: '/Documents',
+      kind: 'library' as const,
+      versionAt: null,
+      sizeBytes: null,
+    },
+    { name: 'Plans', path: '/Plans', kind: 'folder' as const, versionAt: null, sizeBytes: null },
+    {
+      name: 'plan-a.pdf',
+      path: '/plan-a.pdf',
+      kind: 'file' as const,
+      versionAt: '2026-11-16T01:40:00.000Z',
+      sizeBytes: 84_000,
+    },
+    {
+      name: 'plan-b.pdf',
+      path: '/plan-b.pdf',
+      kind: 'file' as const,
+      versionAt: '2026-11-16T01:41:00.000Z',
+      sizeBytes: 1_000,
+    },
+  ];
+  const render = (scope: 'item' | 'folder', file: string | null) =>
+    renderToStaticMarkup(
+      <SiteEntriesTable
+        siteId="s"
+        scope={scope}
+        rows={rows}
+        file={file}
+        onOpen={vi.fn()}
+        onFile={vi.fn()}
+      />,
+    );
+
+  it('is a table with the same columns as OneDrive, and no emoji', () => {
+    const html = render('item', null);
+    for (const h of ['Nom', 'Version du (UTC)', 'Taille']) {
+      expect(html).toContain(`scope="col"`);
+      expect(html).toContain(`>${h}</th>`);
+    }
+    expect(html).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
+    expect(html).toContain('>bibliothèque</span>');
+    expect(html).toContain('>dossier</span>');
+    expect(html).toContain('href="#/sharepoint/s/item/Plans"');
+  });
+
+  it('names a radio button after each file and checks the chosen one only', () => {
+    const html = render('item', '/plan-b.pdf');
+    const radios = html.match(
+      /<label[^>]*><input[^>]*type="radio"[^>]*\/>[^<]*(?:<!-- -->)?[^<]*<\/label>/gu,
+    );
+    expect(radios).toHaveLength(2);
+    expect(radios?.[0]).toMatch(/plan-a\.pdf/u);
+    expect(radios?.[0]).not.toContain('checked');
+    expect(radios?.[1]).toContain('checked');
+    expect(radios?.[1]).toMatch(/plan-b\.pdf/u);
+  });
+
+  it('offers no radio button for a file when the granularity is not « item »', () => {
+    expect(render('folder', null)).not.toContain('type="radio"');
+  });
+});
+
+describe('SharePoint breadcrumb', () => {
+  const click = (over: Partial<Parameters<typeof followInApp>[0]> = {}) => {
+    const ev = {
+      button: 0,
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      preventDefault: vi.fn(),
+      ...over,
+    };
+    const navigate = vi.fn();
+    followInApp(ev, navigate);
+    return { ev, navigate };
+  };
+
+  it('gives each level its own deep link', () => {
+    const html = renderToStaticMarkup(
+      <ContentTree
+        siteId="a,b"
+        siteName="Commerce"
+        snapshotId="s1"
+        scope="item"
+        path="/Documents/Plans 2024"
+        file={null}
+        onPath={vi.fn()}
+        onFile={vi.fn()}
+      />,
+    );
+    expect(html).toContain('href="#/sharepoint/a%2Cb/item"');
+    expect(html).toContain('href="#/sharepoint/a%2Cb/item/Documents"');
+    expect(html).toContain('<span aria-current="location">Plans 2024</span>');
+  });
+
+  it('navigates in the page on a plain click', () => {
+    const { ev, navigate } = click();
+    expect(ev.preventDefault).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledOnce();
+  });
+
+  it('opens the clicked level, not another one', () => {
+    const levels = breadcrumbLevels('Commerce', '/Documents/Plans 2024');
+    expect(levels).toEqual([
+      { label: 'Commerce', path: '/' },
+      { label: 'Documents', path: '/Documents' },
+      { label: 'Plans 2024', path: '/Documents/Plans 2024' },
+    ]);
+    const onPath = vi.fn();
+    const link = breadcrumbLink(levels[1] ?? { path: '' }, 'a,b', 'item', onPath);
+    expect(link.href).toBe('#/sharepoint/a%2Cb/item/Documents');
+    link.onClick({
+      button: 0,
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      preventDefault: vi.fn(),
+    });
+    expect(onPath).toHaveBeenCalledExactlyOnceWith('/Documents');
+  });
+
+  it('ignores the path when the link has no granularity', () => {
+    expect(sharePointHash('s', undefined, '/Documents')).toBe('#/sharepoint/s');
+  });
+
+  it.each([
+    { ctrlKey: true },
+    { metaKey: true },
+    { shiftKey: true },
+    { altKey: true },
+    { button: 1 },
+    { button: 2 },
+  ])('leaves a modified click %j to the browser', (over) => {
+    const { ev, navigate } = click(over);
+    expect(ev.preventDefault).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+});
+
 describe('SharePoint wording', () => {
   it('only lets a choice through when it fits the granularity', () => {
     expect(canContinue('site', '/', null)).toBe(true);
@@ -95,20 +269,71 @@ describe('SharePoint wording', () => {
     expect(pathLabel('/Documents partagés/Plans 2024')).toBe('Documents partagés > Plans 2024');
   });
 
-  it('writes the summary in plain language, with the point of restoration', () => {
+  it('lists the summary rows, with the point of restoration and the reason', () => {
     const input = {
       scope: 'library' as const,
       siteName: 'Site Urbanisme (exemple)',
       path: '/Documents partagés',
       pointAt: '2026-11-12T02:00:00.000Z',
       summary: { items: 1240, sizeBytes: 3_200_000_000 },
+      reason: 'Reprise après incident',
     };
-    expect(summaryOf(input)).toBe(
-      'Vous allez restaurer la bibliothèque « Documents partagés » du site « Site Urbanisme (exemple) », tel qu’il était le 12/11/2026 à 02:00, à son emplacement d’origine. Les fichiers existants ne seront pas remplacés. 1 240 éléments, 3,2 Go.',
+    expect(confirmRowsOf(input)).toEqual([
+      ['Site', 'Site Urbanisme (exemple)'],
+      ['Contenu', 'Bibliothèque : Documents partagés'],
+      ['État au', '12/11/2026 02:00'],
+      ['Volume', '1 240 éléments, 3,2 Go'],
+      ['Motif', 'Reprise après incident'],
+    ]);
+    const item = confirmRowsOf({ ...input, scope: 'item', summary: null, path: '/A/b.pdf' });
+    expect(item).toContainEqual(['Contenu', 'Fichier : A > b.pdf']);
+    expect(item.map(([label]) => label)).not.toContain('Volume');
+    expect(consequenceOf('library')).toBe('Les fichiers existants ne seront pas remplacés.');
+  });
+
+  it('lists the whole-site summary with the item count only', () => {
+    const rows = confirmRowsOf({
+      scope: 'site',
+      siteName: 'Équipe commerciale',
+      path: '/',
+      pointAt: '2026-11-17T14:01:00Z',
+      summary: { items: 6, sizeBytes: 1_600_000 },
+      reason: 'Reprise',
+    });
+    expect(rows).toContainEqual(['Contenu', 'Site entier']);
+    expect(rows).toContainEqual(['Volume', '6 éléments']);
+    expect(consequenceOf('site')).toBe('Les contenus manquants seront recréés.');
+  });
+
+  it('orders the whole-site confirmation and ties the hint to the name field', () => {
+    const html = renderToStaticMarkup(
+      <ConfirmStep
+        site={{ id: 'abc', displayName: 'Équipe commerciale' }}
+        choice={{ scope: 'site', path: '/', snapshotId: 's1', pointAt: '2026-11-17T14:01:00Z' }}
+        reason="Reprise après incident"
+        onBack={() => undefined}
+        onStarted={() => undefined}
+      />,
     );
-    expect(summaryOf({ ...input, scope: 'item', summary: null, path: '/A/b.pdf' })).toContain(
-      'l’élément « A > b.pdf »',
-    );
+    expect(html).not.toContain('Vous allez restaurer');
+    expect(html).not.toContain('Motif : ');
+    const order = [
+      '<h2>Récapitulatif</h2>',
+      '<dt>Motif</dt><dd>Reprise après incident</dd>',
+      'Les contenus manquants seront recréés.',
+      'action de grande ampleur',
+      'Je comprends',
+      'Tapez le nom du site',
+      'Le bouton reste inactif',
+      'wizard-actions',
+    ].map((text) => html.indexOf(text));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    const help = /<input[^>]*aria-describedby="([^"]+)"/.exec(html)?.[1];
+    expect(help).toBeDefined();
+    expect(html).toContain(`id="${help ?? ''}"`);
+    expect(html.slice(html.indexOf('wizard-actions'))).not.toContain('Le bouton reste inactif');
+    expect(html).toMatch(/<button[^>]*aria-disabled="true"[^>]*>Restaurer/);
   });
 
   it('says when the outcome is uncertain', () => {

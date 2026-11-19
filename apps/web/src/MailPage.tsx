@@ -1,22 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { IndexedMail } from '@backup365/core';
-import {
-  exportEml,
-  fetchMail,
-  isReasonValid,
-  saveBlob,
-  MAX_REASON_LENGTH,
-  MIN_REASON_LENGTH,
-} from './mail.js';
+import { exportEml, fetchMail, isReasonValid, saveBlob } from './mail.js';
 import { dateTimeOrDash, folderLabel, sizeOf } from './format.js';
-import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
+import { API_ERRORS } from './apiError.js';
+import { RestoreAction } from './RestoreAction.js';
+import { AuditReminder, ReasonField } from './RestoreJourney.js';
 import {
   fetchLastRestore,
   fetchRestoreConfigured,
   lastRestoreLabel,
   type RestoreJob,
 } from './restore.js';
-import { Alert, Button, FormField } from './ui/index.js';
+import { Alert, Button } from './ui/index.js';
 
 /** État de la fiche. */
 export type MailState = IndexedMail | 'loading' | 'error';
@@ -54,11 +49,7 @@ export function MailView({ state }: { state: MailState }) {
   );
 }
 
-export const REASON_PLACEHOLDER = 'Ticket INC-12345';
-export const REASON_GUIDANCE =
-  'Indiquez de préférence le numéro du ticket interne. N’y saisissez pas de donnée personnelle (nom, adresse, contenu du mail).';
-
-/** Formulaire d'export : le motif guide vers un numéro de ticket, sans donnée personnelle. */
+/** Formulaire d'export : même bloc motif et même rappel d'audit que les restaurations. */
 export function ExportForm({
   reason,
   exporting,
@@ -76,20 +67,11 @@ export function ExportForm({
     <section aria-labelledby="export-title" className="mail-section">
       <h2 id="export-title">Exporter en EML</h2>
       <form onSubmit={onSubmit}>
-        <FormField
-          label="Motif de l’export"
-          type="text"
-          name="reason"
-          required
-          minLength={MIN_REASON_LENGTH}
-          counterMax={MAX_REASON_LENGTH}
-          placeholder={REASON_PLACEHOLDER}
-          help={REASON_GUIDANCE}
-          value={reason}
-          onChange={(e) => {
-            onReason(e.currentTarget.value);
-          }}
-        />
+        <ReasonField of="de l’export" value={reason} onChange={onReason} />
+        <p className="field-help export-note">
+          Pour les anciennes sauvegardes, les pièces jointes ne sont pas incluses dans le fichier.
+        </p>
+        <AuditReminder />
         <Button
           type="submit"
           variant="secondary"
@@ -99,17 +81,21 @@ export function ExportForm({
         >
           Exporter en EML
         </Button>
-        {empty && (
-          <p id="export-disabled-help" className="field-help export-help">
-            Saisissez un motif pour exporter
-          </p>
+        {exporting === 'done' ? (
+          <div className="export-result">
+            <Alert tone="success">Export inscrit au journal d’audit.</Alert>
+          </div>
+        ) : exporting === 'error' ? (
+          <div className="export-result">
+            <Alert tone="error">Export refusé ou indisponible.</Alert>
+          </div>
+        ) : (
+          empty && (
+            <p id="export-disabled-help" className="field-help export-help">
+              Saisissez un motif pour exporter.
+            </p>
+          )
         )}
-        <p>
-          Le motif est inscrit au journal d’audit avec l’export. Pour les anciennes sauvegardes, les
-          pièces jointes ne sont pas incluses dans le fichier.
-        </p>
-        {exporting === 'done' && <Alert tone="success">Export inscrit au journal.</Alert>}
-        {exporting === 'error' && <Alert tone="error">Export refusé ou indisponible</Alert>}
       </form>
     </section>
   );
@@ -146,18 +132,33 @@ export function RestoreSection({ mail }: { mail: IndexedMail }) {
       clearInterval(timer);
     };
   }, [running, mail.mailboxId, mail.messageId]);
+  return <RestoreSectionView mail={mail} configured={configured} last={last} onJob={setLast} />;
+}
+
+/** Section de restauration : le bouton, ou un avertissement quand la restauration est indisponible. */
+export function RestoreSectionView({
+  mail,
+  configured,
+  last,
+  onJob,
+}: {
+  mail: IndexedMail;
+  configured: boolean;
+  last: RestoreJob | null;
+  onJob?: (job: RestoreJob) => void;
+}) {
   const label = lastRestoreLabel(last);
   return (
     <section aria-labelledby="restore-title" className="mail-section">
       <h2 id="restore-title">Restaurer dans la boîte d’origine</h2>
       <p>Remet une copie du mail dans sa boîte d’origine, sans rien écraser.</p>
-      <RestoreAction
-        mail={mail}
-        configured={configured}
-        hintId="restore-not-configured"
-        onJob={setLast}
-      />
-      {!configured && <RestoreNotConfigured id="restore-not-configured" />}
+      {configured ? (
+        <RestoreAction mail={mail} configured onJob={onJob} />
+      ) : (
+        <div className="restore-unavailable">
+          <Alert tone="warning">{API_ERRORS['restore_unavailable']}</Alert>
+        </div>
+      )}
       {label && <p role="status">{label}</p>}
     </section>
   );

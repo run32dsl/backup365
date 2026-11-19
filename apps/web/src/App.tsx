@@ -6,18 +6,18 @@ import { ComponentsPage, UnavailableView } from './ComponentsPage.js';
 import { ConsoleFooter } from './ConsoleFooter.js';
 import { DemoBanner, demoOf, useHealth, type HealthState } from './DemoBanner.js';
 import { Home } from './Home.js';
-import { CredentialsPage, ErrorView, PasswordPage } from './LoginPage.js';
+import { CredentialsPage, ErrorView, PASSWORD_CHANGED, PasswordPage } from './LoginPage.js';
 import { MailPage } from './MailPage.js';
 import { OneDrivePage } from './OneDrivePage.js';
 import { parseOneDriveHash } from './onedrive.js';
 import { SharePointPage } from './SharePointPage.js';
 import { parseSharePointHash } from './sharepoint.js';
 import { SearchPage } from './SearchPage.js';
-import { parseMailHash } from './mail.js';
+import { parseMailHash, parseSearchHash } from './mail.js';
 import { PlansPage } from './PlansPage.js';
 import { parsePlansHash } from './plans.js';
 import { COMPONENTS_HASH } from './routes.js';
-import { Alert } from './ui/index.js';
+import { Alert, EmptyState } from './ui/index.js';
 import {
   ADMIN_ONLY,
   LOGIN_HASH,
@@ -59,7 +59,7 @@ export function screenOf(
   if (parseOneDriveHash(hash)) return 'onedrive';
   if (parseSharePointHash(hash)) return 'sharepoint';
   if (hash === '#/audit') return 'audit';
-  if (hash === '#/search') return 'search';
+  if (hash === '#/search' || parseSearchHash(hash) !== null) return 'search';
   if (hash === '#/comptes') return 'accounts';
   if (hash === '#/password') return 'password';
   if (hash === COMPONENTS_HASH) return 'components';
@@ -108,6 +108,9 @@ export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean)
   return entries;
 }
 
+/** Durée d'affichage de la confirmation de changement de mot de passe. */
+const FLASH_MS = 8000;
+
 const goHome = () => {
   window.location.hash = '#/';
 };
@@ -116,10 +119,16 @@ const goHome = () => {
 export function ForbiddenView() {
   return (
     <main tabIndex={-1}>
-      <Alert tone="error">{ADMIN_ONLY}</Alert>
-      <p>
-        <a href="#/">Retour à l’accueil</a>
-      </p>
+      <h1>Administration</h1>
+      <EmptyState
+        action={
+          <a className="btn btn-secondary" href="#/">
+            Retour au tableau de bord
+          </a>
+        }
+      >
+        {ADMIN_ONLY} Demandez à un administrateur de la console de faire cette action.
+      </EmptyState>
     </main>
   );
 }
@@ -166,8 +175,12 @@ export function ConsoleView({
   onCloseMenu,
   onLogout,
   footer,
+  flash,
+  passwordCurrent = false,
   children,
 }: {
+  /** La page « Mot de passe » (lien du pied de barre) est ouverte. */
+  passwordCurrent?: boolean;
   user: User;
   entries: ReturnType<typeof navEntries>;
   menuOpen: boolean;
@@ -175,6 +188,8 @@ export function ConsoleView({
   onCloseMenu: () => void;
   onLogout: () => void;
   footer?: ReactNode;
+  /** Confirmation passagère, annoncée aux lecteurs d'écran (région `status`). */
+  flash?: string;
   children?: ReactNode;
 }) {
   return (
@@ -219,7 +234,11 @@ export function ConsoleView({
             </nav>
             <div className="sidebar-footer">
               <span>{`${user.username} (${ROLE_LABELS[user.role].toLowerCase()})`}</span>
-              {!user.oidc && <a href="#/password">Mot de passe</a>}
+              {!user.oidc && (
+                <a href="#/password" aria-current={passwordCurrent ? 'page' : undefined}>
+                  Mot de passe
+                </a>
+              )}
               <button type="button" onClick={onLogout}>
                 Se déconnecter
               </button>
@@ -227,6 +246,7 @@ export function ConsoleView({
           </div>
         </aside>
         <div className="content">
+          <div role="status">{flash && <Alert tone="success">{flash}</Alert>}</div>
           {children}
           {footer}
         </div>
@@ -240,10 +260,12 @@ export function Console({
   user,
   onLogout,
   health = 'failed',
+  flash,
 }: {
   user: User;
   onLogout: () => void;
   health?: HealthState;
+  flash?: string;
 }) {
   const demo = demoOf(health);
   const [hash, setHash] = useState(window.location.hash);
@@ -276,6 +298,8 @@ export function Console({
         setMenuOpen(false);
       }}
       onLogout={onLogout}
+      flash={flash}
+      passwordCurrent={screen === 'password'}
       footer={
         <ConsoleFooter
           version={typeof health === 'object' ? health?.version : undefined}
@@ -286,7 +310,9 @@ export function Console({
       {screen === 'components' && <ComponentsPage />}
       {screen === 'unavailable' && <UnavailableView />}
       {screen === 'audit' && <AuditPage />}
-      {screen === 'search' && <SearchPage />}
+      {screen === 'search' && (
+        <SearchPage key={hash} mailbox={parseSearchHash(hash) ?? undefined} />
+      )}
       {screen === 'plans' && (
         <PlansPage route={parsePlansHash(hash) ?? { page: 'list' }} admin={admin} />
       )}
@@ -306,7 +332,7 @@ export function Console({
       {screen === 'onedrive' && (
         <OneDrivePage route={parseOneDriveHash(hash) ?? { account: '', path: '/' }} />
       )}
-      {screen === 'home' && <Home />}
+      {screen === 'home' && <Home admin={admin} />}
     </ConsoleView>
   );
 }
@@ -330,6 +356,8 @@ function AppGate({ health }: { health: HealthState }) {
   const [gate, setGate] = useState<Gate>({ status: 'loading' });
   const apply = (next: Gate) => {
     setCsrfToken(next.status === 'ready' ? next.session.csrfToken : null);
+    // Une confirmation ne survit pas à une session perdue.
+    if (next.status !== 'ready') setFlash(undefined);
     setGate(next);
   };
   // Message affiché entre la perte d'une session et la connexion suivante.
@@ -374,6 +402,21 @@ function AppGate({ health }: { health: HealthState }) {
     window.location.hash = LOGIN_HASH;
   }, [unauthenticated]);
 
+  // Confirmation du changement de mot de passe : lisible quelques secondes, puis retirée.
+  const [flash, setFlash] = useState<string>();
+  useEffect(() => {
+    if (!flash) return;
+    const timer = setTimeout(() => {
+      setFlash(undefined);
+    }, FLASH_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [flash]);
+  const passwordChanged = () => {
+    setFlash(PASSWORD_CHANGED);
+  };
+
   const open = (session: SessionInfo) => {
     setNotice(undefined);
     window.location.hash = target.current ?? '#/';
@@ -407,17 +450,30 @@ function AppGate({ health }: { health: HealthState }) {
     case 'setup':
     case 'login':
       return (
-        <CredentialsPage
-          mode={gate.status}
-          notice={gate.status === 'login' ? notice : undefined}
-          onSession={open}
-        />
+        <>
+          <CredentialsPage
+            mode={gate.status}
+            notice={gate.status === 'login' ? notice : undefined}
+            onSession={open}
+          />
+          <ConsoleFooter
+            version={typeof health === 'object' ? health?.version : undefined}
+            demo={false}
+          />
+        </>
       );
     case 'ready':
       return gate.session.user.mustChangePassword ? (
-        <PasswordPage forced onDone={refresh} />
+        <PasswordPage
+          forced
+          onDone={() => {
+            passwordChanged();
+            window.location.hash = '#/';
+            refresh();
+          }}
+        />
       ) : (
-        <Console user={gate.session.user} onLogout={leave} health={health} />
+        <Console user={gate.session.user} onLogout={leave} health={health} flash={flash} />
       );
   }
 }

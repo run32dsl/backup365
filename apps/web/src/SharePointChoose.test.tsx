@@ -12,6 +12,7 @@ const html = (admin: boolean) =>
       snapshots={[]}
       snapshotId=""
       initialScope="item"
+      initialPath="/"
       admin={admin}
       configured
       onSnapshot={noop}

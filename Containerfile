@@ -14,7 +14,11 @@ RUN pnpm install --frozen-lockfile \
 
 # --- Étape 2 : exécution (sans pnpm, sans sources, utilisateur non root) ---
 FROM node:22.23.4-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
-ENV NODE_ENV=production \
+# Commit court (7 caractères) affiché dans le pied de page :
+# --build-arg BUILD_COMMIT=$(git rev-parse --short=7 HEAD). Sans argument : « Version dev ».
+ARG BUILD_COMMIT=
+ENV BACKUP365_BUILD_COMMIT=$BUILD_COMMIT \
+    NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
     BACKUP365_DATA_DIR=/data \

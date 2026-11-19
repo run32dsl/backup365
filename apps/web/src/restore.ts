@@ -1,3 +1,4 @@
+import { API_ERRORS } from './apiError.js';
 import { REASON } from './RestoreJourney.js';
 import { UNREACHABLE } from './session.js';
 
@@ -16,7 +17,8 @@ export interface RestoreJob {
   error: 'restore_error' | 'restore_unreachable' | 'restore_lost' | null;
 }
 
-export type RestoreResult = { ok: true; job: RestoreJob } | { ok: false; message: string };
+export type RestoreResult =
+  { ok: true; job: RestoreJob } | { ok: false; message: string; requestId?: string };
 
 export const RESTORE_MESSAGES = {
   title: 'Restaurer ce mail',
@@ -32,7 +34,6 @@ export const RESTORE_MESSAGES = {
     'L’état de la boîte est incertain : la restauration a peut-être abouti. Vérifiez le dossier daté avant de réessayer.',
   notAvailable: 'Ce mail n’est plus disponible dans la sauvegarde.',
   forbidden: 'Vous n’avez plus le droit de restaurer.',
-  notConfigured: 'La restauration nécessite un tenant relié.',
   alreadyRunning: 'Une restauration de ce mail est déjà en cours.',
   auditUnavailable: 'Journal d’audit indisponible : restauration refusée.',
   restrictedHelp: 'Réservé aux opérateurs et administrateurs.',
@@ -100,7 +101,6 @@ const SERVER_MESSAGES: Record<string, string> = {
   reason_required: RESTORE_MESSAGES.reasonError,
   mail_not_found: RESTORE_MESSAGES.notAvailable,
   forbidden: RESTORE_MESSAGES.forbidden,
-  restore_unavailable: RESTORE_MESSAGES.notConfigured,
   restore_in_progress: RESTORE_MESSAGES.alreadyRunning,
   audit_unavailable: RESTORE_MESSAGES.auditUnavailable,
 };
@@ -109,7 +109,7 @@ function restoreUrl(mailboxId: string, messageId: string): string {
   return `/api/mails/${encodeURIComponent(mailboxId)}/${encodeURIComponent(messageId)}/restore`;
 }
 
-/** La restauration est-elle configurée (un tenant relié) ? En cas d'erreur : oui, le serveur tranchera. */
+/** La restauration est-elle configurée (droit d'écriture accordé) ? En cas d'erreur : oui, le serveur tranchera. */
 export async function fetchRestoreConfigured(fetchFn: typeof fetch = fetch): Promise<boolean> {
   try {
     const res = await fetchFn('/api/restore');
@@ -147,7 +147,12 @@ export async function startRestore(
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
       const code = typeof body?.error === 'string' ? body.error : '';
-      return { ok: false, message: SERVER_MESSAGES[code] ?? RESTORE_MESSAGES.generic };
+      const requestId = res.headers.get('x-request-id') ?? undefined;
+      return {
+        ok: false,
+        message: SERVER_MESSAGES[code] ?? API_ERRORS[code] ?? RESTORE_MESSAGES.generic,
+        ...(requestId ? { requestId } : {}),
+      };
     }
     return { ok: true, job: ((await res.json()) as { job: RestoreJob }).job };
   } catch {

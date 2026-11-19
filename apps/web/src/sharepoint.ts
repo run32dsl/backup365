@@ -1,7 +1,9 @@
+import { API_ERRORS } from './apiError.js';
 import { REASON } from './RestoreJourney.js';
 import type { DriveSnapshot, SiteEntry, SiteScope, SiteScopeSummary } from '@backup365/core';
 import { dayOf, dateTimeOf, sizeOf, type Loaded } from './onedrive.js';
 import { UNREACHABLE } from './session.js';
+import { elementsInError, elementsWhich } from './format.js';
 
 export type { SiteEntry, SiteScope, SiteScopeSummary };
 export { dayOf, dateTimeOf, sizeOf };
@@ -39,11 +41,15 @@ export const SHAREPOINT_MESSAGES = {
   noPoints: 'Aucun point de restauration pour ce site.',
   emptyFolder: 'Ce dossier ne contient aucun élément à cette date.',
   readError: 'La sauvegarde n’a pas pu être lue.',
-  notConfigured: 'Aucun compte Microsoft 365 n’est connecté.',
   adminOnly: 'Réservé aux administrateurs',
   forbidden: 'Vous n’avez pas le droit de restaurer ce site. Contactez un administrateur.',
+  forbiddenSite: (name: string) =>
+    `Vous n’avez pas le droit de restaurer le site « ${name} ». Demandez à un administrateur ou choisissez un autre site.`,
+  chooseOther: 'Choisir un autre site',
   reasonError: REASON.error,
   nameError: 'Le nom saisi ne correspond pas au site.',
+  inactiveHint:
+    'Le bouton reste inactif tant que la case n’est pas cochée et que le nom du site n’est pas exact.',
   alreadyRunning: 'Une restauration de ce site est déjà en cours.',
   auditUnavailable: 'Journal d’audit indisponible : restauration refusée.',
   emptyScope: 'Rien à restaurer à cette date : le périmètre ne contient aucun élément.',
@@ -81,37 +87,99 @@ export interface SharePointRoute {
   site: string;
   /** Granularité demandée par l'ancre ; `null` : celle par défaut. */
   scope: SiteScope | null;
-  /** Dossier ouvert à l'arrivée (`/` : la racine du site). Ignoré sans granularité valide. */
+  /** Dossier ouvert dans l'arborescence, `/` pour la racine du site. */
   path: string;
 }
 
 export const SHAREPOINT_HASH = '#/sharepoint';
 
-/** `#/sharepoint[/<site>[/<granularité>[/<dossier>...]]]`. `null` si l'ancre n'est pas la bonne. */
+/** `#/sharepoint[/<site>[/<granularité>[/<chemin>]]]`, chaque segment encodé. `null` si l'ancre n'est pas la bonne. */
 export function parseSharePointHash(hash: string): SharePointRoute | null {
   if (hash !== SHAREPOINT_HASH && !hash.startsWith(`${SHAREPOINT_HASH}/`)) return null;
   const parts = hash.slice(SHAREPOINT_HASH.length).split('/').filter(Boolean);
   try {
-    const [site = '', scope = '', ...folders] = parts.map(decodeURIComponent);
+    const [site = '', scope = '', ...path] = parts.map(decodeURIComponent);
     const found = SCOPE_OPTIONS.find((o) => o.value === scope);
-    // Un segment `..` ou contenant `/` ne sortirait pas du site : le serveur le refuse aussi.
-    const path = found && folders.length > 0 ? `/${folders.join('/')}` : '/';
-    return { site, scope: found?.value ?? null, path };
+    return {
+      site,
+      scope: found?.value ?? null,
+      // Sans granularité valide, l'ancre ne dit pas quoi ouvrir : la racine du site.
+      path: found && path.length > 0 ? `/${path.join('/')}` : '/',
+    };
   } catch {
     return null;
   }
 }
 
-/** Le dossier n'est porté par l'ancre qu'avec une granularité : chaque niveau du fil a son lien. */
+/** Le chemin n'est pris en compte qu'avec une granularité : elle précède le chemin dans l'ancre. */
 export function sharePointHash(site: string, scope?: SiteScope, path = '/'): string {
-  const folders = scope ? path.split('/').filter(Boolean).map(encodeURIComponent) : [];
-  const parts = [SHAREPOINT_HASH, encodeURIComponent(site), ...(scope ? [scope] : []), ...folders];
-  return parts.join('/');
+  const segments = scope ? path.split('/').filter(Boolean).map(encodeURIComponent) : [];
+  return [SHAREPOINT_HASH, encodeURIComponent(site), ...(scope ? [scope] : []), ...segments].join(
+    '/',
+  );
+}
+
+/**
+ * Clic simple sur un lien : on navigue dans la page sans recharger. Un clic modifié (Ctrl, Meta,
+ * Maj, Alt, bouton du milieu) est laissé au navigateur, qui ouvre le `href` du lien.
+ */
+export function followInApp(
+  ev: {
+    button: number;
+    ctrlKey: boolean;
+    metaKey: boolean;
+    shiftKey: boolean;
+    altKey: boolean;
+    preventDefault: () => void;
+  },
+  navigate: () => void,
+): void {
+  if (ev.button !== 0 || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return;
+  ev.preventDefault();
+  navigate();
+}
+
+/** Niveaux du fil d'Ariane : le site, puis chaque dossier du chemin avec son chemin complet. */
+export function breadcrumbLevels(
+  siteName: string,
+  path: string,
+): { label: string; path: string }[] {
+  const levels = [{ label: siteName, path: '/' }];
+  let acc = '';
+  for (const segment of path.split('/').filter(Boolean)) {
+    acc += `/${segment}`;
+    levels.push({ label: segment, path: acc });
+  }
+  return levels;
+}
+
+/** Lien d'un niveau du fil : son `href` propre, et un clic simple qui ouvre ce niveau. */
+export function breadcrumbLink(
+  level: { path: string },
+  siteId: string,
+  scope: SiteScope,
+  go: (path: string) => void,
+): { href: string; onClick: (ev: Parameters<typeof followInApp>[0]) => void } {
+  return {
+    href: sharePointHash(siteId, scope, level.path),
+    onClick: (ev) => {
+      followInApp(ev, () => {
+        go(level.path);
+      });
+    },
+  };
 }
 
 /** Chemin virtuel en fil lisible : `Documents partagés > Plans 2024`. */
 export function pathLabel(path: string): string {
   return path.split('/').filter(Boolean).join(' > ');
+}
+
+/** Ce qui a été restauré, pour l'écran de résultat : `Fichier : Documents partagés > plan-a.pdf`. */
+export function restoredContentLabel(scope: SiteScope, path: string): string {
+  if (scope === 'site') return 'Site entier';
+  const kind = scope === 'item' ? 'Fichier' : scope === 'folder' ? 'Dossier' : 'Bibliothèque';
+  return `${kind} : ${pathLabel(path)}`;
 }
 
 /** Choix valide pour la granularité ? Mêmes règles que le serveur (`isPathOfScope`). */
@@ -141,34 +209,69 @@ export function summaryCountOf(s: SiteScopeSummary): string {
   return `${plural(s.items, 'élément', 'éléments').replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}, ${size}`;
 }
 
-/** `à 02:00` de la date ISO (UTC). */
-function timeOf(iso: string): string {
-  return dateTimeOf(iso).slice(11);
-}
-
-/** Phrase de récapitulatif (élément, dossier, bibliothèque), en langage clair. */
-export function summaryOf(input: {
+/** Lignes du récapitulatif de confirmation, dans l'ordre des écrans de résultat. */
+export function confirmRowsOf(input: {
   scope: SiteScope;
   siteName: string;
   path: string;
   pointAt: string;
   summary: SiteScopeSummary | null;
-}): string {
-  const label = pathLabel(input.path);
-  const what =
-    input.scope === 'library'
-      ? `la bibliothèque « ${label} »`
-      : input.scope === 'folder'
-        ? `le dossier « ${label} »`
-        : input.scope === 'item'
-          ? `l’élément « ${label} »`
-          : 'le site entier';
-  const count = input.summary ? ` ${summaryCountOf(input.summary)}.` : '';
-  return `Vous allez restaurer ${what} du site « ${input.siteName} », tel qu’il était le ${dayOf(input.pointAt)} à ${timeOf(input.pointAt)}, à son emplacement d’origine. Les fichiers existants ne seront pas remplacés.${count}`;
+  reason: string;
+}): [string, string][] {
+  const rows: [string, string][] = [
+    ['Site', input.siteName],
+    ['Contenu', restoredContentLabel(input.scope, input.path)],
+    ['État au', dateTimeOf(input.pointAt)],
+  ];
+  if (input.summary) {
+    // Site entier : seul le nombre d'éléments est annoncé.
+    rows.push([
+      'Volume',
+      input.scope === 'site'
+        ? plural(input.summary.items, 'élément', 'éléments')
+        : summaryCountOf(input.summary),
+    ]);
+  }
+  rows.push(['Motif', input.reason]);
+  return rows;
+}
+
+/** Conséquence de la restauration, en une phrase sous le récapitulatif. */
+export function consequenceOf(scope: SiteScope): string {
+  return scope === 'site'
+    ? 'Les contenus manquants seront recréés.'
+    : 'Les fichiers existants ne seront pas remplacés.';
 }
 
 /** `3 min 12 s` : voir `formatDuration` de `restore.ts`. */
 export { formatDuration } from './restore.js';
+
+/** Bilan d'une restauration réussie : les compteurs nuls sont omis, chaque nombre a son nom. */
+export function successSummary(
+  restored: number,
+  skipped: number,
+  errors: number,
+  duration: string,
+): string {
+  const parts = [
+    restored > 0
+      ? `${elementsWhich(restored, 'restauré')} en ${duration}.`
+      : `Aucun élément restauré en ${duration}.`,
+  ];
+  if (skipped > 0) {
+    parts.push(
+      `${skipped < 2 ? '1 élément déjà présent a été conservé' : `${skipped} éléments déjà présents ont été conservés`}.`,
+    );
+  }
+  if (errors > 0) parts.push(`${elementsInError(errors)}.`);
+  return parts.join(' ');
+}
+
+/** Phrase de l'alerte d'échec (hors état incertain) : ce qui a été restauré, rien d'écrasé. */
+export function failureSummary(restored: number): string {
+  const done = restored > 0 ? elementsWhich(restored, 'restauré') : 'aucun élément restauré';
+  return `La restauration a échoué : ${done}. Rien n’a été écrasé.`;
+}
 
 export function failureCause(error: SiteJob['error']): string {
   if (error === 'restore_unreachable') return 'SharePoint injoignable pour le moment';
@@ -273,7 +376,8 @@ export interface SiteRestoreInput {
   confirmName?: string | undefined;
 }
 
-export type SiteRestoreResult = { ok: true; job: SiteJob } | { ok: false; message: string };
+export type SiteRestoreResult =
+  { ok: true; job: SiteJob } | { ok: false; message: string; requestId?: string };
 
 /** Lance la restauration. `message` est en français, sans détail technique. */
 export async function startSiteRestore(
@@ -290,7 +394,12 @@ export async function startSiteRestore(
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
       const code = typeof body?.error === 'string' ? body.error : '';
-      return { ok: false, message: SERVER_MESSAGES[code] ?? T.generic };
+      const requestId = res.headers.get('x-request-id') ?? undefined;
+      return {
+        ok: false,
+        message: SERVER_MESSAGES[code] ?? API_ERRORS[code] ?? T.generic,
+        ...(requestId ? { requestId } : {}),
+      };
     }
     return { ok: true, job: ((await res.json()) as { job: SiteJob }).job };
   } catch {

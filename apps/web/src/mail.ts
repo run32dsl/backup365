@@ -1,5 +1,5 @@
 import type { IndexedMail } from '@backup365/core';
-import { toUtcIso } from './audit.js';
+import { dateRange, formText } from './audit.js';
 
 export interface SearchQuery {
   q?: string;
@@ -44,20 +44,39 @@ export async function searchMails(
   return (await res.json()) as SearchResponse;
 }
 
-/** Requête issue du formulaire : première page, dates locales converties en UTC. */
+/** Requête issue du formulaire : première page, dates jj/mm/aaaa converties en intervalle UTC. */
 export function searchQueryFromForm(form: FormData): SearchQuery {
-  const text = (name: string): string => {
-    const value = form.get(name);
-    return typeof value === 'string' ? value.trim() : '';
-  };
+  const text = (name: string): string => formText(form, name);
+  const range = dateRange(text('after'), text('before'));
   return {
     limit: SEARCH_PAGE_SIZE,
     offset: 0,
     q: text('q'),
     mailbox: text('mailbox'),
-    after: toUtcIso(text('after')),
-    before: toUtcIso(text('before')),
+    after: range.from,
+    before: range.to,
   };
+}
+
+/** Requête lancée à l'ouverture de l'écran : première page de la boîte demandée, sinon aucune. */
+export function initialSearchQuery(mailbox?: string): SearchQuery | null {
+  return mailbox ? { limit: SEARCH_PAGE_SIZE, offset: 0, mailbox } : null;
+}
+
+/** Ancre de la recherche filtrée sur une boîte. */
+export function searchHref(mailbox: string): string {
+  return `#/search?mailbox=${encodeURIComponent(mailbox)}`;
+}
+
+/** Boîte désignée par une ancre `#/search?mailbox=<boîte>` ; `null` sinon. */
+export function parseSearchHash(hash: string): string | null {
+  const match = /^#\/search\?mailbox=([^&]+)$/.exec(hash);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1] as string);
+  } catch {
+    return null;
+  }
 }
 
 /** Adresse de la fiche d'un mail (ancre de l'interface). */

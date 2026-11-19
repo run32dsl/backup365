@@ -1,15 +1,17 @@
 # Installer une démo sur un NAS Synology
 
-> **⚠️ Réseau local uniquement.** La console a des comptes locaux, mais elle ne parle qu'en HTTP :
-> les mots de passe circulent en clair sur le réseau. Pour cette démo :
+> **⚠️ Deux modes, le réseau local par défaut.** La console ne parle qu'en HTTP : sans proxy
+> HTTPS, les mots de passe circulent en clair. Ce guide décrit :
 >
-> - ne **pas** rediriger de port sur la box (ni NAT, ni UPnP) ;
-> - ne **pas** la placer derrière un proxy inverse public (ni celui de DSM, ni un domaine public) ;
-> - ne publier le port que sur l'adresse LAN du NAS, jamais sur `0.0.0.0` ;
-> - créer le compte administrateur dès le démarrage (étape 7) : tant qu'il n'existe pas, la
->   première personne qui atteint la console le crée.
+> - le **réseau local seul** (par défaut, étapes 1 à 7) : ni redirection de port sur la box
+>   (NAT, UPnP), ni proxy inverse ; port publié sur l'adresse LAN du NAS, jamais sur `0.0.0.0` ;
+> - l'**exposition par le proxy inverse DSM**, en HTTPS uniquement
+>   ([section dédiée](#exposition-par-le-proxy-inverse-dsm)).
+>
+> Dans les deux modes, créer le compte administrateur dès le démarrage (étape 7) : tant qu'il
+> n'existe pas, la première personne qui atteint la console le crée.
 
-Ce guide vise DSM 7 avec Container Manager. Hors périmètre : paquet `.spk`, HTTPS.
+Ce guide vise DSM 7 avec Container Manager. Hors périmètre : paquet `.spk`.
 
 ## Ce que fait la démo
 
@@ -54,8 +56,8 @@ répond `no_backup_found` (voir [installation.md](installation.md)).
    Sans lui, le projet refuse de démarrer avec un message explicite.
    Si le paquet GHCR est privé : `docker login ghcr.io` avec un jeton `read:packages`.
 5. **Projet.** Container Manager › Projet › Créer : nom `backup365`, chemin
-   `/volume1/docker/backup365`, source « utiliser le `compose.yaml` existant ». Ne pas activer
-   le portail web (proxy inverse DSM). Valider : le projet démarre.
+   `/volume1/docker/backup365`, source « utiliser le `compose.yaml` existant ». En mode réseau
+   local, ne pas activer le portail web (proxy inverse DSM). Valider : le projet démarre.
 6. **Vérification.** Depuis un poste du réseau local :
 
    ```sh
@@ -79,11 +81,45 @@ répond `no_backup_found` (voir [installation.md](installation.md)).
      node dist/admin.js create-admin --username <autre-nom> --password-stdin
    ```
 
-## Vérifier que rien n'est exposé
+## Vérifier que rien n'est exposé (mode réseau local)
 
 Le port ne doit répondre que sur l'adresse LAN. Depuis le NAS, `ss -ltn | grep 3000` doit montrer
 `192.168.1.10:3000`, pas `0.0.0.0:3000`. Vérifier aussi que la box n'a aucune redirection de port
 vers le NAS.
+
+## Exposition par le proxy inverse DSM
+
+À n'activer qu'une fois la démo validée en réseau local, et **seulement en HTTPS** : ne jamais
+exposer le port de la console : seul le 443 du proxy est joignable depuis Internet.
+
+1. **Compte administrateur d'abord.** Terminer l'étape 7 **avant** toute exposition : tant
+   qu'aucun compte n'existe, la première personne qui atteint la console le crée.
+2. **Certificat.** Panneau de configuration › Sécurité › Certificat : obtenir un certificat
+   Let's Encrypt pour le nom de domaine choisi (DSM le renouvelle) et l'associer à la règle.
+   Cela suppose que le domaine pointe vers la box et que celle-ci redirige les ports 80 et 443
+   vers le NAS (réglage de la box, hors de ce guide).
+3. **Règle de proxy inverse.** Panneau de configuration › Portail de connexion › Avancé ›
+   Proxy inverse › Créer. Source : HTTPS, nom d'hôte du domaine, port 443. Destination : HTTP,
+   adresse LAN du NAS, port `BACKUP365_PORT` (3000 par défaut).
+4. **En-têtes WebSocket.** Dans « En-têtes personnalisés » de la règle : Créer › WebSocket. La
+   console n'utilise pas WebSocket aujourd'hui ; l'entrée est une précaution sans effet.
+5. **`BACKUP365_TRUST_PROXY`.** Ajouter au `.env` l'adresse du proxy **telle que le conteneur
+   la voit** (variable absente du modèle). Le plus souvent, DSM arrive par la passerelle du
+   réseau Docker du projet (`172.x.0.1`), lisible avec
+   `sudo docker network inspect backup365_default` (champ `Gateway`). Redémarrer le projet.
+   Sans elle, le cookie de session n'est pas `Secure` et tous les clients partagent la même
+   adresse pour l'anti-force brute ; détails dans [installation.md](installation.md).
+6. **Vérification HTTPS.** Hors du réseau local, `curl -I https://<domaine>/api/health` répond
+   200, `http://<domaine>` ne sert pas la console et, après connexion, le cookie de session est
+   `Secure`. Sinon, l'adresse du proxy vue par le conteneur n'est pas celle saisie : essayer
+   l'adresse LAN du NAS.
+7. **HSTS, en dernier.** Activer HSTS dans les paramètres avancés de la règle : la console
+   n'envoie pas `Strict-Transport-Security` elle-même. Les navigateurs refusent ensuite le HTTP
+   pour ce domaine : ne le faire qu'une fois l'étape 6 réussie. `curl -I` doit alors montrer
+   l'en-tête `strict-transport-security`.
+
+Garder `BACKUP365_BIND_ADDRESS` sur l'adresse LAN. Pour revenir au mode local, supprimer la règle
+de proxy et les redirections de ports de la box.
 
 ## Mise à jour
 

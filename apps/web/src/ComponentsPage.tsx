@@ -2,10 +2,10 @@ import { useState, type MouseEvent, type ReactNode } from 'react';
 import {
   Alert,
   Button,
+  ChoiceGroup,
   DataTable,
   Dialog,
   EmptyState,
-  FormField,
   StatusPill,
   Steps,
   WIZARD_LABELS,
@@ -13,14 +13,13 @@ import {
   type Column,
   type PillStatus,
 } from './ui/index.js';
-
-const RGPD_REMINDER =
-  'Chaque consultation, export ou restauration est inscrite au journal d’audit.';
+import { AuditReminder, REASON, ReasonField } from './RestoreJourney.js';
 
 /** Sections de la page, dans l'ordre du sommaire. */
 export const SECTIONS = [
   { id: 'boutons', summary: 'Boutons', title: 'Boutons' },
   { id: 'champs', summary: 'Champs', title: 'Champs de formulaire' },
+  { id: 'choix', summary: 'Choix', title: 'Groupe d’options' },
   { id: 'tableau', summary: 'Tableau', title: 'Tableau' },
   { id: 'dialogue', summary: 'Dialogue', title: 'Boîte de dialogue' },
   { id: 'etats', summary: 'États', title: 'États vides' },
@@ -78,6 +77,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
 /** Exemples d'états d'un champ et du dialogue, avec un état local. */
 function Playground() {
   const [reason, setReason] = useState('Contrôle trimestriel du dossier');
+  const [mode, setMode] = useState('copy');
   const [open, setOpen] = useState(false);
   const [dialogReason, setDialogReason] = useState('');
   const [saving, setSaving] = useState(false);
@@ -107,21 +107,34 @@ function Playground() {
         </div>
       </Section>
       <Section id="champs" title="Champs de formulaire">
-        <FormField
-          label="Motif de la consultation"
-          help="Ce motif sera inscrit au journal d’audit."
-          counterMax={200}
-          value={reason}
-          onChange={(e) => {
-            setReason(e.currentTarget.value);
-          }}
+        <ReasonField of="de l’export" value={reason} onChange={setReason} />
+        <ReasonField of="de l’export" value="" error={REASON.error} onChange={() => undefined} />
+      </Section>
+      <Section id="choix" title="Groupe d’options">
+        <ChoiceGroup
+          legend="Mode"
+          name="demo-mode"
+          value={mode}
+          options={[
+            { value: 'copy', label: 'Restaurer en copie (recommandé)' },
+            { value: 'replace', label: 'Remplacer le fichier actuel' },
+          ]}
+          onChange={setMode}
         />
-        <FormField
-          label="Motif de la consultation (en erreur)"
-          error="Indiquez un motif d’au moins 10 caractères."
-          counterMax={200}
-          value="Test"
-          readOnly
+        <ChoiceGroup
+          legend="Restaurer"
+          name="demo-scope"
+          value="item"
+          options={[
+            { value: 'item', label: 'Un élément' },
+            {
+              value: 'site',
+              label: 'Le site entier',
+              disabled: true,
+              hint: 'Réservé aux administrateurs',
+            },
+          ]}
+          onChange={() => undefined}
         />
       </Section>
       <Section id="tableau" title="Tableau">
@@ -161,15 +174,8 @@ function Playground() {
           }}
         >
           <p>Indiquez le motif de l’export.</p>
-          <FormField
-            label="Motif"
-            counterMax={200}
-            value={dialogReason}
-            onChange={(e) => {
-              setDialogReason(e.currentTarget.value);
-            }}
-          />
-          <Alert tone="info">{RGPD_REMINDER}</Alert>
+          <ReasonField of="de l’export" value={dialogReason} onChange={setDialogReason} />
+          <AuditReminder />
           <div className="button-row dialog-actions">
             <Button
               variant="secondary"
@@ -233,6 +239,8 @@ export function ComponentsPage() {
       <Section id="etapes" title="Indicateur d’étapes">
         <Steps steps={['Choisir', 'Vérifier', 'Confirmer']} current={1} />
         <Steps steps={['Choisir', 'Vérifier', 'Confirmer']} current={2} />
+        <p>Parcours terminé : les trois étapes sont cochées, aucune n’est en cours.</p>
+        <Steps steps={['Choisir', 'Vérifier', 'Confirmer']} current={4} />
       </Section>
       <Section id="actions-etapes" title="Barre d’actions des parcours">
         <p>Retour à gauche, action principale à droite ; en mobile, action principale en haut.</p>
@@ -249,6 +257,8 @@ export function ComponentsPage() {
           <StatusPill status="late" />
           <StatusPill status="failed" />
           <StatusPill status="running" />
+          <StatusPill status="operational" />
+          <StatusPill status="unconfigured" />
         </div>
       </Section>
     </main>

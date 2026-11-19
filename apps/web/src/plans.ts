@@ -8,20 +8,27 @@ import {
   type RpoHours,
   type RunStatus,
 } from '@backup365/core';
+import { readFailure, requestError } from './apiError.js';
+import { dateTimeOf } from './format.js';
 import { UNREACHABLE, type Outcome } from './session.js';
 import type { PillStatus } from './ui/index.js';
 
-/** Plan tel que `GET /api/plans` le rend : le plan, sa conformité et sa dernière exécution. */
+/**
+ * Plan tel que `GET /api/plans` le rend : le plan, sa conformité et sa dernière exécution. Les
+ * trois champs optionnels ne sont envoyés qu'à un administrateur : un opérateur ne reçoit ni
+ * sélection, ni délai de remise en service, ni justification. Tout code partagé par les deux
+ * rôles doit donc s'en passer.
+ */
 export interface PlanItem {
   id: string;
   name: string;
   scope: PlanScope;
   dataTypes: DataType[];
-  selection: string[];
+  selection?: string[];
   rpoHours: RpoHours;
-  rtoHours: number | null;
+  rtoHours?: number | null;
   retentionDays: number;
-  gdprJustification: string;
+  gdprJustification?: string;
   createdAt: string;
   compliance: {
     state: ComplianceState;
@@ -51,7 +58,7 @@ export const DATA_TYPE_LABELS: Record<DataType, string> = {
   contacts: 'Contacts',
 };
 
-/** Complément du nom dans la phrase du récapitulatif (« vos mails, fichiers… »). */
+/** Complément du nom dans la synthèse de la liste (« mails, fichiers… »). */
 const DATA_TYPE_PHRASES: Record<DataType, string> = {
   mail: 'mails',
   files: 'fichiers',
@@ -59,14 +66,18 @@ const DATA_TYPE_PHRASES: Record<DataType, string> = {
   contacts: 'contacts',
 };
 
-export const RPO_CHOICES: readonly RpoHours[] = [12, 4, 24];
-export const RTO_CHOICES: readonly number[] = [24, 8, 72];
+export const RPO_CHOICES: readonly RpoHours[] = [4, 12, 24];
+export const RTO_CHOICES: readonly number[] = [8, 24, 72];
 /** Durées de conservation proposées, en jours. */
-export const RETENTION_CHOICES: readonly number[] = [365, 1095, 180];
+export const RETENTION_CHOICES: readonly number[] = [180, 365, 1095];
 
-/** Les choix proposés, plus la valeur courante si elle n'en fait pas partie (plan créé par l'API). */
+/**
+ * Les choix proposés, plus la valeur courante si elle n'en fait pas partie (plan créé par l'API),
+ * en ordre croissant.
+ */
 export function withCurrent(choices: readonly number[], current: number): number[] {
-  return choices.includes(current) ? [...choices] : [...choices, current];
+  const all = choices.includes(current) ? [...choices] : [...choices, current];
+  return all.sort((a, b) => a - b);
 }
 
 export function retentionLabel(days: number): string {
@@ -100,7 +111,7 @@ export const MESSAGES = {
   emptyAdmin: 'Vos données Microsoft 365 ne sont pas protégées.',
   emptyOperator: 'Aucun plan n’a encore été créé par un administrateur.',
   notConfigured: 'Sauvegarde non configurée',
-  notConfiguredHelp: 'Connectez d’abord votre tenant Microsoft 365 pour créer un plan.',
+  notConfiguredHelp: 'Connectez d’abord Microsoft 365 pour créer un plan.',
   notConfiguredOperator: 'Demandez à un administrateur de la configurer',
   name: 'Indiquez un nom pour le plan.',
   dataTypes: 'Choisissez au moins un type de données.',
@@ -111,8 +122,6 @@ export const MESSAGES = {
   updated: 'Plan modifié.',
   deleted: 'Plan supprimé.',
   runStarted: 'Sauvegarde lancée. Motif enregistré au journal d’audit.',
-  auditTrail:
-    'Toute consultation, export ou restauration demandera un motif et sera inscrit au journal d’audit.',
 } as const;
 
 // ---- Formulaire -----------------------------------------------------------------------------
@@ -164,12 +173,12 @@ export function parseJustification(text: string): { kind: ReasonKind; detail: st
 }
 
 export function formFromPlan(plan: PlanItem): PlanForm {
-  const reason = parseJustification(plan.gdprJustification);
+  const reason = parseJustification(plan.gdprJustification ?? '');
   return {
     name: plan.name,
     dataTypes: plan.dataTypes,
     scope: plan.scope,
-    selection: plan.selection,
+    selection: plan.selection ?? [],
     rpoHours: plan.rpoHours,
     rtoHours: plan.rtoHours ?? 24,
     retentionDays: plan.retentionDays,
@@ -214,57 +223,107 @@ export function validateStep(form: PlanForm, step: 1 | 2): FormErrors {
   return errors;
 }
 
+/** Périmètre du plan, en clair. */
+function scopeLabel(form: PlanForm): string {
+  if (form.scope === 'all') return 'Toute l’organisation';
+  const n = form.selection.length;
+  if (n === 0) return 'Aucune boîte ou compte choisi';
+  return n === 1 ? '1 boîte ou compte choisi' : `${n} boîtes ou comptes choisis`;
+}
+
+/** Lignes du récapitulatif (dernière étape de création) : libellé et valeur. */
+export function recapRows(form: PlanForm): [string, string][] {
+  const data = DATA_TYPES.filter((t) => form.dataTypes.includes(t)).map((t) => DATA_TYPE_LABELS[t]);
+  return [
+    ['Nom du plan', form.name.trim()],
+    ['Données', data.length === 0 ? 'Aucune donnée choisie' : data.join(', ')],
+    ['Périmètre', scopeLabel(form)],
+    ['Fréquence', `toutes les ${form.rpoHours} h`],
+    ['Remise en service visée', `sous ${form.rtoHours} h`],
+    ['Conservation', retentionLabel(form.retentionDays)],
+    ['Justification', justificationText(form.reasonKind || 'other', form.reasonDetail)],
+  ];
+}
+
 /** Liste « a, b et c » ; une seule entrée reste telle quelle. */
 function enumerate(items: string[]): string {
   if (items.length <= 1) return items.join('');
   return `${items.slice(0, -1).join(', ')} et ${items.at(-1) ?? ''}`;
 }
 
-/** Phrase du récapitulatif, en langage clair. */
-export function summarySentence(form: PlanForm): string {
+/**
+ * Synthèse d'un plan en une ligne pour la liste, avec les termes du récapitulatif de l'assistant :
+ * « Mails, fichiers et contacts · toute l'organisation · toutes les 12 h · conservés 1 an ».
+ */
+export function planSummary(
+  plan: Pick<PlanItem, 'dataTypes' | 'scope' | 'selection' | 'rpoHours' | 'retentionDays'>,
+): string {
   const what = enumerate(
-    DATA_TYPES.filter((t) => form.dataTypes.includes(t)).map((t) => DATA_TYPE_PHRASES[t]),
+    DATA_TYPES.filter((t) => plan.dataTypes.includes(t)).map((t) => DATA_TYPE_PHRASES[t]),
   );
   const where =
-    form.scope === 'all'
-      ? 'de toute l’organisation'
-      : form.selection.length === 1
-        ? 'd’une boîte ou d’un compte choisi'
-        : `de ${form.selection.length} boîtes ou comptes choisis`;
-  return `Vos ${what} ${where} seront sauvegardés toutes les ${form.rpoHours} h et conservés ${retentionLabel(form.retentionDays)}.`;
+    plan.scope === 'all'
+      ? 'toute l’organisation'
+      : plan.selection?.length === 1
+        ? 'une boîte ou un compte choisi'
+        : plan.selection && plan.selection.length > 1
+          ? `${plan.selection.length} boîtes ou comptes choisis`
+          : 'boîtes ou comptes choisis';
+  return [
+    what.charAt(0).toUpperCase() + what.slice(1),
+    where,
+    `toutes les ${plan.rpoHours} h`,
+    `conservés ${retentionLabel(plan.retentionDays)}`,
+  ]
+    .filter((part) => part !== '')
+    .join(' · ');
 }
-
-export const rtoSentence = (hours: number): string =>
-  `En cas de sinistre, la remise en service est visée sous ${hours} h.`;
 
 export const rpoHelp = (hours: number): string =>
   `Si un incident survient, vous pouvez perdre au plus ${hours} h de données.`;
+
+export const rtoHelp = (hours: number): string =>
+  `Le service doit être rétabli en ${hours} h au plus.`;
+
+export const retentionHelp = (days: number): string =>
+  `Les sauvegardes sont supprimées au bout de ${retentionLabel(days).replace(' ', ' ')}.`;
 
 // ---- Affichage de la liste ------------------------------------------------------------------
 
 const pad = (n: number): string => String(n).padStart(2, '0');
 
-/** `14/11 06:00`, à l'heure locale. */
-export function shortDate(iso: string): string {
-  const d = new Date(iso);
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 /** `18:00`, à l'heure locale. */
 export const timeOf = (date: Date): string => `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 
-/** Conformité en pastille : jamais la couleur seule (icône et texte dans `StatusPill`). */
-export function complianceView(plan: PlanItem): { status: PillStatus; label: string } {
+/**
+ * État du plan : le libellé court de la charte (celui du tableau de bord) et, si elle apporte
+ * plus que la colonne « Dernière exécution », une explication en texte secondaire.
+ */
+export function complianceView(plan: PlanItem): {
+  status: PillStatus;
+  label: string;
+  note?: string;
+} {
   const { state, lastSuccessAt, lastRestorePointAt } = plan.compliance;
   if (state === 'compliant') {
     // Réussi, mais sans point de restauration : rien n'était à sauvegarder (issue #80).
-    const label = lastRestorePointAt === null ? 'Conforme : rien à sauvegarder' : 'Conforme';
-    return { status: 'compliant', label };
+    // « Dernière exécution » le dit déjà quand le dernier passage l'a constaté.
+    const said = plan.lastRun?.noSnapshotReason === 'no_content';
+    if (lastRestorePointAt === null && !said) {
+      return { status: 'compliant', label: 'À jour', note: 'Rien à sauvegarder pour l’instant' };
+    }
+    return { status: 'compliant', label: 'À jour' };
   }
-  if (lastSuccessAt === null) {
-    return { status: 'failed', label: 'Non conforme : aucune sauvegarde réussie' };
-  }
-  return { status: 'late', label: 'À vérifier : RPO dépassé' };
+  // Même état que le tableau de bord (`state` du plan), jamais déduit d'ailleurs.
+  const note =
+    lastSuccessAt === null
+      ? 'Aucune sauvegarde réussie'
+      : state === 'late'
+        ? 'Dernière sauvegarde plus ancienne que prévu'
+        : undefined; // échec : « Dernière exécution » le dit
+  return state === 'failed'
+    ? { status: 'failed', label: 'En échec', ...(note && { note }) }
+    : { status: 'late', label: 'En retard', ...(note && { note }) };
 }
 
 /** Dernière exécution en une ligne. */
@@ -272,7 +331,7 @@ export function lastRunLabel(plan: PlanItem): string {
   if (plan.running) return 'En cours…';
   const run = plan.lastRun;
   if (!run) return 'Pas encore sauvegardé';
-  const at = shortDate(run.finishedAt ?? run.startedAt);
+  const at = dateTimeOf(run.finishedAt ?? run.startedAt);
   if (run.status !== 'success') return `Échec, ${at}`;
   const outcome =
     run.noSnapshotReason === 'no_content' ? 'Réussie (rien à sauvegarder)' : 'Réussie';
@@ -310,7 +369,7 @@ export function parsePlansHash(hash: string): PlansRoute | null {
 /** Liste des plans ; lève si la réponse n'est pas en 2xx. */
 export async function fetchPlans(fetchFn: typeof fetch = fetch): Promise<PlanItem[]> {
   const res = await fetchFn('/api/plans');
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw requestError(res);
   return ((await res.json()) as { items: PlanItem[] }).items;
 }
 
@@ -360,12 +419,8 @@ async function send<T>(
         : {}),
     });
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
-      const code = typeof body?.error === 'string' ? body.error : '';
-      return {
-        ok: false,
-        message: SERVER_MESSAGES[code] ?? `Erreur inattendue (HTTP ${res.status}).`,
-      };
+      const failure = await readFailure(res, SERVER_MESSAGES);
+      return { ok: false, ...failure };
     }
     return { ok: true, value: (await read?.(res)) as T };
   } catch {
