@@ -183,6 +183,18 @@ describe('RestoreOutcome', () => {
     expect(html).toContain('2 s<!-- -->.</span>');
   });
 
+  it('puts the result first and leaves out the audit reminder', () => {
+    const cases: Partial<RestoreJob>[] = [{}, { status: 'failed', error: 'restore_error' }];
+    for (const j of cases) {
+      const html = render(j);
+      expect(html.match(/class="alert alert-(\w+)"/)?.[1]).toBe(
+        j.status === 'failed' ? 'error' : 'success',
+      );
+      expect(html).not.toContain('alert-info');
+      expect(html).not.toContain('Chaque consultation');
+    }
+  });
+
   it('falls back on "(sans objet)" and omits a missing date', () => {
     const html = renderToString(
       <RestoreOutcome

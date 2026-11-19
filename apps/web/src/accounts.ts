@@ -92,7 +92,6 @@ export async function resetPassword(
 /** Textes de la réinitialisation (maquette de #56). */
 export const RESET_TEXTS = {
   title: 'Réinitialiser le mot de passe',
-  audit: 'Le mot de passe n’y figure pas.',
   resultTitle: 'Mot de passe temporaire',
   once: 'Affiché une seule fois. Il ne pourra plus être consulté.',
   copyFailed: 'Copie impossible. Sélectionnez le mot de passe et copiez-le manuellement.',

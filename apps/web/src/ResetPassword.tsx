@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type Ref } from 'react';
 import { RESET_TEXTS } from './accounts.js';
 import type { Problem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
-import { AuditReminder, REASON, ReasonField } from './RestoreJourney.js';
+import { REASON, ReasonField } from './RestoreJourney.js';
 import { Alert, Button, Dialog } from './ui/index.js';
 
 /** Étape 2 : récapitulatif et motif obligatoire. Sans état : le motif vide donne `error`. */
@@ -39,7 +39,6 @@ export function ResetReasonForm({
       </p>
       <ReasonField of="de la réinitialisation" value={reason} error={error} onChange={setReason} />
       {failure && <FailureAlert problem={failure} />}
-      <AuditReminder extra={RESET_TEXTS.audit} />
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onCancel}>
           Annuler

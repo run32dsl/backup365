@@ -66,6 +66,14 @@ composant s'y ajoute avec ses tests de comportement.
   configurer, un `Alert` d'avertissement (`role="status"`) sous le `h1`, titré « Connexion
   Microsoft 365 à configurer », avec les trois étapes numérotées ; commandes et chemins en
   `<code>`. Le libellé « Non configurée » reste réservé à la sauvegarde sans plan.
+- **Rappel d'audit** (`AuditReminder`, `Alert` d'information) : une règle unique.
+  Dans un parcours ou une boîte qui consulte, exporte ou restaure un élément sauvegardé, le
+  rappel est le premier `Alert` d'information, sous le titre de l'étape de saisie. Dans une
+  boîte de résultat (en cours, réussie, échouée), le bandeau de résultat vient en premier et le
+  rappel est retiré : le bouton « Voir dans le journal d’audit » en tient lieu. Pour une action
+  qui ne touche pas à un élément sauvegardé (réinitialisation de mot de passe, création ou
+  lancement d'un plan), il n'y a pas de bandeau : seule l'aide du champ motif (« Ce motif sera
+  inscrit au journal d’audit… ») reste. `#/composants` montre ce placement.
 - **Bandeau d'alerte** : `role="alert"` pour une erreur, `role="status"` pour une information ;
   sans détail technique.
 - **État vide** (`.empty`) : phrase claire et, au plus, un bouton d'action.

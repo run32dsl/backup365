@@ -43,13 +43,24 @@ describe('restore journey', () => {
 
   it.each([
     ['MailPage.tsx', 'de l’export'],
-    ['ResetPassword.tsx', 'de la réinitialisation'],
     ['ComponentsPage.tsx', 'de l’export'],
   ])('%s reuses the reason block and the audit reminder', (name) => {
     const text = source(name);
     expect(text).toContain('<ReasonField');
     expect(text).toContain('<AuditReminder');
     expect(text).not.toContain('counterMax');
+  });
+
+  it('keeps the audit reminder out of actions that do not touch a backed-up item', () => {
+    expect(source('ResetPassword.tsx')).not.toContain('AuditReminder');
+    expect(source('ResetPassword.tsx')).toContain('<ReasonField');
+    expect(source('PlansPage.tsx')).not.toContain('AuditReminder');
+  });
+
+  it('shows the reminder in the restore dialog only on the input step', () => {
+    const text = source('RestoreAction.tsx');
+    expect(text).toContain('{job === null && <AuditReminder />}');
+    expect(text.match(/<AuditReminder/g)).toHaveLength(1);
   });
 
   it('labels every reason "Motif … (obligatoire)" with the same help and counter', () => {
@@ -72,7 +83,7 @@ describe('restore journey', () => {
     expect(plans).toContain('help={REASON.help}');
     expect(plans).toContain('counterMax={REASON.maxLength}');
     expect(plans).toContain('Précision (facultatif)');
-    expect(plans).toContain('<AuditReminder />');
+    expect(plans).not.toContain('AuditReminder');
   });
 
   it('keeps the word « journalisée » out of the screens', () => {
