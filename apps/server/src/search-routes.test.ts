@@ -86,14 +86,20 @@ describe('GET /api/search', () => {
     expect(res.json<{ total: number }>().total).toBe(2);
   });
 
-  it.each(['limit=0', 'limit=101', 'offset=-1', 'after=hier', 'q=', `q=${'a'.repeat(257)}`])(
-    'rejects invalid parameters (%s)',
-    async (qs) => {
-      const app = await appWithData();
-      const res = await app.inject({ method: 'GET', url: `/api/search?${qs}` });
-      expect(res.statusCode).toBe(400);
-    },
-  );
+  it.each([
+    'limit=0',
+    'limit=101',
+    'offset=-1',
+    'after=hier',
+    'after=2026-11-18',
+    'before=31/02/2026',
+    'q=',
+    `q=${'a'.repeat(257)}`,
+  ])('rejects invalid parameters (%s)', async (qs) => {
+    const app = await appWithData();
+    const res = await app.inject({ method: 'GET', url: `/api/search?${qs}` });
+    expect(res.statusCode).toBe(400);
+  });
 
   it('answers 400 on a date Ajv accepts but JavaScript rejects', async () => {
     const app = await appWithData();

@@ -16,18 +16,11 @@ import {
   sharePointHash,
   startSiteRestore,
   summaryCountOf,
-  summaryOf,
-  wholeSiteSummaryOf,
+  confirmRowsOf,
+  consequenceOf,
 } from './sharepoint.js';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { API_ERRORS } from './apiError.js';
-import {
-  ConfirmStep,
-  ContentTree,
-  Problem,
-  SiteDenied,
-  SiteEntriesTable,
-} from './SharePointPage.js';
+import { ConfirmStep, ContentTree, SiteDenied, SiteEntriesTable } from './SharePointPage.js';
 import { navEntries, screenOf } from './App.js';
 
 const json = (body: unknown, status = 200) =>
@@ -258,32 +251,40 @@ describe('SharePoint wording', () => {
     expect(pathLabel('/Documents partagés/Plans 2024')).toBe('Documents partagés > Plans 2024');
   });
 
-  it('writes the summary in plain language, with the point of restoration', () => {
+  it('lists the summary rows, with the point of restoration and the reason', () => {
     const input = {
       scope: 'library' as const,
       siteName: 'Site Urbanisme (exemple)',
       path: '/Documents partagés',
       pointAt: '2026-11-12T02:00:00.000Z',
       summary: { items: 1240, sizeBytes: 3_200_000_000 },
+      reason: 'Reprise après incident',
     };
-    expect(summaryOf(input)).toBe(
-      'Vous allez restaurer la bibliothèque « Documents partagés » du site « Site Urbanisme (exemple) », tel qu’il était le 12/11/2026 à 02:00, à son emplacement d’origine. Les fichiers existants ne seront pas remplacés. 1 240 éléments, 3,2 Go.',
-    );
-    expect(summaryOf({ ...input, scope: 'item', summary: null, path: '/A/b.pdf' })).toContain(
-      'l’élément « A > b.pdf »',
-    );
+    expect(confirmRowsOf(input)).toEqual([
+      ['Site', 'Site Urbanisme (exemple)'],
+      ['Contenu', 'Bibliothèque : Documents partagés'],
+      ['État au', '12/11/2026 02:00'],
+      ['Volume', '1 240 éléments, 3,2 Go'],
+      ['Motif', 'Reprise après incident'],
+    ]);
+    const item = confirmRowsOf({ ...input, scope: 'item', summary: null, path: '/A/b.pdf' });
+    expect(item).toContainEqual(['Contenu', 'Fichier : A > b.pdf']);
+    expect(item.map(([label]) => label)).not.toContain('Volume');
+    expect(consequenceOf('library')).toBe('Les fichiers existants ne seront pas remplacés.');
   });
 
-  it('writes the whole-site summary as one sentence', () => {
-    expect(
-      wholeSiteSummaryOf({
-        siteName: 'Équipe commerciale',
-        pointAt: '2026-11-17T14:01:00Z',
-        items: 6,
-      }),
-    ).toBe(
-      'Vous allez restaurer le site « Équipe commerciale » tel qu’il était le 17/11/2026 à 14:01 : 6 éléments. Les contenus manquants seront recréés.',
-    );
+  it('lists the whole-site summary with the item count only', () => {
+    const rows = confirmRowsOf({
+      scope: 'site',
+      siteName: 'Équipe commerciale',
+      path: '/',
+      pointAt: '2026-11-17T14:01:00Z',
+      summary: { items: 6, sizeBytes: 1_600_000 },
+      reason: 'Reprise',
+    });
+    expect(rows).toContainEqual(['Contenu', 'Site entier']);
+    expect(rows).toContainEqual(['Volume', '6 éléments']);
+    expect(consequenceOf('site')).toBe('Les contenus manquants seront recréés.');
   });
 
   it('orders the whole-site confirmation and ties the hint to the name field', () => {
@@ -296,9 +297,12 @@ describe('SharePoint wording', () => {
         onStarted={() => undefined}
       />,
     );
+    expect(html).not.toContain('Vous allez restaurer');
+    expect(html).not.toContain('Motif : ');
     const order = [
-      'Motif : ',
       '<h2>Récapitulatif</h2>',
+      '<dt>Motif</dt><dd>Reprise après incident</dd>',
+      'Les contenus manquants seront recréés.',
       'action de grande ampleur',
       'Je comprends',
       'Tapez le nom du site',
@@ -318,17 +322,6 @@ describe('SharePoint wording', () => {
     expect(isOutcomeUncertain('restore_lost')).toBe(true);
     expect(isOutcomeUncertain('restore_error')).toBe(false);
     expect(failureCause('restore_unreachable')).toContain('injoignable');
-  });
-});
-
-describe('SharePoint unconfigured state', () => {
-  it('shows the shared catalog_unavailable text, without a link', () => {
-    const html = renderToStaticMarkup(<Problem status="unconfigured" onRetry={() => undefined} />);
-    const shared = API_ERRORS['catalog_unavailable'] ?? '';
-    expect(shared).not.toBe('');
-    expect(html).toContain(shared);
-    expect(html).not.toContain('<a');
-    expect(html).not.toContain('Configurer la connexion');
   });
 });
 

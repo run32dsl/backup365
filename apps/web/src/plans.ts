@@ -58,7 +58,7 @@ export const DATA_TYPE_LABELS: Record<DataType, string> = {
   contacts: 'Contacts',
 };
 
-/** Complément du nom dans la phrase du récapitulatif (« vos mails, fichiers… »). */
+/** Complément du nom dans la synthèse de la liste (« mails, fichiers… »). */
 const DATA_TYPE_PHRASES: Record<DataType, string> = {
   mail: 'mails',
   files: 'fichiers',
@@ -111,7 +111,7 @@ export const MESSAGES = {
   emptyAdmin: 'Vos données Microsoft 365 ne sont pas protégées.',
   emptyOperator: 'Aucun plan n’a encore été créé par un administrateur.',
   notConfigured: 'Sauvegarde non configurée',
-  notConfiguredHelp: 'Connectez d’abord votre tenant Microsoft 365 pour créer un plan.',
+  notConfiguredHelp: 'Connectez d’abord Microsoft 365 pour créer un plan.',
   notConfiguredOperator: 'Demandez à un administrateur de la configurer',
   name: 'Indiquez un nom pour le plan.',
   dataTypes: 'Choisissez au moins un type de données.',
@@ -122,8 +122,6 @@ export const MESSAGES = {
   updated: 'Plan modifié.',
   deleted: 'Plan supprimé.',
   runStarted: 'Sauvegarde lancée. Motif enregistré au journal d’audit.',
-  auditTrail:
-    'Toute consultation, export ou restauration demandera un motif et sera inscrit au journal d’audit.',
 } as const;
 
 // ---- Formulaire -----------------------------------------------------------------------------
@@ -225,28 +223,36 @@ export function validateStep(form: PlanForm, step: 1 | 2): FormErrors {
   return errors;
 }
 
+/** Périmètre du plan, en clair. */
+function scopeLabel(form: PlanForm): string {
+  if (form.scope === 'all') return 'Toute l’organisation';
+  const n = form.selection.length;
+  if (n === 0) return 'Aucune boîte ou compte choisi';
+  return n === 1 ? '1 boîte ou compte choisi' : `${n} boîtes ou comptes choisis`;
+}
+
+/** Lignes du récapitulatif (dernière étape de création) : libellé et valeur. */
+export function recapRows(form: PlanForm): [string, string][] {
+  const data = DATA_TYPES.filter((t) => form.dataTypes.includes(t)).map((t) => DATA_TYPE_LABELS[t]);
+  return [
+    ['Nom du plan', form.name.trim()],
+    ['Données', data.length === 0 ? 'Aucune donnée choisie' : data.join(', ')],
+    ['Périmètre', scopeLabel(form)],
+    ['Fréquence', `toutes les ${form.rpoHours} h`],
+    ['Remise en service visée', `sous ${form.rtoHours} h`],
+    ['Conservation', retentionLabel(form.retentionDays)],
+    ['Justification', justificationText(form.reasonKind || 'other', form.reasonDetail)],
+  ];
+}
+
 /** Liste « a, b et c » ; une seule entrée reste telle quelle. */
 function enumerate(items: string[]): string {
   if (items.length <= 1) return items.join('');
   return `${items.slice(0, -1).join(', ')} et ${items.at(-1) ?? ''}`;
 }
 
-/** Phrase du récapitulatif, en langage clair. */
-export function summarySentence(form: PlanForm): string {
-  const what = enumerate(
-    DATA_TYPES.filter((t) => form.dataTypes.includes(t)).map((t) => DATA_TYPE_PHRASES[t]),
-  );
-  const where =
-    form.scope === 'all'
-      ? 'de toute l’organisation'
-      : form.selection.length === 1
-        ? 'd’une boîte ou d’un compte choisi'
-        : `de ${form.selection.length} boîtes ou comptes choisis`;
-  return `Vos ${what} ${where} seront sauvegardés toutes les ${form.rpoHours} h et conservés ${retentionLabel(form.retentionDays)}.`;
-}
-
 /**
- * Synthèse d'un plan en une ligne pour la liste, mêmes termes que `summarySentence` :
+ * Synthèse d'un plan en une ligne pour la liste, avec les termes du récapitulatif de l'assistant :
  * « Mails, fichiers et contacts · toute l'organisation · toutes les 12 h · conservés 1 an ».
  */
 export function planSummary(
@@ -272,9 +278,6 @@ export function planSummary(
     .filter((part) => part !== '')
     .join(' · ');
 }
-
-export const rtoSentence = (hours: number): string =>
-  `En cas de sinistre, la remise en service est visée sous ${hours} h.`;
 
 export const rpoHelp = (hours: number): string =>
   `Si un incident survient, vous pouvez perdre au plus ${hours} h de données.`;

@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { PlanWizard, PlansListView } from './PlansPage.js';
+import { AUDIT_REMINDER } from './RestoreJourney.js';
 import {
   complianceView,
   createdMessage,
@@ -17,7 +18,7 @@ import {
   withCurrent,
   payloadOf,
   runPlan,
-  summarySentence,
+  recapRows,
   validateStep,
   type PlanItem,
 } from './plans.js';
@@ -124,15 +125,37 @@ describe('plan form', () => {
     expect(payloadOf({ ...form, scope: 'selection' }).selection).toEqual(['a']);
   });
 
-  it('states the plan in plain language', () => {
-    expect(summarySentence(emptyForm())).toBe(
-      'Vos mails, fichiers, calendriers et contacts de toute l’organisation seront sauvegardés toutes les 12 h et conservés 1 an.',
+  it('lists the plan in labelled rows, in order', () => {
+    const rows = recapRows({ ...emptyForm(), name: ' Messagerie Direction ', reasonKind: 'legal' });
+    expect(rows).toEqual([
+      ['Nom du plan', 'Messagerie Direction'],
+      ['Données', 'Messagerie, Fichiers, Calendriers, Contacts'],
+      ['Périmètre', 'Toute l’organisation'],
+      ['Fréquence', 'toutes les 12 h'],
+      ['Remise en service visée', 'sous 24 h'],
+      ['Conservation', '1 an'],
+      ['Justification', 'Obligation légale'],
+    ]);
+  });
+
+  it('adds the precision to the justification and counts a chosen selection', () => {
+    const form = {
+      ...emptyForm(),
+      dataTypes: ['mail' as const],
+      scope: 'selection' as const,
+      reasonKind: 'business' as const,
+      reasonDetail: 'Audit annuel',
+    };
+    const row = (f: typeof form, label: string) =>
+      Object.fromEntries(recapRows(f))[label] as string;
+    expect(row({ ...form, selection: ['a', 'b'] }, 'Données')).toBe('Messagerie');
+    expect(row({ ...form, selection: ['a', 'b'] }, 'Périmètre')).toBe(
+      '2 boîtes ou comptes choisis',
     );
-    expect(
-      summarySentence({ ...emptyForm(), dataTypes: ['mail'], rpoHours: 4, retentionDays: 1095 }),
-    ).toContain(
-      'Vos mails de toute l’organisation seront sauvegardés toutes les 4 h et conservés 3 ans.',
-    );
+    expect(row({ ...form, selection: ['a'] }, 'Périmètre')).toBe('1 boîte ou compte choisi');
+    expect(row(form, 'Périmètre')).toBe('Aucune boîte ou compte choisi');
+    expect(row(form, 'Justification')).toBe('Besoin métier : Audit annuel');
+    expect(row({ ...form, dataTypes: [] }, 'Données')).toBe('Aucune donnée choisie');
   });
 
   it('announces the first planned backup', () => {
@@ -285,7 +308,7 @@ describe('PlansListView', () => {
   it('explains that the backup is not configured', () => {
     const admin = list([], true, false);
     expect(admin).toContain('Sauvegarde non configurée');
-    expect(admin).toContain('Connectez d’abord votre tenant Microsoft 365 pour créer un plan.');
+    expect(admin).toContain('Connectez d’abord Microsoft 365 pour créer un plan.');
     expect(admin).toContain('Configurer la sauvegarde');
     const operator = list([], false, false);
     expect(operator).toContain('Demandez à un administrateur de la configurer');
@@ -310,6 +333,30 @@ describe('PlanWizard', () => {
     expect(html).toContain('Nom du plan');
     expect(html).toContain('Continuer');
     expect(html).not.toContain('Précédent');
+  });
+
+  it('recaps the plan on step 3 as a labelled list with the audit reminder', () => {
+    const html = renderToStaticMarkup(
+      <PlanWizard
+        initial={{
+          ...emptyForm(),
+          name: 'Messagerie Direction',
+          reasonKind: 'other',
+          reasonDetail: 'Contrat client',
+        }}
+        editing={false}
+        mailboxes={[]}
+        onSubmit={() => Promise.resolve(undefined)}
+        initialStep={3}
+      />,
+    );
+    expect(html).toContain('<h2>Récapitulatif</h2>');
+    expect(html).toContain('<dl class="meta-list">');
+    expect(html).toContain('<dd>Messagerie Direction</dd>');
+    expect(html).toContain('<dd>Autre : Contrat client</dd>');
+    expect(html).toContain(AUDIT_REMINDER);
+    expect(html).toContain('role="status"');
+    expect(html).not.toContain('recap-sentence');
   });
 
   const step2 = (form = emptyForm()) =>

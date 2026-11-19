@@ -13,7 +13,7 @@ import { parseOneDriveHash } from './onedrive.js';
 import { SharePointPage } from './SharePointPage.js';
 import { parseSharePointHash } from './sharepoint.js';
 import { SearchPage } from './SearchPage.js';
-import { parseMailHash } from './mail.js';
+import { parseMailHash, parseSearchHash } from './mail.js';
 import { PlansPage } from './PlansPage.js';
 import { parsePlansHash } from './plans.js';
 import { COMPONENTS_HASH } from './routes.js';
@@ -59,7 +59,7 @@ export function screenOf(
   if (parseOneDriveHash(hash)) return 'onedrive';
   if (parseSharePointHash(hash)) return 'sharepoint';
   if (hash === '#/audit') return 'audit';
-  if (hash === '#/search') return 'search';
+  if (hash === '#/search' || parseSearchHash(hash) !== null) return 'search';
   if (hash === '#/comptes') return 'accounts';
   if (hash === '#/password') return 'password';
   if (hash === COMPONENTS_HASH) return 'components';
@@ -176,8 +176,11 @@ export function ConsoleView({
   onLogout,
   footer,
   flash,
+  passwordCurrent = false,
   children,
 }: {
+  /** La page « Mot de passe » (lien du pied de barre) est ouverte. */
+  passwordCurrent?: boolean;
   user: User;
   entries: ReturnType<typeof navEntries>;
   menuOpen: boolean;
@@ -231,7 +234,11 @@ export function ConsoleView({
             </nav>
             <div className="sidebar-footer">
               <span>{`${user.username} (${ROLE_LABELS[user.role].toLowerCase()})`}</span>
-              {!user.oidc && <a href="#/password">Mot de passe</a>}
+              {!user.oidc && (
+                <a href="#/password" aria-current={passwordCurrent ? 'page' : undefined}>
+                  Mot de passe
+                </a>
+              )}
               <button type="button" onClick={onLogout}>
                 Se déconnecter
               </button>
@@ -254,14 +261,11 @@ export function Console({
   onLogout,
   health = 'failed',
   flash,
-  onPasswordChanged = () => undefined,
 }: {
   user: User;
   onLogout: () => void;
   health?: HealthState;
   flash?: string;
-  /** Appelé après un changement volontaire réussi, avant le retour au tableau de bord. */
-  onPasswordChanged?: () => void;
 }) {
   const demo = demoOf(health);
   const [hash, setHash] = useState(window.location.hash);
@@ -295,6 +299,7 @@ export function Console({
       }}
       onLogout={onLogout}
       flash={flash}
+      passwordCurrent={screen === 'password'}
       footer={
         <ConsoleFooter
           version={typeof health === 'object' ? health?.version : undefined}
@@ -305,21 +310,16 @@ export function Console({
       {screen === 'components' && <ComponentsPage />}
       {screen === 'unavailable' && <UnavailableView />}
       {screen === 'audit' && <AuditPage />}
-      {screen === 'search' && <SearchPage />}
+      {screen === 'search' && (
+        <SearchPage key={hash} mailbox={parseSearchHash(hash) ?? undefined} />
+      )}
       {screen === 'plans' && (
         <PlansPage route={parsePlansHash(hash) ?? { page: 'list' }} admin={admin} />
       )}
       {screen === 'accounts' && <AccountsPage />}
       {screen === 'forbidden' && <ForbiddenView />}
       {screen === 'password' && (
-        <PasswordPage
-          forced={false}
-          onDone={() => {
-            onPasswordChanged();
-            goHome();
-          }}
-          onCancel={goHome}
-        />
+        <PasswordPage forced={false} onDone={() => undefined} onCancel={goHome} />
       )}
       {screen === 'mail' && mail && <MailPage key={hash} {...mail} />}
       {screen === 'sharepoint' && (
@@ -332,7 +332,7 @@ export function Console({
       {screen === 'onedrive' && (
         <OneDrivePage route={parseOneDriveHash(hash) ?? { account: '', path: '/' }} />
       )}
-      {screen === 'home' && <Home />}
+      {screen === 'home' && <Home admin={admin} />}
     </ConsoleView>
   );
 }
@@ -467,13 +467,7 @@ function AppGate({ health }: { health: HealthState }) {
           }}
         />
       ) : (
-        <Console
-          user={gate.session.user}
-          onLogout={leave}
-          health={health}
-          flash={flash}
-          onPasswordChanged={passwordChanged}
-        />
+        <Console user={gate.session.user} onLogout={leave} health={health} flash={flash} />
       );
   }
 }

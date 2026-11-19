@@ -103,13 +103,13 @@ doit exister, car Compose refuse de démarrer sans lui : la commande `: >` de la
 « Lancement » le crée vide, et un secret vide vaut « non défini ». Pour activer la sauvegarde,
 mettre l'identifiant dans `.env`, écrire le secret dans ce fichier (comme les autres secrets),
 puis `docker compose up -d`. Donner l'identifiant sans le secret (ou l'inverse) arrête le démarrage, avec le nom de la variable manquante. Avec un identifiant et un fichier vides, la console démarre et
-répond `backup_not_configured`.
+répond `backup_not_configured`. Les administrateurs voient l'état de cette connexion, en lecture seule, dans le bloc « Configuration » de la page d'accueil (aucun secret ni identifiant n'y figure) ; les messages « Sauvegarde indisponible » y renvoient.
 
 ## Premier accès
 
 Ouvrir <http://127.0.0.1:3000>. `GET /api/health` doit répondre `ok`. Tant qu'aucune
 sauvegarde n'a créé le bucket, le catalogue répond 503 avec le code `no_backup_found`, et
-l'interface affiche « Aucune sauvegarde trouvée : lancez une première sauvegarde Atlas » ;
+l'interface affiche « Aucune sauvegarde pour l’instant » ;
 `/api/health` reste 200.
 
 ### Premier démarrage : créer l'administrateur
@@ -128,8 +128,8 @@ Ensuite, toute l'API sauf `/api/health` exige une session. Deux rôles : **admin
 (comptes et plans de protection) et **opérateur** (consultation, export, restauration avec
 motif ; il lit la liste des plans sans la modifier). Les deux peuvent restaurer un mail dans sa
 boîte d'origine (« Restaurer » depuis la recherche ou la fiche, motif obligatoire, demande et
-résultat inscrits au journal d'audit). Cette restauration passe par Graph : tant qu'aucun tenant
-n'est relié avec des identifiants en écriture (ADR 0012), le bouton est désactivé. L'écran
+résultat inscrits au journal d'audit). Cette restauration passe par Graph : tant qu'aucun accès
+en écriture n'est configuré (ADR 0012), la fiche d'un mail affiche un avertissement à la place du bouton. L'écran
 « OneDrive » (`#/onedrive/<compte>/<chemin>`) fait de même pour un fichier, un dossier ou une
 version antérieure : on parcourt la sauvegarde (lecture seule, journalisée), puis la
 restauration se fait par défaut en copie `nom (restauré jj-mm-aaaa).ext`, le remplacement d'un

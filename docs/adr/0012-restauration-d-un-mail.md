@@ -18,7 +18,7 @@ Graph et exige donc de vrais identifiants avec droit d'écriture.
   `outlook.restore` avec `messageRef` et sans `targetMailbox` (boîte d'origine). Aucune dépendance.
 - **Pas de câblage réel dans cette issue.** La console n'a pas d'identifiants Graph : en dehors du
   mode démo, `RestoreService` n'est pas créé, `GET /api/restore` répond `{ configured: false }`,
-  `POST …/restore` répond 503 `restore_unavailable` et l'interface désactive le bouton avec le message
+  `POST …/restore` répond 503 `restore_unavailable` et la fiche d'un mail remplace le bouton par un avertissement (la liste de recherche garde le bouton désactivé) avec le message
   `restore_unavailable` de `API_ERRORS`, sans renvoi vers l'Accueil (qui ne configure rien). Relier un tenant (identifiants Graph
   par variables d'environnement ou fichiers montés, mode lecture seule désactivé explicitement)
   relève de l'agent tenant ; l'essai réel se fait sur un tenant de TEST uniquement (voir

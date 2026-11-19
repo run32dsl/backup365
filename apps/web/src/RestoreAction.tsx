@@ -17,7 +17,7 @@ import {
   startRestore,
   type RestoreJob,
 } from './restore.js';
-import { Alert, Button, Dialog } from './ui/index.js';
+import { Alert, Button, Dialog, ResultList } from './ui/index.js';
 
 export type RestorableMail = Pick<IndexedMail, 'mailboxId' | 'messageId' | 'subject' | 'date'>;
 
@@ -52,6 +52,56 @@ function Tracking({ job, now }: { job: RestoreJob; now: number }) {
         {announcement(elapsed)}
       </p>
       <p>{T.keepsRunning}</p>
+    </>
+  );
+}
+
+/** Résultat d'une restauration terminée : rappel du mail et de la boîte, puis les actions. */
+export function RestoreOutcome({
+  job,
+  mail,
+  onClose,
+  onRetry,
+}: {
+  job: RestoreJob;
+  mail: RestorableMail;
+  onClose: () => void;
+  onRetry: () => void;
+}) {
+  const date = shortUtcDate(mail.date);
+  const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
+  const recall: [string, string][] = [
+    ['Mail', date ? `${subject} · ${date}` : subject],
+    ['Boîte', mail.mailboxId],
+  ];
+  if (job.status === 'succeeded') {
+    return (
+      <>
+        <Alert tone="success">Mail restauré en {formatDuration(job.durationMs ?? 0)}.</Alert>
+        <ResultList rows={[...recall, ['Dossier', job.folder]]} />
+        <div className="button-row dialog-actions">
+          <a className="btn btn-secondary" href="#/audit">
+            {B.audit}
+          </a>
+          <Button onClick={onClose}>Fermer</Button>
+        </div>
+      </>
+    );
+  }
+  return (
+    <>
+      <Alert tone="error">
+        La restauration a échoué après {formatDuration(job.durationMs ?? 0)}.
+      </Alert>
+      <ResultList rows={recall} />
+      <p>Cause : {failureCause(job.error)}</p>
+      <p>{isOutcomeUncertain(job.error) ? T.uncertain : T.untouched}</p>
+      <div className="button-row dialog-actions">
+        <Button variant="secondary" onClick={onClose}>
+          Fermer
+        </Button>
+        <Button onClick={onRetry}>{B.retry}</Button>
+      </div>
     </>
   );
 }
@@ -216,40 +266,15 @@ export function RestoreAction({
             </div>
           </>
         )}
-        {job?.status === 'succeeded' && (
-          <>
-            <Alert tone="success">Mail restauré en {formatDuration(job.durationMs ?? 0)}</Alert>
-            <p>Dossier : {job.folder}</p>
-            <div className="button-row dialog-actions primary-first">
-              <a className="btn btn-secondary" href="#/audit">
-                {B.audit}
-              </a>
-              <Button variant="secondary" onClick={closePanel}>
-                Fermer
-              </Button>
-            </div>
-          </>
-        )}
-        {job?.status === 'failed' && (
-          <>
-            <Alert tone="error">
-              La restauration a échoué après {formatDuration(job.durationMs ?? 0)}.
-            </Alert>
-            <p>Cause : {failureCause(job.error)}</p>
-            <p>{isOutcomeUncertain(job.error) ? T.uncertain : T.untouched}</p>
-            <div className="button-row dialog-actions primary-first">
-              <Button
-                onClick={() => {
-                  setJob(null);
-                }}
-              >
-                {B.retry}
-              </Button>
-              <Button variant="secondary" onClick={closePanel}>
-                Fermer
-              </Button>
-            </div>
-          </>
+        {(job?.status === 'succeeded' || job?.status === 'failed') && (
+          <RestoreOutcome
+            job={job}
+            mail={mail}
+            onClose={closePanel}
+            onRetry={() => {
+              setJob(null);
+            }}
+          />
         )}
       </Dialog>
     </>

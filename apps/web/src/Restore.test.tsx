@@ -1,7 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { API_ERRORS } from './apiError.js';
-import { RestoreAction, dialogTitle } from './RestoreAction.js';
+import { RestoreAction, RestoreOutcome, dialogTitle } from './RestoreAction.js';
 import { SearchView } from './SearchPage.js';
 import {
   announcement,
@@ -153,6 +153,76 @@ describe('restore requests', () => {
     expect(
       await fetchRestoreConfigured(() => json({ configured: false }) as Promise<Response>),
     ).toBe(false);
+  });
+});
+
+describe('RestoreOutcome', () => {
+  const job: RestoreJob = {
+    id: 'j',
+    mailboxId: 'mbx 1',
+    messageId: 'm/1=',
+    status: 'succeeded',
+    startedAt: '2026-11-18T10:00:00.000Z',
+    finishedAt: '2026-11-18T10:00:02.000Z',
+    durationMs: 2000,
+    folder: 'Restauré par backup365 18/11/2026',
+    error: null,
+  };
+  const render = (j: Partial<RestoreJob>) =>
+    renderToString(
+      <RestoreOutcome job={{ ...job, ...j }} mail={mail} onClose={vi.fn()} onRetry={vi.fn()} />,
+    );
+
+  it('lists the mail, the mailbox and the folder on success', () => {
+    const html = render({});
+    expect(html).toContain('<dl class="meta-list">');
+    expect(html).toContain('<dt>Mail</dt><dd>Facture 1 · ');
+    expect(html).toContain('<dt>Boîte</dt><dd>mbx 1</dd>');
+    expect(html).toContain('<dt>Dossier</dt><dd>Restauré par backup365 18/11/2026</dd>');
+    expect(html).not.toContain('Dossier :');
+    expect(html).toContain('2 s<!-- -->.</span>');
+  });
+
+  it('falls back on "(sans objet)" and omits a missing date', () => {
+    const html = renderToString(
+      <RestoreOutcome
+        job={job}
+        mail={{ ...mail, subject: '', date: '' }}
+        onClose={vi.fn()}
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(html).toContain('<dt>Mail</dt><dd>(sans objet)</dd>');
+  });
+
+  it('recalls the mail and the mailbox on failure', () => {
+    const html = render({ status: 'failed', error: 'restore_error' });
+    expect(html).toContain('<dt>Mail</dt><dd>Facture 1 · ');
+    expect(html).toContain('<dt>Boîte</dt><dd>mbx 1</dd>');
+    expect(html).not.toContain('<dt>Dossier</dt>');
+    expect(html).toContain('après <!-- -->2 s<!-- -->.</span>');
+    expect(html).toContain('Rien n’a été modifié dans la boîte.');
+    expect(html.indexOf('Boîte')).toBeLessThan(html.indexOf('Cause :'));
+  });
+
+  /** Boutons du `.dialog-actions` rendu, dans l'ordre du DOM. */
+  const actionsOf = (html: string) => {
+    const block = /<div class="button-row dialog-actions">(.*?)<\/div>/s.exec(html)?.[1] ?? '';
+    return [
+      ...block.matchAll(/<(?:a|button)[^>]*class="btn([^"]*)"[^>]*>(.*?)<\/(?:a|button)>/gs),
+    ].map((m) => ({ secondary: m[1]?.includes('btn-secondary') ?? false, label: m[2] ?? '' }));
+  };
+
+  it('puts the primary action last on success: audit outline, then Fermer filled', () => {
+    const actions = actionsOf(render({}));
+    expect(actions.map((a) => a.label)).toEqual(['Voir dans le journal d’audit', 'Fermer']);
+    expect(actions.map((a) => a.secondary)).toEqual([true, false]);
+  });
+
+  it('puts the primary action last on failure: Fermer outline, then Réessayer filled', () => {
+    const actions = actionsOf(render({ status: 'failed', error: 'restore_error' }));
+    expect(actions.map((a) => a.label)).toEqual(['Fermer', 'Réessayer']);
+    expect(actions.map((a) => a.secondary)).toEqual([true, false]);
   });
 });
 

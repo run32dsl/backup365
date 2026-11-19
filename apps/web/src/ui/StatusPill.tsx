@@ -1,10 +1,13 @@
-export type PillStatus = 'compliant' | 'late' | 'failed' | 'running';
+export type PillStatus =
+  'compliant' | 'late' | 'failed' | 'running' | 'operational' | 'unconfigured';
 
 const PILLS: Record<PillStatus, { icon: string; label: string; tone: string }> = {
   compliant: { icon: '✔', label: 'À jour', tone: 'ok' },
   late: { icon: '⚠', label: 'En retard', tone: 'warn' },
   failed: { icon: '✖', label: 'En échec', tone: 'err' },
   running: { icon: '↻', label: 'En cours', tone: 'info' },
+  operational: { icon: '✔', label: 'Opérationnelle', tone: 'ok' },
+  unconfigured: { icon: '⚠', label: 'Non configurée', tone: 'warn' },
 };
 
 /** Pastille d'état : icône et texte, jamais la couleur seule. `label` remplace le libellé par défaut. */

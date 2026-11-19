@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { DEMO_LOGINS } from './demo-server.mjs';
 import { expect, test } from './fixtures.js';
-import { RESTORE_REASON_LABEL, SCREENS, SITES } from './screens.mjs';
+import { RESTORE_REASON_LABEL, SCREENS, SITES, WIDTHS } from './screens.mjs';
 import { signInAs } from './browser.mjs';
 
 const BANNER = 'Mode démo : données fictives';
@@ -167,12 +167,11 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
 
   // Confirmation : récapitulatif ; remplacer exige une confirmation explicite.
   await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
-  await expect(page.getByText(/version du \d\d\/\d\d\/\d{4} \d\d:\d\d/)).toBeVisible();
-  await expect(page.getByText(/en copie, sous un nom choisi par OneDrive/)).toBeVisible();
+  await expect(page.getByText('Version du', { exact: true })).toBeVisible();
+  await expect(page.getByText(/^\d\d\/\d\d\/\d{4} \d\d:\d\d$/)).toBeVisible();
+  await expect(page.getByText('Nom choisi par OneDrive')).toBeVisible();
   await page.getByLabel('Remplacer le fichier actuel').check();
-  await expect(
-    page.getByText(/La version actuelle reste dans l’historique OneDrive/),
-  ).toBeVisible();
+  await expect(page.getByText(/il reste dans l’historique OneDrive/)).toBeVisible();
   const replaceGo = page.getByRole('button', { name: 'Restaurer', exact: true });
   await expect(replaceGo).toHaveAttribute('aria-disabled', 'true');
   // Le bouton grisé reste cliquable : le clic affiche l’erreur.
@@ -259,11 +258,9 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
 
   // Récapitulatif en langage clair, sans écrasement.
   await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
-  await expect(
-    page.getByText(/Vous allez restaurer la bibliothèque « Documents partagés »/),
-  ).toBeVisible();
+  await expect(page.getByText('Bibliothèque : Documents partagés', { exact: true })).toBeVisible();
   await expect(page.getByText(/Les fichiers existants ne seront pas remplacés/)).toBeVisible();
-  await expect(page.getByText('Motif : Ticket #9 : essai trimestriel')).toBeVisible();
+  await expect(page.getByText('Ticket #9 : essai trimestriel', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
 
   await expect(page.getByRole('progressbar')).toBeVisible();
@@ -415,9 +412,9 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
 
   // Étape 3 : récapitulatif en langage clair, puis création.
   await expect(page.getByText('Étape 3 sur 3 : Récapitulatif')).toBeFocused();
-  await expect(
-    page.getByText(/seront sauvegardés toutes les 12 h et conservés 3 ans/),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Récapitulatif' })).toBeVisible();
+  await expect(page.locator('dd', { hasText: 'Contacts Exemple' })).toBeVisible();
+  await expect(page.locator('dd', { hasText: '3 ans' }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Créer le plan' }).click();
   await expect(
     page.getByText(/Plan créé\. Première sauvegarde prévue à \d\d:\d\d\./),
@@ -472,26 +469,42 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await run.getByLabel('Motif').selectOption({ label: 'Après un incident' });
   await submit.click();
 
-  // Le message, la consigne et l'identifiant de requête, au-dessus des boutons.
-  const alert = run.getByRole('alert').filter({ hasText: 'Sauvegarde non configurée' });
+  // Console non reliée : avertissement sans identifiant, au-dessus du seul bouton « Fermer ».
+  // Le titre de la boîte change : « Lancement impossible ».
+  const blocked = page.getByRole('dialog', { name: 'Lancement impossible' });
+  const alert = blocked.getByRole('alert').filter({ hasText: 'Sauvegarde indisponible' });
   await expect(alert).toBeVisible();
-  await expect(alert.getByText('fichiers de secrets', { exact: false })).toBeVisible();
-  await expect(alert.getByText('Exécution des plans', { exact: false })).toBeVisible();
-  await expect(run.getByRole('link', { name: 'Configurer la connexion' })).toHaveCount(0);
-  await expect(
-    alert.getByText('Identifiant de requête : 3f2b8c1e-5a7d-4e0b-9c64-1d2a7b9e4f10'),
-  ).toBeVisible();
+  await expect(blocked.getByRole('link', { name: 'Configurer la connexion' })).toHaveCount(0);
+  await expect(blocked.getByText('Identifiant de requête')).toHaveCount(0);
+  const close = blocked.locator('button.btn-primary', { hasText: 'Fermer' });
+  await expect(close).toBeVisible();
+  await expect(blocked.getByRole('button', { name: 'Lancer la sauvegarde' })).toHaveCount(0);
+  await expect(blocked.getByRole('button', { name: 'Annuler' })).toHaveCount(0);
   const alertBox = (await alert.boundingBox())!;
-  const submitBox = (await submit.boundingBox())!;
-  expect(alertBox.y + alertBox.height).toBeLessThanOrEqual(submitBox.y);
-  // Le dialogue reste ouvert, le bouton redevient actif.
-  await expect(submit).toBeEnabled();
+  const closeBox = (await close.boundingBox())!;
+  expect(alertBox.y + alertBox.height).toBeLessThanOrEqual(closeBox.y);
+  await close.click();
+  await expect(blocked).toHaveCount(0);
 
-  // Une nouvelle tentative sans motif complet remplace l'échec par le rappel du motif.
+  // Autre échec (erreur serveur) : les boutons restent, un nouvel essai incomplet
+  // remplace l’échec par le rappel du motif.
+  await page.route('**/api/plans/*/run', (route) =>
+    route.fulfill({
+      status: 500,
+      headers: { 'x-request-id': '3f2b8c1e-5a7d-4e0b-9c64-1d2a7b9e4f10' },
+      json: { error: 'internal_error' },
+    }),
+  );
+  await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
+  await run.getByLabel('Motif').selectOption({ label: 'Après un incident' });
+  await submit.click();
+  await expect(run.getByRole('alert').filter({ hasText: 'Erreur du serveur' })).toBeVisible();
+  await expect(run.getByText('Identifiant de requête')).toHaveCount(0);
+  await expect(submit).toBeEnabled();
   await run.getByLabel('Motif').selectOption({ label: 'Autre (préciser)' });
   await submit.click();
   await expect(run.getByText('Indiquez un motif.')).toBeVisible();
-  await expect(run.getByText('Sauvegarde non configurée')).toHaveCount(0);
+  await expect(run.getByText('Erreur du serveur')).toHaveCount(0);
   await run.getByRole('button', { name: 'Annuler' }).click();
 
   // Suppression refusée : même alerte, le plan reste dans la liste.
@@ -509,7 +522,7 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await del.getByRole('button', { name: 'Supprimer le plan' }).click();
   const refused = del.getByRole('alert').filter({ hasText: 'Journal d’audit indisponible' });
   await expect(refused).toBeVisible();
-  await expect(refused.getByText('Identifiant de requête : req-3c4d')).toBeVisible();
+  await expect(del.getByText('Identifiant de requête')).toHaveCount(0);
   await expect(refused.getByRole('link')).toHaveCount(0);
   await del.getByRole('button', { name: 'Annuler' }).click();
   await expect(page.getByText('Messagerie Direction', { exact: true })).toBeVisible();
@@ -532,7 +545,47 @@ test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
   await expect(page.getByText('Action réservée aux administrateurs.')).toBeVisible();
 });
 
+// Ce que montrent les captures `plans-liste-operateur` (1280 et 390 px), vérifié sans image.
+for (const width of WIDTHS) {
+  test(`plans : la liste de l’opérateur tient dans ${width} px, synthèse visible`, async ({
+    browser,
+    baseURL,
+  }) => {
+    const context = await browser.newContext({
+      baseURL: baseURL!,
+      viewport: { width, height: 800 },
+    });
+    try {
+      await signInAs(context, baseURL!, 'operator');
+      const page = await context.newPage();
+      await page.goto('/#/plans');
+      const rows = page.getByRole('table').locator('tbody tr');
+      await expect(rows).not.toHaveCount(0);
+      // Chaque plan montre son nom, son état et sa dernière exécution.
+      for (const row of await rows.all()) {
+        const cells = row.getByRole('cell');
+        await expect(cells).toHaveCount(3);
+        for (const cell of await cells.all()) await expect(cell).toBeVisible();
+      }
+      await expect(
+        page.getByText('Lecture seule : seul un administrateur peut modifier les plans.'),
+      ).toBeVisible();
+      await expect(page.getByRole('button', { name: /Lancer/ })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Créer un plan' })).toHaveCount(0);
+      // Aucun débordement horizontal : la page ne défile pas de côté.
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow).toBe(0);
+    } finally {
+      await context.close();
+    }
+  });
+}
+
 test('le bandeau du mode démo est présent sur chaque écran', async ({ browser, baseURL }) => {
+  // Le test parcourt tous les écrans de `screens.mjs` : sa durée croît avec la liste.
+  test.setTimeout(120_000);
   for (const screen of SCREENS) {
     const context = await browser.newContext({ baseURL: baseURL! });
     if (screen.role) await signInAs(context, baseURL!, screen.role);
@@ -591,4 +644,96 @@ test('groupe d’options : légende, flèches du clavier, option désactivée', 
   await page.keyboard.press('ArrowRight');
   await expect(item).toBeChecked();
   await expect(site).not.toBeChecked();
+});
+
+test('recherche à 1280 px : le tableau tient dans son conteneur, avec ou sans filtre de boîte', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signInAs(context, baseURL!, 'admin');
+  // Dépassement du tableau hors de la zone de contenu de `main`, et de la page hors de la fenêtre.
+  const overflow = () =>
+    page.evaluate(() => {
+      const main = document.querySelector('main')!;
+      const inner =
+        main.getBoundingClientRect().right - parseFloat(getComputedStyle(main).paddingRight);
+      const table = document.querySelector('table')!.getBoundingClientRect().right;
+      return {
+        table: Math.max(0, Math.round(table - inner)),
+        page: Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
+      };
+    });
+  // « Objet » est la colonne élastique : la longueur des objets ne change pas la largeur du tableau.
+  const longSubjects = () =>
+    page.evaluate(() => {
+      const links = document.querySelectorAll('td.subject a');
+      for (const a of links) a.textContent = 'objet '.repeat(60);
+      return links.length;
+    });
+  const fitted = { table: 0, page: 0 };
+
+  await page.goto('/#/search?mailbox=paul.moreau%40exemple.fr');
+  await page.getByRole('table').waitFor();
+  await expect(page.getByRole('columnheader', { name: 'Boîte' })).toHaveCount(0);
+  await expect(page.getByRole('status').filter({ hasText: 'dans la boîte' })).toBeVisible();
+  expect(await overflow()).toEqual(fitted);
+  const search = (await page.getByRole('button', { name: 'Rechercher' }).boundingBox())!;
+  const restore = (await page
+    .getByRole('button', { name: /^Restaurer / })
+    .last()
+    .boundingBox())!;
+  expect(restore.x + restore.width).toBeLessThanOrEqual(search.x + search.width + 1);
+  expect(await longSubjects()).toBeGreaterThan(0);
+  expect(await overflow()).toEqual(fitted);
+
+  await page.goto('/#/search');
+  await page.getByLabel('Recherche').fill('devis');
+  await page.getByRole('button', { name: 'Rechercher' }).click();
+  await page.getByRole('table').waitFor();
+  await expect(page.getByRole('columnheader', { name: 'Boîte' })).toHaveCount(1);
+  expect(await overflow()).toEqual(fitted);
+  expect(await longSubjects()).toBeGreaterThan(0);
+  expect(await overflow()).toEqual(fitted);
+});
+
+test.describe('recherche à 1280 px', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test('écran recherche : colonne Action alignée sur « Rechercher »', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signInAs(context, baseURL!, 'admin');
+    await page.goto('/#/search');
+    await page.getByLabel('Recherche').fill('devis');
+    await page.getByRole('button', { name: 'Rechercher' }).click();
+    await page.getByRole('table').waitFor();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      1280,
+    );
+    const button = await page.getByRole('button', { name: 'Rechercher' }).boundingBox();
+    const action = await page.getByRole('columnheader', { name: 'Action' }).boundingBox();
+    expect(button).not.toBeNull();
+    expect(action).not.toBeNull();
+    expect(action!.x + action!.width).toBeLessThanOrEqual(button!.x + button!.width + 1);
+    // La colonne Boîte passe à la ligne : elle reste étroite (11 rem = 176 px, plus les marges).
+    const mailbox = await page.getByRole('columnheader', { name: 'Boîte' }).boundingBox();
+    expect(mailbox!.width).toBeLessThanOrEqual(200);
+  });
+
+  test('écran recherche-boite : pas de défilement horizontal', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signInAs(context, baseURL!, 'admin');
+    await page.goto('/#/search?mailbox=paul.moreau%40exemple.fr');
+    await page.getByRole('table').waitFor();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      1280,
+    );
+  });
 });

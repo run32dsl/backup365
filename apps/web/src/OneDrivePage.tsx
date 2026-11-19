@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { parentOf } from '@backup365/core';
-import { API_ERRORS, type Problem as FailureProblem } from './apiError.js';
+import { type Problem as FailureProblem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
+import { StorageUnavailable } from './StorageUnavailable.js';
 import { dateTimeOrDash } from './format.js';
 import { isReasonValid } from './mail.js';
 import {
@@ -22,7 +23,8 @@ import {
   sizeOf,
   startDriveRestore,
   restoreBlocked,
-  summaryOf,
+  confirmRowsOf,
+  consequenceOf,
   type DriveEntry,
   type DriveJob,
   type DriveMode,
@@ -39,7 +41,6 @@ import {
   RESTORE_STEPS,
   ReasonField,
   RestoreResult,
-  ResultList,
   RunningProgress,
   stepOf,
 } from './RestoreJourney.js';
@@ -53,6 +54,7 @@ import {
   EmptyState,
   Steps,
   WizardActions,
+  ResultList,
 } from './ui/index.js';
 
 /** Élément choisi à l'étape 1 : un fichier ou un dossier, éventuellement une version précise. */
@@ -76,7 +78,7 @@ export function Problem({
   onRetry: () => void;
 }) {
   if (status === 'unconfigured') {
-    return <EmptyState>{API_ERRORS['catalog_unavailable']}</EmptyState>;
+    return <StorageUnavailable onRetry={onRetry} />;
   }
   if (status === 'no_backup') {
     return (
@@ -153,7 +155,10 @@ function VersionsDialog({
           ))}
         </fieldset>
       )}
-      <div className="button-row dialog-actions primary-first">
+      <div className="button-row dialog-actions">
+        <Button variant="secondary" data-safe onClick={onClose}>
+          Fermer
+        </Button>
         <Button
           disabled={rows.length === 0}
           onClick={() => {
@@ -162,9 +167,6 @@ function VersionsDialog({
           }}
         >
           Restaurer cette version
-        </Button>
-        <Button variant="secondary" data-safe onClick={onClose}>
-          Fermer
         </Button>
       </div>
     </Dialog>
@@ -492,7 +494,6 @@ export function ConfirmStep({
 
   return (
     <form onSubmit={submit} noValidate>
-      <p>Motif : {reason}</p>
       <ChoiceGroup<DriveMode>
         legend="Mode"
         name="mode"
@@ -512,16 +513,18 @@ export function ConfirmStep({
         }}
       />
       <h2>Récapitulatif</h2>
-      <p>
-        {summaryOf({
+      <ResultList
+        rows={confirmRowsOf({
+          account,
           name: entry.name,
-          kind: entry.kind,
           mode,
           versionAt,
           folderLabel: folderLabel(entry.path),
           copyName,
+          reason,
         })}
-      </p>
+      />
+      <p>{consequenceOf(mode)}</p>
       {mode === 'replace' && (
         <div className="field">
           <label className="choice">
@@ -566,7 +569,7 @@ export function ConfirmStep({
 }
 
 /** Étape 3 : suivi. La restauration continue si l'on quitte la page. */
-function TrackStep({
+export function TrackStep({
   account,
   choice,
   job,
@@ -615,14 +618,14 @@ function TrackStep({
 
   const target = job.copyName ?? choice.entry.name;
   const where = folderLabel(job.path);
+  const versionAt = choice.version?.at ?? choice.entry.versionAt;
   const items = (
     <ResultList
       rows={[
-        [
-          job.status === 'succeeded' ? 'Élément restauré' : 'Élément',
-          `${choice.entry.name} → ${target}`,
-        ],
-        ...(job.status === 'succeeded' ? [['Emplacement', where] as [string, string]] : []),
+        ['Compte', account],
+        ['Élément restauré', `${choice.entry.name} → ${target}`],
+        ...(versionAt ? [['Version du', dateTimeOf(versionAt)] as [string, string]] : []),
+        ['Emplacement', where],
       ]}
     />
   );

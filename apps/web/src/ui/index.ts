@@ -8,5 +8,6 @@ export { EmptyState } from './EmptyState.js';
 export { FormField } from './FormField.js';
 export { Pager } from './Pager.js';
 export { StatusPill, type PillStatus } from './StatusPill.js';
+export { ResultList } from './ResultList.js';
 export { Steps } from './Steps.js';
 export { WizardActions, WIZARD_LABELS } from './WizardActions.js';

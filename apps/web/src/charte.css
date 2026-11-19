@@ -157,7 +157,8 @@ a {
 .sidebar-footer a:hover {
   background: var(--border-soft);
 }
-.nav-list a[aria-current='page'] {
+.nav-list a[aria-current='page'],
+.sidebar-footer a[aria-current='page'] {
   border-left-color: var(--accent);
   font-weight: 700;
   background: var(--border-soft);
@@ -292,6 +293,46 @@ th {
   color: var(--info-fg);
 }
 
+/* Accueil : trois cartes, deux colonnes dès 900 px (l'état de la sauvegarde sur toute la largeur). */
+.overview {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 1fr;
+}
+.overview-card {
+  padding: var(--space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.overview-card h2 {
+  margin: 0 0 var(--space-2);
+}
+.overview-card p {
+  margin: var(--space-2) 0;
+}
+.overview-card .btn {
+  width: 100%;
+  min-height: 2.75rem;
+}
+.overview-card a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+@media (min-width: 900px) {
+  .overview {
+    grid-template-columns: 1fr 1fr;
+  }
+  .overview-card:first-child {
+    grid-column: 1 / -1;
+  }
+  .overview-card .btn {
+    width: auto;
+  }
+}
+
 [role='alert'],
 .banner {
   padding: var(--space-2) var(--space-3);
@@ -413,11 +454,20 @@ select[aria-disabled='true'] {
   align-items: center;
   margin-bottom: var(--space-3);
 }
+/* Pagination répétée au-dessus des cartes : seulement en affichage mobile. */
+.pager-top {
+  display: none;
+}
+@media (max-width: 56.25rem) {
+  .pager-top {
+    display: block;
+  }
+}
 .filters {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
   gap: var(--space-2) var(--space-3);
-  align-items: end;
+  align-items: start;
 }
 .filters .field {
   max-width: none;
@@ -562,14 +612,28 @@ select[aria-disabled='true'] {
     padding-inline-start: var(--space-3);
   }
 
-  /* Objet : une seule ligne, tronquée par « … » (le titre complet est dans l'infobulle). */
+  /* Boîte : l'adresse passe à la ligne (après le « @ », sinon n'importe où) quand le tableau ne tient pas. */
+  .data-table .col-mailbox {
+    width: 11rem;
+    overflow-wrap: anywhere;
+  }
+
+  /*
+   * Objet : une seule ligne, tronquée par « … » (le titre complet est dans l'infobulle). C'est la
+   * colonne élastique du tableau : `max-width: 0` retire son texte du calcul des largeurs, elle
+   * prend la place que laissent les autres colonnes (au moins 8rem) et le tableau ne dépasse pas
+   * son conteneur quand la police ou les adresses sont plus larges.
+   */
+  .data-table .subject {
+    width: 100%;
+    min-width: 8rem;
+    max-width: 0;
+  }
   .data-table .subject a {
-    display: inline-block;
-    max-width: 20rem;
+    display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    vertical-align: bottom;
   }
 }
 
@@ -578,6 +642,10 @@ select[aria-disabled='true'] {
   .data-table tbody,
   .data-table tr,
   .data-table td {
+    display: block;
+  }
+  /* La légende occupe toute la largeur de la carte, comme un titre. */
+  .data-table caption {
     display: block;
   }
   .data-table thead {
@@ -631,27 +699,14 @@ select[aria-disabled='true'] {
   .backups .ok-toggle {
     display: inline-flex;
   }
-  /* Carte compacte : une ligne par champ (étiquette à gauche), serrée ; cellules vides omises. */
-  .data-table-compact tr {
-    margin-bottom: var(--space-2);
-    padding: 2px 0;
-  }
-  .data-table-compact td {
-    padding-block: 0;
-    line-height: 1.3;
-    font-size: 0.9375rem;
-  }
-  .data-table-compact td.card-hidden,
-  .data-table-compact td:empty {
+  /* Une cellule sans valeur n'est pas affichée dans la carte, ni les colonnes réservées au tableau. */
+  .data-table td.card-hidden,
+  .data-table td:empty {
     display: none;
-  }
-  .data-table-compact .cell-secondary {
-    display: inline;
-    margin-left: var(--space-1);
   }
 }
 
-/* Précision en texte secondaire sous une valeur de tableau (en carte : à sa suite). */
+/* Précision en texte secondaire sous une valeur de tableau (sur sa propre ligne, sous la valeur). */
 .cell-secondary {
   display: block;
   color: var(--muted);
@@ -788,9 +843,6 @@ select[aria-disabled='true'] {
   .dialog-actions {
     flex-direction: column-reverse;
     align-items: stretch;
-  }
-  .dialog-actions.primary-first {
-    flex-direction: column;
   }
   .dialog-actions .btn {
     min-height: 2.75rem;
@@ -965,17 +1017,6 @@ a.btn-secondary {
   margin: 0;
   padding-left: var(--space-3);
 }
-.recap {
-  padding: var(--space-3);
-  margin-bottom: var(--space-3);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-.recap-sentence {
-  font-size: 1.125rem;
-  font-weight: 600;
-}
 .skeleton {
   height: 8rem;
   border-radius: var(--radius);
@@ -983,9 +1024,6 @@ a.btn-secondary {
   border: 1px solid var(--border-soft);
 }
 @media (max-width: 40rem) {
-  .wizard .steps ol {
-    display: none;
-  }
   .row-actions {
     flex-direction: column;
     align-items: stretch;
@@ -1150,6 +1188,9 @@ a.btn-secondary {
   margin: 0;
   color: var(--text);
   overflow-wrap: anywhere;
+}
+.restore-unavailable {
+  margin-top: var(--space-3);
 }
 .mail-section {
   margin-top: var(--space-4);

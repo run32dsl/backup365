@@ -1,7 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { API_ERRORS } from './apiError.js';
-import { ConfirmStep, EntriesTable, Problem } from './OneDrivePage.js';
+import { ConfirmStep, EntriesTable, TrackStep } from './OneDrivePage.js';
 import {
   ONEDRIVE_MESSAGES,
   breadcrumbOf,
@@ -16,7 +15,8 @@ import {
   restoreBlocked,
   sizeOf,
   startDriveRestore,
-  summaryOf,
+  confirmRowsOf,
+  consequenceOf,
 } from './onedrive.js';
 import { screenOf } from './App.js';
 
@@ -67,39 +67,43 @@ describe('OneDrive wording', () => {
     );
   });
 
-  it('writes the summary in plain language for a copy and for a replacement', () => {
+  it('lists the summary rows for a copy and for a replacement', () => {
     const base = {
+      account: 'compte@exemple.test',
       name: 'budget.xlsx',
-      kind: 'file' as const,
       versionAt: '2026-11-10T18:30:00.000Z',
       folderLabel: 'Documents > Budget',
       copyName: 'budget (restauré 14-11-2026).xlsx',
+      reason: 'Reprise après incident',
     };
-    expect(summaryOf({ ...base, mode: 'copy' })).toBe(
-      'Vous allez restaurer le fichier « budget.xlsx », version du 10/11/2026 18:30, dans Documents > Budget, sous le nom « budget (restauré 14-11-2026).xlsx ». Aucun fichier existant ne sera modifié.',
+    expect(confirmRowsOf({ ...base, mode: 'copy' })).toEqual([
+      ['Compte', 'compte@exemple.test'],
+      ['Élément', 'budget.xlsx'],
+      ['Version du', '10/11/2026 18:30'],
+      ['Emplacement', 'Documents > Budget'],
+      ['Restauré sous le nom', 'budget (restauré 14-11-2026).xlsx'],
+      ['Motif', 'Reprise après incident'],
+    ]);
+    const replace = confirmRowsOf({ ...base, mode: 'replace' });
+    expect(replace).toContainEqual(['Fichier remplacé', 'budget.xlsx']);
+    expect(replace.map(([label]) => label)).not.toContain('Restauré sous le nom');
+    expect(confirmRowsOf({ ...base, versionAt: null, mode: 'copy' }).map(([l]) => l)).not.toContain(
+      'Version du',
     );
-    expect(summaryOf({ ...base, mode: 'replace' })).toContain(
-      'sera remplacé par la version du 10/11/2026. La version actuelle reste dans l’historique OneDrive.',
+    expect(consequenceOf('copy')).toBe('Aucun fichier existant ne sera modifié.');
+    expect(consequenceOf('replace')).toBe(
+      'Le fichier actuel sera remplacé ; il reste dans l’historique OneDrive.',
     );
-    expect(summaryOf({ ...base, kind: 'folder', versionAt: null, mode: 'copy' })).toContain(
-      'le dossier « budget.xlsx », dans',
-    );
+    expect(confirmRowsOf({ ...base, copyName: '', mode: 'copy' })).toContainEqual([
+      'Restauré sous le nom',
+      'Nom choisi par OneDrive',
+    ]);
   });
 
   it('says when the outcome is uncertain', () => {
     expect(isOutcomeUncertain('restore_unreachable')).toBe(true);
     expect(isOutcomeUncertain('restore_error')).toBe(false);
     expect(failureCause('restore_error')).toContain('erreur');
-  });
-});
-
-describe('OneDrive unconfigured state', () => {
-  it('shows the shared catalog_unavailable text, without a link', () => {
-    const html = renderToString(<Problem status="unconfigured" onRetry={() => undefined} />);
-    const shared = API_ERRORS['catalog_unavailable'] ?? '';
-    expect(shared).not.toBe('');
-    expect(html).toContain(shared);
-    expect(html).not.toContain('<a');
   });
 });
 
@@ -234,5 +238,87 @@ describe('OneDrive replace confirmation', () => {
     const button = /<button[^>]*>Restaurer<\/button>/u.exec(out)?.[0];
     expect(button).toBeDefined();
     expect(button).not.toContain('aria-disabled');
+    // Récapitulatif libellé : le motif entre dans la liste, après le choix du mode.
+    expect(out).not.toContain('Vous allez restaurer');
+    expect(out).not.toContain('Motif : ');
+    expect(out).toContain('<dt>Motif</dt><dd>Ticket #1 : essai</dd>');
+    expect(out.indexOf('Mode')).toBeLessThan(out.indexOf('<h2>Récapitulatif</h2>'));
+    expect(out.indexOf('<h2>Récapitulatif</h2>')).toBeLessThan(out.indexOf('<dt>Compte</dt>'));
+    expect(out).toContain('Aucun fichier existant ne sera modifié.');
+  });
+});
+
+describe('OneDrive result list', () => {
+  const entry = {
+    name: 'budget.xlsx',
+    kind: 'file' as const,
+    path: '/Documents/Budget/budget.xlsx',
+    versionAt: '2026-11-10T18:30:00.000Z',
+  };
+  const job = {
+    id: 'j1',
+    ownerId: 'o1',
+    path: entry.path,
+    kind: 'file' as const,
+    mode: 'copy' as const,
+    versionAt: entry.versionAt,
+    startedAt: '2026-11-14T10:00:00.000Z',
+    finishedAt: null,
+    durationMs: null,
+    copyName: 'budget (restauré).xlsx',
+    error: null,
+  };
+  it.each([
+    ['running', null],
+    ['succeeded', null],
+    ['failed', 'restore_error'],
+  ] as const)('recalls account, version and location when %s', (status, error) => {
+    const out = renderToString(
+      <TrackStep
+        account="a@exemple.fr"
+        choice={{ entry: entry as never, snapshotId: 's1' }}
+        job={{ ...job, status, error }}
+        onJob={() => undefined}
+        onAgain={() => undefined}
+        onRetry={() => undefined}
+      />,
+    );
+    expect(out).toContain('<dt>Compte</dt><dd>a@exemple.fr</dd>');
+    expect(out).toContain('<dt>Version du</dt><dd>10/11/2026 18:30</dd>');
+    const at = ['Compte', 'Élément restauré', 'Version du', 'Emplacement'].map((l) =>
+      out.indexOf(`<dt>${l}</dt>`),
+    );
+    expect(at.every((i, n) => i >= 0 && (n === 0 || i > at[n - 1]!))).toBe(true);
+    expect(out).toContain('<dt>Élément restauré</dt><dd>budget.xlsx → budget (restauré).xlsx</dd>');
+    expect(out).toContain('<dt>Emplacement</dt><dd>Documents &gt; Budget</dd>');
+  });
+
+  function render(choice: object) {
+    return renderToString(
+      <TrackStep
+        account="a@exemple.fr"
+        choice={choice as never}
+        job={{ ...job, status: 'succeeded' }}
+        onJob={() => undefined}
+        onAgain={() => undefined}
+        onRetry={() => undefined}
+      />,
+    );
+  }
+
+  it('shows the date of the chosen version rather than the entry date', () => {
+    const out = render({
+      entry,
+      snapshotId: 's1',
+      version: { versionId: 'v1', at: '2026-10-01T08:00:00.000Z' },
+    });
+    expect(out).toContain('<dt>Version du</dt><dd>01/10/2026 08:00</dd>');
+  });
+
+  it('omits the version row when no version date is known', () => {
+    const out = render({ entry: { ...entry, versionAt: null }, snapshotId: 's1' });
+    expect(out).not.toContain('<dt>Version du</dt>');
+    expect(out).toContain('<dt>Compte</dt>');
+    expect(out).toContain('<dt>Emplacement</dt>');
   });
 });
