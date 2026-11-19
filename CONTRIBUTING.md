@@ -30,6 +30,15 @@ issue, il signale seulement : GitHub ne permet pas de bloquer sa publication. Le
 distingue pas les citations : pour documenter la règle dans une PR ou une issue, écrivez « SUIVI
 suivi d'un chiffre » au lieu de l'exemple littéral.
 
+Deux outils servent à la procédure qui crée les issues de suivi (elle vit hors du dépôt) :
+
+- `.github/scripts/resolve-placeholders.sh SUIVI1=290 SUIVI2=291 < texte.md` écrit le texte avec
+  les numéros réels et échoue, sans rien écrire, s'il reste un nom provisoire ;
+- `gh issue list --state open --limit 1000 --json number,title,body | node .github/scripts/list-placeholders.mjs`
+  liste les issues ouvertes dont le titre ou le corps en contient encore (les commentaires ne
+  sont pas lus). La recherche de GitHub ne les trouve pas à partir du seul mot « SUIVI » : elle
+  cherche des mots entiers.
+
 ### Données
 
 Uniquement des données fictives (domaine `exemple.fr`) ou un tenant de test : jamais de donnée

@@ -25,4 +25,36 @@ if bash "$script" "$tmp" >/dev/null 2>&1; then
   echo "ECHEC : fichier multi-lignes avec nom provisoire accepté"
   exit 1
 fi
+
+# resolve-placeholders.sh : la procédure qui crée les issues remplace chaque nom par son numéro.
+dir="$(dirname "$script")"
+got="$(printf 'Voir SUIVI1, SUIVI 2 et SUIVI10.\nFin : SUIVI_1\n' | bash "$dir/resolve-placeholders.sh" SUIVI1=290 SUIVI2=#291 SUIVI10=300 2>/dev/null)"
+want="$(printf 'Voir #290, #291 et #300.\nFin : #290')"
+[ "$got" = "$want" ] || { echo "ECHEC : remplacement inattendu : $got"; exit 1; }
+got="$(printf 'SUIVI1SUIVI1 SUIVI1\n' | bash "$dir/resolve-placeholders.sh" SUIVI1=290 2>/dev/null)"
+[ "$got" = "#290#290 #290" ] || { echo "ECHEC : noms collés mal remplacés : $got"; exit 1; }
+# Un nom sans numéro fourni : refus, aucun texte n'est produit.
+if got="$(printf 'Voir SUIVI1 et SUIVI3.\n' | bash "$dir/resolve-placeholders.sh" SUIVI1=290 2>/dev/null)" || [ -n "$got" ]; then
+  echo "ECHEC : nom provisoire sans numéro accepté"
+  exit 1
+fi
+if printf 'texte\n' | bash "$dir/resolve-placeholders.sh" "SUIVI1=abc" >/dev/null 2>&1; then
+  echo "ECHEC : argument invalide accepté"
+  exit 1
+fi
+
+# list-placeholders.mjs : liste les issues encore concernées, à partir de l'export JSON.
+json='[{"number":183,"title":"Suite","body":"Voir SUIVI2 et SUIVI 3, puis SUIVI2."},{"number":184,"title":"Suivi 2026","body":"Voir #183."},{"number":185,"title":"SUIVI_1","body":null}]'
+if got="$(printf '%s' "$json" | node "$dir/list-placeholders.mjs")"; then
+  echo "ECHEC : liste non vide avec un code de sortie nul"
+  exit 1
+fi
+want="$(printf '#183 : SUIVI2, SUIVI 3\n#185 : SUIVI_1')"
+[ "$got" = "$want" ] || { echo "ECHEC : liste inattendue : $got"; exit 1; }
+printf '[{"number":1,"title":"a","body":"Voir #2."}]' | node "$dir/list-placeholders.mjs" >/dev/null \
+  || { echo "ECHEC : liste vide avec un code de sortie non nul"; exit 1; }
+# Entrée vide (gh en échec) : code 2, à ne pas confondre avec « il en reste ».
+code=0
+printf '' | node "$dir/list-placeholders.mjs" >/dev/null 2>&1 || code=$?
+[ "$code" -eq 2 ] || { echo "ECHEC : entrée vide, code $code au lieu de 2"; exit 1; }
 echo "check-placeholders : OK"
