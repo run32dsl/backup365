@@ -103,7 +103,7 @@ doit exister, car Compose refuse de démarrer sans lui : la commande `: >` de la
 « Lancement » le crée vide, et un secret vide vaut « non défini ». Pour activer la sauvegarde,
 mettre l'identifiant dans `.env`, écrire le secret dans ce fichier (comme les autres secrets),
 puis `docker compose up -d`. Donner l'identifiant sans le secret (ou l'inverse) arrête le démarrage, avec le nom de la variable manquante. Avec un identifiant et un fichier vides, la console démarre et
-répond `backup_not_configured`. Les administrateurs voient l'état de cette connexion, en lecture seule, dans le bloc « Configuration » de la page d'accueil (aucun secret ni identifiant n'y figure) ; les messages « Sauvegarde indisponible » y renvoient.
+répond `backup_not_configured`. Les administrateurs voient l'état de cette connexion, en lecture seule, sur la page d'accueil : une ligne dans la carte « Sauvegarde » quand elle est établie, un bandeau « Connexion Microsoft 365 à configurer » avec les étapes sinon (aucun secret ni identifiant n'y figure) ; les messages « Sauvegarde indisponible » y renvoient.
 
 ## Premier accès
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ConfigurationBlock } from './ConfigurationBlock.js';
+import { ConfigurationNotice, connectionLine, useConfiguration } from './ConfigurationBlock.js';
 import { dateTimeOf } from './format.js';
 import { fetchOverview, type Overview } from './overview.js';
 import { PLANS_HASH } from './plans.js';
@@ -58,9 +58,12 @@ export function OverviewView({
   admin,
   onRetry,
   now = Date.now(),
+  connection = null,
 }: {
   state: OverviewState;
   admin: boolean;
+  /** Ligne secondaire de la carte « Sauvegarde » (administrateur, connexion configurée). */
+  connection?: string | null;
   onRetry: () => void;
   now?: number;
 }) {
@@ -96,6 +99,7 @@ export function OverviewView({
           <StatusPill status={state.state} />
         </div>
         {MESSAGES[state.state] && <p>{MESSAGES[state.state]}</p>}
+        {connection && <p className="overview-connection">{connection}</p>}
         <BackupAction state={state.state} admin={admin} />
       </Card>
       <Card id="overview-plans" title="Plans">
@@ -147,6 +151,7 @@ export function loadOverview(
 /** Page d'accueil : trois informations. La version du serveur est dans le pied de page. */
 export function Home({ admin = false }: { admin?: boolean }) {
   const [state, setState] = useState<OverviewState>('loading');
+  const config = useConfiguration(admin);
   const retried = useRef(false);
   const load = useCallback(() => {
     void loadOverview(setState);
@@ -166,8 +171,13 @@ export function Home({ admin = false }: { admin?: boolean }) {
       <div role="status" className="sr-only">
         {retried.current ? announcementOf(state) : ''}
       </div>
-      {admin && <ConfigurationBlock />}
-      <OverviewView state={state} admin={admin} onRetry={retry} />
+      {admin && <ConfigurationNotice config={config} />}
+      <OverviewView
+        state={state}
+        admin={admin}
+        onRetry={retry}
+        connection={admin ? connectionLine(config) : null}
+      />
     </main>
   );
 }

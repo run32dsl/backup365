@@ -320,6 +320,9 @@ th {
   width: 100%;
   min-height: 2.75rem;
 }
+.overview-card .overview-connection {
+  color: var(--muted);
+}
 .overview-card a {
   display: inline-flex;
   align-items: center;
@@ -734,6 +737,10 @@ select[aria-disabled='true'] {
 .alert-text {
   flex: 1;
   min-width: 12rem;
+}
+.alert-steps {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
 }
 .alert-detail {
   display: block;

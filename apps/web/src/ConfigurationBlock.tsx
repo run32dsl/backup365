@@ -1,61 +1,56 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { fetchConfiguration, type Configuration } from './configuration.js';
 import { workloadLabel } from './format.js';
-import { Alert, StatusPill } from './ui/index.js';
+import { Alert } from './ui/index.js';
 
 /** Étapes côté serveur : la console n'écrit aucun identifiant, tout se fait sur le serveur. */
-export const SERVER_STEPS = [
-  'Renseigner l’identifiant de l’application Microsoft 365 dans le fichier .env du serveur.',
-  'Écrire son secret dans le fichier secrets/m365_client_secret, monté dans la console.',
-  'Redémarrer la console : docker compose up -d.',
+export const SERVER_STEPS: ReactNode[] = [
+  <>
+    Renseigner l’identifiant de l’application Microsoft 365 dans le fichier <code>.env</code> du
+    serveur.
+  </>,
+  <>
+    Écrire son secret dans le fichier <code>secrets/m365_client_secret</code>, monté dans la
+    console.
+  </>,
+  <>
+    Redémarrer la console : <code>docker compose up -d</code>.
+  </>,
 ];
 
-/** Lien des messages « sauvegarde non configurée » vers le bloc de la page d'accueil. */
+/** Lien des messages « sauvegarde non configurée » vers le bandeau de la page d'accueil. */
 export function ConfigurationLink() {
   return (
     <small className="alert-detail">
-      <a href="#/">Voir le bloc « Configuration » de la page d’accueil</a> (réservé aux
-      administrateurs).
+      <a href="#/">Voir les étapes sur la page d’accueil</a> (réservé aux administrateurs).
     </small>
   );
 }
 
-/** Contenu du bloc, une fois l'état connu. */
-export function ConfigurationView({ config }: { config: Configuration }) {
-  return (
-    <>
-      <p>
-        Connexion Microsoft 365 :{' '}
-        {config.microsoft.connected ? (
-          <StatusPill status="compliant" label="Connectée" />
-        ) : (
-          <StatusPill status="late" label="Non configurée" />
-        )}
-      </p>
-      <p>
-        Charges configurées :{' '}
-        {config.workloads.length > 0 ? config.workloads.map(workloadLabel).join(', ') : 'aucune'}.
-      </p>
-      {!config.microsoft.connected && (
-        <>
-          <p>Étapes à suivre sur le serveur :</p>
-          <ol>
-            {SERVER_STEPS.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-        </>
-      )}
-      <p>
-        Lecture seule : les identifiants se renseignent sur le serveur, jamais depuis la console.
-      </p>
-    </>
-  );
+/** Avancement de la lecture de la configuration. */
+export type ConfigurationState = Configuration | 'loading' | 'error';
+
+/** Lit la configuration une fois, pour un administrateur (`enabled`) ; sinon ne fait rien. */
+export function useConfiguration(enabled: boolean): ConfigurationState {
+  const [config, setConfig] = useState<ConfigurationState>('loading');
+  useEffect(() => {
+    if (!enabled) return;
+    fetchConfiguration().then(setConfig, () => setConfig('error'));
+  }, [enabled]);
+  return config;
 }
 
-/** Contenu du bloc selon l'avancement de la lecture. */
-export function ConfigurationState({ config }: { config: Configuration | 'loading' | 'error' }) {
-  if (config === 'loading') return <p>Chargement…</p>;
+/** Ligne secondaire de la carte « Sauvegarde » ; `null` tant que la connexion n'est pas établie. */
+export function connectionLine(config: ConfigurationState): string | null {
+  if (config === 'loading' || config === 'error' || !config.microsoft.connected) return null;
+  const workloads =
+    config.workloads.length > 0 ? config.workloads.map(workloadLabel).join(', ') : 'aucune charge';
+  return `Microsoft 365 connecté · ${workloads}`;
+}
+
+/** Bandeau au-dessus des cartes : connexion à configurer, ou lecture impossible. Sinon rien. */
+export function ConfigurationNotice({ config }: { config: ConfigurationState }) {
+  if (config === 'loading') return null;
   if (config === 'error') {
     return (
       <Alert tone="error">
@@ -64,19 +59,18 @@ export function ConfigurationState({ config }: { config: Configuration | 'loadin
       </Alert>
     );
   }
-  return <ConfigurationView config={config} />;
-}
-
-/** Bloc « Configuration » de la page d'accueil, pour les administrateurs. */
-export function ConfigurationBlock() {
-  const [config, setConfig] = useState<Configuration | 'loading' | 'error'>('loading');
-  useEffect(() => {
-    fetchConfiguration().then(setConfig, () => setConfig('error'));
-  }, []);
+  if (config.microsoft.connected) return null;
   return (
-    <section aria-labelledby="configuration-title">
-      <h2 id="configuration-title">Configuration</h2>
-      <ConfigurationState config={config} />
-    </section>
+    <Alert tone="warning" role="status">
+      <strong>Connexion Microsoft 365 à configurer</strong>
+      <span className="alert-detail">
+        Les identifiants se renseignent sur le serveur, pas dans la console.
+      </span>
+      <ol className="alert-steps">
+        {SERVER_STEPS.map((step, i) => (
+          <li key={i}>{step}</li>
+        ))}
+      </ol>
+    </Alert>
   );
 }

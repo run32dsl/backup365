@@ -60,6 +60,12 @@ composant s'y ajoute avec ses tests de comportement.
   sans bouton, avec la phrase « Aucune sauvegarde n’est encore terminée. »).
 - **Carte d'accueil** (`.overview-card`) : `<section aria-labelledby>` avec un `h2` ; trois cartes
   en grille, deux colonnes dès 900 px, une seule dessous (bouton pleine largeur).
+- **Connexion Microsoft 365 sur l'accueil** (administrateur) : les trois cartes restent les seuls
+  blocs de la page. Connexion configurée, une ligne secondaire (`--muted`) dans la carte
+  « Sauvegarde » : « Microsoft 365 connecté · Messagerie, OneDrive, SharePoint ». Connexion à
+  configurer, un `Alert` d'avertissement (`role="status"`) sous le `h1`, titré « Connexion
+  Microsoft 365 à configurer », avec les trois étapes numérotées ; commandes et chemins en
+  `<code>`. Le libellé « Non configurée » reste réservé à la sauvegarde sans plan.
 - **Bandeau d'alerte** : `role="alert"` pour une erreur, `role="status"` pour une information ;
   sans détail technique.
 - **État vide** (`.empty`) : phrase claire et, au plus, un bouton d'action.
