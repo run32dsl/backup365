@@ -293,6 +293,46 @@ th {
   color: var(--info-fg);
 }
 
+/* Accueil : trois cartes, deux colonnes dès 900 px (l'état de la sauvegarde sur toute la largeur). */
+.overview {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 1fr;
+}
+.overview-card {
+  padding: var(--space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.overview-card h2 {
+  margin: 0 0 var(--space-2);
+}
+.overview-card p {
+  margin: var(--space-2) 0;
+}
+.overview-card .btn {
+  width: 100%;
+  min-height: 2.75rem;
+}
+.overview-card a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+@media (min-width: 900px) {
+  .overview {
+    grid-template-columns: 1fr 1fr;
+  }
+  .overview-card:first-child {
+    grid-column: 1 / -1;
+  }
+  .overview-card .btn {
+    width: auto;
+  }
+}
+
 [role='alert'],
 .banner {
   padding: var(--space-2) var(--space-3);

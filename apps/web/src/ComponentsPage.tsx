@@ -257,6 +257,8 @@ export function ComponentsPage() {
           <StatusPill status="late" />
           <StatusPill status="failed" />
           <StatusPill status="running" />
+          <StatusPill status="operational" />
+          <StatusPill status="unconfigured" />
         </div>
       </Section>
     </main>
