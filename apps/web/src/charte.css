@@ -845,6 +845,15 @@ select[aria-disabled='true'] {
     text-align: right;
   }
 }
+/* Sortie d'un refus de droit : pleine largeur sur mobile. */
+@media (max-width: 37.5rem) {
+  .access-denied-exit {
+    display: flex;
+    min-height: 2.75rem;
+    justify-content: center;
+    text-align: center;
+  }
+}
 .empty + .wizard-actions {
   margin-top: var(--space-3);
 }

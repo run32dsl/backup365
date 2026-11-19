@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { type Problem as FailureProblem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
+import { AccessDenied } from './AccessDenied.js';
 import { StorageUnavailable } from './StorageUnavailable.js';
 import { dateTimeOrDash } from './format.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
@@ -688,18 +689,13 @@ export function TrackStep({
 /** Refus de droit sur un site : situation normale, expliquée, avec une seule issue (étape « Choisir »). */
 export function SiteDenied({ site }: { site: Site }) {
   return (
-    <>
-      <EmptyState>{T.forbiddenSite(site.displayName)}</EmptyState>
-      <WizardActions
-        back={
-          <a className="btn btn-secondary" href={sharePointHash(site.id)}>
-            {T.chooseOther}
-          </a>
-        }
-      >
-        {null}
-      </WizardActions>
-    </>
+    <AccessDenied
+      title="Restauration non autorisée :"
+      href={sharePointHash(site.id)}
+      exit={T.chooseOther}
+    >
+      {T.forbiddenSite(site.displayName)}
+    </AccessDenied>
   );
 }
 
