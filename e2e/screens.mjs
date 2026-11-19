@@ -328,6 +328,17 @@ export const SCREENS = [
     },
   },
   {
+    name: 'recherche-periode-inversee',
+    hash: '#/search',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Du', { exact: true }).fill('20/11/2026');
+      await page.getByLabel('Au', { exact: true }).fill('18/11/2026');
+      await page.getByRole('button', { name: 'Rechercher' }).click();
+      await page.getByText('La date « Au » doit être égale ou postérieure à « Du »').waitFor();
+    },
+  },
+  {
     name: 'fiche-mail',
     hash: DEMO_MAIL_HASH,
     role: 'admin',
@@ -352,6 +363,18 @@ export const SCREENS = [
       await page.getByLabel('Du', { exact: true }).fill('31/02/2026');
       await page.getByRole('button', { name: 'Filtrer' }).click();
       await page.getByText('Date attendue au format jj/mm/aaaa').waitFor();
+    },
+  },
+  {
+    name: 'journal-audit-periode-inversee',
+    hash: '#/audit',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+      await page.getByLabel('Du', { exact: true }).fill('20/11/2026');
+      await page.getByLabel('Au', { exact: true }).fill('18/11/2026');
+      await page.getByRole('button', { name: 'Filtrer' }).click();
+      await page.getByText('La date « Au » doit être égale ou postérieure à « Du »').waitFor();
     },
   },
   {

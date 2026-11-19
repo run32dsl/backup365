@@ -36,6 +36,9 @@ export async function fetchAudit(
 /** Message sous un champ de date saisi dans un autre format que jj/mm/aaaa. */
 export const DATE_ERROR = 'Date attendue au format jj/mm/aaaa';
 
+/** Message sous « Au » quand « Du » est postérieur. */
+export const RANGE_ERROR = 'La date « Au » doit être égale ou postérieure à « Du »';
+
 /** Aide des champs « Du » et « Au ». */
 export const DATE_HELP = 'Date au format jj/mm/aaaa, en UTC comme le tableau';
 
@@ -65,8 +68,9 @@ export interface DateRange {
 /**
  * Filtres « Du » et « Au » (jj/mm/aaaa, tous deux inclus) en intervalle UTC [début du jour « Du »,
  * début du lendemain de « Au »[. Un champ vide n'est pas une erreur ; une date invalide donne une
- * borne vide et un message. « Au » au 31/12/9999 est refusé : son lendemain (borne exclue) ne
- * tient plus dans une année à 4 chiffres et le serveur le rejetterait.
+ * borne vide et un message ; « Du » postérieur à « Au » donne un message sous « Au ». « Au » au
+ * 31/12/9999 est refusé : son lendemain (borne exclue) ne tient plus dans une année à 4 chiffres
+ * et le serveur le rejetterait.
  */
 export function dateRange(fromText: string, toText: string): DateRange {
   const out: DateRange = { from: '', to: '' };
@@ -75,7 +79,8 @@ export function dateRange(fromText: string, toText: string): DateRange {
   const to = toDay !== null && toDay >= LAST_DAY ? null : toDay;
   if (from !== null) out.from = new Date(from).toISOString();
   else if (fromText !== '') out.fromError = DATE_ERROR;
-  if (to !== null) out.to = new Date(to + 86_400_000).toISOString();
+  if (to !== null && from !== null && from > to) out.toError = RANGE_ERROR;
+  else if (to !== null) out.to = new Date(to + 86_400_000).toISOString();
   else if (toText !== '') out.toError = DATE_ERROR;
   return out;
 }

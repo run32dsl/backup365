@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
 import { ExportForm, MailPage, MailView, RestoreSectionView, mailTitle } from './MailPage.js';
 import { AUDIT_REMINDER, REASON } from './RestoreJourney.js';
+import { submitFilters } from './audit.js';
 import { SearchPage, SearchView } from './SearchPage.js';
 import {
   exportEml,
@@ -303,5 +304,27 @@ describe('mail helpers', () => {
     const refuse = (() => json({}, 503)) as unknown as typeof fetch;
     await expect(exportEml('a', 'b', 'motif', refuse)).rejects.toThrow('HTTP 503');
     await expect(fetchMail('a', 'b', refuse)).rejects.toThrow('HTTP 503');
+  });
+
+  it('refuses Du after Au under Au and accepts Du = Au for the whole UTC day', () => {
+    const search = (after: string, before: string) => {
+      const data = new FormData();
+      data.set('after', after);
+      data.set('before', before);
+      const build = vi.fn(searchQueryFromForm);
+      return { result: submitFilters(data, 'after', 'before', build), build };
+    };
+    const bad = search('20/11/2026', '18/11/2026');
+    expect(bad.result.query).toBeNull();
+    expect(bad.result.errors.toError).toBe(
+      'La date « Au » doit être égale ou postérieure à « Du »',
+    );
+    expect(bad.build).not.toHaveBeenCalled();
+    const same = search('18/11/2026', '18/11/2026');
+    expect(same.result.errors.toError).toBeUndefined();
+    expect(same.result.query).toMatchObject({
+      after: '2026-11-18T00:00:00.000Z',
+      before: '2026-11-19T00:00:00.000Z',
+    });
   });
 });
