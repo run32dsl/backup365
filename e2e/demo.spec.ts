@@ -168,8 +168,13 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
 
   // Confirmation : récapitulatif ; remplacer exige une confirmation explicite.
   await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
-  await expect(page.getByText('Version du', { exact: true })).toBeVisible();
-  await expect(page.getByText(/^\d\d\/\d\d\/\d{4} \d\d:\d\d$/)).toBeVisible();
+  for (const term of ['Sauvegarde du', 'Version du']) {
+    await expect(
+      page
+        .locator('dt', { hasText: new RegExp(`^${term}$`) })
+        .locator('xpath=following-sibling::dd[1]'),
+    ).toHaveText(/^\d\d\/\d\d\/\d{4} \d\d:\d\d$/);
+  }
   await expect(page.getByText('Nom choisi par OneDrive')).toBeVisible();
   await page.getByLabel('Remplacer le fichier actuel').check();
   await expect(page.getByText(/il reste dans l’historique OneDrive/)).toBeVisible();

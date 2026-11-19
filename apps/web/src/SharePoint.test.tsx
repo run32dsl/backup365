@@ -283,13 +283,13 @@ describe('SharePoint wording', () => {
     };
     expect(confirmRowsOf(input)).toEqual([
       ['Site', 'Site Urbanisme (exemple)'],
-      ['Contenu', 'Bibliothèque : Documents partagés'],
-      ['État au', '12/11/2026 02:00'],
+      ['Élément', 'Bibliothèque : Documents partagés'],
+      ['Sauvegarde du', '12/11/2026 02:00'],
       ['Volume', '1 240 éléments, 3,2 Go'],
       ['Motif', 'Reprise après incident'],
     ]);
     const item = confirmRowsOf({ ...input, scope: 'item', summary: null, path: '/A/b.pdf' });
-    expect(item).toContainEqual(['Contenu', 'Fichier : A > b.pdf']);
+    expect(item).toContainEqual(['Élément', 'Fichier : A > b.pdf']);
     expect(item.map(([label]) => label)).not.toContain('Volume');
     expect(consequenceOf('library')).toBe('Les fichiers existants ne seront pas remplacés.');
   });
@@ -303,7 +303,7 @@ describe('SharePoint wording', () => {
       summary: { items: 6, sizeBytes: 1_600_000 },
       reason: 'Reprise',
     });
-    expect(rows).toContainEqual(['Contenu', 'Site entier']);
+    expect(rows).toContainEqual(['Élément', 'Site entier']);
     expect(rows).toContainEqual(['Volume', '6 éléments']);
     expect(consequenceOf('site')).toBe('Les contenus manquants seront recréés.');
   });

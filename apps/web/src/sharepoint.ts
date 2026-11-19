@@ -1,5 +1,6 @@
 import { API_ERRORS } from './apiError.js';
 import { REASON } from './RestoreJourney.js';
+import { RESTORE_LABELS } from './restoreLabels.js';
 import type { DriveSnapshot, SiteEntry, SiteScope, SiteScopeSummary } from '@backup365/core';
 import { dayOf, dateTimeOf, sizeOf, type Loaded } from './onedrive.js';
 import { UNREACHABLE } from './session.js';
@@ -220,8 +221,8 @@ export function confirmRowsOf(input: {
 }): [string, string][] {
   const rows: [string, string][] = [
     ['Site', input.siteName],
-    ['Contenu', restoredContentLabel(input.scope, input.path)],
-    ['État au', dateTimeOf(input.pointAt)],
+    [RESTORE_LABELS.item, restoredContentLabel(input.scope, input.path)],
+    [RESTORE_LABELS.backupAt, dateTimeOf(input.pointAt)],
   ];
   if (input.summary) {
     // Site entier : seul le nombre d'éléments est annoncé.

@@ -4,6 +4,7 @@ import { type Problem as FailureProblem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { StorageUnavailable } from './StorageUnavailable.js';
 import { dateTimeOrDash } from './format.js';
+import { RESTORE_LABELS } from './restoreLabels.js';
 import { isReasonValid } from './mail.js';
 import {
   ONEDRIVE_MESSAGES as T,
@@ -315,7 +316,7 @@ function BrowseStep({
           </select>
         </div>
         <div className="field">
-          <label htmlFor="od-snapshot">Date de la sauvegarde</label>
+          <label htmlFor="od-snapshot">{RESTORE_LABELS.backupDate}</label>
           <select
             id="od-snapshot"
             value={snapshotId}
@@ -331,7 +332,6 @@ function BrowseStep({
           </select>
         </div>
       </div>
-      <p>Sauvegarde du {dateTimeOf(snapshot?.createdAt ?? null)}</p>
       <nav aria-label="Fil d'Ariane">
         <ol className="breadcrumb">
           {breadcrumbOf(path).map((c, i, all) => (
@@ -448,12 +448,14 @@ function ReasonStep({
 export function ConfirmStep({
   account,
   choice,
+  backupAt,
   reason,
   onBack,
   onStarted,
 }: {
   account: string;
   choice: Choice;
+  backupAt: string | null;
   reason: string;
   onBack: () => void;
   onStarted: (job: DriveJob) => void;
@@ -519,6 +521,7 @@ export function ConfirmStep({
           account,
           name: entry.name,
           mode,
+          backupAt,
           versionAt,
           folderLabel: folderLabel(entry.path),
           copyName,
@@ -573,6 +576,7 @@ export function ConfirmStep({
 export function TrackStep({
   account,
   choice,
+  backupAt,
   job,
   onJob,
   onAgain,
@@ -580,6 +584,7 @@ export function TrackStep({
 }: {
   account: string;
   choice: Choice;
+  backupAt: string | null;
   job: DriveJob;
   onJob: (job: DriveJob) => void;
   onAgain: () => void;
@@ -624,7 +629,8 @@ export function TrackStep({
     <ResultList
       rows={[
         ['Compte', account],
-        ['Élément restauré', `${choice.entry.name} → ${target}`],
+        [RESTORE_LABELS.itemRestored, `${choice.entry.name} → ${target}`],
+        [RESTORE_LABELS.backupAt, dateTimeOf(backupAt)],
         ...(versionAt ? [['Version du', dateTimeOf(versionAt)] as [string, string]] : []),
         ['Emplacement', where],
       ]}
@@ -742,6 +748,10 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
     setJob(null);
   };
 
+  const backupAt =
+    snapshots?.status === 'ok'
+      ? (snapshots.data.find((s) => s.id === (choice?.snapshotId ?? snapshotId))?.createdAt ?? null)
+      : null;
   let journey = false;
   let content: ReactNode;
   if (accounts === null) {
@@ -774,6 +784,7 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
         key={job.id}
         account={account}
         choice={choice}
+        backupAt={backupAt}
         job={job}
         onJob={setJob}
         onAgain={reset}
@@ -788,6 +799,7 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
       <ConfirmStep
         account={account}
         choice={choice}
+        backupAt={backupAt}
         reason={reason}
         onBack={() => {
           setReason(null);

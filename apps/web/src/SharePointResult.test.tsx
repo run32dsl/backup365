@@ -37,7 +37,7 @@ describe('SharePoint result', () => {
       const html = render({ status, errors: status === 'failed' ? 1 : 0 });
       expect(html).toContain('<dt>Site</dt><dd>Équipe commerciale</dd>');
       expect(html).toContain(
-        '<dt>Contenu restauré</dt><dd>Fichier : Documents partagés &gt; Plans 2024 &gt; plan-a.pdf</dd>',
+        '<dt>Élément restauré</dt><dd>Fichier : Documents partagés &gt; Plans 2024 &gt; plan-a.pdf</dd>',
       );
     }
   });
@@ -46,23 +46,23 @@ describe('SharePoint result', () => {
     for (const status of ['succeeded', 'failed'] as const) {
       const html = render({ status, scope: 'site', path: '/', errors: 1 });
       expect(html).toContain('<dt>Site</dt><dd>Équipe commerciale</dd>');
-      expect(html).toContain('<dt>Contenu restauré</dt><dd>Site entier</dd>');
-      expect(html.indexOf('Contenu restauré')).toBeLessThan(html.indexOf('Éléments en erreur'));
+      expect(html).toContain('<dt>Élément restauré</dt><dd>Site entier</dd>');
+      expect(html.indexOf('Élément restauré')).toBeLessThan(html.indexOf('Éléments en erreur'));
     }
   });
 
   it('names the kind of content for a folder and a library', () => {
     expect(render({ scope: 'folder', path: '/Documents partagés/Contrats' })).toContain(
-      '<dt>Contenu restauré</dt><dd>Dossier : Documents partagés &gt; Contrats</dd>',
+      '<dt>Élément restauré</dt><dd>Dossier : Documents partagés &gt; Contrats</dd>',
     );
     expect(render({ scope: 'library', path: '/Archives' })).toContain(
-      '<dt>Contenu restauré</dt><dd>Bibliothèque : Archives</dd>',
+      '<dt>Élément restauré</dt><dd>Bibliothèque : Archives</dd>',
     );
   });
 
   it('names the copy on success only, and does not repeat the banner', () => {
-    expect(render({ copyName: 'plan-a (restauré).pdf' })).toContain(
-      '<dt>Restauré sous</dt><dd>plan-a (restauré).pdf</dd>',
+    expect(render({ copyName: 'plan-a (restauré le 14.11.2026).pdf' })).toContain(
+      '<dt>Restauré sous</dt><dd>plan-a (restauré le 14.11.2026).pdf</dd>',
     );
     expect(render({ status: 'failed', copyName: 'x.pdf', errors: 1 })).not.toContain(
       'Restauré sous',
