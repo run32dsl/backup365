@@ -162,6 +162,9 @@ a {
   color: var(--text);
   text-decoration: none;
 }
+.page-help {
+  color: var(--muted);
+}
 .nav-group {
   display: block;
   padding: var(--space-1) var(--space-2);

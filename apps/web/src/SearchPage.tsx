@@ -15,6 +15,7 @@ import {
   type DateRange,
 } from './audit.js';
 import { dateTimeOf, folderLabel, plural } from './format.js';
+import { AuditReminder } from './RestoreJourney.js';
 import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
 import { fetchRestoreConfigured } from './restore.js';
 import {
@@ -62,6 +63,18 @@ const COLUMNS: Column<Hit>[] = [
   { header: 'Dossier', className: 'nowrap', cell: (m) => folderLabel(m.folder) },
 ];
 
+export const SEARCH_HELP =
+  'Cherchez un mail par objet ou expéditeur, dans une boîte et sur une période, puis ouvrez-le pour le restaurer ou l’exporter.';
+export const SEARCH_START = 'Lancez une recherche pour afficher les mails sauvegardés.';
+
+/** Phrase de l'état « sans résultat » : rappelle les critères et propose d'élargir. */
+export function noResultText(query?: SearchQuery): string {
+  const what = query?.q ? `« ${query.q} »` : 'cette recherche';
+  const period =
+    query?.after || query?.before ? 'dans cette période' : 'sur la période sauvegardée';
+  return `Aucun mail ne correspond à ${what} ${period}. Élargissez la période ou retirez le filtre de boîte.`;
+}
+
 const RESTORE_HINT_ID = 'restore-not-configured';
 
 /**
@@ -74,7 +87,10 @@ export function SearchView({
   onPage,
   mailbox,
   filterRefused = false,
+  query,
 }: {
+  /** Critères saisis : l'état vide les reprend pour suggérer d'élargir la recherche. */
+  query?: SearchQuery;
   state: SearchState;
   /** Un filtre de date refusé n'a pas été appliqué : la liste affichée n'est pas filtrée. */
   filterRefused?: boolean;
@@ -90,7 +106,7 @@ export function SearchView({
     return (
       <>
         {notice}
-        <EmptyState>Aucun résultat.</EmptyState>
+        <EmptyState>{noResultText(query)}</EmptyState>
       </>
     );
   const base = mailbox ? COLUMNS.filter((c) => c !== MAILBOX_COLUMN) : COLUMNS;
@@ -173,6 +189,8 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
   return (
     <main tabIndex={-1}>
       <h1>Restaurer depuis la messagerie</h1>
+      <p className="page-help">{SEARCH_HELP}</p>
+      <AuditReminder />
       <form onSubmit={submit} className="filters">
         <FormField label="Recherche" type="search" name="q" maxLength={256} />
         <FormField
@@ -200,9 +218,11 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
         />
         <Button type="submit">Rechercher</Button>
       </form>
+      {state === null && query === null && <EmptyState>{SEARCH_START}</EmptyState>}
       {state !== null && (
         <SearchView
           state={state}
+          query={query ?? undefined}
           restoreConfigured={restoreConfigured}
           mailbox={query?.mailbox}
           filterRefused={hasDateError(errors)}

@@ -334,6 +334,16 @@ export const SCREENS = [
     },
   },
   {
+    name: 'recherche-sans-resultat',
+    hash: '#/search',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Recherche').fill('introuvable-xyz');
+      await page.getByRole('button', { name: 'Rechercher' }).click();
+      await page.getByText('Aucun mail ne correspond').waitFor();
+    },
+  },
+  {
     name: 'navigation-restaurer',
     hash: '#/search',
     role: 'admin',
