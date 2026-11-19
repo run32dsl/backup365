@@ -1,5 +1,6 @@
 import {
   DATA_TYPES,
+  isNightPlan,
   nextRunAt,
   type ComplianceState,
   type DataType,
@@ -341,6 +342,9 @@ export function lastRunLabel(plan: PlanItem): string {
 
 /** Message de succès d'une création : l'heure du premier créneau planifié. */
 export function createdMessage(plan: { id: string; rpoHours: RpoHours }, now = new Date()): string {
+  // Plan de nuit : le créneau suit le fuseau du serveur, que le navigateur ne connaît pas.
+  if (isNightPlan(plan.rpoHours))
+    return `${MESSAGES.created} Première sauvegarde prévue cette nuit.`;
   return `${MESSAGES.created} Première sauvegarde prévue à ${timeOf(nextRunAt(plan, now))}.`;
 }
 

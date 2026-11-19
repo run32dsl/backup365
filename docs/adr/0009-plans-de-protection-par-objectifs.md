@@ -31,7 +31,9 @@ de tenant par console.
 ### Fréquence
 
 - Intervalle = RPO / 2 : 120, 360 ou 720 minutes. Ainsi, un échec isolé laisse encore une
-  seconde tentative avant l'échéance du RPO.
+  seconde tentative avant l'échéance du RPO. Depuis #298, les plans à RPO de 24 h font exception :
+  leurs passages suivent la fenêtre de nuit de l'ADR 0017, et les deux alinéas suivants ne les
+  concernent plus.
 - Créneaux = `décalage + k × intervalle` depuis l'époque Unix (UTC), à la minute. Le décalage est
   `FNV-1a(identifiant du plan) mod intervalle` : déterministe, identique d'un appel et d'un
   redémarrage à l'autre, sans état, et il étale les plans au lieu de les lancer tous à minuit.

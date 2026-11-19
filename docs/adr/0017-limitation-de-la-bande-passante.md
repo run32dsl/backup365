@@ -45,6 +45,17 @@ Conclusion : **le SDK ne permet pas de limiter le débit** ni la concurrence.
   sont planifiés par défaut dans une fenêtre de nuit. Les plans à RPO plus court gardent leur
   rythme (RPO/2, ADR 0009), sans restriction. Le lancement manuel reste toujours possible. Aucun
   nouveau réglage, aucun objectif dégradé. Implémentation : #298.
+- Fenêtre de nuit (#298) : **22 h – 6 h, heure locale du fuseau du serveur**, fixe. Un plan à
+  RPO de 24 h ou plus a **deux passages par nuit** : le premier à 22 h plus un décalage propre au
+  plan (0 à 3 h, dérivé de son identifiant comme en ADR 0009), le second 4 h plus tard, qui
+  ne reprend que les éléments sans réussite depuis le premier (un élément réussi n'est pas
+  sauvegardé deux fois). Hors fenêtre, un plan de nuit ne démarre rien : un plan créé de jour attend
+  la nuit. Le plus long écart entre deux passages est ainsi de 21 h, y
+  compris aux nuits de changement d'heure (l'écart entre deux nuits se mesure en temps réel, de
+  23 à 25 h) : le RPO de 24 h est tenu. Les passages manqués ne sont pas rattrapés en journée.
+  Seul le RPO de 24 h existe aujourd'hui (4, 12, 24 h) ; tout RPO plus long suivrait la même
+  règle. La fiche du plan affiche « Sauvegarde planifiée la nuit (22 h – 6 h) » ; le lancement
+  manuel reste possible à toute heure.
 - En attendant, la limitation de débit relève du réseau de l'utilisateur (QoS du routeur ou du
   NAS).
 

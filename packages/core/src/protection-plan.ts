@@ -147,12 +147,84 @@ export function staggerOffsetMinutes(planId: string, rpoHours: RpoHours): number
   return fnv1a(planId) % runIntervalMinutes(rpoHours);
 }
 
+/** Fenêtre de nuit des plans à RPO long (ADR 0017), en heure locale du serveur. */
+export const NIGHT_WINDOW = { startHour: 22, endHour: 6 } as const;
+/** RPO à partir duquel un plan est planifié dans la fenêtre de nuit. */
+export const NIGHT_MIN_RPO_HOURS = 24;
+/** Deux passages par nuit, espacés de 4 h : le second reprend un échec du premier. */
+const NIGHT_SLOT_GAP_MINUTES = 240;
+/** Décalage maximal du premier passage : le second reste avant 6 h, même au changement d'heure. */
+const NIGHT_STAGGER_MINUTES = 180;
+
+/** Vrai si les passages du plan tombent dans la fenêtre de nuit. */
+export function isNightPlan(rpoHours: number): boolean {
+  return rpoHours >= NIGHT_MIN_RPO_HOURS;
+}
+
+/** Ligne de la fiche du plan : la fenêtre utilisée, ou `null` si le plan garde son rythme RPO/2. */
+export function scheduleWindowLabel(rpoHours: number): string | null {
+  return isNightPlan(rpoHours)
+    ? `Sauvegarde planifiée la nuit (${NIGHT_WINDOW.startHour} h – ${NIGHT_WINDOW.endHour} h)`
+    : null;
+}
+
 /**
- * Prochaine exécution planifiée strictement après `after`, à la minute près. Les créneaux sont
- * `décalage + k × intervalle` depuis l'époque Unix (UTC) : ils ne dépendent que de l'identifiant
- * du plan et de l'horloge, donc survivent à un redémarrage.
+ * Passages d'un plan de nuit autour de `at`, triés. Le premier de chaque nuit est à 22 h locales
+ * (heure du serveur) plus un décalage propre au plan, le second 4 h plus tard. L'écart entre
+ * deux nuits se mesure en temps réel (23 à 25 h au changement d'heure) : le plus long écart entre
+ * deux passages (premier de la nuit suivante moins second) reste de 21 h, sous le RPO de 24 h.
  */
-export function nextRunAt(plan: { id: string; rpoHours: RpoHours }, after: Date): Date {
+function nightSlots(planId: string, at: Date): number[] {
+  const offset = fnv1a(planId) % NIGHT_STAGGER_MINUTES;
+  const slots: number[] = [];
+  for (let day = -2; day <= 2; day++) {
+    const start = new Date(
+      at.getFullYear(),
+      at.getMonth(),
+      at.getDate() + day,
+      NIGHT_WINDOW.startHour,
+    ).getTime();
+    slots.push(start + offset * MINUTE_MS, start + (offset + NIGHT_SLOT_GAP_MINUTES) * MINUTE_MS);
+  }
+  return slots;
+}
+
+type Schedulable = { id: string; rpoHours: RpoHours };
+
+/** Écart entre les deux passages d'une nuit, en minutes. */
+export const NIGHT_SLOT_GAP = NIGHT_SLOT_GAP_MINUTES;
+
+/** Début (22 h locales) de la fenêtre de nuit qui contient `at`, ou `null` hors fenêtre. */
+export function nightWindowStart(at: Date): Date | null {
+  const h = at.getHours();
+  if (h >= NIGHT_WINDOW.startHour) {
+    return new Date(at.getFullYear(), at.getMonth(), at.getDate(), NIGHT_WINDOW.startHour);
+  }
+  if (h < NIGHT_WINDOW.endHour) {
+    return new Date(at.getFullYear(), at.getMonth(), at.getDate() - 1, NIGHT_WINDOW.startHour);
+  }
+  return null;
+}
+
+/** Dernier créneau planifié à `at` ou avant. */
+export function currentRunSlot(plan: Schedulable, at: Date): Date {
+  if (isNightPlan(plan.rpoHours)) {
+    const past = nightSlots(plan.id, at).filter((t) => t <= at.getTime());
+    return new Date(past[past.length - 1] as number);
+  }
+  return new Date(nextRunAt(plan, at).getTime() - runIntervalMinutes(plan.rpoHours) * MINUTE_MS);
+}
+
+/**
+ * Prochaine exécution planifiée strictement après `after`, à la minute près. Hors nuit, les
+ * créneaux sont `décalage + k × intervalle` depuis l'époque Unix (UTC) : ils ne dépendent que de
+ * l'identifiant du plan et de l'horloge, donc survivent à un redémarrage. Les plans de nuit
+ * suivent la fenêtre de nuit du fuseau du serveur.
+ */
+export function nextRunAt(plan: Schedulable, after: Date): Date {
+  if (isNightPlan(plan.rpoHours)) {
+    return new Date(nightSlots(plan.id, after).find((t) => t > after.getTime()) as number);
+  }
   const interval = runIntervalMinutes(plan.rpoHours);
   const offset = staggerOffsetMinutes(plan.id, plan.rpoHours);
   const afterMinute = Math.floor(after.getTime() / MINUTE_MS);

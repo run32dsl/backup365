@@ -46,6 +46,62 @@ function setup(over: { executeur?: Executeur; selection?: string[] } = {}) {
 }
 
 describe('planificateur', () => {
+  it('runs a 24 h plan only in the night window, once per night when it succeeds', async () => {
+    process.env.TZ = 'Europe/Paris';
+    const plans = SqlitePlanStore.open(':memory:');
+    const plan = plans.create({ ...input, name: 'Nuit', rpoHours: 24, selection: ['a'] });
+    const calls: ExecutionTarget[] = [];
+    const clock = { at: new Date('2026-11-16T10:00:00Z') };
+    const scheduler = new PlanScheduler({
+      plans,
+      executeur: {
+        execute: (t) => {
+          calls.push(t);
+          return Promise.resolve();
+        },
+      },
+      listItems: (p) => Promise.resolve(p.selection),
+      logger: { info: () => undefined, error: () => undefined },
+      now: () => clock.at,
+    });
+    const start = clock.at.getTime();
+    const hours: number[] = [];
+    // Un tick par quart d'heure pendant 48 h : aucun passage en journée, pas de rattrapage au
+    // démarrage, et une réussite au premier passage dispense du second : un passage par nuit.
+    for (let t = start; t < start + 48 * 3_600_000; t += 900_000) {
+      clock.at = new Date(t);
+      const before = calls.length;
+      await scheduler.tick();
+      if (calls.length > before) hours.push(clock.at.getHours());
+    }
+    expect(hours).toHaveLength(2);
+    for (const h of hours) expect(h >= 22 || h < 6).toBe(true);
+    expect(plans.listRuns(plan.id, 10)).toHaveLength(2);
+  });
+
+  it('retries a failed item at the second pass of the night', async () => {
+    process.env.TZ = 'Europe/Paris';
+    const plans = SqlitePlanStore.open(':memory:');
+    const plan = plans.create({ ...input, name: 'Nuit', rpoHours: 24, selection: ['a'] });
+    let fail = true;
+    const clock = { at: new Date('2026-11-16T10:00:00Z') };
+    const scheduler = new PlanScheduler({
+      plans,
+      executeur: { execute: () => (fail ? Promise.reject(new Error('x')) : Promise.resolve()) },
+      listItems: (p) => Promise.resolve(p.selection),
+      logger: { info: () => undefined, error: () => undefined },
+      now: () => clock.at,
+    });
+    const first = nextRunAt(plan, clock.at);
+    clock.at = new Date(first.getTime() + 1000);
+    await scheduler.tick();
+    expect(plans.listRuns(plan.id, 10).map((r) => r.status)).toEqual(['failed']);
+    fail = false;
+    clock.at = new Date(first.getTime() + 241 * 60_000);
+    await scheduler.tick();
+    expect(plans.listRuns(plan.id, 10).map((r) => r.status)).toEqual(['success', 'failed']);
+  });
+
   it('launches each item at the computed slots, once per slot', async () => {
     const { plans, plan, clock, calls, make, intervalMs } = setup();
     const scheduler = make();
