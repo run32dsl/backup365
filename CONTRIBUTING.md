@@ -25,8 +25,10 @@ si un commit n'est pas signé. Pour corriger : `git rebase --signoff origin/deve
 Un renvoi cite le numéro réel de l'issue (`#NNN`), jamais un nom provisoire comme « SUIVI2 ».
 Le job `placeholders` (`.github/workflows/placeholders.yml`, script
 `.github/scripts/check-placeholders.sh`) fait échouer une PR ou une issue dont le titre ou le
-corps contient encore « SUIVI » suivi d'un chiffre. Pour une issue, il signale seulement : GitHub
-ne permet pas de bloquer sa publication.
+corps contient encore « SUIVI » suivi d'un chiffre, et signale de même un commentaire. Pour une
+issue, il signale seulement : GitHub ne permet pas de bloquer sa publication. Le contrôle ne
+distingue pas les citations : pour documenter la règle dans une PR ou une issue, écrivez « SUIVI
+suivi d'un chiffre » au lieu de l'exemple littéral.
 
 ### Données
 

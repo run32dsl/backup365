@@ -1,7 +1,7 @@
 name: Placeholders
 
-# Refuse un nom provisoire « SUIVIn » dans une PR ou une issue (voir #268). `pull_request` et
-# `issues` avec un jeton en lecture seule ; le texte passe par une variable d'environnement et un
+# Refuse un nom provisoire « SUIVIn » dans une PR, une issue ou un commentaire (voir #268).
+# `pull_request`, `issues` et les commentaires avec un jeton en lecture seule ; le texte passe par une variable d'environnement et un
 # fichier, jamais interpolé dans la commande. Pour une issue, le contrôle signale (run en échec) :
 # GitHub ne permet pas de bloquer la publication.
 on:
@@ -10,6 +10,10 @@ on:
     types: [opened, edited, synchronize, reopened]
   issues:
     types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+  pull_request_review_comment:
+    types: [created, edited]
 
 permissions:
   contents: read
@@ -29,6 +33,7 @@ jobs:
         env:
           TITLE: ${{ github.event.pull_request.title || github.event.issue.title }}
           BODY: ${{ github.event.pull_request.body || github.event.issue.body }}
+          COMMENT: ${{ github.event.comment.body }}
         run: |
-          printf '%s\n%s\n' "$TITLE" "$BODY" > "$RUNNER_TEMP/text.md"
+          printf '%s\n%s\n%s\n' "$TITLE" "$BODY" "$COMMENT" > "$RUNNER_TEMP/text.md"
           bash .github/scripts/check-placeholders.sh "$RUNNER_TEMP/text.md"

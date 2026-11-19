@@ -15,4 +15,14 @@ for ko in "Décision sur #179 : voir SUIVI2." "voir SUIVI 2" "SUIVI_3 et #4"; do
     exit 1
   fi
 done
+# Chemin des fichiers passés en argument (celui du workflow), texte sur plusieurs lignes.
+tmp="$(mktemp)"
+trap 'rm -f "$tmp"' EXIT
+printf 'Titre\n\nParagraphe.\nVoir #12.\n' > "$tmp"
+bash "$script" "$tmp" >/dev/null || { echo "ECHEC : fichier valide refusé"; exit 1; }
+printf 'Titre\n\nParagraphe.\nVoir SUIVI4 plus bas.\n' > "$tmp"
+if bash "$script" "$tmp" >/dev/null 2>&1; then
+  echo "ECHEC : fichier multi-lignes avec nom provisoire accepté"
+  exit 1
+fi
 echo "check-placeholders : OK"
