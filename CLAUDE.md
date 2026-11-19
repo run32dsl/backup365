@@ -30,6 +30,15 @@ version figée). Lire `docs/vision.md` (principes non négociables) et `docs/adr
 6. Description de PR : Résumé, Changements, Critères d'acceptation (cochés avec preuve),
    Non vérifié. Termine par `Closes #<n>`.
 
+## Contributions externes (forks)
+
+Ces règles s'appliquent aussi aux sessions Claude des contributeurs : voir `CONTRIBUTING.md`.
+
+- PR depuis un fork vers `develop`, jamais fusionnée automatiquement : le mainteneur la fusionne.
+- Chaque commit porte `Signed-off-by` (`git commit -s`, DCO 1.1) ; la CI refuse sinon.
+- L'usage de l'IA est mentionné dans la PR ; l'auteur humain en reste responsable.
+- Données fictives ou tenant de test uniquement, jamais de donnée réelle.
+
 ## Décisions
 
 Une décision d'architecture = un fichier `docs/adr/NNNN-titre.md` (contexte, décision,

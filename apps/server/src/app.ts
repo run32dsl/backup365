@@ -20,6 +20,7 @@ import type { OidcService } from './oidc.js';
 import { registerOidcRoutes } from './oidc-routes.js';
 import type { SimulatedOidcProvider } from './oidc-simulated.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
+import { registerConfigurationRoutes } from './configuration-routes.js';
 import { registerMailRoutes } from './mail-routes.js';
 import type { DriveRestoreService } from './drive-restore-service.js';
 import { registerOneDriveRoutes } from './onedrive-routes.js';
@@ -201,6 +202,7 @@ export function buildApp({
   });
   void app.register((scope, _opts, done) => {
     registerOverviewRoutes(scope, plans);
+    registerConfigurationRoutes(scope, { backupConfigured, workloads: status.workloads });
     done();
   });
   void app.register((scope, _opts, done) => {

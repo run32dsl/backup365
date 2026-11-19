@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { ConfigurationBlock } from './ConfigurationBlock.js';
 import { dateTimeOf } from './format.js';
 import { fetchOverview, type Overview } from './overview.js';
 import { PLANS_HASH } from './plans.js';
@@ -133,6 +134,7 @@ export function Home({ admin = false }: { admin?: boolean }) {
   return (
     <main tabIndex={-1}>
       <h1>Tableau de bord</h1>
+      {admin && <ConfigurationBlock />}
       <OverviewView state={state} admin={admin} onRetry={load} />
     </main>
   );
