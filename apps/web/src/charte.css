@@ -763,16 +763,36 @@ select[aria-disabled='true'] {
   .data-table td.card-title .plan-summary {
     font-weight: 400;
   }
-  /* Actions d'un plan : « Lancer maintenant » puis Modifier et Supprimer en liens sur une rangée. */
-  /* Les trois actions tiennent sur une rangée ; la raison d'indisponibilité reste sous le bouton. */
+  /* Synthèse et fenêtre de planification sur un même paragraphe, pour gagner une ligne. */
+  .data-table td.card-title .nowrap-wide {
+    display: block;
+  }
+  .data-table td.card-title .plan-summary:not(:only-of-type) {
+    display: inline;
+    line-height: 1.25;
+  }
+  .data-table td.card-title > div {
+    line-height: 1.25;
+  }
+  .data-table td.card-title .plan-summary + .plan-summary::before {
+    content: ' · ';
+  }
+  .data-table td.card-title .plan-summary + .plan-summary {
+    margin-left: 0;
+  }
+  .data-table .row-actions .run-action .btn {
+    padding-inline: var(--space-2);
+  }
+  /* Actions d'un plan : « Lancer maintenant », Modifier et Supprimer (liens) sur une seule rangée ;
+     la raison d'indisponibilité reste sous le bouton. */
   .data-table .row-actions {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: flex-start;
     gap: var(--space-1);
   }
   .data-table .row-actions .run-action {
-    flex: 1 1 8rem;
+    flex: 0 1 auto;
   }
   .data-table .row-actions-more {
     gap: 0;
@@ -1181,6 +1201,18 @@ a.btn-secondary {
   }
   .row-actions-more .btn {
     flex: 1;
+  }
+  /* Carte de tableau : les trois actions restent sur une seule rangée. */
+  .data-table .row-actions {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .data-table .row-actions-more {
+    flex-wrap: nowrap;
+  }
+  .data-table .row-actions-more .btn {
+    flex: 0 0 auto;
+    padding-inline: var(--space-1);
   }
   .row-actions > .btn,
   .wizard-actions .btn,
