@@ -55,6 +55,26 @@ describe('GET /api/search', () => {
       count: 2,
     });
     expect(JSON.stringify(events)).not.toContain('facture');
+    expect(events[0]).toMatchObject({ target: '*' });
+  });
+
+  it('does not record a mailbox filter that matches no indexed mailbox', async () => {
+    events.length = 0;
+    const app = await appWithData();
+    await app.inject({ method: 'GET', url: '/api/search?q=facture&mailbox=dupont' });
+    expect(events).toHaveLength(1);
+    expect(events[0]).not.toHaveProperty('target');
+    expect(JSON.stringify(events)).not.toContain('dupont');
+  });
+
+  it('records the filtered mailbox as the target, still without the search terms', async () => {
+    events.length = 0;
+    const app = await appWithData();
+    await app.inject({ method: 'GET', url: '/api/search?q=facture&mailbox=mbx-1&from=alice' });
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ resource: 'mail.search', target: 'mbx-1' });
+    expect(JSON.stringify(events)).not.toContain('facture');
+    expect(JSON.stringify(events)).not.toContain('alice');
   });
 
   it('answers 503 without audit log', async () => {

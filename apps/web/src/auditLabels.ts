@@ -158,6 +158,13 @@ export interface TargetInfo {
 /** Texte de « pas de cible » ; la colonne Cible du journal laisse alors sa cellule vide. */
 export const NO_TARGET = '—';
 
+const LIST_SOURCES: Record<string, string> = {
+  'mail.search': 'Messagerie',
+  'onedrive.items': 'OneDrive',
+  'sharepoint.items': 'SharePoint',
+  'sharepoint.scope': 'SharePoint',
+};
+
 /**
  * Cible lisible : un nom, et pour un mail la boîte en texte secondaire. Jamais un identifiant
  * interne : mail ou plan introuvable → « Élément supprimé » / « Plan supprimé », sinon « — ».
@@ -166,6 +173,18 @@ export function targetView(
   e: TargetInfo,
   planNames: ReadonlyMap<string, string> | null,
 ): { name: string; secondary?: string } {
+  const list = LIST_SOURCES[e.resource];
+  if (list) {
+    // Consultation d'une liste : la source, puis le compte ou le site ; jamais les termes cherchés.
+    const scope = e.resource.startsWith('sharepoint')
+      ? e.targetName
+      : e.resource === 'onedrive.items'
+        ? e.target?.split('/')[0]
+        : e.target === '*'
+          ? 'toutes les boîtes'
+          : e.target; // absent : entrée antérieure ou filtre sans boîte indexée
+    return scope ? { name: list, secondary: scope } : { name: list };
+  }
   if (!e.target) return { name: NO_TARGET };
   if (e.resource === 'plan') {
     return { name: planNames?.get(e.target) ?? (planNames ? 'Plan supprimé' : NO_TARGET) };
