@@ -259,6 +259,7 @@ export function ComponentsPage() {
           <StatusPill status="running" />
           <StatusPill status="operational" />
           <StatusPill status="unconfigured" />
+          <StatusPill status="pending" />
         </div>
       </Section>
     </main>

@@ -55,8 +55,9 @@ composant s'y ajoute avec ses tests de comportement.
   texte qui passe à la ligne plutôt que de déborder.
 - **Badge d'état** (`.badge`) : « À jour » (`✔`), « En cours », « En retard » (`⚠`),
   « En échec » (`✖`) ; mêmes libellés pour les plans et les sauvegardes. L'accueil ajoute
-  « Opérationnelle » (`✔`, `--ok`) et « Non configurée » (`⚠`, `--warn`, seulement sans plan) ;
-  des plans sans aucun résultat : pas de badge, une phrase.
+  « Opérationnelle » (`✔`, `--ok`), « Non configurée » (`⚠`, `--warn`, seulement sans plan) et
+  « En attente » (`◷`, neutre : `--border-soft` et `--text`, des plans sans aucun résultat,
+  sans bouton, avec la phrase « Aucune sauvegarde n’est encore terminée. »).
 - **Carte d'accueil** (`.overview-card`) : `<section aria-labelledby>` avec un `h2` ; trois cartes
   en grille, deux colonnes dès 900 px, une seule dessous (bouton pleine largeur).
 - **Bandeau d'alerte** : `role="alert"` pour une erreur, `role="status"` pour une information ;
