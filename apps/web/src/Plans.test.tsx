@@ -192,21 +192,16 @@ describe('list labels', () => {
     expect(lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, status: 'failed' } })).toBe(
       'Échec, 14/11/2026 06:00',
     );
-    expect(
-      lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, noSnapshotReason: 'no_content' } }),
-    ).toBe('Réussie (rien à sauvegarder), 14/11/2026 06:00');
-    // « rien à sauvegarder » : une seule fois par ligne.
+    // Rien copié : la date seule, l'état est dans la pastille.
     const empty = { ...plan.compliance, lastRestorePointAt: null };
-    expect(complianceView({ ...plan, compliance: empty }).note).toBe(
-      'Rien à sauvegarder pour l’instant',
-    );
-    expect(
-      complianceView({
-        ...plan,
-        compliance: empty,
-        lastRun: { ...plan.lastRun!, noSnapshotReason: 'no_content' },
-      }).note,
-    ).toBeUndefined();
+    const emptyRun = { ...plan.lastRun!, noSnapshotReason: 'no_content' as const };
+    expect(lastRunLabel({ ...plan, lastRun: emptyRun })).toBe('Réussie, 14/11/2026 06:00');
+    expect(complianceView({ ...plan, compliance: empty }).status).toBe('pending');
+    expect(complianceView({ ...plan, compliance: empty, lastRun: emptyRun })).toEqual({
+      status: 'pending',
+      label: 'En attente',
+      note: 'Rien à sauvegarder dans le périmètre',
+    });
     expect(lastRunLabel({ ...plan, running: true })).toBe('En cours…');
     expect(lastRunLabel({ ...plan, lastRun: null })).toBe('Pas encore sauvegardé');
   });
@@ -239,6 +234,21 @@ describe('PlansListView', () => {
     expect(html).toContain('aria-label="Lancer Messagerie Direction maintenant"');
     expect(html).toContain('aria-label="Modifier Messagerie Direction"');
     expect(html).toContain('aria-label="Supprimer Messagerie Direction"');
+  });
+
+  it('shows a neutral pill and a note for a plan whose last run copied nothing', () => {
+    const empty = {
+      ...plan,
+      compliance: { ...plan.compliance, lastRestorePointAt: null },
+      lastRun: { ...plan.lastRun!, noSnapshotReason: 'no_content' as const },
+    };
+    const html = list([empty], false);
+    expect(html).toContain('◷</span> En attente');
+    expect(html).toContain(
+      '<small class="state-note">Rien à sauvegarder dans le périmètre</small>',
+    );
+    expect(html).not.toContain('À jour');
+    expect(html).not.toContain('rien à sauvegarder)');
   });
 
   it('summarises what each plan protects, for both roles', () => {

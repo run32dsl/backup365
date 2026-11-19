@@ -306,11 +306,14 @@ export function complianceView(plan: PlanItem): {
 } {
   const { state, lastSuccessAt, lastRestorePointAt } = plan.compliance;
   if (state === 'compliant') {
-    // Réussi, mais sans point de restauration : rien n'était à sauvegarder (issue #80).
-    // « Dernière exécution » le dit déjà quand le dernier passage l'a constaté.
-    const said = plan.lastRun?.noSnapshotReason === 'no_content';
-    if (lastRestorePointAt === null && !said) {
-      return { status: 'compliant', label: 'À jour', note: 'Rien à sauvegarder pour l’instant' };
+    // Réussi, mais sans point de restauration : rien n'a été copié, donc rien n'est protégé
+    // (issues #80, #289). Pastille neutre, jamais le vert.
+    if (lastRestorePointAt === null) {
+      return {
+        status: 'pending',
+        label: 'En attente',
+        note: 'Rien à sauvegarder dans le périmètre',
+      };
     }
     return { status: 'compliant', label: 'À jour' };
   }
@@ -333,9 +336,7 @@ export function lastRunLabel(plan: PlanItem): string {
   if (!run) return 'Pas encore sauvegardé';
   const at = dateTimeOf(run.finishedAt ?? run.startedAt);
   if (run.status !== 'success') return `Échec, ${at}`;
-  const outcome =
-    run.noSnapshotReason === 'no_content' ? 'Réussie (rien à sauvegarder)' : 'Réussie';
-  return `${outcome}, ${at}`;
+  return `Réussie, ${at}`;
 }
 
 /** Message de succès d'une création : l'heure du premier créneau planifié. */
