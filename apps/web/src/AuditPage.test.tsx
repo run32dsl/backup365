@@ -213,6 +213,15 @@ describe('helpers', () => {
     });
   });
 
+  it('refuses 31/12/9999 in Au, whose next day leaves the 4-digit years', () => {
+    expect(dateRange('31/12/9999', '31/12/9999')).toEqual({
+      from: '9999-12-31T00:00:00.000Z',
+      to: '',
+      toError: 'Date attendue au format jj/mm/aaaa',
+    });
+    expect(dateRange('', '30/12/9999').to).toBe('9999-12-31T00:00:00.000Z');
+  });
+
   it('submits no query and reports the error under the field when a date is invalid', () => {
     const build = vi.fn(queryFromForm);
     const bad = submitFilters(form({ from: '31/02/2026', to: '18/11/2026' }), 'from', 'to', build);
