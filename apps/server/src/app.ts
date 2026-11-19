@@ -13,6 +13,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import { registerAccountRoutes } from './account-routes.js';
 import type { AuthService } from './auth.js';
 import { registerAuthHook } from './auth-hook.js';
+import { registerOriginGuard } from './origin-guard.js';
 import { registerAuthRoutes } from './auth-routes.js';
 import { registerAuditRoutes } from './audit-routes.js';
 import { sendError } from './errors.js';
@@ -186,6 +187,7 @@ export function buildApp({
   });
   // Aucun message d'erreur interne (moteur SQLite, chemin) ne sort : 500 générique.
   app.setErrorHandler((err, _req, reply) => sendError(err, reply));
+  registerOriginGuard(app, audit);
   registerAuthHook(app, auth);
   app.get('/api/health', () => healthResponse(version, demo));
   void app.register((scope, _opts, done) => {
