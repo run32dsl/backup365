@@ -197,10 +197,14 @@ describe('OneDrive entries table', () => {
     expect(html).toContain('dossier</span>');
   });
 
-  it('shows « — » for absent values, never an empty cell', () => {
+  it('shows « — » for absent values in the table; the mobile card shows none', () => {
     const folderRow = html.split('<tr').find((r) => r.includes('2025')) ?? '';
-    expect(folderRow).not.toMatch(/<td[^>]*><\/td>/u);
     expect(folderRow.match(/—/gu)).toHaveLength(3);
+    // Les « — » et la colonne « Détail » vide sont masqués dans la carte (CSS `table-only`, `:empty`).
+    expect(folderRow).toContain('class="table-only">—');
+    expect(folderRow).toMatch(/data-label="Détail" class="card-only"><\/td>/u);
+    const fileRow = html.split('<tr').find((r) => r.includes('budget.xlsx')) ?? '';
+    expect(fileRow).toContain('Version du 13/11/2026 22:04 UTC · 84 Ko');
     expect(html).not.toContain('>-<');
   });
 

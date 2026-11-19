@@ -3,7 +3,7 @@ import { parentOf } from '@backup365/core';
 import { type Problem as FailureProblem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { StorageUnavailable } from './StorageUnavailable.js';
-import { dateTimeOrDash } from './format.js';
+import { cardSummary, dateTimeOrDash } from './format.js';
 import { RESTORE_LABELS } from './restoreLabels.js';
 import { isReasonValid } from './mail.js';
 import {
@@ -210,9 +210,13 @@ export function EntriesTable({
       rows={rows}
       rowKey={(e) => e.path}
       empty={{ message: emptyMessage }}
+      onRowClick={(e) => {
+        onSelect(e.path);
+      }}
       columns={[
         {
           header: 'Nom',
+          className: 'card-title',
           cell: (e) =>
             e.kind === 'folder' ? (
               <span className="choice">
@@ -228,10 +232,24 @@ export function EntriesTable({
               </label>
             ),
         },
-        { header: 'Version du (UTC)', cell: (e) => dateTimeOrDash(e.versionAt) },
-        { header: 'Taille', cell: (e) => (e.sizeBytes === null ? '—' : sizeOf(e.sizeBytes)) },
+        {
+          header: 'Version du (UTC)',
+          className: 'card-hidden',
+          cell: (e) => dateTimeOrDash(e.versionAt),
+        },
+        {
+          header: 'Taille',
+          className: 'card-hidden',
+          cell: (e) => (e.sizeBytes === null ? '—' : sizeOf(e.sizeBytes)),
+        },
+        {
+          header: 'Détail',
+          className: 'card-only',
+          cell: (e) => cardSummary(e.versionAt, e.sizeBytes),
+        },
         {
           header: 'Versions',
+          className: 'card-action',
           cell: (e) =>
             e.kind === 'file' ? (
               <Button
@@ -244,7 +262,7 @@ export function EntriesTable({
                 Versions
               </Button>
             ) : (
-              '—'
+              <span className="table-only">—</span>
             ),
         },
       ]}

@@ -19,6 +19,17 @@ export function dateTimeOf(iso: string | null): string {
     : `${dayOf(iso)} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 
+/** Seconde ligne d'une carte de fichier : « Version du 18/11/2026 09:52 UTC · 84 Ko » ; absente sans valeur. */
+export function cardSummary(versionAt: string | null, sizeBytes: number | null): string | null {
+  const parts = [
+    versionAt !== null && dateTimeOf(versionAt) !== ''
+      ? `Version du ${dateTimeOf(versionAt)} UTC`
+      : '',
+    sizeBytes === null ? '' : sizeOf(sizeBytes),
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 /** `dateTimeOf`, avec un tiret pour une date absente (cellule de tableau). */
 export const dateTimeOrDash = (iso: string | null | undefined): string =>
   dateTimeOf(iso ?? null) || '—';

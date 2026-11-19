@@ -3,7 +3,7 @@ import { type Problem as FailureProblem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { AccessDenied } from './AccessDenied.js';
 import { StorageUnavailable } from './StorageUnavailable.js';
-import { dateTimeOrDash } from './format.js';
+import { cardSummary, dateTimeOrDash } from './format.js';
 import { RESTORE_LABELS } from './restoreLabels.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
 import {
@@ -120,9 +120,17 @@ export function SiteEntriesTable({
         hideCaption
         rows={rows}
         rowKey={(e) => e.path}
+        onRowClick={
+          scope === 'item'
+            ? (e) => {
+                if (e.kind === 'file') onFile(e.path);
+              }
+            : undefined
+        }
         columns={[
           {
             header: 'Nom',
+            className: 'card-title',
             cell: (e) => {
               if (e.kind === 'file') {
                 return scope === 'item' ? (
@@ -151,8 +159,21 @@ export function SiteEntriesTable({
               );
             },
           },
-          { header: 'Version du (UTC)', cell: (e) => dateTimeOrDash(e.versionAt) },
-          { header: 'Taille', cell: (e) => (e.kind === 'file' ? sizeOf(e.sizeBytes) : '—') },
+          {
+            header: 'Version du (UTC)',
+            className: 'card-hidden',
+            cell: (e) => dateTimeOrDash(e.versionAt),
+          },
+          {
+            header: 'Taille',
+            className: 'card-hidden',
+            cell: (e) => (e.kind === 'file' ? sizeOf(e.sizeBytes) : '—'),
+          },
+          {
+            header: 'Détail',
+            className: 'card-only',
+            cell: (e) => (e.kind === 'file' ? cardSummary(e.versionAt, e.sizeBytes) : null),
+          },
         ]}
       />
     </div>
