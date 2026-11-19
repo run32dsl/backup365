@@ -1,7 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AuditView } from './AuditPage.js';
-import { DataTable } from './ui/index.js';
 import { actorLabel, auditDate, detailLabel, reasonLabel, targetView } from './auditLabels.js';
 
 const ID = '778493ab-e08a-45fc-9d3e-0a1b2c3d4e5f';
@@ -87,23 +86,6 @@ describe('audit labels', () => {
     expect(actorLabel('anonymous')).toBe('Inconnu');
     expect(actorLabel('admin')).toBe('admin');
     expect(auditDate('2026-11-17T10:26:00.000Z')).toBe('17/11/2026 10:26');
-  });
-});
-
-describe('DataTable compact', () => {
-  it('adds the compact class and the column classes', () => {
-    const html = renderToString(
-      <DataTable
-        caption="t"
-        compact
-        columns={[{ header: 'A', className: 'card-hidden', cell: (r: string) => r }]}
-        rows={['x']}
-        rowKey={(r) => r}
-      />,
-    );
-    expect(html).toContain('data-table-compact');
-    expect(html).toContain('class="card-hidden"');
-    expect(html).toContain('data-label="A"');
   });
 });
 

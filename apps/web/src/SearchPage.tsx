@@ -1,11 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   mailHref,
+  initialSearchQuery,
   searchMails,
   searchQueryFromForm,
   type SearchQuery,
   type SearchResponse,
 } from './mail.js';
+import { DATE_HELP, submitFilters, type DateRange } from './audit.js';
 import { dateTimeOf, folderLabel, plural } from './format.js';
 import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
 import { fetchRestoreConfigured } from './restore.js';
@@ -24,6 +26,12 @@ import {
 export type SearchState = SearchResponse | 'loading' | 'error';
 
 type Hit = SearchResponse['items'][number];
+
+const MAILBOX_COLUMN: Column<Hit> = {
+  header: 'Boîte',
+  className: 'keep-words col-mailbox',
+  cell: (m) => <Address value={m.mailboxId} />,
+};
 
 const COLUMNS: Column<Hit>[] = [
   { header: 'Date (UTC)', cell: (m) => <span className="nowrap">{dateTimeOf(m.date)}</span> },
@@ -44,11 +52,7 @@ const COLUMNS: Column<Hit>[] = [
       );
     },
   },
-  {
-    header: 'Boîte',
-    className: 'keep-words address',
-    cell: (m) => <Address value={m.mailboxId} />,
-  },
+  MAILBOX_COLUMN,
   { header: 'Dossier', className: 'nowrap', cell: (m) => folderLabel(m.folder) },
 ];
 
@@ -56,25 +60,29 @@ const RESTORE_HINT_ID = 'restore-not-configured';
 
 /**
  * Résultats de recherche : métadonnées seulement, chaque ligne mène à la fiche du mail. Avec
- * `restoreConfigured`, chaque ligne propose « Restaurer » (désactivé si aucun tenant n'est relié).
+ * `restoreConfigured`, chaque ligne propose « Restaurer » (désactivé si la restauration est indisponible).
  */
 export function SearchView({
   state,
   restoreConfigured,
   onPage,
+  mailbox,
 }: {
   state: SearchState;
+  /** Boîte filtrée : la colonne « Boîte » disparaît et la boîte est rappelée dans le compteur. */
+  mailbox?: string;
   restoreConfigured?: boolean;
   onPage?: (offset: number) => void;
 }) {
   if (state === 'loading') return <p role="status">Recherche en cours…</p>;
   if (state === 'error') return <Alert tone="error">Recherche indisponible</Alert>;
   if (state.items.length === 0) return <EmptyState>Aucun résultat.</EmptyState>;
+  const base = mailbox ? COLUMNS.filter((c) => c !== MAILBOX_COLUMN) : COLUMNS;
   const columns: Column<Hit>[] =
     restoreConfigured === undefined
-      ? COLUMNS
+      ? base
       : [
-          ...COLUMNS,
+          ...base,
           {
             header: 'Action',
             className: 'card-action',
@@ -91,7 +99,9 @@ export function SearchView({
   return (
     <>
       <p role="status">
-        {plural(state.total, 'résultat')}, {state.offset + 1} à {state.offset + state.items.length}
+        {plural(state.total, 'résultat')}
+        {mailbox ? ` dans la boîte ${mailbox}` : ''}, {state.offset + 1} à{' '}
+        {state.offset + state.items.length}
       </p>
       {restoreConfigured === false && <RestoreNotConfigured id={RESTORE_HINT_ID} />}
       <DataTable
@@ -107,8 +117,8 @@ export function SearchView({
 }
 
 /** Écran de recherche : champ libre, boîte, plage de dates, résultats paginés. */
-export function SearchPage() {
-  const [query, setQuery] = useState<SearchQuery | null>(null);
+export function SearchPage({ mailbox }: { mailbox?: string }) {
+  const [query, setQuery] = useState<SearchQuery | null>(initialSearchQuery(mailbox));
   const [state, setState] = useState<SearchState | null>(null);
   const [restoreConfigured, setRestoreConfigured] = useState<boolean | undefined>();
   useEffect(() => {
@@ -133,9 +143,14 @@ export function SearchPage() {
     };
   }, [query]);
 
+  const [errors, setErrors] = useState<DateRange>({ from: '', to: '' });
+
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setQuery(searchQueryFromForm(new FormData(e.currentTarget)));
+    const form = new FormData(e.currentTarget);
+    const { errors, query } = submitFilters(form, 'after', 'before', searchQueryFromForm);
+    setErrors(errors);
+    if (query) setQuery(query);
   }
 
   return (
@@ -143,15 +158,36 @@ export function SearchPage() {
       <h1>Rechercher et restaurer</h1>
       <form onSubmit={submit} className="filters">
         <FormField label="Recherche" type="search" name="q" maxLength={256} />
-        <FormField label="Boîte" type="text" name="mailbox" maxLength={256} />
-        <FormField label="Du" type="datetime-local" name="after" />
-        <FormField label="Au (exclu)" type="datetime-local" name="before" />
+        <FormField
+          label="Boîte"
+          type="text"
+          name="mailbox"
+          maxLength={256}
+          defaultValue={mailbox}
+        />
+        <FormField
+          label="Du"
+          type="text"
+          name="after"
+          maxLength={10}
+          help={DATE_HELP}
+          error={errors.fromError}
+        />
+        <FormField
+          label="Au"
+          type="text"
+          name="before"
+          maxLength={10}
+          help={DATE_HELP}
+          error={errors.toError}
+        />
         <Button type="submit">Rechercher</Button>
       </form>
       {state !== null && (
         <SearchView
           state={state}
           restoreConfigured={restoreConfigured}
+          mailbox={query?.mailbox}
           onPage={(offset) => {
             if (query) setQuery({ ...query, offset });
           }}

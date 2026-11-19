@@ -41,7 +41,6 @@ export const SHAREPOINT_MESSAGES = {
   noPoints: 'Aucun point de restauration pour ce site.',
   emptyFolder: 'Ce dossier ne contient aucun élément à cette date.',
   readError: 'La sauvegarde n’a pas pu être lue.',
-  notConfigured: 'Aucun compte Microsoft 365 n’est connecté.',
   adminOnly: 'Réservé aux administrateurs',
   forbidden: 'Vous n’avez pas le droit de restaurer ce site. Contactez un administrateur.',
   forbiddenSite: (name: string) =>
@@ -49,6 +48,8 @@ export const SHAREPOINT_MESSAGES = {
   chooseOther: 'Choisir un autre site',
   reasonError: REASON.error,
   nameError: 'Le nom saisi ne correspond pas au site.',
+  inactiveHint:
+    'Le bouton reste inactif tant que la case n’est pas cochée et que le nom du site n’est pas exact.',
   alreadyRunning: 'Une restauration de ce site est déjà en cours.',
   auditUnavailable: 'Journal d’audit indisponible : restauration refusée.',
   emptyScope: 'Rien à restaurer à cette date : le périmètre ne contient aucun élément.',
@@ -173,6 +174,13 @@ export function pathLabel(path: string): string {
   return path.split('/').filter(Boolean).join(' > ');
 }
 
+/** Ce qui a été restauré, pour l'écran de résultat : `Fichier : Documents partagés > plan-a.pdf`. */
+export function restoredContentLabel(scope: SiteScope, path: string): string {
+  if (scope === 'site') return 'Site entier';
+  const kind = scope === 'item' ? 'Fichier' : scope === 'folder' ? 'Dossier' : 'Bibliothèque';
+  return `${kind} : ${pathLabel(path)}`;
+}
+
 /** Choix valide pour la granularité ? Mêmes règles que le serveur (`isPathOfScope`). */
 export function canContinue(scope: SiteScope, path: string, file: string | null): boolean {
   const depth = path.split('/').filter(Boolean).length;
@@ -200,30 +208,38 @@ export function summaryCountOf(s: SiteScopeSummary): string {
   return `${plural(s.items, 'élément', 'éléments').replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}, ${size}`;
 }
 
-/** `à 02:00` de la date ISO (UTC). */
-function timeOf(iso: string): string {
-  return dateTimeOf(iso).slice(11);
-}
-
-/** Phrase de récapitulatif (élément, dossier, bibliothèque), en langage clair. */
-export function summaryOf(input: {
+/** Lignes du récapitulatif de confirmation, dans l'ordre des écrans de résultat. */
+export function confirmRowsOf(input: {
   scope: SiteScope;
   siteName: string;
   path: string;
   pointAt: string;
   summary: SiteScopeSummary | null;
-}): string {
-  const label = pathLabel(input.path);
-  const what =
-    input.scope === 'library'
-      ? `la bibliothèque « ${label} »`
-      : input.scope === 'folder'
-        ? `le dossier « ${label} »`
-        : input.scope === 'item'
-          ? `l’élément « ${label} »`
-          : 'le site entier';
-  const count = input.summary ? ` ${summaryCountOf(input.summary)}.` : '';
-  return `Vous allez restaurer ${what} du site « ${input.siteName} », tel qu’il était le ${dayOf(input.pointAt)} à ${timeOf(input.pointAt)}, à son emplacement d’origine. Les fichiers existants ne seront pas remplacés.${count}`;
+  reason: string;
+}): [string, string][] {
+  const rows: [string, string][] = [
+    ['Site', input.siteName],
+    ['Contenu', restoredContentLabel(input.scope, input.path)],
+    ['État au', dateTimeOf(input.pointAt)],
+  ];
+  if (input.summary) {
+    // Site entier : seul le nombre d'éléments est annoncé.
+    rows.push([
+      'Volume',
+      input.scope === 'site'
+        ? plural(input.summary.items, 'élément', 'éléments')
+        : summaryCountOf(input.summary),
+    ]);
+  }
+  rows.push(['Motif', input.reason]);
+  return rows;
+}
+
+/** Conséquence de la restauration, en une phrase sous le récapitulatif. */
+export function consequenceOf(scope: SiteScope): string {
+  return scope === 'site'
+    ? 'Les contenus manquants seront recréés.'
+    : 'Les fichiers existants ne seront pas remplacés.';
 }
 
 /** `3 min 12 s` : voir `formatDuration` de `restore.ts`. */

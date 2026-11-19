@@ -32,6 +32,22 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   les plans (« À jour », « En retard », « En échec »).
 - Lecture de métadonnées seulement : pas d'entrée dans le journal d'audit (ADR 0002).
 
+### Accueil allégé (issue #239)
+
+- L'accueil ne montre plus le tableau ci-dessus (accessible par `GET /api/status`, sans page pour
+  l'instant) mais trois cartes alimentées par **une seule requête**, `GET /api/overview` :
+  `{ state, plans: { total, operational }, lastBackupAt }`. Compteurs et dates seulement, sans nom
+  de plan ; ouvert à l'opérateur (lecture seule), hors journal d'audit.
+- Un plan est « opérationnel » si sa dernière exécution a réussi. Le modèle n'a pas de plan
+  suspendu : tous les plans sont actifs, donc le critère « actif » est sans effet.
+- `state` : `unconfigured` seulement quand il n'y a aucun plan (maquette de l'issue). Dès qu'un
+  plan existe, l'état suit le dernier résultat : `failed` si la dernière exécution terminée d'un
+  plan au moins a échoué, sinon `operational` si un plan au moins a un résultat. Tant qu'aucun plan
+  n'a de résultat (jamais lancé, ou première exécution en cours), `state` vaut `pending` : l'accueil
+  n'affiche alors aucune pastille, seulement la phrase « Aucune sauvegarde n'est encore terminée. »,
+  sans bouton. La maquette ne nomme pas ce cas : libellé provisoire, question posée au PO.
+- `lastBackupAt` : fin de la dernière exécution réussie, tous plans confondus.
+
 ### Sites SharePoint sauvegardés (issue #31)
 
 - Port `BackupCatalog` : `listSites()` (sites ayant une sauvegarde, pas tous ceux du tenant) et
@@ -92,7 +108,9 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   seuil de 300 ms à 50 plans (seuil fixé par l'issue #88) : pas de cache. Ordre de grandeur,
   mesuré avec un banc jetable et non commité ; un disque plus lent allongerait ces temps. À reprendre si l'on dépasse environ 70 plans.
 - Écran d'accueil : section « Plans de protection » (décompte par état, pastille icône + texte)
-  avant le tableau des sources ; tableau des plans non conformes seulement s'il y en a.
+  avant le tableau des sources ; tableau des plans en retard ou en échec seulement s'il y en a.
+  Chaque anomalie mène à son écran : le bandeau et le nom du plan vers `#/plans`, la source
+  d'une boîte en retard ou en échec vers `#/search?mailbox=<boîte>`.
 
 ## Non vérifié
 

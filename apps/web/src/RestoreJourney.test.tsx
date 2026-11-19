@@ -10,12 +10,12 @@ import {
   RESTORE_STEPS,
   RESULT_TITLES,
   RestoreResult,
-  ResultList,
   ReasonField,
   reasonLabel,
   RunningProgress,
   stepOf,
 } from './RestoreJourney.js';
+import { ResultList } from './ui/index.js';
 
 const dir = new URL('./', import.meta.url);
 const source = (name: string) => readFileSync(new URL(name, dir), 'utf8');

@@ -21,6 +21,12 @@ describe('erreurs visibles', () => {
     }
   });
 
+  it('uses no technical wording in any message', () => {
+    for (const message of Object.values(API_ERRORS)) {
+      expect(message).not.toMatch(/tenant|fichiers? de secrets|documentation d’installation/iu);
+    }
+  });
+
   it('never answers a bare "Erreur inattendue (HTTP nnn)"', async () => {
     const unknown = await readFailure(reply(502, {}));
     expect(unknown.message).not.toMatch(/^Erreur inattendue/u);
@@ -37,11 +43,11 @@ describe('erreurs visibles', () => {
       ok: false,
       code: 'backup_not_configured',
       requestId: 'req-9',
-      message: expect.stringContaining('Sauvegarde non configurée'),
+      message: expect.stringContaining('Sauvegarde indisponible'),
     });
   });
 
-  it('shows the install doc hint without a link, and the small request id', () => {
+  it('shows the not-configured message with a link to the home block, and the small request id', () => {
     const html = renderToStaticMarkup(
       <FailureAlert
         problem={{
@@ -51,8 +57,8 @@ describe('erreurs visibles', () => {
         }}
       />,
     );
-    expect(html).toContain('Exécution des plans');
-    expect(html).not.toContain('<a');
+    expect(html).toContain('Sauvegarde indisponible');
+    expect(html).toContain('<a href="#/">');
     expect(html).not.toContain('Configurer la connexion');
     expect(html).toContain('<code>req-9</code>');
     expect(renderToStaticMarkup(<FailureAlert problem={{ message: 'x' }} />)).not.toContain(

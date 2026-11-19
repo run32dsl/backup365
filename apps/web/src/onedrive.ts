@@ -33,13 +33,11 @@ export const ONEDRIVE_MESSAGES = {
   loading: 'Chargement de la sauvegarde…',
   noBackup: 'Aucune sauvegarde de ce OneDrive.',
   readError: 'La sauvegarde n’a pas pu être lue.',
-  notConfigured: 'Aucun compte Microsoft 365 n’est connecté.',
   noVersions: 'Aucune version antérieure conservée pour ce fichier.',
   confirmReplace: 'Je confirme le remplacement du fichier actuel.',
   confirmError: 'Cochez la case pour confirmer le remplacement.',
   noRights:
     'Votre rôle ne permet pas de restaurer. Vous pouvez parcourir la sauvegarde ; demandez l’accès à un administrateur.',
-  restoreNotConfigured: 'La restauration nécessite un tenant relié.',
   alreadyRunning: 'Une restauration de cet élément est déjà en cours.',
   auditUnavailable: 'Journal d’audit indisponible : restauration refusée.',
   notInBackup: 'Cet élément n’est plus disponible dans la sauvegarde.',
@@ -49,7 +47,6 @@ export const ONEDRIVE_MESSAGES = {
 const SERVER_MESSAGES: Record<string, string> = {
   reason_required: REASON.error,
   forbidden: ONEDRIVE_MESSAGES.noRights,
-  restore_unavailable: ONEDRIVE_MESSAGES.restoreNotConfigured,
   restore_in_progress: ONEDRIVE_MESSAGES.alreadyRunning,
   audit_unavailable: ONEDRIVE_MESSAGES.auditUnavailable,
   item_not_found: ONEDRIVE_MESSAGES.notInBackup,
@@ -96,26 +93,43 @@ export function breadcrumbOf(path: string): { label: string; path: string }[] {
 /** Copie : `budget.xlsx` → `budget (restauré 14-11-2026).xlsx` (voir `copyNameOf` du serveur). */
 export { copyNameOf } from '@backup365/core';
 
-/** Phrase de récapitulatif, en langage clair. */
-export function summaryOf(input: {
+/** « Restaurer » reste inactif tant que le remplacement n'est pas confirmé par la case. */
+export const restoreBlocked = (mode: DriveMode, confirmed: boolean): boolean =>
+  mode === 'replace' && !confirmed;
+
+/** Lignes du récapitulatif de confirmation, dans l'ordre des écrans de résultat. */
+export function confirmRowsOf(input: {
+  account: string;
   name: string;
-  kind: DriveKind;
   mode: DriveMode;
   versionAt: string | null;
   folderLabel: string;
   copyName: string;
-}): string {
-  const what = input.kind === 'folder' ? 'le dossier' : 'le fichier';
-  const version = input.versionAt === null ? '' : `, version du ${dateTimeOf(input.versionAt)}`;
-  if (input.mode === 'replace') {
-    return `Le fichier actuel « ${input.name} » (${input.folderLabel}) sera remplacé par la version du ${dayOf(input.versionAt)}. La version actuelle reste dans l’historique OneDrive.`;
+  reason: string;
+}): [string, string][] {
+  const rows: [string, string][] = [
+    ['Compte', input.account],
+    ['Élément', input.name],
+  ];
+  if (input.versionAt !== null) rows.push(['Version du', dateTimeOf(input.versionAt)]);
+  rows.push(['Emplacement', input.folderLabel]);
+  if (input.mode === 'replace') rows.push(['Fichier remplacé', input.name]);
+  else {
+    // Une version restaurée en copie : le SDK choisit le nom (`copyName` vide).
+    rows.push([
+      'Restauré sous le nom',
+      input.copyName === '' ? 'Nom choisi par OneDrive' : input.copyName,
+    ]);
   }
-  // Une version restaurée en copie : le SDK choisit le nom (`copyName` vide).
-  const named =
-    input.copyName === ''
-      ? 'en copie, sous un nom choisi par OneDrive'
-      : `sous le nom « ${input.copyName} »`;
-  return `Vous allez restaurer ${what} « ${input.name} »${version}, dans ${input.folderLabel}, ${named}. Aucun fichier existant ne sera modifié.`;
+  rows.push(['Motif', input.reason]);
+  return rows;
+}
+
+/** Conséquence de la restauration, en une phrase sous le récapitulatif. */
+export function consequenceOf(mode: DriveMode): string {
+  return mode === 'replace'
+    ? 'Le fichier actuel sera remplacé ; il reste dans l’historique OneDrive.'
+    : 'Aucun fichier existant ne sera modifié.';
 }
 
 export function failureCause(error: DriveJob['error']): string {

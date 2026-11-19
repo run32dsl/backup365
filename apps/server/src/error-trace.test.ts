@@ -51,7 +51,7 @@ describe('erreurs visibles et tracées', () => {
     expect(res.statusCode).toBe(503);
     expect(res.json<{ error: string }>().error).toBe('backup_not_configured');
     const requestId = String(res.headers['x-request-id']);
-    expect(requestId).toMatch(/^req-/u);
+    expect(requestId).toMatch(/^[0-9a-f-]{36}$/u);
 
     const entry = parse(lines).find((l) => l['msg'] === 'action en erreur');
     expect(entry).toMatchObject({

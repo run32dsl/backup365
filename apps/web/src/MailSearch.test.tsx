@@ -1,15 +1,18 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
-import { ExportForm, MailPage, MailView, mailTitle } from './MailPage.js';
+import { ExportForm, MailPage, MailView, RestoreSectionView, mailTitle } from './MailPage.js';
 import { AUDIT_REMINDER, REASON } from './RestoreJourney.js';
 import { SearchPage, SearchView } from './SearchPage.js';
 import {
   exportEml,
   fetchMail,
+  initialSearchQuery,
   isReasonValid,
   mailHref,
   parseMailHash,
+  parseSearchHash,
+  searchHref,
   searchMails,
   searchQueryFromForm,
 } from './mail.js';
@@ -41,6 +44,24 @@ describe('SearchView', () => {
     expect(html).not.toContain('T10:00');
     expect(html.replace(/<!-- -->/g, '')).toContain('40 résultats, 1 à 1');
     expect(html).toContain(`href="${mailHref(mail)}"`);
+  });
+
+  it('drops the mailbox column and names the mailbox in the counter when filtered', () => {
+    const state = { total: 25, limit: 25, offset: 0, items: [mail] };
+    const filtered = renderToString(<SearchView state={state} mailbox="paul.moreau@exemple.fr" />);
+    expect(filtered).not.toContain('>Boîte<');
+    expect(filtered).toContain('25 résultats');
+    expect(filtered).toContain('dans la boîte paul.moreau@exemple.fr');
+    expect(renderToString(<SearchView state={state} />)).toContain('>Boîte<');
+    const withRestore = renderToString(
+      <SearchView state={state} mailbox="paul.moreau@exemple.fr" restoreConfigured />,
+    );
+    expect(withRestore).toContain('>Action<');
+    expect(withRestore).not.toContain('>Boîte<');
+    const empty = { total: 0, limit: 25, offset: 0, items: [] };
+    expect(renderToString(<SearchView state={empty} mailbox="paul.moreau@exemple.fr" />)).toContain(
+      'Aucun résultat',
+    );
   });
 
   it('shows empty, loading and error states, and escapes content', () => {
@@ -193,8 +214,24 @@ describe('mail helpers', () => {
     expect(parseMailHash('#/mail/%E0%A4%A/b')).toBeNull();
   });
 
+  it('shows a warning alert and no Restaurer button when restore is not configured', () => {
+    const off = renderToString(<RestoreSectionView mail={mail} configured={false} last={null} />);
+    expect(off).toMatch(/class="alert alert-warning" role="alert"/);
+    expect(off).toContain('Restauration indisponible');
+    expect(off).toContain('Prévenez un administrateur.</span>');
+    expect(off).not.toContain('<button');
+    expect(off).not.toContain('Restaurer Facture');
+    const on = renderToString(<RestoreSectionView mail={mail} configured last={null} />);
+    expect(on).toContain('Restaurer Facture 1');
+    expect(on).not.toContain('role="alert"');
+  });
+
   it('routes the new screens', () => {
     expect(screenOf('#/search')).toBe('search');
+    expect(screenOf(searchHref('a@b.fr'))).toBe('search');
+    expect(parseSearchHash(searchHref('a b/é'))).toBe('a b/é');
+    expect(parseSearchHash('#/search')).toBeNull();
+    expect(parseSearchHash('#/search?mailbox=%E0')).toBeNull();
     expect(screenOf(mailHref(mail))).toBe('mail');
     expect(screenOf('#/mail/x')).toBe('home');
   });
@@ -203,17 +240,41 @@ describe('mail helpers', () => {
     const form = new FormData();
     form.set('q', ' facture ');
     form.set('mailbox', '');
-    form.set('after', '2026-01-01T10:00');
-    form.set('before', '');
+    form.set('after', '18/11/2026');
+    form.set('before', '18/11/2026');
     const query = searchQueryFromForm(form);
-    expect(query).toMatchObject({ q: 'facture', limit: 25, offset: 0, before: '' });
-    expect(query.after).toMatch(/^2026-01-01T\d\d:00:00\.000Z$/);
+    expect(query).toMatchObject({
+      q: 'facture',
+      limit: 25,
+      offset: 0,
+      after: '2026-11-18T00:00:00.000Z',
+      before: '2026-11-19T00:00:00.000Z',
+    });
     const fetchFn = vi.fn<typeof fetch>(() => json({ total: 0, limit: 25, offset: 0, items: [] }));
     await searchMails(query, fetchFn);
     const url = String(fetchFn.mock.calls[0]?.[0] ?? '');
     expect(url).toContain('q=facture');
     expect(url).not.toContain('mailbox');
-    expect(url).not.toContain('before');
+    expect(url).toContain('after=2026-11-18T00%3A00%3A00.000Z');
+    expect(url).toContain('before=2026-11-19T00%3A00%3A00.000Z');
+  });
+
+  it('shows jj/mm/aaaa text fields, without the native date input or « exclu »', () => {
+    const html = renderToString(<SearchPage />);
+    expect(html).not.toContain('datetime-local');
+    expect(html).not.toContain('exclu');
+    expect(html).toContain('Date au format jj/mm/aaaa, en UTC comme le tableau');
+  });
+
+  it('prefills the mailbox field and starts the search from the anchor mailbox', async () => {
+    expect(renderToString(<SearchPage mailbox="a@b.fr" />)).toContain('value="a@b.fr"');
+    expect(renderToString(<SearchPage />)).not.toContain('value="a@b.fr"');
+    expect(initialSearchQuery()).toBeNull();
+    const query = initialSearchQuery('a@b.fr');
+    expect(query).toEqual({ limit: 25, offset: 0, mailbox: 'a@b.fr' });
+    const fetchFn = vi.fn<typeof fetch>(() => json({ total: 0, limit: 25, offset: 0, items: [] }));
+    await searchMails(query!, fetchFn);
+    expect(String(fetchFn.mock.calls[0]?.[0] ?? '')).toContain('mailbox=a%40b.fr');
   });
 
   it('requires a reason of at least three characters', () => {

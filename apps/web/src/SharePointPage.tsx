@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import type { Problem as FailureProblem } from './apiError.js';
+import { type Problem as FailureProblem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
+import { StorageUnavailable } from './StorageUnavailable.js';
 import { dateTimeOrDash } from './format.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
 import {
@@ -10,7 +11,6 @@ import {
   RESTORE_STEPS,
   ReasonField,
   RestoreResult,
-  ResultList,
   RunningProgress,
   stepOf,
 } from './RestoreJourney.js';
@@ -38,7 +38,9 @@ import {
   sharePointHash,
   sizeOf,
   startSiteRestore,
-  summaryOf,
+  restoredContentLabel,
+  confirmRowsOf,
+  consequenceOf,
   type Site,
   type SiteEntry,
   type SiteJob,
@@ -57,6 +59,7 @@ import {
   FormField,
   Steps,
   WizardActions,
+  ResultList,
 } from './ui/index.js';
 
 /** Ce qui a été choisi à l'étape 1. */
@@ -68,7 +71,7 @@ interface Choice {
   pointAt: string;
 }
 
-function Problem({
+export function Problem({
   status,
   onRetry,
 }: {
@@ -76,9 +79,7 @@ function Problem({
   onRetry: () => void;
 }) {
   if (status === 'unconfigured') {
-    return (
-      <EmptyState action={<a href="#/">Configurer la connexion</a>}>{T.notConfigured}</EmptyState>
-    );
+    return <StorageUnavailable onRetry={onRetry} />;
   }
   if (status === 'no_backup') {
     return (
@@ -426,7 +427,7 @@ function ReasonStep({
 }
 
 /** Étape 3 : récapitulatif ; site entier : double confirmation (case, puis nom du site). */
-function ConfirmStep({
+export function ConfirmStep({
   site,
   choice,
   reason,
@@ -445,7 +446,6 @@ function ConfirmStep({
   const [nameError, setNameError] = useState(false);
   const [failure, setFailure] = useState<FailureProblem | undefined>();
   const [sending, setSending] = useState(false);
-  const hintId = useId();
   const whole = choice.scope === 'site';
   const nameOk = typed === site.displayName;
   const ready = !whole || (understood && nameOk);
@@ -487,31 +487,43 @@ function ConfirmStep({
 
   return (
     <form onSubmit={submit} noValidate>
-      {whole ? (
+      <h2>Récapitulatif</h2>
+      <ResultList
+        rows={confirmRowsOf({
+          scope: choice.scope,
+          siteName: site.displayName,
+          path: choice.path,
+          pointAt: choice.pointAt,
+          summary: counts,
+          reason,
+        })}
+      />
+      <p>{consequenceOf(choice.scope)}</p>
+      {summary === null && <p role="status">{T.loading}</p>}
+      {whole && (
         <>
           <Alert tone="warning">
             <strong>Restauration du site entier : action de grande ampleur</strong>
           </Alert>
-          <p>
-            {site.displayName} · point du {dateTimeOf(choice.pointAt)}
-            {counts ? ` · ${counts.items} éléments` : ''}
-          </p>
-          <label className="choice">
-            <input
-              type="checkbox"
-              checked={understood}
-              onChange={(e) => {
-                setUnderstood(e.currentTarget.checked);
-              }}
-            />{' '}
-            Je comprends que tous les contenus manquants seront recréés
-          </label>
+          <div className="field">
+            <label className="choice">
+              <input
+                type="checkbox"
+                checked={understood}
+                onChange={(e) => {
+                  setUnderstood(e.currentTarget.checked);
+                }}
+              />{' '}
+              Je comprends que tous les contenus manquants seront recréés
+            </label>
+          </div>
           <FormField
             label="Tapez le nom du site pour confirmer"
             type="text"
             name="site-name"
             autoComplete="off"
             value={typed}
+            help={ready ? undefined : T.inactiveHint}
             error={nameError ? T.nameError : undefined}
             onChange={(e) => {
               setTyped(e.currentTarget.value);
@@ -519,19 +531,7 @@ function ConfirmStep({
             }}
           />
         </>
-      ) : (
-        <p>
-          {summaryOf({
-            scope: choice.scope,
-            siteName: site.displayName,
-            path: choice.path,
-            pointAt: choice.pointAt,
-            summary: counts,
-          })}
-        </p>
       )}
-      {summary === null && <p role="status">{T.loading}</p>}
-      <p>Motif : {reason}</p>
       {failure && <FailureAlert problem={failure} />}
       <WizardActions
         back={
@@ -546,29 +546,24 @@ function ConfirmStep({
           busy={sending}
           aria-disabled={!ready || undefined}
           className={ready ? undefined : 'is-inactive'}
-          aria-describedby={!ready ? hintId : undefined}
         >
           {B.confirm}
         </Button>
       </WizardActions>
-      {!ready && (
-        <p id={hintId} className="field-help">
-          Le bouton reste inactif tant que la case n’est pas cochée et que le nom du site n’est pas
-          exact.
-        </p>
-      )}
     </form>
   );
 }
 
 /** Étape 4 : progression, puis résultat. La restauration continue si l'on quitte la page. */
-function TrackStep({
+export function TrackStep({
   job,
+  siteName,
   onJob,
   onAgain,
   onRetry,
 }: {
   job: SiteJob;
+  siteName: string;
   onJob: (job: SiteJob) => void;
   onAgain: () => void;
   onRetry: () => void;
@@ -606,16 +601,21 @@ function TrackStep({
 
   const untreated = Math.max(0, job.total - job.restored - job.skipped - job.errors);
   const failedNormally = job.status === 'failed' && !isOutcomeUncertain(job.error);
-  const countRows: [string, ReactNode][] = [];
+  const countRows: [string, ReactNode][] = [
+    ['Site', siteName],
+    ['Contenu restauré', restoredContentLabel(job.scope, job.path)],
+  ];
+  if (job.status === 'succeeded' && job.copyName) countRows.push(['Restauré sous', job.copyName]);
   if (failedNormally && untreated > 0) countRows.push(['Éléments non traités', untreated]);
   if (job.status !== 'running' && job.errors > 0) {
     countRows.push(['Éléments en erreur', job.errors]);
   }
-  const counts = countRows.length > 0 ? <ResultList rows={countRows} /> : null;
+  const counts = <ResultList rows={countRows} />;
   let body: ReactNode;
   if (running) {
     body = (
       <>
+        {counts}
         <RunningProgress
           detail={`${job.total} ${job.total > 1 ? 'éléments' : 'élément'} à traiter`}
         />
@@ -636,7 +636,7 @@ function TrackStep({
           </Alert>
         </div>
         {counts}
-        <p>Aucun élément déjà présent n’a été écrasé.</p>
+        {job.skipped === 0 && <p>Aucun élément déjà présent n’a été écrasé.</p>}
         <WizardActions
           back={
             <a className="btn btn-secondary" href="#/audit">
@@ -781,6 +781,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
       <TrackStep
         key={job.id}
         job={job}
+        siteName={site.displayName}
         onJob={setJob}
         onAgain={reset}
         onRetry={() => {

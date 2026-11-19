@@ -29,7 +29,7 @@ test('401 en cours de navigation : #/connexion avec message, puis retour à la p
   await expect(page.getByText(EXPIRED)).toHaveCount(0);
 });
 
-test('changement volontaire du mot de passe : retour au tableau de bord avec confirmation', async ({
+test('changement volontaire du mot de passe : la page reste affichée, formulaire vidé, confirmation qui disparaît au prochain envoi', async ({
   page,
   context,
   baseURL,
@@ -38,19 +38,28 @@ test('changement volontaire du mot de passe : retour au tableau de bord avec con
   // Réponse simulée : changer le vrai mot de passe casserait les autres tests.
   await page.route('**/api/auth/password', (route) => route.fulfill({ status: 204 }));
   await page.goto('/#/password');
-  await page.getByLabel('Mot de passe actuel', { exact: true }).fill('ancien mot de passe');
-  await page.getByLabel('Nouveau mot de passe', { exact: true }).fill('nouveau mot de passe');
-  await page
-    .getByLabel('Confirmer le nouveau mot de passe', { exact: true })
-    .fill('nouveau mot de passe');
-  await page.getByRole('button', { name: 'Enregistrer et continuer' }).click();
+  const current = page.getByLabel('Mot de passe actuel', { exact: true });
+  const next = page.getByLabel('Nouveau mot de passe', { exact: true });
+  const confirm = page.getByLabel('Confirmer le nouveau mot de passe', { exact: true });
+  await current.fill('ancien mot de passe');
+  await next.fill('nouveau mot de passe');
+  await confirm.fill('nouveau mot de passe');
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
 
-  await expect(page).toHaveURL(/#\/$/);
-  await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
-  await expect(
-    page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' }).first(),
-  ).toBeVisible();
-  await expect(page.getByLabel('Mot de passe actuel', { exact: true })).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/password$/);
+  await expect(page.getByRole('heading', { name: 'Mot de passe', exact: true })).toBeVisible();
+  const saved = page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' });
+  await expect(saved).toBeVisible();
+  await expect(current).toHaveValue('');
+  await expect(next).toHaveValue('');
+  await expect(confirm).toHaveValue('');
+
+  // Un second envoi avec une confirmation différente fait disparaître le message.
+  await current.fill('ancien mot de passe');
+  await next.fill('nouveau mot de passe');
+  await confirm.fill('autre mot de passe');
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(saved).toHaveCount(0);
 });
 
 test('changement imposé du mot de passe : même retour au tableau de bord, avec confirmation qui disparaît après 8 s', async ({

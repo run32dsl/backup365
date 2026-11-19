@@ -155,6 +155,9 @@ export interface TargetInfo {
   targetMailbox?: string;
 }
 
+/** Texte de « pas de cible » ; la colonne Cible du journal laisse alors sa cellule vide. */
+export const NO_TARGET = '—';
+
 /**
  * Cible lisible : un nom, et pour un mail la boîte en texte secondaire. Jamais un identifiant
  * interne : mail ou plan introuvable → « Élément supprimé » / « Plan supprimé », sinon « — ».
@@ -163,9 +166,9 @@ export function targetView(
   e: TargetInfo,
   planNames: ReadonlyMap<string, string> | null,
 ): { name: string; secondary?: string } {
-  if (!e.target) return { name: '—' };
+  if (!e.target) return { name: NO_TARGET };
   if (e.resource === 'plan') {
-    return { name: planNames?.get(e.target) ?? (planNames ? 'Plan supprimé' : '—') };
+    return { name: planNames?.get(e.target) ?? (planNames ? 'Plan supprimé' : NO_TARGET) };
   }
   if (e.resource === 'mail' || e.resource === 'mail.restore') {
     return e.targetName
@@ -173,7 +176,7 @@ export function targetView(
       : { name: 'Élément supprimé' };
   }
   // Seul l'identifiant de connexion d'un compte se lit tel quel.
-  return { name: e.resource === 'account' ? e.target : '—' };
+  return { name: e.resource === 'account' ? e.target : NO_TARGET };
 }
 
 /** Acteur lisible : l'auteur d'une requête sans session s'écrit « Inconnu ». */

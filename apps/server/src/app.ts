@@ -8,6 +8,7 @@ import {
   type SearchIndex,
   type SiteBrowser,
 } from '@backup365/core';
+import { randomUUID } from 'node:crypto';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { registerAccountRoutes } from './account-routes.js';
 import type { AuthService } from './auth.js';
@@ -19,6 +20,7 @@ import type { OidcService } from './oidc.js';
 import { registerOidcRoutes } from './oidc-routes.js';
 import type { SimulatedOidcProvider } from './oidc-simulated.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
+import { registerConfigurationRoutes } from './configuration-routes.js';
 import { registerMailRoutes } from './mail-routes.js';
 import type { DriveRestoreService } from './drive-restore-service.js';
 import { registerOneDriveRoutes } from './onedrive-routes.js';
@@ -32,6 +34,7 @@ import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 import type { SearchIndexer } from './search-indexer.js';
 import { registerSearchRoutes } from './search-routes.js';
 import { registerWebRoutes } from './static-web.js';
+import { registerOverviewRoutes } from './overview-routes.js';
 import { registerStatusRoutes, type StatusOptions } from './status-routes.js';
 
 export interface AppOptions {
@@ -136,7 +139,13 @@ export function buildApp({
   webDir,
   demo = false,
 }: AppOptions): FastifyInstance {
-  const app = Fastify({ logger, trustProxy, routerOptions: { maxParamLength: 512 } });
+  const app = Fastify({
+    logger,
+    trustProxy,
+    // UUID natif : unique d'un redémarrage à l'autre (le compteur `req-N` repartait de 1).
+    genReqId: () => randomUUID(),
+    routerOptions: { maxParamLength: 512 },
+  });
   app.addHook('onSend', (_req, reply, payload, done) => {
     // La politique propre aux pages de l'interface (static-web.ts) l'emporte sur celle de l'API.
     const own = reply.getHeader('content-security-policy');
@@ -189,6 +198,11 @@ export function buildApp({
   void app.register((scope, _opts, done) => {
     registerCatalogRoutes(scope, catalog, audit);
     registerStatusRoutes(scope, catalog, status, { index: searchIndex, indexer, plans });
+    done();
+  });
+  void app.register((scope, _opts, done) => {
+    registerOverviewRoutes(scope, plans);
+    registerConfigurationRoutes(scope, { backupConfigured, workloads: status.workloads });
     done();
   });
   void app.register((scope, _opts, done) => {

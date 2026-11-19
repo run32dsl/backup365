@@ -2,13 +2,23 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { AUDIT_ACTIONS, type AuditAction } from '@backup365/core';
 import {
   AUDIT_PAGE_SIZE,
+  DATE_HELP,
   fetchAudit,
   queryFromForm,
+  submitFilters,
+  type DateRange,
   type AuditItem,
   type AuditQuery,
   type AuditResponse,
 } from './audit.js';
-import { actorLabel, auditDate, detailLabel, reasonLabel, targetView } from './auditLabels.js';
+import {
+  NO_TARGET,
+  actorLabel,
+  auditDate,
+  detailLabel,
+  reasonLabel,
+  targetView,
+} from './auditLabels.js';
 import { fetchPlans } from './plans.js';
 import {
   Address,
@@ -76,6 +86,8 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
       className: 'keep-words address',
       cell: (e) => {
         const { name, secondary } = targetView(e, planNames);
+        // Sans cible : cellule vide, comme Éléments et Motif (la carte l'omet).
+        if (name === NO_TARGET) return null;
         return (
           <span>
             <Address value={name} />
@@ -117,11 +129,13 @@ export function AuditView({
           ? '1 entrée'
           : `Entrées ${state.offset + 1} à ${state.offset + state.items.length} sur ${state.total}`}
       </p>
+      <div className="pager-top">
+        <Pager offset={state.offset} limit={state.limit} total={state.total} onPage={onPage} />
+      </div>
       <DataTable
         caption="Entrées du journal d’audit"
         hideCaption
         columns={columns(planNames)}
-        compact
         rows={state.items}
         rowKey={(e) => e.seq}
       />
@@ -154,18 +168,40 @@ export function AuditPage() {
     );
   }, []);
 
+  const [errors, setErrors] = useState<DateRange>({ from: '', to: '' });
+
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setQuery(queryFromForm(new FormData(e.currentTarget)));
+    const form = new FormData(e.currentTarget);
+    const { errors, query } = submitFilters(form, 'from', 'to', queryFromForm);
+    setErrors(errors);
+    if (query) setQuery(query);
   }
 
   return (
     <main tabIndex={-1}>
       <h1>Journal d’audit</h1>
-      <p>La consultation de ce journal est elle-même inscrite au journal d’audit.</p>
+      <p>
+        La consultation de ce journal est elle-même inscrite au journal d’audit. Filtrez par action
+        pour retrouver un export ou une restauration.
+      </p>
       <form onSubmit={submit} className="filters">
-        <FormField label="Du" type="datetime-local" name="from" />
-        <FormField label="Au (exclu)" type="datetime-local" name="to" />
+        <FormField
+          label="Du"
+          type="text"
+          name="from"
+          maxLength={10}
+          help={DATE_HELP}
+          error={errors.fromError}
+        />
+        <FormField
+          label="Au"
+          type="text"
+          name="to"
+          maxLength={10}
+          help={DATE_HELP}
+          error={errors.toError}
+        />
         <FormField label="Acteur" type="text" name="actor" maxLength={256} />
         <div className="field">
           <label htmlFor="audit-action">Action</label>

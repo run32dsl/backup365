@@ -53,6 +53,14 @@ describe('confirmation after a password change', () => {
   });
 });
 
+describe('password link', () => {
+  it('is current only on the password page', () => {
+    const on = renderToString(view(false, { passwordCurrent: true }));
+    expect(on).toContain('<a href="#/password" aria-current="page">Mot de passe</a>');
+    expect(renderToString(view(false))).not.toContain('href="#/password" aria-current');
+  });
+});
+
 describe('keyboard path of the console', () => {
   it('tabs through skip link, Menu, nav entries, account links, then the content', () => {
     const html = renderToString(view(true));

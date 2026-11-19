@@ -24,3 +24,5 @@ Microsoft 365, avec des données qui ne sont celles d'aucun tenant.
 - Le faux SDK doit suivre les évolutions des interfaces `AtlasSdkReader` et voisines (le
   compilateur le signale).
 - Le mode démo est un mode de développement : il ne s'utilise jamais sur des données réelles.
+- La CI lance `pnpm run captures` après les tests de navigateur (issue #192) : les gestes
+  préalables de chaque écran (`prepare`) ne sont joués que là. Les images ne sont pas publiées.

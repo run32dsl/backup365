@@ -4,15 +4,15 @@
  * - `name` : nom du fichier, `captures/<name>-<largeur>.png` ;
  * - `hash` : ancre de l'écran (vide pour la page de connexion) ;
  * - `role` : `'admin'`, `'operator'` ou `null` (pas de session) ;
+ * - `scheme` : `'dark'` pour le thème sombre (clair par défaut) ;
  * - `prepare(page)` : gestes éventuels avant la photo (saisie, clic), rendu attendu à la fin ;
- * - `colorScheme` : `'dark'` pour une photo en thème sombre (clair par défaut) ;
  * - `buildCommit` : commit court d'une image construite ; l'écran est alors photographié sur un
  *   second serveur de démonstration, dont le pied de page affiche « Version <paquet> · <commit> »
  *   au lieu de « Version dev ».
  *
- * @typedef {{ name: string, hash: string, role: 'admin' | 'operator' | null,
+ * @typedef {{ name: string, hash: string, role: 'admin' | 'operator' | null, scheme?: 'light' | 'dark',
  *   prepare?: (page: import('@playwright/test').Page) => Promise<void>,
- *   colorScheme?: 'light' | 'dark', buildCommit?: string }} Screen
+ *   buildCommit?: string }} Screen
  */
 
 /** Commit court fictif des captures et des tests de la version d'une image. */
@@ -146,6 +146,18 @@ export async function reachSiteSummary(page, site, scope, ...names) {
   await page.getByText('Étape 3 sur 3 : Confirmation').waitFor();
 }
 
+/**
+ * Simule la réponse de `GET /api/overview` puis recharge l'accueil.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {object} overview corps de la réponse
+ */
+async function overviewAs(page, overview) {
+  await page.route('**/api/overview', (route) => route.fulfill({ status: 200, json: overview }));
+  await page.reload();
+  await page.getByRole('heading', { name: 'Sauvegarde', level: 2, exact: true }).waitFor();
+}
+
 /** @type {Screen[]} */
 export const SCREENS = [
   { name: 'connexion', hash: '', role: null },
@@ -189,17 +201,79 @@ export const SCREENS = [
       await page.getByRole('status').filter({ hasText: 'aucun groupe autorisé' }).waitFor();
     },
   },
-  { name: 'tableau-de-bord', hash: '#/', role: 'admin' },
   // Pied de page (version) : thème sombre, puis version d'une image construite, avant et après
-  // connexion. Le clair avec « Version dev » figure sur `connexion` et `tableau-de-bord`.
-  { name: 'connexion-sombre', hash: '', role: null, colorScheme: 'dark' },
+  // connexion. Le clair avec « Version dev » figure sur `connexion` et `accueil-en-echec`.
+  { name: 'connexion-sombre', hash: '', role: null, scheme: 'dark' },
   { name: 'connexion-version-image', hash: '', role: null, buildCommit: IMAGE_COMMIT },
   {
     name: 'tableau-de-bord-version-image-sombre',
     hash: '#/',
     role: 'admin',
-    colorScheme: 'dark',
+    scheme: 'dark',
     buildCommit: IMAGE_COMMIT,
+  },
+  // Accueil : la démo inscrit un plan en échec (état réel, sans simulation) ; les deux autres états
+  // sont simulés par la réponse de GET /api/overview.
+  { name: 'accueil-en-echec', hash: '#/', role: 'admin' },
+  { name: 'accueil-en-echec-sombre', hash: '#/', role: 'admin', scheme: 'dark' },
+  {
+    name: 'accueil-operationnelle',
+    hash: '#/',
+    role: 'admin',
+    prepare: (page) =>
+      overviewAs(page, {
+        state: 'operational',
+        plans: { total: 2, operational: 2 },
+        lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+      }),
+  },
+  {
+    name: 'accueil-non-configuree',
+    hash: '#/',
+    role: 'admin',
+    prepare: (page) =>
+      overviewAs(page, {
+        state: 'unconfigured',
+        plans: { total: 0, operational: 0 },
+        lastBackupAt: null,
+      }),
+  },
+  {
+    name: 'accueil-sans-resultat',
+    hash: '#/',
+    role: 'admin',
+    prepare: (page) =>
+      overviewAs(page, {
+        state: 'pending',
+        plans: { total: 1, operational: 0 },
+        lastBackupAt: null,
+      }),
+  },
+  {
+    name: 'accueil-non-configuree-operateur',
+    hash: '#/',
+    role: 'operator',
+    prepare: (page) =>
+      overviewAs(page, {
+        state: 'unconfigured',
+        plans: { total: 0, operational: 0 },
+        lastBackupAt: null,
+      }),
+  },
+  {
+    // Démo exposée sans identifiants Microsoft 365 : le bloc montre les étapes côté serveur.
+    name: 'tableau-de-bord-non-configure',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/configuration', (route) =>
+        route.fulfill({
+          json: { microsoft: { connected: false }, workloads: ['mail', 'onedrive'] },
+        }),
+      );
+      await page.reload();
+      await page.getByText('Non configurée').waitFor();
+    },
   },
   {
     name: 'mot-de-passe',
@@ -221,8 +295,16 @@ export const SCREENS = [
       await page
         .getByLabel('Confirmer le nouveau mot de passe', { exact: true })
         .fill('nouveau mot de passe');
-      await page.getByRole('button', { name: 'Enregistrer et continuer' }).click();
+      await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
       await page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' }).first().waitFor();
+    },
+  },
+  {
+    name: 'recherche-boite',
+    hash: '#/search?mailbox=paul.moreau%40exemple.fr',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
     },
   },
   {
@@ -233,6 +315,16 @@ export const SCREENS = [
       await page.getByLabel('Recherche').fill('devis');
       await page.getByRole('button', { name: 'Rechercher' }).click();
       await page.getByRole('table').waitFor();
+    },
+  },
+  {
+    name: 'recherche-date-invalide',
+    hash: '#/search',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Du', { exact: true }).fill('31/02/2026');
+      await page.getByRole('button', { name: 'Rechercher' }).click();
+      await page.getByText('Date attendue au format jj/mm/aaaa').waitFor();
     },
   },
   {
@@ -249,6 +341,17 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('table').waitFor();
+    },
+  },
+  {
+    name: 'journal-audit-date-invalide',
+    hash: '#/audit',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+      await page.getByLabel('Du', { exact: true }).fill('31/02/2026');
+      await page.getByRole('button', { name: 'Filtrer' }).click();
+      await page.getByText('Date attendue au format jj/mm/aaaa').waitFor();
     },
   },
   {
@@ -399,7 +502,7 @@ export const SCREENS = [
       await page.route('**/api/plans/*/run', (route) =>
         route.fulfill({
           status: 503,
-          headers: { 'x-request-id': 'req-1a2b' },
+          headers: { 'x-request-id': '3f2b8c1e-5a7d-4e0b-9c64-1d2a7b9e4f10' },
           json: { error: 'backup_not_configured' },
         }),
       );
@@ -409,7 +512,13 @@ export const SCREENS = [
       });
       await dialog.getByLabel('Motif du lancement (obligatoire)').selectOption({ index: 1 });
       await dialog.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
-      await dialog.getByText('Sauvegarde non configurée').waitFor();
+      // Le titre devient celui du résultat : la boîte se retrouve par son nouveau nom.
+      const blocked = page.getByRole('dialog', { name: 'Lancement impossible' });
+      await blocked.getByText('Aucune sauvegarde n’a été lancée.').waitFor();
+      await blocked.locator('.dialog-actions').getByRole('button', { name: 'Fermer' }).waitFor();
+      if ((await blocked.locator('select, input').count()) > 0) {
+        throw new Error('Le formulaire de motif est encore affiché');
+      }
     },
   },
   {
@@ -458,6 +567,49 @@ export const SCREENS = [
       await openRestorePanel(page, 25);
       await confirmRestore(page);
       await page.getByText(/La restauration a échoué après/u).waitFor();
+    },
+  },
+  {
+    // Restauration non configurée : GET /api/restore répond configured:false, le même état que le
+    // 503 restore_unavailable de POST …/restore.
+    name: 'restauration-non-configuree',
+    hash: DEMO_MAIL_HASH,
+    role: 'operator',
+    prepare: async (page) => {
+      await page.route('**/api/restore', (route) =>
+        route.fulfill({ status: 200, json: { configured: false } }),
+      );
+      await page.reload();
+      await page.getByText('Restauration indisponible').waitFor();
+    },
+  },
+  {
+    // Stockage non configuré ou en panne : l'API répond 503 catalog_unavailable.
+    name: 'sharepoint-non-configure',
+    hash: '#/sharepoint',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.route('**/api/sharepoint/**', (route) =>
+        route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
+      );
+      await page.reload();
+      await page.getByText('Sauvegardes inaccessibles').waitFor();
+    },
+  },
+  {
+    // Stockage non configuré ou en panne : l'API répond 503 catalog_unavailable.
+    name: 'onedrive-non-configure',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.route('**/api/onedrive/**', (route) =>
+        route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
+      );
+      await page.route('**/api/mail/mailboxes', (route) =>
+        route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
+      );
+      await page.reload();
+      await page.getByText('Sauvegardes inaccessibles').waitFor();
     },
   },
   {

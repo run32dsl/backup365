@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { parentOf } from '@backup365/core';
-import type { Problem as FailureProblem } from './apiError.js';
+import { type Problem as FailureProblem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
+import { StorageUnavailable } from './StorageUnavailable.js';
 import { dateTimeOrDash } from './format.js';
 import { isReasonValid } from './mail.js';
 import {
@@ -21,7 +22,9 @@ import {
   oneDriveHash,
   sizeOf,
   startDriveRestore,
-  summaryOf,
+  restoreBlocked,
+  confirmRowsOf,
+  consequenceOf,
   type DriveEntry,
   type DriveJob,
   type DriveMode,
@@ -38,7 +41,6 @@ import {
   RESTORE_STEPS,
   ReasonField,
   RestoreResult,
-  ResultList,
   RunningProgress,
   stepOf,
 } from './RestoreJourney.js';
@@ -52,6 +54,7 @@ import {
   EmptyState,
   Steps,
   WizardActions,
+  ResultList,
 } from './ui/index.js';
 
 /** Élément choisi à l'étape 1 : un fichier ou un dossier, éventuellement une version précise. */
@@ -67,7 +70,7 @@ function folderLabel(path: string): string {
   return parent === '/' ? 'la racine' : parent.split('/').filter(Boolean).join(' > ');
 }
 
-function Problem({
+export function Problem({
   status,
   onRetry,
 }: {
@@ -75,9 +78,7 @@ function Problem({
   onRetry: () => void;
 }) {
   if (status === 'unconfigured') {
-    return (
-      <EmptyState action={<a href="#/">Configurer la connexion</a>}>{T.notConfigured}</EmptyState>
-    );
+    return <StorageUnavailable onRetry={onRetry} />;
   }
   if (status === 'no_backup') {
     return (
@@ -154,7 +155,10 @@ function VersionsDialog({
           ))}
         </fieldset>
       )}
-      <div className="button-row dialog-actions primary-first">
+      <div className="button-row dialog-actions">
+        <Button variant="secondary" data-safe onClick={onClose}>
+          Fermer
+        </Button>
         <Button
           disabled={rows.length === 0}
           onClick={() => {
@@ -163,9 +167,6 @@ function VersionsDialog({
           }}
         >
           Restaurer cette version
-        </Button>
-        <Button variant="secondary" data-safe onClick={onClose}>
-          Fermer
         </Button>
       </div>
     </Dialog>
@@ -443,7 +444,7 @@ function ReasonStep({
 }
 
 /** Étape 3 : mode et récapitulatif. */
-function ConfirmStep({
+export function ConfirmStep({
   account,
   choice,
   reason,
@@ -462,6 +463,7 @@ function ConfirmStep({
   const [confirmError, setConfirmError] = useState(false);
   const [failure, setFailure] = useState<FailureProblem | undefined>();
   const [sending, setSending] = useState(false);
+  const blocked = restoreBlocked(mode, confirmed);
   const canReplace = entry.kind === 'file';
   const versionAt = version?.at ?? entry.versionAt;
   const copyName = version ? '' : copyNameOf(entry.name, entry.kind, new Date());
@@ -492,7 +494,6 @@ function ConfirmStep({
 
   return (
     <form onSubmit={submit} noValidate>
-      <p>Motif : {reason}</p>
       <ChoiceGroup<DriveMode>
         legend="Mode"
         name="mode"
@@ -511,17 +512,19 @@ function ConfirmStep({
           }
         }}
       />
-      <h3>Récapitulatif</h3>
-      <p>
-        {summaryOf({
+      <h2>Récapitulatif</h2>
+      <ResultList
+        rows={confirmRowsOf({
+          account,
           name: entry.name,
-          kind: entry.kind,
           mode,
           versionAt,
           folderLabel: folderLabel(entry.path),
           copyName,
+          reason,
         })}
-      </p>
+      />
+      <p>{consequenceOf(mode)}</p>
       {mode === 'replace' && (
         <div className="field">
           <label className="choice">
@@ -552,7 +555,12 @@ function ConfirmStep({
           </Button>
         }
       >
-        <Button type="submit" busy={sending}>
+        <Button
+          type="submit"
+          busy={sending}
+          aria-disabled={blocked || undefined}
+          className={blocked ? 'is-inactive' : undefined}
+        >
           {B.confirm}
         </Button>
       </WizardActions>
@@ -561,7 +569,7 @@ function ConfirmStep({
 }
 
 /** Étape 3 : suivi. La restauration continue si l'on quitte la page. */
-function TrackStep({
+export function TrackStep({
   account,
   choice,
   job,
@@ -610,14 +618,14 @@ function TrackStep({
 
   const target = job.copyName ?? choice.entry.name;
   const where = folderLabel(job.path);
+  const versionAt = choice.version?.at ?? choice.entry.versionAt;
   const items = (
     <ResultList
       rows={[
-        [
-          job.status === 'succeeded' ? 'Élément restauré' : 'Élément',
-          `${choice.entry.name} → ${target}`,
-        ],
-        ...(job.status === 'succeeded' ? [['Emplacement', where] as [string, string]] : []),
+        ['Compte', account],
+        ['Élément restauré', `${choice.entry.name} → ${target}`],
+        ...(versionAt ? [['Version du', dateTimeOf(versionAt)] as [string, string]] : []),
+        ['Emplacement', where],
       ]}
     />
   );

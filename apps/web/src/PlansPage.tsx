@@ -1,5 +1,6 @@
 import { DATA_TYPES, type DataType, type RpoHours } from '@backup365/core';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ConfigurationLink } from './ConfigurationBlock.js';
 import {
   DATA_TYPE_LABELS,
   MESSAGES,
@@ -19,17 +20,16 @@ import {
   fetchMailboxes,
   fetchPlans,
   formFromPlan,
-  justificationText,
   lastRunLabel,
+  planSummary,
   retentionLabel,
   withCurrent,
   retentionHelp,
   rpoHelp,
   rtoHelp,
-  rtoSentence,
+  recapRows,
   runPlan,
   runReasonText,
-  summarySentence,
   updatePlan,
   validateStep,
   type FormErrors,
@@ -39,8 +39,7 @@ import {
   type PlansRoute,
   type ReasonKind,
 } from './plans.js';
-import { requestIdOf, type Problem } from './apiError.js';
-import { FailureAlert } from './FailureAlert.js';
+import { type Problem } from './apiError.js';
 import { AuditReminder, REASON, reasonLabel } from './RestoreJourney.js';
 import {
   Alert,
@@ -48,6 +47,7 @@ import {
   ChoiceGroup,
   DataTable,
   Dialog,
+  ResultList,
   EmptyState,
   FormField,
   StatusPill,
@@ -60,6 +60,17 @@ import {
 const goTo = (hash: string) => {
   window.location.hash = hash;
 };
+
+/** Échec d'une action sur les plans : la phrase pour l'utilisateur, sans détail technique. */
+export function PlanFailure({ problem }: { problem: Problem }) {
+  const tone = problem.code === 'backup_not_configured' ? 'warning' : 'error';
+  return (
+    <Alert tone={tone}>
+      {problem.message}
+      {problem.code === 'backup_not_configured' ? <ConfigurationLink /> : null}
+    </Alert>
+  );
+}
 
 type Flash = { tone: 'success' | 'error'; text: string };
 
@@ -181,7 +192,6 @@ export function PlanWizard({
     setSaving(false);
   };
   const messages = Object.values(errors);
-  const reasonText = justificationText(form.reasonKind || 'other', form.reasonDetail);
 
   return (
     <form
@@ -203,7 +213,7 @@ export function PlanWizard({
           </ul>
         </Alert>
       )}
-      {failure && <FailureAlert problem={failure} />}
+      {failure && <PlanFailure problem={failure} />}
 
       {step === 1 && (
         <>
@@ -344,12 +354,11 @@ export function PlanWizard({
       )}
 
       {step === 3 && (
-        <div className="recap">
-          <p className="recap-sentence">{summarySentence(form)}</p>
-          <p>{rtoSentence(form.rtoHours)}</p>
-          <p>{`Justification : ${reasonText.charAt(0).toLowerCase()}${reasonText.slice(1)}.`}</p>
-          <p>{MESSAGES.auditTrail}</p>
-        </div>
+        <>
+          <h2>Récapitulatif</h2>
+          <ResultList rows={recapRows(form)} />
+          <AuditReminder />
+        </>
       )}
 
       <WizardActions
@@ -390,6 +399,68 @@ export function PlanWizard({
 
 // ---- Dialogues ------------------------------------------------------------------------------
 
+/** Réessayer ne changerait rien tant que la console n'est pas reliée à Microsoft 365. */
+export function isRunBlocked(problem: Problem | undefined): problem is Problem {
+  return problem?.code === 'backup_not_configured';
+}
+
+/** Résultat d'un lancement impossible : avertissement, rappel de la demande, « Fermer ». */
+export function RunBlocked({
+  problem,
+  planName,
+  reason,
+  onClose,
+}: {
+  problem: Problem;
+  planName: string;
+  reason: string;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <PlanFailure problem={problem} />
+      <ResultList
+        rows={[
+          ['Plan', planName],
+          ['Motif', reason],
+        ]}
+      />
+      <p>Aucune sauvegarde n’a été lancée.</p>
+      <div className="button-row dialog-actions">
+        {/* Le formulaire vient d'être démonté : le focus passe au seul bouton restant. */}
+        <Button data-safe autoFocus onClick={onClose}>
+          Fermer
+        </Button>
+      </div>
+    </>
+  );
+}
+
+/** Échec éventuel d'un lancement qui peut être retenté, et boutons du formulaire. */
+export function RunFeedback({
+  problem,
+  busy,
+  onClose,
+}: {
+  problem?: Problem | undefined;
+  busy: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      {problem && <PlanFailure problem={problem} />}
+      <div className="button-row dialog-actions">
+        <Button variant="secondary" data-safe onClick={onClose}>
+          Annuler
+        </Button>
+        <Button type="submit" busy={busy}>
+          Lancer la sauvegarde
+        </Button>
+      </div>
+    </>
+  );
+}
+
 function RunDialog({
   plan,
   onClose,
@@ -412,61 +483,63 @@ function RunDialog({
     setProblem(undefined);
     setBusy(false);
   }, [plan]);
+  const blocked = isRunBlocked(problem);
   const missing = choice === '' || (choice === 'Autre (préciser)' && detail.trim() === '');
   return (
     <Dialog
       open={plan !== null}
-      title={`Lancer « ${plan?.name ?? ''} » maintenant`}
+      title={blocked ? 'Lancement impossible' : `Lancer « ${plan?.name ?? ''} » maintenant`}
       onClose={onClose}
     >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!plan || busy) return;
-          // Une nouvelle tentative efface l'échec précédent : un seul message à la fois.
-          setProblem(undefined);
-          if (missing) {
-            setError(MESSAGES.runReason);
-            return;
-          }
-          setError(undefined);
-          setBusy(true);
-          void onRun(plan, runReasonText(choice, detail)).then((failure) => {
-            setBusy(false);
-            setProblem(failure);
-          });
-        }}
-      >
-        <SelectField
-          id="run-reason"
-          label={reasonLabel('du lancement')}
-          help={REASON.help}
-          value={choice}
-          placeholder="Choisir un motif"
-          options={RUN_REASONS.map((r) => ({ value: r, label: r }))}
-          error={error}
-          onChange={setChoice}
+      {blocked ? (
+        <RunBlocked
+          problem={problem}
+          planName={plan?.name ?? ''}
+          reason={runReasonText(choice, detail)}
+          onClose={onClose}
         />
-        <FormField
-          label="Précision (facultatif)"
-          value={detail}
-          counterMax={REASON.maxLength}
-          onChange={(e) => {
-            setDetail(e.currentTarget.value);
+      ) : (
+        <form
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!plan || busy) return;
+            // Une nouvelle tentative efface l'échec précédent : un seul message à la fois.
+            setProblem(undefined);
+            if (missing) {
+              setError(MESSAGES.runReason);
+              return;
+            }
+            setError(undefined);
+            setBusy(true);
+            void onRun(plan, runReasonText(choice, detail)).then((failure) => {
+              setBusy(false);
+              setProblem(failure);
+            });
           }}
-        />
-        <AuditReminder />
-        {problem && <FailureAlert problem={problem} />}
-        <div className="button-row dialog-actions">
-          <Button variant="secondary" data-safe onClick={onClose}>
-            Annuler
-          </Button>
-          <Button type="submit" busy={busy}>
-            Lancer la sauvegarde
-          </Button>
-        </div>
-      </form>
+        >
+          <SelectField
+            id="run-reason"
+            label={reasonLabel('du lancement')}
+            help={REASON.help}
+            value={choice}
+            placeholder="Choisir un motif"
+            options={RUN_REASONS.map((r) => ({ value: r, label: r }))}
+            error={error}
+            onChange={setChoice}
+          />
+          <FormField
+            label="Précision (facultatif)"
+            value={detail}
+            counterMax={REASON.maxLength}
+            onChange={(e) => {
+              setDetail(e.currentTarget.value);
+            }}
+          />
+          <AuditReminder />
+          <RunFeedback problem={problem} busy={busy} onClose={onClose} />
+        </form>
+      )}
     </Dialog>
   );
 }
@@ -492,7 +565,7 @@ function DeleteDialog({
         Les sauvegardes existantes sont conservées jusqu’à la fin de leur durée de conservation.
         Aucune nouvelle sauvegarde ne sera faite.
       </p>
-      {error && <FailureAlert problem={error} />}
+      {error && <PlanFailure problem={error} />}
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onClose}>
           Annuler
@@ -525,7 +598,15 @@ function planColumns(
   actions: { onRun: (p: PlanItem) => void; onDelete: (p: PlanItem) => void },
 ): Column<PlanItem>[] {
   const columns: Column<PlanItem>[] = [
-    { header: 'Plan', cell: (p) => p.name, className: 'nowrap-wide' },
+    {
+      header: 'Plan',
+      cell: (p) => (
+        <div>
+          <span className="nowrap-wide">{p.name}</span>
+          <small className="state-note plan-summary">{planSummary(p)}</small>
+        </div>
+      ),
+    },
     {
       header: 'État',
       className: 'compliance-cell',
@@ -539,7 +620,7 @@ function planColumns(
         );
       },
     },
-    { header: 'Dernière exécution', cell: lastRunLabel },
+    { header: 'Dernière exécution (UTC)', cell: lastRunLabel },
   ];
   if (admin) {
     columns.push({
@@ -587,7 +668,6 @@ export function PlansListView({
   admin,
   configured,
   onRetry,
-  loadRequestId,
   onRun,
   onDelete,
 }: {
@@ -595,8 +675,6 @@ export function PlansListView({
   admin: boolean;
   configured: boolean;
   onRetry: () => void;
-  /** Identifiant de la requête qui a échoué au chargement, pour le support. */
-  loadRequestId?: string | undefined;
   onRun: (p: PlanItem) => void;
   onDelete: (p: PlanItem) => void;
 }) {
@@ -621,11 +699,6 @@ export function PlansListView({
         }
       >
         {MESSAGES.loadError}
-        {loadRequestId ? (
-          <small className="alert-detail request-id">
-            Identifiant de requête : <code>{loadRequestId}</code>
-          </small>
-        ) : null}
       </Alert>
     );
   }
@@ -696,7 +769,6 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     mailboxes: [],
   });
   const [flash, setFlash] = useState<Flash>();
-  const [loadRequestId, setLoadRequestId] = useState<string>();
   const [runTarget, setRunTarget] = useState<PlanItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlanItem | null>(null);
 
@@ -706,8 +778,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         setState(plans);
         setBoxes(mailboxes);
       },
-      (e: unknown) => {
-        setLoadRequestId(requestIdOf(e));
+      () => {
         setState('error');
       },
     );
@@ -783,7 +854,6 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured={false}
         onRetry={reloadList}
-        loadRequestId={loadRequestId}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
       />
@@ -795,7 +865,6 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured
         onRetry={reloadList}
-        loadRequestId={loadRequestId}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
       />
@@ -819,7 +888,6 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured={boxes.configured}
         onRetry={reloadList}
-        loadRequestId={loadRequestId}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
       />
