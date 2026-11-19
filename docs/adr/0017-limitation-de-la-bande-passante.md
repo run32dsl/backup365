@@ -28,8 +28,8 @@ Lecture de `dist/index.d.mts` et de `README.md` du paquet :
   OneDrive ou un même site, et de passer un `throttleCoordinator` si plusieurs processus se
   partagent un tenant. Le planificateur passe les éléments l'un après l'autre à chaque passage, et
   la base interdit deux exécutions simultanées sur un élément (ADR 0009) ; mais un lancement
-  manuel s'exécute en arrière-plan, en parallèle d'un passage : la concurrence n'est donc pas
-  bornée par tenant. C'est un écart à part, hors de cette issue.
+  manuel s'exécutait en arrière-plan, en parallèle d'un passage : la concurrence n'était donc pas
+  bornée par tenant. C'est un écart à part, résolu par #300 (voir la décision ci-dessous).
 
 Conclusion : **le SDK ne permet pas de limiter le débit** ni la concurrence.
 
@@ -56,6 +56,14 @@ Conclusion : **le SDK ne permet pas de limiter le débit** ni la concurrence.
   Seul le RPO de 24 h existe aujourd'hui (4, 12, 24 h) ; tout RPO plus long suivrait la même
   règle. La fiche du plan affiche « Sauvegarde planifiée la nuit (22 h – 6 h) » ; le lancement
   manuel reste possible à toute heure.
+- Concurrence (#300) : **une seule sauvegarde à la fois par tenant**, manuelle ou planifiée. La
+  console ne sert qu'un tenant : le planificateur tient une file unique en mémoire, et chaque
+  exécution attend la fin de la précédente. Un lancement manuel demandé pendant une sauvegarde est
+  mis en file : rien n'est ouvert en base avant son tour, donc il n'est ni un échec, ni une
+  exécution « en cours », et l'état « en retard » du tableau de bord ne change pas. `POST
+/api/plans/:id/run` répond `202 { started: 0, skipped: 0, queued: true }` et la liste des plans
+  porte `queued` ; l'écran affiche « En attente de la sauvegarde en cours ». La file est en
+  mémoire : un redémarrage la perd (le lancement est à refaire, rien n'est faussé).
 - En attendant, la limitation de débit relève du réseau de l'utilisateur (QoS du routeur ou du
   NAS).
 
@@ -67,8 +75,7 @@ Reportées dans #299, avec la question de faire entrer cette fonctionnalité dan
    entre la bande passante et le RPO, ce qui engage la promesse « objectifs » du produit.
 2. Attendre la contribution amont et ne rien faire d'ici là.
 
-La publication de la demande amont l'est aussi (#299). L'écart de concurrence (un lancement manuel
-s'exécute en parallèle d'un passage du planificateur) est suivi dans #300.
+La publication de la demande amont l'est aussi (#299).
 
 ## Conséquences
 

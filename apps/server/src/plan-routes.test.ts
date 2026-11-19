@@ -69,6 +69,7 @@ describe('API des plans', () => {
       'id',
       'lastRun',
       'name',
+      'queued',
       'retentionDays',
       'rpoHours',
       'running',

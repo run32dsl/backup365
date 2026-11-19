@@ -243,22 +243,65 @@ describe('planificateur', () => {
 
     const first = await scheduler.runNow(plan);
     expect(first).toMatchObject({ started: 1, skipped: 0 });
-    // Deuxième lancement, passage du planificateur et autre plan sur le même élément : refusés.
-    const second = await scheduler.runNow(plan);
-    expect(second).toMatchObject({ started: 0, skipped: 1 });
+    // Autre plan sur le même élément : refusé par la base.
     const other = plans.create({ ...input, name: 'Autre', selection: ['a'] });
     expect(plans.startRun(other.id, 'a', new Date().toISOString())).toBeUndefined();
     const ticking = scheduler.tick();
     await vi.waitFor(() => expect(calls).toHaveLength(1));
 
+    // Deuxième lancement manuel : mis en file, aucune exécution ouverte avant son tour.
+    const second = await scheduler.runNow(plan);
+    expect(second).toMatchObject({ started: 0, queued: true });
+    expect(plans.listRuns(plan.id, 10)).toHaveLength(1);
+
     release();
     await first.done;
+    await second.done;
     await ticking;
-    expect(calls).toHaveLength(1);
-    expect(plans.listRuns(plan.id, 10)).toHaveLength(1);
+    // Le plan manuel deux fois, plus le passage du planificateur sur l'autre plan, à son tour.
+    expect(calls).toHaveLength(3);
+    expect(plans.listRuns(plan.id, 10).map((r) => r.status)).toEqual(['success', 'success']);
 
     // Libéré : l'élément peut de nouveau être lancé.
     expect(plans.startRun(other.id, 'a', new Date().toISOString())).toBeDefined();
+  });
+
+  it('never runs two backups at once on a tenant, manual or scheduled', async () => {
+    let active = 0;
+    let peak = 0;
+    const calls: ExecutionTarget[] = [];
+    const { plans, plan, make } = setup({
+      executeur: {
+        execute: async (t) => {
+          calls.push(t);
+          peak = Math.max(peak, ++active);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          active -= 1;
+        },
+      },
+    });
+    const other = plans.create({ ...input, name: 'Autre', selection: ['c'] });
+    const scheduler = make();
+
+    const first = await scheduler.runNow(plan);
+    expect(first).toMatchObject({ started: 2, queued: false });
+    const ticking = scheduler.tick();
+    // Lancement manuel d'un autre plan pendant la sauvegarde : mis en file, pas un échec.
+    const queued = await scheduler.runNow(other);
+    expect(queued).toMatchObject({ started: 0, skipped: 0, queued: true });
+    expect(scheduler.isQueued(other.id)).toBe(true);
+    expect(plans.listRuns(other.id, 10)).toEqual([]);
+
+    // Une seconde demande pour le même plan en file n'ajoute rien.
+    expect(await scheduler.runNow(other)).toMatchObject({ started: 0, queued: true });
+
+    await Promise.all([first.done, queued.done, ticking]);
+
+    expect(peak).toBe(1);
+    expect(scheduler.isQueued(other.id)).toBe(false);
+    expect(calls.map((c) => c.itemId)).toContain('c');
+    expect(plans.listRuns(other.id, 10).every((r) => r.status === 'success')).toBe(true);
+    expect(plans.listRuns(plan.id, 10).every((r) => r.status === 'success')).toBe(true);
   });
 
   it('keeps no secret or mail content in logs or stored errors', async () => {

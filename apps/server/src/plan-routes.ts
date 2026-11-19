@@ -129,6 +129,8 @@ export function registerPlanRoutes(
           lastRestorePointAt: ctx.plans.lastRestorePointAt(plan.id),
         },
         running: runs.some((r) => r.status === 'running'),
+        // Lancement manuel en file derrière la sauvegarde en cours : pas encore une exécution.
+        queued: scheduler?.isQueued(plan.id) ?? false,
         lastRun: last
           ? {
               status: last.status,
@@ -251,6 +253,7 @@ export function registerPlanRoutes(
       } catch {
         return refuse(req, reply, 'plan.run', 503, { error: 'items_unavailable' });
       }
+      if (result.queued) return reply.code(202).send({ started: 0, skipped: 0, queued: true });
       if (result.started === 0) {
         if (!ctx.plans.get(plan.id)) return notFound(req, reply, 'plan.run');
         const busy = result.skipped > 0;
@@ -261,7 +264,9 @@ export function registerPlanRoutes(
             : 'Le plan ne couvre aucun élément.',
         });
       }
-      return reply.code(202).send({ started: result.started, skipped: result.skipped });
+      return reply
+        .code(202)
+        .send({ started: result.started, skipped: result.skipped, queued: false });
     },
   );
 }

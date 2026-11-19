@@ -102,7 +102,9 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
 - Mêmes règles d'accès que les autres routes des plans (administrateur ; 401, 403, 503).
 - `202 { started, skipped }` : les exécutions sont ouvertes avant la réponse et se poursuivent en
   arrière-plan ; `skipped` compte les éléments déjà en cours. 409 `run_in_progress` si tous le
-  sont, `no_items` si le plan ne couvre rien ; 400 `reason_required` sans motif.
+  sont, `no_items` si le plan ne couvre rien ; 400 `reason_required` sans motif. Si une autre
+  sauvegarde est en cours, le lancement est mis en file : `202 { started: 0, skipped: 0, queued:
+true }` (ADR 0017).
 - Audit : `plan.run` (ressource `plan`, cible = identifiant du plan, motif = le motif saisi), consigné
   avant le lancement. Le motif est du texte libre : il ne doit pas contenir de contenu de mail.
 
