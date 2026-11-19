@@ -220,12 +220,14 @@ export const SCREENS = [
     name: 'accueil-operationnelle',
     hash: '#/',
     role: 'admin',
-    prepare: (page) =>
-      overviewAs(page, {
+    prepare: async (page) => {
+      await overviewAs(page, {
         state: 'operational',
         plans: { total: 2, operational: 2 },
         lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
-      }),
+      });
+      await page.getByText('Microsoft 365 connecté').waitFor();
+    },
   },
   {
     name: 'accueil-non-configuree',
@@ -272,7 +274,7 @@ export const SCREENS = [
         }),
       );
       await page.reload();
-      await page.getByText('Non configurée').waitFor();
+      await page.getByText('Connexion Microsoft 365 à configurer').waitFor();
     },
   },
   {
