@@ -712,9 +712,36 @@ select[aria-disabled='true'] {
   }
   /* Une cellule sans valeur n'est pas affichée dans la carte, ni les colonnes réservées au tableau. */
   .data-table td.card-hidden,
-  .data-table td:empty {
+  .data-table td:empty,
+  .data-table .table-only,
+  .data-table td.card-action:not(:has(.btn)) {
     display: none;
   }
+  /* Carte : titre (sans étiquette) puis ligne secondaire en `--muted` ; vide, elle reste masquée. */
+  .data-table td.card-title,
+  .data-table td.card-only:not(:empty) {
+    display: block;
+  }
+  .data-table td.card-title::before,
+  .data-table td.card-only::before {
+    display: none;
+  }
+  .data-table td.card-title,
+  .data-table td.card-title .choice {
+    font-weight: 600;
+  }
+  .data-table td.card-only {
+    color: var(--muted);
+    /* Aligné sur le nom, sous le bouton radio (1,5 rem + espace). */
+    padding-top: 0;
+  }
+}
+.data-table tr.row-clickable {
+  cursor: pointer;
+}
+/* Colonne propre à la carte mobile : le tableau a déjà « Version » et « Taille ». */
+.data-table .card-only {
+  display: none;
 }
 
 /* Précision en texte secondaire sous une valeur de tableau (sur sa propre ligne, sous la valeur). */
@@ -1144,20 +1171,19 @@ a.btn-secondary {
 }
 /*
  * Fil d'Ariane. Chaque « > » appartient au niveau qui le suit (`li::before`) : il passe à la ligne
- * avec lui. La liste est décalée vers la gauche de la largeur du séparateur et rognée d'autant :
- * le « > » d'un niveau en début de ligne (le premier compris) tombe hors du cadre et ne se voit
- * pas. La marge du séparateur (`--space-1`) reste visible : elle loge tout juste le contour de focus
- * du lien (2 px à 2 px du bord). Un contour plus large demande une marge plus large ici.
+ * avec lui et reste visible en début de ligne ; seul le premier niveau n'en a pas.
  */
 .breadcrumb {
   --crumb-sep: 1rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0 var(--space-1);
-  margin: 0 0 var(--space-3) calc(-1 * (var(--crumb-sep) + var(--space-1)));
+  margin: 0 0 var(--space-3);
   padding: 0;
   list-style: none;
-  clip-path: inset(-0.5rem -0.5rem -0.5rem var(--crumb-sep));
+}
+.breadcrumb li:first-child::before {
+  display: none;
 }
 .breadcrumb li {
   display: inline-flex;
