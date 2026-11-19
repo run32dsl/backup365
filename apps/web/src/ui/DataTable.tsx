@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { EmptyState } from './EmptyState.js';
 
 export interface Column<T> {
+  /** Identifiant stable de la colonne, indépendant du libellé (`mailbox`) : sert à la retrouver ou à la retirer. */
+  key?: string;
   header: string;
   cell: (row: T) => ReactNode;
   /** Classe CSS ajoutée à l'en-tête et à chaque cellule de la colonne (`nowrap`, `keep-words`, `address`, `num`, `col-reason`, `card-hidden`, `card-wide`, `card-action`, `col-mailbox`). */
