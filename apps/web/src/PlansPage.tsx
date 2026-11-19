@@ -22,7 +22,7 @@ import {
   formFromPlan,
   lastRunLabel,
   planSummary,
-  queuedMessage,
+  runFlashText,
   retentionLabel,
   withCurrent,
   retentionHelp,
@@ -831,10 +831,9 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     const outcome = await runPlan(plan.id, reason);
     if (!outcome.ok) return outcome;
     setRunTarget(null);
-    const current = Array.isArray(state) ? state.find((p) => p.running) : undefined;
     setFlash({
       tone: 'success',
-      text: outcome.value.queued ? queuedMessage(plan.name, current?.name) : MESSAGES.runStarted,
+      text: runFlashText(outcome.value.queued, plan.name, Array.isArray(state) ? state : undefined),
     });
     load();
     return undefined;

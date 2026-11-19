@@ -370,6 +370,16 @@ export const queuedMessage = (plan: string, running?: string): string =>
     running ? `« ${running} »` : 'la sauvegarde en cours'
   }.`;
 
+/** Message affiché après l'envoi d'un lancement : mis en file (deux plans nommés) ou démarré. */
+export function runFlashText(
+  queued: boolean,
+  plan: string,
+  list: readonly PlanItem[] | undefined,
+): string {
+  if (!queued) return MESSAGES.runStarted;
+  return queuedMessage(plan, list?.find((p) => p.running)?.name);
+}
+
 /** Dernier résultat terminé en une ligne, même si le plan tourne ou attend son tour. */
 export function lastRunLabel(plan: PlanItem): string {
   const run = plan.lastRun;

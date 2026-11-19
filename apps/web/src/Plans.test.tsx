@@ -11,6 +11,7 @@ import {
   justificationText,
   lastRunLabel,
   queuedMessage,
+  runFlashText,
   planSummary,
   parseJustification,
   parsePlansHash,
@@ -366,6 +367,15 @@ describe('PlansListView', () => {
     expect(queuedMessage('Boîtes mail', 'Boîte direction')).toBe(
       'Sauvegarde de « Boîtes mail » mise en file : elle démarrera à la fin de « Boîte direction ».',
     );
+  });
+
+  it('picks the confirmation text after a run is sent', () => {
+    const current = { ...plan, id: 'p0', name: 'Boîte direction', running: true };
+    expect(runFlashText(true, 'Boîtes mail', [current, plan])).toBe(
+      queuedMessage('Boîtes mail', 'Boîte direction'),
+    );
+    expect(runFlashText(true, 'Boîtes mail', undefined)).toBe(queuedMessage('Boîtes mail'));
+    expect(runFlashText(false, 'Boîtes mail', [current])).toContain('Sauvegarde lancée');
   });
 
   it('handles loading, error and empty states', () => {
