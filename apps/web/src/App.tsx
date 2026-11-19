@@ -384,11 +384,12 @@ function AppGate({ health }: { health: HealthState }) {
   };
   // Message affiché entre la perte d'une session et la connexion suivante.
   // Retour refusé de Microsoft (`?oidc_error=`) : lu une fois, puis retiré de l'adresse.
-  const [notice, setNotice] = useState<string | undefined>(() => {
+  const [refusal, setRefusal] = useState<string | undefined>(() => {
     const message = oidcErrorMessage(window.location.search);
     if (message) window.history.replaceState(null, '', window.location.pathname);
     return message;
   });
+  const [notice, setNotice] = useState<string | undefined>();
   // Page demandée avant la connexion, rouverte ensuite ; l'ancre vaut `#/connexion` entre-temps.
   const target = useRef<string | null>(null);
   // Incrémenté à chaque refus CSRF : une lecture de session partie avant ne doit pas le défaire.
@@ -441,12 +442,14 @@ function AppGate({ health }: { health: HealthState }) {
 
   const open = (session: SessionInfo) => {
     setNotice(undefined);
+    setRefusal(undefined);
     window.location.hash = target.current ?? '#/';
     target.current = null;
     apply({ status: 'ready', session });
   };
   const leave = () => {
     setNotice(undefined);
+    setRefusal(undefined);
     logout().finally(() => {
       target.current = null;
       window.location.hash = '';
@@ -472,17 +475,18 @@ function AppGate({ health }: { health: HealthState }) {
     case 'setup':
     case 'login':
       return (
-        <>
+        <div className="login-page">
           <CredentialsPage
             mode={gate.status}
             notice={gate.status === 'login' ? notice : undefined}
+            refusal={gate.status === 'login' ? refusal : undefined}
             onSession={open}
           />
           <ConsoleFooter
             version={typeof health === 'object' ? health?.version : undefined}
             demo={false}
           />
-        </>
+        </div>
       );
     case 'ready':
       return gate.session.user.mustChangePassword ? (

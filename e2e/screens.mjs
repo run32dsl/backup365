@@ -198,7 +198,7 @@ export const SCREENS = [
     role: null,
     prepare: async (page) => {
       await page.goto('/?oidc_error=no_group');
-      await page.getByRole('status').filter({ hasText: 'aucun groupe autorisé' }).waitFor();
+      await page.getByRole('alert').filter({ hasText: 'aucun groupe autorisé' }).waitFor();
     },
   },
   // Pied de page (version) : thème sombre, puis version d'une image construite, avant et après
