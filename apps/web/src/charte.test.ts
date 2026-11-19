@@ -80,6 +80,17 @@ describe('charte.css footer', () => {
   });
 });
 
+describe('charte.css filters', () => {
+  it('reserves no minimum height on a filter field', () => {
+    expect(/\.filters \.field\s*\{[^}]*min-height/.test(css)).toBe(false);
+  });
+
+  it('keeps the submit button 16 px under the fields and 24 px above the results on desktop', () => {
+    expect(/\.filters > \.btn\s*\{[^}]*margin-top:\s*var\(--space-2\);/.test(css)).toBe(true);
+    expect(/\n\s+\.filters\s*\{\s*margin-bottom:\s*var\(--space-4\);/.test(css)).toBe(true);
+  });
+});
+
 describe('charte.css data tables', () => {
   it('hides the label of action cells in cards', () => {
     expect(/\.data-table td\.card-action::before\s*\{\s*display:\s*none;/.test(css)).toBe(true);
