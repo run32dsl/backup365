@@ -63,8 +63,8 @@ describe('SharePoint result', () => {
   });
 
   it('names the copy on success only, and does not repeat the banner', () => {
-    expect(render({ copyName: 'plan-a (restauré le 14.11.2026).pdf' })).toContain(
-      '<dt>Restauré sous</dt><dd>plan-a (restauré le 14.11.2026).pdf</dd>',
+    expect(render({ copyName: 'plan-a (restauré le 14-11-2026).pdf' })).toContain(
+      '<dt>Restauré sous</dt><dd>plan-a (restauré le 14-11-2026).pdf</dd>',
     );
     expect(render({ status: 'failed', copyName: 'x.pdf', errors: 1 })).not.toContain(
       'Restauré sous',

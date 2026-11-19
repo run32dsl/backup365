@@ -42,6 +42,8 @@ import {
   restoredContentLabel,
   confirmRowsOf,
   consequenceOf,
+  SITE_WARNING_TITLE,
+  siteWarningOf,
   type Site,
   type SiteEntry,
   type SiteJob,
@@ -533,12 +535,14 @@ export function ConfirmStep({
           reason,
         })}
       />
-      <p>{consequenceOf(choice.scope)}</p>
+      {!whole && <p>{consequenceOf(choice.scope)}</p>}
       {summary === null && <p role="status">{T.loading}</p>}
       {whole && (
         <>
           <Alert tone="warning">
-            <strong>Restauration du site entier : action de grande ampleur</strong>
+            <strong>{SITE_WARNING_TITLE}</strong>
+            <br />
+            {siteWarningOf(site.displayName)}
           </Alert>
           <div className="field">
             <label className="choice">
@@ -549,7 +553,7 @@ export function ConfirmStep({
                   setUnderstood(e.currentTarget.checked);
                 }}
               />{' '}
-              Je comprends que tous les contenus manquants seront recréés
+              Je comprends que cette restauration est de grande ampleur.
             </label>
           </div>
           <FormField

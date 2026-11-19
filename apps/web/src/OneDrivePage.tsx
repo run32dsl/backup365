@@ -25,7 +25,9 @@ import {
   startDriveRestore,
   restoreBlocked,
   confirmRowsOf,
-  consequenceOf,
+  COPY_CONSEQUENCE,
+  REPLACE_WARNING_TITLE,
+  replaceWarningOf,
   type DriveEntry,
   type DriveJob,
   type DriveMode,
@@ -546,7 +548,14 @@ export function ConfirmStep({
           reason,
         })}
       />
-      <p>{consequenceOf(mode)}</p>
+      {mode === 'copy' && <p>{COPY_CONSEQUENCE}</p>}
+      {mode === 'replace' && (
+        <Alert tone="warning">
+          <strong>{REPLACE_WARNING_TITLE}</strong>
+          <br />
+          {replaceWarningOf(entry.name, versionAt)}
+        </Alert>
+      )}
       {mode === 'replace' && (
         <div className="field">
           <label className="choice">

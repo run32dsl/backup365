@@ -16,7 +16,8 @@ import {
   sizeOf,
   startDriveRestore,
   confirmRowsOf,
-  consequenceOf,
+  COPY_CONSEQUENCE,
+  replaceWarningOf,
 } from './onedrive.js';
 import { screenOf } from './App.js';
 
@@ -63,7 +64,7 @@ describe('OneDrive wording', () => {
 
   it('names the copy without slashes, as the server does', () => {
     expect(copyNameOf('budget.xlsx', 'file', new Date('2026-11-14T10:00:00Z'))).toBe(
-      'budget (restauré le 14.11.2026).xlsx',
+      'budget (restauré le 14-11-2026).xlsx',
     );
   });
 
@@ -74,7 +75,7 @@ describe('OneDrive wording', () => {
       backupAt: '2026-11-14T09:00:00.000Z',
       versionAt: '2026-11-10T18:30:00.000Z',
       folderLabel: 'Documents > Budget',
-      copyName: 'budget (restauré le 14.11.2026).xlsx',
+      copyName: 'budget (restauré le 14-11-2026).xlsx',
       reason: 'Reprise après incident',
     };
     expect(confirmRowsOf({ ...base, mode: 'copy' })).toEqual([
@@ -83,7 +84,7 @@ describe('OneDrive wording', () => {
       ['Sauvegarde du', '14/11/2026 09:00'],
       ['Version du', '10/11/2026 18:30'],
       ['Emplacement', 'Documents > Budget'],
-      ['Restauré sous le nom', 'budget (restauré le 14.11.2026).xlsx'],
+      ['Restauré sous le nom', 'budget (restauré le 14-11-2026).xlsx'],
       ['Motif', 'Reprise après incident'],
     ]);
     const replace = confirmRowsOf({ ...base, mode: 'replace' });
@@ -92,9 +93,9 @@ describe('OneDrive wording', () => {
     expect(confirmRowsOf({ ...base, versionAt: null, mode: 'copy' }).map(([l]) => l)).not.toContain(
       'Version du',
     );
-    expect(consequenceOf('copy')).toBe('Aucun fichier existant ne sera modifié.');
-    expect(consequenceOf('replace')).toBe(
-      'Le fichier actuel sera remplacé ; il reste dans l’historique OneDrive.',
+    expect(COPY_CONSEQUENCE).toBe('Aucun fichier existant ne sera modifié.');
+    expect(replaceWarningOf('budget.xlsx', '2026-11-18T16:59:00Z')).toBe(
+      'budget.xlsx sera remplacé par la version du 18/11/2026 16:59. L’actuel reste dans l’historique OneDrive.',
     );
     expect(confirmRowsOf({ ...base, copyName: '', mode: 'copy' })).toContainEqual([
       'Restauré sous le nom',
@@ -272,7 +273,7 @@ describe('OneDrive result list', () => {
     startedAt: '2026-11-14T10:00:00.000Z',
     finishedAt: null,
     durationMs: null,
-    copyName: 'budget (restauré le 14.11.2026).xlsx',
+    copyName: 'budget (restauré le 14-11-2026).xlsx',
     error: null,
   };
   it.each([
@@ -300,7 +301,7 @@ describe('OneDrive result list', () => {
     expect(at.every((i, n) => i >= 0 && (n === 0 || i > at[n - 1]!))).toBe(true);
     if (status === 'succeeded') {
       expect(out).toContain(
-        '<dt>Élément restauré</dt><dd>budget.xlsx → budget (restauré le 14.11.2026).xlsx</dd>',
+        '<dt>Élément restauré</dt><dd>budget.xlsx → budget (restauré le 14-11-2026).xlsx</dd>',
       );
     } else {
       expect(out).toContain('<dt>Élément</dt><dd>budget.xlsx</dd>');

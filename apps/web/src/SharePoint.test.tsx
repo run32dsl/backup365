@@ -18,6 +18,7 @@ import {
   summaryCountOf,
   confirmRowsOf,
   consequenceOf,
+  siteWarningOf,
 } from './sharepoint.js';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ConfirmStep, ContentTree, SiteDenied, SiteEntriesTable } from './SharePointPage.js';
@@ -308,7 +309,10 @@ describe('SharePoint wording', () => {
     });
     expect(rows).toContainEqual(['Élément', 'Site entier']);
     expect(rows).toContainEqual(['Volume', '6 éléments']);
-    expect(consequenceOf('site')).toBe('Les contenus manquants seront recréés.');
+    expect(consequenceOf('site')).toBeNull();
+    expect(siteWarningOf('Équipe commerciale')).toBe(
+      'Les contenus manquants du site Équipe commerciale seront recréés. Les fichiers existants ne sont pas modifiés.',
+    );
   });
 
   it('orders the whole-site confirmation and ties the hint to the name field', () => {
@@ -326,8 +330,8 @@ describe('SharePoint wording', () => {
     const order = [
       '<h2>Récapitulatif</h2>',
       '<dt>Motif</dt><dd>Reprise après incident</dd>',
-      'Les contenus manquants seront recréés.',
-      'action de grande ampleur',
+      'Restauration du site entier',
+      'du site Équipe commerciale seront recréés.',
       'Je comprends',
       'Tapez le nom du site',
       'Le bouton reste inactif',

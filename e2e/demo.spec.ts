@@ -180,7 +180,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   }
   await expect(page.getByText('Nom choisi par OneDrive')).toBeVisible();
   await page.getByLabel('Remplacer le fichier actuel').check();
-  await expect(page.getByText(/il reste dans l’historique OneDrive/)).toBeVisible();
+  await expect(page.getByText(/L’actuel reste dans l’historique OneDrive/)).toBeVisible();
   const replaceGo = page.getByRole('button', { name: 'Restaurer', exact: true });
   await expect(replaceGo).toHaveAttribute('aria-disabled', 'true');
   // Le bouton grisé reste cliquable : le clic affiche l’erreur.
@@ -302,9 +302,7 @@ test('SharePoint : le site entier exige la case, puis le nom exact du site (admi
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #10 : reprise après incident');
   await page.getByRole('button', { name: 'Continuer' }).click();
 
-  await expect(
-    page.getByText('Restauration du site entier : action de grande ampleur'),
-  ).toBeVisible();
+  await expect(page.getByText('Restauration du site entier', { exact: true })).toBeVisible();
   const go = page.getByRole('button', { name: 'Restaurer', exact: true });
   await expect(go).toHaveAttribute('aria-disabled', 'true');
   await expect(page.getByText(/inactif tant que la case n’est pas cochée/)).toBeVisible();

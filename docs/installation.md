@@ -132,7 +132,7 @@ résultat inscrits au journal d'audit). Cette restauration passe par Graph : tan
 en écriture n'est configuré (ADR 0012), la fiche d'un mail affiche un avertissement à la place du bouton. L'écran
 « OneDrive » (`#/onedrive/<compte>/<chemin>`) fait de même pour un fichier, un dossier ou une
 version antérieure : on parcourt la sauvegarde (lecture seule, journalisée), puis la
-restauration se fait par défaut en copie `nom (restauré le jj.mm.aaaa).ext`, le remplacement d'un
+restauration se fait par défaut en copie `nom (restauré le jj-mm-aaaa).ext`, le remplacement d'un
 fichier exigeant une confirmation (ADR 0013, même réserve sur le tenant). L'écran « SharePoint »
 (`#/sharepoint`) restaure un élément, un dossier, une bibliothèque ou le site entier, toujours à
 son emplacement d'origine et sans rien écraser ; le site entier est réservé à l'administrateur, qui
