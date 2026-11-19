@@ -127,13 +127,18 @@ développement :
 ## Version affichée
 
 Le pied de page affiche « Version <paquet> · <commit court> » pour une image construite avec
-`--build-arg BUILD_COMMIT=$(git rev-parse --short=7 HEAD)` (la CI le fait), et « Version dev » en
-local ou sans l'argument. La CI vérifie que l'image affiche bien la version et le commit, jamais
+`--build-arg BUILD_COMMIT=$(git rev-parse HEAD | cut -c1-7)` (la CI en prend aussi 7 caractères),
+et « Version dev » en local ou sans l'argument. La CI vérifie que l'image affiche bien la version et le commit, jamais
 0.0.0. La version du paquet est celle de `apps/server/package.json`. Sans Docker,
 `e2e/version.spec.ts` lance le serveur avec `BACKUP365_BUILD_COMMIT` et vérifie la même chose dans
 le navigateur, avant et après connexion ; les captures `*-version-image*` en montrent le rendu.
 
-- Le produit reste en 0.x, avec un incrément mineur à chaque promotion `develop` → `main`.
+- Le produit reste en 0.x (version initiale 0.1.0) jusqu'au passage en 1.0.0, décrit plus bas.
+- Incrément mineur (0.1.0 → 0.2.0) à chaque promotion `develop` → `main` : une PR vers `develop`,
+  qui ne change que le numéro de version, est fusionnée avant la promotion.
+- Incrément correctif (0.2.0 → 0.2.1) pour une correction appliquée à `main` hors promotion (par une PR, jamais un push direct).
+- Le commit court fait toujours 7 caractères : `git rev-parse --short=7` peut en donner plus
+  quand deux commits partagent le même début, et le serveur retombe alors sur « dev ».
 - Le passage en 1.0.0 est décidé par le Product Manager (décision du 2026-11-18) : seulement quand
   le MVP est jugé satisfaisant et validé par lui. Ni la promotion du MVP, ni un jalon technique
   (par exemple la validation de la connexion Microsoft) ne suffisent à eux seuls.
