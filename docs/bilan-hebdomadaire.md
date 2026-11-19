@@ -3,10 +3,13 @@
 Le bilan est rédigé chaque semaine par le Product Owner, avant la promotion `develop` → `main`.
 Les rubriques ci-dessous sont fixes ; une rubrique sans objet l'écrit explicitement.
 
+Semaine du : `<lundi> au <dimanche>` (bilan précédent : `<lien>`, utile au test de répétition).
+
 ## Durées de la CI
 
 Procédure et seuils : `CONTRIBUTING.md`, section « Durées de la CI ». Seuils : 10 min pour le
-job `ci`, 5 min (300 s) pour `captures`, sous le timeout de 15 min.
+job `ci`, 5 min (300 s) pour `captures`, sous le timeout de 15 min. Pour `captures`, la durée de l'étape dans le job `ci` prime ; celle des
+`verifs` (mesurée sur l'hôte) est notée à part si elle est plus longue.
 
 | Mesure                                   | Source                                   | Valeur | Seuil  |
 | ---------------------------------------- | ---------------------------------------- | ------ | ------ |
