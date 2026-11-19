@@ -166,6 +166,15 @@ de sauts sont refusés. **Sans cette variable derrière un proxy**, tous les cli
 l'adresse du proxy : cinq échecs de n'importe qui temporisent alors tout le monde (le verrou par
 compte reste exact).
 
+**Requêtes d'une autre origine.** En plus du cookie `SameSite=Strict` et du jeton CSRF, la console
+refuse (403, `cross_origin`) toute requête POST, PUT, PATCH ou DELETE sur `/api/` dont
+`Sec-Fetch-Site` vaut `cross-site`, ou dont l'en-tête `Origin` ne correspond pas à l'hôte de la
+requête. Le refus est journalisé et inscrit au journal d'audit (accès refusé, motif `cross_origin`).
+Derrière un proxy, l'hôte comparé est `X-Forwarded-Host`, cru seulement si `BACKUP365_TRUST_PROXY`
+désigne ce proxy : **le proxy doit donc transmettre l'hôte demandé par le navigateur**
+(`X-Forwarded-Host`), sinon les connexions depuis le navigateur sont refusées. Les clients sans ces
+en-têtes (`curl`, scripts) ne sont pas concernés ; le rappel de connexion Microsoft (GET) non plus.
+
 Limite connue : le verrou par compte permet à qui atteint le port de bloquer un compte
 (15 minutes au plus) en multipliant les échecs. C'est le prix d'une protection sans liste d'adresses ;
 la parade est de ne pas exposer le port.
