@@ -47,7 +47,7 @@ describe('erreurs visibles', () => {
     });
   });
 
-  it('shows the not-configured message without a link, and the small request id', () => {
+  it('shows the not-configured message with a link to the home block, and the small request id', () => {
     const html = renderToStaticMarkup(
       <FailureAlert
         problem={{
@@ -58,7 +58,7 @@ describe('erreurs visibles', () => {
       />,
     );
     expect(html).toContain('Sauvegarde indisponible');
-    expect(html).not.toContain('<a');
+    expect(html).toContain('<a href="#/">');
     expect(html).not.toContain('Configurer la connexion');
     expect(html).toContain('<code>req-9</code>');
     expect(renderToStaticMarkup(<FailureAlert problem={{ message: 'x' }} />)).not.toContain(

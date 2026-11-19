@@ -139,6 +139,18 @@ export async function reachSiteSummary(page, site, scope, ...names) {
   await page.getByText('Étape 3 sur 3 : Confirmation').waitFor();
 }
 
+/**
+ * Simule la réponse de `GET /api/overview` puis recharge l'accueil.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {object} overview corps de la réponse
+ */
+async function overviewAs(page, overview) {
+  await page.route('**/api/overview', (route) => route.fulfill({ status: 200, json: overview }));
+  await page.reload();
+  await page.getByRole('heading', { name: 'Sauvegarde', level: 2, exact: true }).waitFor();
+}
+
 /** @type {Screen[]} */
 export const SCREENS = [
   { name: 'connexion', hash: '', role: null },
@@ -182,8 +194,69 @@ export const SCREENS = [
       await page.getByRole('status').filter({ hasText: 'aucun groupe autorisé' }).waitFor();
     },
   },
-  { name: 'tableau-de-bord', hash: '#/', role: 'admin' },
-  { name: 'tableau-de-bord-sombre', hash: '#/', role: 'admin', scheme: 'dark' },
+  // Accueil : la démo inscrit un plan en échec (état réel, sans simulation) ; les deux autres états
+  // sont simulés par la réponse de GET /api/overview.
+  { name: 'accueil-en-echec', hash: '#/', role: 'admin' },
+  { name: 'accueil-en-echec-sombre', hash: '#/', role: 'admin', scheme: 'dark' },
+  {
+    name: 'accueil-operationnelle',
+    hash: '#/',
+    role: 'admin',
+    prepare: (page) =>
+      overviewAs(page, {
+        state: 'operational',
+        plans: { total: 2, operational: 2 },
+        lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+      }),
+  },
+  {
+    name: 'accueil-non-configuree',
+    hash: '#/',
+    role: 'admin',
+    prepare: (page) =>
+      overviewAs(page, {
+        state: 'unconfigured',
+        plans: { total: 0, operational: 0 },
+        lastBackupAt: null,
+      }),
+  },
+  {
+    name: 'accueil-sans-resultat',
+    hash: '#/',
+    role: 'admin',
+    prepare: (page) =>
+      overviewAs(page, {
+        state: 'pending',
+        plans: { total: 1, operational: 0 },
+        lastBackupAt: null,
+      }),
+  },
+  {
+    name: 'accueil-non-configuree-operateur',
+    hash: '#/',
+    role: 'operator',
+    prepare: (page) =>
+      overviewAs(page, {
+        state: 'unconfigured',
+        plans: { total: 0, operational: 0 },
+        lastBackupAt: null,
+      }),
+  },
+  {
+    // Démo exposée sans identifiants Microsoft 365 : le bloc montre les étapes côté serveur.
+    name: 'tableau-de-bord-non-configure',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/configuration', (route) =>
+        route.fulfill({
+          json: { microsoft: { connected: false }, workloads: ['mail', 'onedrive'] },
+        }),
+      );
+      await page.reload();
+      await page.getByText('Non configurée').waitFor();
+    },
+  },
   {
     name: 'mot-de-passe',
     hash: '#/password',
