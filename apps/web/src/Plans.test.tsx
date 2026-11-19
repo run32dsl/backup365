@@ -166,12 +166,12 @@ describe('list labels', () => {
 
   it('describes the last run', () => {
     expect(lastRunLabel(plan)).toBe('Réussie, 14/11/2026 06:00');
-    expect(lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, status: 'failed' } })).toMatch(
-      /^Échec, \d\d\/\d\d\/\d{4} \d\d:\d\d$/,
+    expect(lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, status: 'failed' } })).toBe(
+      'Échec, 14/11/2026 06:00',
     );
     expect(
       lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, noSnapshotReason: 'no_content' } }),
-    ).toMatch(/^Réussie \(rien à sauvegarder\), \d\d\/\d\d\/\d{4} \d\d:\d\d$/);
+    ).toBe('Réussie (rien à sauvegarder), 14/11/2026 06:00');
     // « rien à sauvegarder » : une seule fois par ligne.
     const empty = { ...plan.compliance, lastRestorePointAt: null };
     expect(complianceView({ ...plan, compliance: empty }).note).toBe(
