@@ -30,7 +30,7 @@ const plan: PlanItem = {
   id: 'p1',
   name: 'Messagerie Direction',
   scope: 'all',
-  dataTypes: ['mail', 'files', 'calendar', 'contacts'],
+  dataTypes: ['mail', 'onedrive', 'sharepoint'],
   selection: [],
   rpoHours: 12,
   rtoHours: 24,
@@ -85,7 +85,7 @@ describe('plan form', () => {
     expect(payloadOf(form)).toEqual({
       name: 'Mails',
       scope: 'all',
-      dataTypes: ['mail', 'files', 'calendar', 'contacts'],
+      dataTypes: ['mail', 'onedrive', 'sharepoint'],
       selection: [],
       rpoHours: 12,
       rtoHours: 24,
@@ -131,7 +131,7 @@ describe('plan form', () => {
     const rows = recapRows({ ...emptyForm(), name: ' Messagerie Direction ', reasonKind: 'legal' });
     expect(rows).toEqual([
       ['Nom du plan', 'Messagerie Direction'],
-      ['Données', 'Messagerie, Fichiers, Calendriers, Contacts'],
+      ['Données', 'Messagerie, OneDrive, SharePoint'],
       ['Périmètre', 'Toute l’organisation'],
       ['Fréquence', 'toutes les 12 h'],
       ['Remise en service visée', 'sous 24 h'],
@@ -271,24 +271,24 @@ describe('PlansListView', () => {
     const other: PlanItem = {
       ...plan,
       id: 'p2',
-      name: 'Fichiers Services',
+      name: 'OneDrive et SharePoint Services',
       scope: 'selection',
       selection: ['a', 'b'],
-      dataTypes: ['files'],
+      dataTypes: ['onedrive'],
       rpoHours: 24,
       retentionDays: 1095,
     };
     const all =
-      '<small class="state-note plan-summary">Messagerie, fichiers, calendriers et contacts · toute l’organisation · toutes les 12 h · conservés 1 an</small>';
+      '<small class="state-note plan-summary">Messagerie, OneDrive et SharePoint · toute l’organisation · toutes les 12 h · conservés 1 an</small>';
     const html = list([plan, other], true);
     expect(html).toContain(all);
     expect(html).toContain(
-      '<small class="state-note plan-summary">Fichiers · 2 boîtes choisies · toutes les 24 h · conservés 3 ans</small>',
+      '<small class="state-note plan-summary">OneDrive · 2 boîtes choisies · toutes les 24 h · conservés 3 ans</small>',
     );
     // Les deux rôles reçoivent la sélection : même plan, même synthèse.
     const operatorHtml = list([plan, other].map(asOperator), false);
     expect(operatorHtml).toContain(all);
-    expect(operatorHtml).toContain('Fichiers · 2 boîtes choisies ·');
+    expect(operatorHtml).toContain('OneDrive · 2 boîtes choisies ·');
   });
 
   it('names the mailboxes of a restricted plan, the same way for both roles', () => {
@@ -300,26 +300,26 @@ describe('PlansListView', () => {
     const restricted: PlanItem = {
       ...plan,
       scope: 'selection',
-      dataTypes: ['files'],
+      dataTypes: ['onedrive'],
       rpoHours: 24,
       retentionDays: 1095,
     };
     const summary = (selection: string[], names = boxes) =>
       planSummary({ ...restricted, selection }, names);
-    expect(summary(['a'])).toBe(`Fichiers · claire.durand@exemple.fr · ${tail}`);
+    expect(summary(['a'])).toBe(`OneDrive · claire.durand@exemple.fr · ${tail}`);
     expect(summary(['a', 'b'])).toBe(
-      `Fichiers · claire.durand@exemple.fr et paul.martin@exemple.fr · ${tail}`,
+      `OneDrive · claire.durand@exemple.fr et paul.martin@exemple.fr · ${tail}`,
     );
     expect(summary(['a', 'b', 'c', 'd', 'e'])).toBe(
-      `Fichiers · claire.durand@exemple.fr et 4 autres · ${tail}`,
+      `OneDrive · claire.durand@exemple.fr et 4 autres · ${tail}`,
     );
     // Catalogue indisponible : le nombre, jamais un gabarit.
-    expect(summary([])).toBe(`Fichiers · aucune boîte choisie · ${tail}`);
+    expect(summary([])).toBe(`OneDrive · aucune boîte choisie · ${tail}`);
     expect(summary(['a', 'b'], boxes.slice(0, 1))).toBe(
-      `Fichiers · claire.durand@exemple.fr et 1 autre · ${tail}`,
+      `OneDrive · claire.durand@exemple.fr et 1 autre · ${tail}`,
     );
-    expect(summary(['a'], [])).toBe(`Fichiers · 1 boîte choisie · ${tail}`);
-    expect(summary(['a', 'b', 'c'], [])).toBe(`Fichiers · 3 boîtes choisies · ${tail}`);
+    expect(summary(['a'], [])).toBe(`OneDrive · 1 boîte choisie · ${tail}`);
+    expect(summary(['a', 'b', 'c'], [])).toBe(`OneDrive · 3 boîtes choisies · ${tail}`);
     // Mêmes données pour les deux rôles, avec ou sans champs d'administrateur.
     const admin = { ...restricted, selection: ['a'] };
     expect(planSummary(asOperator(admin), boxes)).toBe(planSummary(admin, boxes));

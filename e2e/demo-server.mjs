@@ -27,9 +27,9 @@ export const DEMO_PLANS = [
     gdprJustification: 'Obligation légale',
   },
   {
-    name: 'Fichiers Services',
+    name: 'OneDrive et SharePoint Services',
     scope: 'all',
-    dataTypes: ['files', 'calendar'],
+    dataTypes: ['onedrive', 'sharepoint'],
     rpoHours: 24,
     rtoHours: 72,
     retentionDays: 1095,

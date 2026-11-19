@@ -3,6 +3,7 @@ import {
   currentRunSlot,
   nightWindowStart,
   isNightPlan,
+  type DataType,
   type NoSnapshotReason,
 } from '@backup365/core';
 import type { SqlitePlanStore, StoredPlan } from './sqlite/sqlite-plan-store.js';
@@ -11,6 +12,8 @@ import type { SqlitePlanStore, StoredPlan } from './sqlite/sqlite-plan-store.js'
 export interface ExecutionTarget {
   planId: string;
   itemId: string;
+  /** Charges que le plan protège : l'exécuteur ne sauvegarde que celles-là. */
+  dataTypes: readonly DataType[];
 }
 
 /**
@@ -186,7 +189,7 @@ export class PlanScheduler {
             if (!due()) return true;
             const runId = plans.startRun(plan.id, itemId, this.now().toISOString());
             if (runId === undefined) return false;
-            await this.execute(plan.id, itemId, runId);
+            await this.execute(plan, itemId, runId);
             return true;
           });
           if (!opened) settled = false;
@@ -241,7 +244,7 @@ export class PlanScheduler {
       }
       for (const run of opened) {
         if (this.stopped) this.closeInterrupted([run], 'interrupted');
-        else await this.execute(plan.id, run.itemId, run.runId);
+        else await this.execute(plan, run.itemId, run.runId);
       }
     })
       .catch((err: unknown) => {
@@ -271,10 +274,11 @@ export class PlanScheduler {
     }
   }
 
-  private async execute(planId: string, itemId: string, runId: number): Promise<void> {
+  private async execute(plan: StoredPlan, itemId: string, runId: number): Promise<void> {
     const { plans, executeur, logger } = this.options;
+    const planId = plan.id;
     try {
-      const result = await executeur.execute({ planId, itemId });
+      const result = await executeur.execute({ planId, itemId, dataTypes: plan.dataTypes });
       plans.finishRun(
         runId,
         'success',

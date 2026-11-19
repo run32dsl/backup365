@@ -56,18 +56,12 @@ export interface Mailbox {
 
 export const DATA_TYPE_LABELS: Record<DataType, string> = {
   mail: 'Messagerie',
-  files: 'Fichiers',
-  calendar: 'Calendriers',
-  contacts: 'Contacts',
+  onedrive: 'OneDrive',
+  sharepoint: 'SharePoint',
 };
 
-/** Complément du nom dans la synthèse de la liste (« messagerie, fichiers… »). */
-const DATA_TYPE_PHRASES: Record<DataType, string> = {
-  mail: 'messagerie',
-  files: 'fichiers',
-  calendar: 'calendriers',
-  contacts: 'contacts',
-};
+/** Aide sous « Messagerie » : le SDK ne sépare pas calendrier et contacts de la boîte. */
+export const MAIL_HELP = 'avec le calendrier et les contacts';
 
 export const RPO_CHOICES: readonly RpoHours[] = [4, 12, 24];
 export const RTO_CHOICES: readonly number[] = [8, 24, 72];
@@ -280,14 +274,14 @@ function enumerate(items: string[]): string {
 
 /**
  * Synthèse d'un plan en une ligne pour la liste, avec les termes du récapitulatif de l'assistant :
- * « Messagerie, fichiers et contacts · toute l'organisation · toutes les 12 h · conservés 1 an ».
+ * « Messagerie, OneDrive et SharePoint · toute l'organisation · toutes les 12 h · conservés 1 an ».
  */
 export function planSummary(
   plan: Pick<PlanItem, 'dataTypes' | 'scope' | 'selection' | 'rpoHours' | 'retentionDays'>,
   mailboxes: readonly Mailbox[] = [],
 ): string {
   const what = enumerate(
-    DATA_TYPES.filter((t) => plan.dataTypes.includes(t)).map((t) => DATA_TYPE_PHRASES[t]),
+    DATA_TYPES.filter((t) => plan.dataTypes.includes(t)).map((t) => DATA_TYPE_LABELS[t]),
   );
   const where =
     plan.scope === 'all' ? 'toute l’organisation' : selectionLabel(plan.selection, mailboxes);

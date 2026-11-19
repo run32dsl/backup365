@@ -1,4 +1,5 @@
 import { createAtlasInstance, type AtlasInstanceConfig } from '@wisecom/atlas-sdk';
+import type { DataType } from '@backup365/core';
 import type { M365Config, StorageConfig } from './config.js';
 import type { Executeur, ExecutionResult, ExecutionTarget } from './plan-scheduler.js';
 
@@ -66,8 +67,8 @@ const NO_CONTENT: ExecutionResult = { noSnapshotReason: 'no_content' };
 
 /**
  * Exécuteur réel (ADR 0009) : un site est sauvegardé par `sharepoint.backup` ; un propriétaire par
- * `outlook.backup` puis `onedrive.backup`. Les deux charges sont tentées même si la première
- * échoue ; la première erreur est ensuite relancée. Le SDK choisit seul entre sauvegarde complète
+ * `outlook.backup` puis `onedrive.backup`, chacun seulement si le plan protège cette charge. Les
+ * charges voulues sont tentées même si la première échoue ; la première erreur est ensuite relancée. Le SDK choisit seul entre sauvegarde complète
  * (première exécution) et incrémentale (suivantes) : `forceFull` n'est jamais passé. Une
  * exécution interrompue ou avec des erreurs de dossier est un échec.
  */
@@ -76,13 +77,15 @@ export class AtlasExecuteur implements Executeur {
 
   async execute(target: ExecutionTarget): Promise<ExecutionResult> {
     const { api, isSite } = this.options;
+    const wanted = (type: DataType): boolean => target.dataTypes.includes(type);
     if (await isSite(target.itemId)) {
+      // Un site n'est sauvegardé que si le plan protège SharePoint : rien à faire sinon.
+      if (!wanted('sharepoint')) return NO_CONTENT;
       return check(await api.sharepoint.backup(target.itemId)) ? NO_CONTENT : {};
     }
-    const steps = [
-      () => api.outlook.backup(target.itemId),
-      () => api.onedrive.backup(target.itemId),
-    ];
+    const steps: (() => Promise<BackupOutcome>)[] = [];
+    if (wanted('mail')) steps.push(() => api.outlook.backup(target.itemId));
+    if (wanted('onedrive')) steps.push(() => api.onedrive.backup(target.itemId));
     let failure: unknown;
     let empty = true;
     for (const step of steps) {
