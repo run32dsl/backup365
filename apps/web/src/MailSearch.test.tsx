@@ -10,7 +10,8 @@ import {
   runExport,
 } from './MailPage.js';
 import { submitFilters } from './audit.js';
-import { SearchPage, SearchView } from './SearchPage.js';
+import { SEARCH_HELP, SEARCH_START, SearchPage, SearchView } from './SearchPage.js';
+import { AUDIT_REMINDER } from './RestoreJourney.js';
 import {
   exportEml,
   fetchMail,
@@ -75,13 +76,45 @@ describe('SearchView', () => {
     expect(withRestore).not.toContain('>Boîte<');
     const empty = { total: 0, limit: 25, offset: 0, items: [] };
     expect(renderToString(<SearchView state={empty} mailbox="paul.moreau@exemple.fr" />)).toContain(
-      'Aucun résultat',
+      'Aucun mail ne correspond',
     );
+  });
+
+  it('arrives with help, audit reminder, form then a start empty state, in that order', () => {
+    const html = renderToString(<SearchPage />);
+    const order = ['<h1>', SEARCH_HELP, AUDIT_REMINDER, '<form', SEARCH_START].map((t) =>
+      html.indexOf(t),
+    );
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+
+  it('echoes the criteria and suggests widening when nothing matches', () => {
+    const empty = { total: 0, limit: 25, offset: 0, items: [] };
+    const html = renderToString(
+      <SearchView state={empty} query={{ q: 'devis', after: '2026-01-01' }} />,
+    );
+    expect(html).toContain('Aucun mail ne correspond à « devis » dans cette période.');
+    expect(html).toContain('Élargissez la période ou retirez le filtre de boîte.');
+  });
+
+  it('words the empty state without term or period', () => {
+    const empty = { total: 0, limit: 25, offset: 0, items: [] };
+    expect(renderToString(<SearchView state={empty} />)).toContain(
+      'Aucun mail ne correspond à cette recherche sur la période sauvegardée.',
+    );
+    expect(renderToString(<SearchView state={empty} query={{ before: '2026-01-01' }} />)).toContain(
+      'dans cette période.',
+    );
+  });
+
+  it('shows no start empty state while a preset mailbox search loads', () => {
+    expect(renderToString(<SearchPage mailbox="a@b.fr" />)).not.toContain(SEARCH_START);
   });
 
   it('shows empty, loading and error states, and escapes content', () => {
     const empty = { total: 0, limit: 25, offset: 0, items: [] };
-    expect(renderToString(<SearchView state={empty} />)).toContain('Aucun résultat');
+    expect(renderToString(<SearchView state={empty} />)).toContain('Aucun mail ne correspond');
     expect(renderToString(<SearchView state="loading" />)).toContain('en cours');
     expect(renderToString(<SearchView state="error" />)).toContain('indisponible');
     const html = renderToString(
