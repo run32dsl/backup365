@@ -71,7 +71,11 @@ describe('StatusView', () => {
     expect(html).toContain('Messagerie');
     expect(html).toContain('Dernière sauvegarde (UTC)');
     expect(html).not.toMatch(/instantané|T\d\d:\d\d:\d\dZ/u);
-    expect(html).toContain('site SharePoint');
+    expect(html).toContain('Site SharePoint');
+    expect(html).not.toMatch(/>(Type|Charge)</u);
+    expect(html).toContain('>Contenu<');
+    expect(html).toContain('OneDrive');
+    expect(html).not.toMatch(/boîte/u);
     expect(html.match(/<tr/g)).toHaveLength(5);
   });
 
@@ -243,10 +247,10 @@ describe('StatusView', () => {
     expect(renderToString(<StatusView state="error" />)).toContain('indisponible');
   });
 
-  it('asks for a first Atlas backup when none exists yet', () => {
-    expect(renderToString(<StatusView state="empty" />)).toContain(
-      'Aucune sauvegarde trouvée : lancez une première sauvegarde Atlas',
-    );
+  it('explains the empty state without naming Atlas', () => {
+    const html = renderToString(<StatusView state="empty" />);
+    expect(html).toContain('Aucune sauvegarde pour l’instant.');
+    expect(html).not.toContain('Atlas');
   });
 });
 

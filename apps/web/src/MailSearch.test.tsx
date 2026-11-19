@@ -240,17 +240,30 @@ describe('mail helpers', () => {
     const form = new FormData();
     form.set('q', ' facture ');
     form.set('mailbox', '');
-    form.set('after', '2026-01-01T10:00');
-    form.set('before', '');
+    form.set('after', '18/11/2026');
+    form.set('before', '18/11/2026');
     const query = searchQueryFromForm(form);
-    expect(query).toMatchObject({ q: 'facture', limit: 25, offset: 0, before: '' });
-    expect(query.after).toMatch(/^2026-01-01T\d\d:00:00\.000Z$/);
+    expect(query).toMatchObject({
+      q: 'facture',
+      limit: 25,
+      offset: 0,
+      after: '2026-11-18T00:00:00.000Z',
+      before: '2026-11-19T00:00:00.000Z',
+    });
     const fetchFn = vi.fn<typeof fetch>(() => json({ total: 0, limit: 25, offset: 0, items: [] }));
     await searchMails(query, fetchFn);
     const url = String(fetchFn.mock.calls[0]?.[0] ?? '');
     expect(url).toContain('q=facture');
     expect(url).not.toContain('mailbox');
-    expect(url).not.toContain('before');
+    expect(url).toContain('after=2026-11-18T00%3A00%3A00.000Z');
+    expect(url).toContain('before=2026-11-19T00%3A00%3A00.000Z');
+  });
+
+  it('shows jj/mm/aaaa text fields, without the native date input or « exclu »', () => {
+    const html = renderToString(<SearchPage />);
+    expect(html).not.toContain('datetime-local');
+    expect(html).not.toContain('exclu');
+    expect(html).toContain('Date au format jj/mm/aaaa, en UTC comme le tableau');
   });
 
   it('prefills the mailbox field and starts the search from the anchor mailbox', async () => {

@@ -1,5 +1,6 @@
 import { DATA_TYPES, type DataType, type RpoHours } from '@backup365/core';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ConfigurationLink } from './ConfigurationBlock.js';
 import {
   DATA_TYPE_LABELS,
   MESSAGES,
@@ -62,7 +63,12 @@ const goTo = (hash: string) => {
 /** Échec d'une action sur les plans : la phrase pour l'utilisateur, sans détail technique. */
 export function PlanFailure({ problem }: { problem: Problem }) {
   const tone = problem.code === 'backup_not_configured' ? 'warning' : 'error';
-  return <Alert tone={tone}>{problem.message}</Alert>;
+  return (
+    <Alert tone={tone}>
+      {problem.message}
+      {problem.code === 'backup_not_configured' ? <ConfigurationLink /> : null}
+    </Alert>
+  );
 }
 
 type Flash = { tone: 'success' | 'error'; text: string };
