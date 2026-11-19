@@ -64,13 +64,16 @@ développement :
   commande : construction comprise sur un poste ou sur l'hôte, sans construction dans la CI
   (`BACKUP365_SKIP_BUILD`). Dans la CI, la même ligne est écrite dans le résumé du run. Au-delà de
   5 min, la commande ajoute un avertissement, sans échouer ;
-- à chaque revue, l'hôte lance la commande et reprend cette ligne dans `.review/verifs-<PR>.txt`.
-  C'est la durée mesurée sur l'hôte, distincte de celle de l'étape `captures` du job `ci` ;
+- la reprise de cette ligne dans `.review/verifs-<PR>.txt` à chaque revue relève de l'outillage de
+  l'hôte (suivi dans #249). Ce sera la durée mesurée sur l'hôte, distincte de celle de l'étape
+  `captures` du job `ci` ;
 - le bilan hebdomadaire du Product Owner reprend la durée médiane et la durée maximale du job `ci`
   sur `develop` pour la semaine écoulée (lues dans l'interface Actions), et la plus longue durée de
   `captures` relevée dans les résumés de run et les fichiers `verifs` de la semaine ;
 - seuils d'alerte, tous deux sous le timeout de 15 min : 10 min pour le job `ci`, 5 min pour
-  `captures`. Au-delà, le Product Owner ouvre une issue : rien dans le dépôt ne l'ouvre à sa place.
+  `captures`. Au-delà, le Product Owner ouvre une issue pendant le bilan (mise en place suivie
+  dans #250) : rien dans le dépôt ne l'ouvre à sa place. Cas limite accepté : un dépassement du
+  job `ci` en milieu de semaine n'est vu qu'au bilan suivant.
 
 ## Version affichée
 
