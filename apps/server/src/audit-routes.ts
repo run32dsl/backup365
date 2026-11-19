@@ -87,7 +87,20 @@ export function registerAuditRoutes(
       }
       const page = await audit.list(req.query);
       // La lecture du journal est elle-même journalisée (décision du 2026-11-12), avant la réponse.
-      await audit.record(auditEvent(req, 'list.view', 'audit', { count: page.items.length }));
+      // Cible : les filtres de période et d'action (valeurs validées par le schéma). Jamais
+      // l'acteur, texte libre saisi par l'utilisateur.
+      const { from, to, action } = req.query;
+      const filters = [
+        from && `from=${from}`,
+        to && `to=${to}`,
+        action && `action=${action}`,
+      ].filter(Boolean);
+      await audit.record(
+        auditEvent(req, 'list.view', 'audit', {
+          ...(filters.length > 0 ? { target: filters.join(';') } : {}),
+          count: page.items.length,
+        }),
+      );
       let sites: Map<string, string> | undefined;
       if (catalog && page.items.some((e) => SITE_RESOURCES.has(e.resource))) {
         try {
