@@ -7,7 +7,13 @@ import {
   type SearchQuery,
   type SearchResponse,
 } from './mail.js';
-import { DATE_HELP, submitFilters, type DateRange } from './audit.js';
+import {
+  DATE_HELP,
+  FILTER_NOT_APPLIED,
+  hasDateError,
+  submitFilters,
+  type DateRange,
+} from './audit.js';
 import { dateTimeOf, folderLabel, plural } from './format.js';
 import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
 import { fetchRestoreConfigured } from './restore.js';
@@ -67,8 +73,11 @@ export function SearchView({
   restoreConfigured,
   onPage,
   mailbox,
+  filterRefused = false,
 }: {
   state: SearchState;
+  /** Un filtre de date refusé n'a pas été appliqué : la liste affichée n'est pas filtrée. */
+  filterRefused?: boolean;
   /** Boîte filtrée : la colonne « Boîte » disparaît et la boîte est rappelée dans le compteur. */
   mailbox?: string;
   restoreConfigured?: boolean;
@@ -76,7 +85,14 @@ export function SearchView({
 }) {
   if (state === 'loading') return <p role="status">Recherche en cours…</p>;
   if (state === 'error') return <Alert tone="error">Recherche indisponible</Alert>;
-  if (state.items.length === 0) return <EmptyState>Aucun résultat.</EmptyState>;
+  const notice = filterRefused && <Alert tone="info">{FILTER_NOT_APPLIED}</Alert>;
+  if (state.items.length === 0)
+    return (
+      <>
+        {notice}
+        <EmptyState>Aucun résultat.</EmptyState>
+      </>
+    );
   const base = mailbox ? COLUMNS.filter((c) => c !== MAILBOX_COLUMN) : COLUMNS;
   const columns: Column<Hit>[] =
     restoreConfigured === undefined
@@ -98,6 +114,7 @@ export function SearchView({
         ];
   return (
     <>
+      {notice}
       <p role="status">
         {plural(state.total, 'résultat')}
         {mailbox ? ` dans la boîte ${mailbox}` : ''}, {state.offset + 1} à{' '}
@@ -188,6 +205,7 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
           state={state}
           restoreConfigured={restoreConfigured}
           mailbox={query?.mailbox}
+          filterRefused={hasDateError(errors)}
           onPage={(offset) => {
             if (query) setQuery({ ...query, offset });
           }}

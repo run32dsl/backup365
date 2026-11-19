@@ -483,6 +483,10 @@ select[aria-disabled='true'] {
   .filters > .btn {
     grid-column: -2 / -1;
   }
+  /* Zone d'erreur réservée : une erreur sous un champ ne déplace pas le bouton de soumission. */
+  .filters .field {
+    min-height: 12.5rem;
+  }
 }
 @media (max-width: 56.25rem) {
   .filters {
