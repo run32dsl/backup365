@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { detailLabel } from './auditLabels.js';
-import { failureSummary, successSummary } from './sharepoint.js';
+import { successSummary } from './sharepoint.js';
 
 describe('SharePoint restore summary', () => {
   it('agrees restored, kept and error counts on success, and omits zeros', () => {
@@ -12,18 +12,6 @@ describe('SharePoint restore summary', () => {
     );
     expect(successSummary(0, 0, 2, '1 s')).toBe(
       'Aucun élément restauré en 1 s. 2 éléments en erreur.',
-    );
-  });
-
-  it('writes the failure alert and a detail line without zeros', () => {
-    expect(failureSummary(0)).toBe(
-      'La restauration a échoué : aucun élément restauré. Rien n’a été écrasé.',
-    );
-    expect(failureSummary(1)).toBe(
-      'La restauration a échoué : 1 élément restauré. Rien n’a été écrasé.',
-    );
-    expect(failureSummary(4)).toBe(
-      'La restauration a échoué : 4 éléments restaurés. Rien n’a été écrasé.',
     );
   });
 

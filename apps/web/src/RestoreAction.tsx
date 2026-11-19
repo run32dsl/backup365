@@ -91,11 +91,10 @@ export function RestoreOutcome({
   return (
     <>
       <Alert tone="error">
-        La restauration a échoué après {formatDuration(job.durationMs ?? 0)}.
+        La restauration a échoué : {failureCause(job.error).replace(/\.$/, '')}.{' '}
+        {isOutcomeUncertain(job.error) ? T.uncertain : T.untouched}
       </Alert>
-      <ResultList rows={recall} />
-      <p>Cause : {failureCause(job.error)}</p>
-      <p>{isOutcomeUncertain(job.error) ? T.uncertain : T.untouched}</p>
+      <ResultList rows={[...recall, ['Durée', formatDuration(job.durationMs ?? 0)]]} />
       <div className="button-row dialog-actions">
         <Button variant="secondary" onClick={onClose}>
           Fermer
