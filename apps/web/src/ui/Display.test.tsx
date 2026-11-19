@@ -70,6 +70,7 @@ describe('StatusPill', () => {
     ['late', '⚠', 'En retard'],
     ['failed', '✖', 'En échec'],
     ['running', '↻', 'En cours'],
+    ['pending', '◷', 'En attente'],
   ] as const)('%s pairs an icon with a text', (status, icon, label) => {
     const html = renderToStaticMarkup(<StatusPill status={status} />);
     expect(html).toContain(`<span aria-hidden="true">${icon}</span>`);

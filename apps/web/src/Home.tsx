@@ -90,12 +90,9 @@ export function OverviewView({
   return (
     <div className="overview">
       <Card id="overview-backup" title="Sauvegarde">
-        {/* Sans résultat, pas de pastille : la maquette n'en nomme aucune pour ce cas. */}
-        {state.state !== 'pending' && (
-          <div role="status">
-            <StatusPill status={state.state} />
-          </div>
-        )}
+        <div role="status">
+          <StatusPill status={state.state} />
+        </div>
         {MESSAGES[state.state] && <p>{MESSAGES[state.state]}</p>}
         <BackupAction state={state.state} admin={admin} />
       </Card>

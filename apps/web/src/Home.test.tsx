@@ -74,12 +74,13 @@ describe('OverviewView', () => {
     );
   });
 
-  it('pending (plans without any result): never Non configurée, no pill, no button', () => {
+  it('pending (plans without any result): En attente pill, never Non configurée, no button', () => {
     for (const admin of [true, false]) {
       const html = render(pending, admin);
       expect(html).not.toContain('Non configurée');
       expect(html).not.toContain('Configurer');
-      expect(html).not.toContain('class="badge');
+      expect(html).toContain('<span aria-hidden="true">◷</span> En attente');
+      expect(html).toContain('role="status"');
       expect(html).not.toContain('<button');
       expect(html).toContain('Aucune sauvegarde n’est encore terminée.');
       expect(html).toContain('0 plan opérationnel sur 1');

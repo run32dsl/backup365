@@ -288,6 +288,10 @@ th {
   background: var(--err-bg);
   color: var(--err-fg);
 }
+.badge-neutral {
+  background: var(--border-soft);
+  color: var(--text);
+}
 .badge-info {
   background: var(--info-bg);
   color: var(--info-fg);
