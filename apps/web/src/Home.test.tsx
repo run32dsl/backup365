@@ -156,6 +156,12 @@ describe('ConsoleFooter', () => {
     );
   });
 
+  it('shows a version built from the image', () => {
+    expect(
+      renderToStaticMarkup(<ConsoleFooter version="0.1.0 · abc1234" demo={false} />),
+    ).toContain('Version 0.1.0 · abc1234');
+  });
+
   it('links to the components page in demo mode only', () => {
     const demo = renderToStaticMarkup(<ConsoleFooter version="1.4.2" demo />);
     expect(demo).toContain('href="#/composants"');

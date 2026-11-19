@@ -5,11 +5,18 @@
  * - `hash` : ancre de l'écran (vide pour la page de connexion) ;
  * - `role` : `'admin'`, `'operator'` ou `null` (pas de session) ;
  * - `scheme` : `'dark'` pour le thème sombre (clair par défaut) ;
- * - `prepare(page)` : gestes éventuels avant la photo (saisie, clic), rendu attendu à la fin.
+ * - `prepare(page)` : gestes éventuels avant la photo (saisie, clic), rendu attendu à la fin ;
+ * - `buildCommit` : commit court d'une image construite ; l'écran est alors photographié sur un
+ *   second serveur de démonstration, dont le pied de page affiche « Version <paquet> · <commit> »
+ *   au lieu de « Version dev ».
  *
  * @typedef {{ name: string, hash: string, role: 'admin' | 'operator' | null, scheme?: 'light' | 'dark',
- *   prepare?: (page: import('@playwright/test').Page) => Promise<void> }} Screen
+ *   prepare?: (page: import('@playwright/test').Page) => Promise<void>,
+ *   buildCommit?: string }} Screen
  */
+
+/** Commit court fictif des captures et des tests de la version d'une image. */
+export const IMAGE_COMMIT = 'abc1234';
 
 export const WIDTHS = [1280, 390];
 
@@ -193,6 +200,17 @@ export const SCREENS = [
       await page.goto('/?oidc_error=no_group');
       await page.getByRole('status').filter({ hasText: 'aucun groupe autorisé' }).waitFor();
     },
+  },
+  // Pied de page (version) : thème sombre, puis version d'une image construite, avant et après
+  // connexion. Le clair avec « Version dev » figure sur `connexion` et `accueil-en-echec`.
+  { name: 'connexion-sombre', hash: '', role: null, scheme: 'dark' },
+  { name: 'connexion-version-image', hash: '', role: null, buildCommit: IMAGE_COMMIT },
+  {
+    name: 'tableau-de-bord-version-image-sombre',
+    hash: '#/',
+    role: 'admin',
+    scheme: 'dark',
+    buildCommit: IMAGE_COMMIT,
   },
   // Accueil : la démo inscrit un plan en échec (état réel, sans simulation) ; les deux autres états
   // sont simulés par la réponse de GET /api/overview.

@@ -1,9 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { displayVersion } from './build-version.js';
 import { parsePort } from './config.js';
 import { createServer } from './server.js';
 
-const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
+const { version: packageVersion } = createRequire(import.meta.url)('../package.json') as {
+  version: string;
+};
+const version = displayVersion(packageVersion, process.env['BACKUP365_BUILD_COMMIT']);
 const port = parsePort(process.env['PORT']);
 const host = process.env['HOST'] ?? '127.0.0.1';
 

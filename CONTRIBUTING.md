@@ -96,7 +96,8 @@ présente ; utiliser un `BACKUP365_DATA_DIR` jetable.
   (conteneurs des agents) affiche ses champs natifs en anglais quelle que soit l'option : ne pas
   utiliser de champ `date` ou `datetime-local`, mais un champ texte au format `jj/mm/aaaa`.
 - **Ajouter un écran** : une entrée dans `e2e/screens.mjs` (`name`, `hash`, `role`, `prepare`
-  éventuel pour les gestes préalables).
+  éventuel pour les gestes préalables). Deux champs facultatifs : `colorScheme: 'dark'` pour le
+  thème sombre, `buildCommit` pour photographier l'écran avec la version d'une image construite.
 - `pnpm run test:e2e` joue les tests Playwright (`e2e/*.spec.ts`) en mode démo. Installer le
   navigateur une fois avec `pnpm exec playwright install chromium`, ou pointer
   `BACKUP365_CHROMIUM` vers un exécutable Chromium existant.
@@ -125,7 +126,12 @@ développement :
 
 ## Version affichée
 
-Le pied de page de la console affiche la version du serveur (`/api/health`).
+Le pied de page affiche « Version <paquet> · <commit court> » pour une image construite avec
+`--build-arg BUILD_COMMIT=$(git rev-parse --short=7 HEAD)` (la CI le fait), et « Version dev » en
+local ou sans l'argument. La CI vérifie que l'image affiche bien la version et le commit, jamais
+0.0.0. La version du paquet est celle de `apps/server/package.json`. Sans Docker,
+`e2e/version.spec.ts` lance le serveur avec `BACKUP365_BUILD_COMMIT` et vérifie la même chose dans
+le navigateur, avant et après connexion ; les captures `*-version-image*` en montrent le rendu.
 
 - Le produit reste en 0.x, avec un incrément mineur à chaque promotion `develop` → `main`.
 - Le passage en 1.0.0 est décidé par le Product Manager (décision du 2026-11-18) : seulement quand

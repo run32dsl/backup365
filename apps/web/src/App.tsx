@@ -450,11 +450,17 @@ function AppGate({ health }: { health: HealthState }) {
     case 'setup':
     case 'login':
       return (
-        <CredentialsPage
-          mode={gate.status}
-          notice={gate.status === 'login' ? notice : undefined}
-          onSession={open}
-        />
+        <>
+          <CredentialsPage
+            mode={gate.status}
+            notice={gate.status === 'login' ? notice : undefined}
+            onSession={open}
+          />
+          <ConsoleFooter
+            version={typeof health === 'object' ? health?.version : undefined}
+            demo={false}
+          />
+        </>
       );
     case 'ready':
       return gate.session.user.mustChangePassword ? (
