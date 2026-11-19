@@ -79,6 +79,43 @@ describe('StatusView', () => {
     expect(html.match(/<tr/g)).toHaveLength(5);
   });
 
+  it('shows one line per service, with the service without a plan greyed', () => {
+    const services: NonNullable<StatusReport['services']> = [
+      {
+        service: 'mail',
+        hasPlan: true,
+        lastSnapshotAt: '2026-11-12T06:00:00Z',
+        ageHours: 6,
+        state: 'ok',
+        retentionDays: 365,
+        scope: { kind: 'all' },
+      },
+      {
+        service: 'onedrive',
+        hasPlan: false,
+        lastSnapshotAt: null,
+        ageHours: null,
+        state: 'missing',
+        retentionDays: null,
+        scope: null,
+      },
+    ];
+    const html = renderToString(<StatusView state={{ ...report, services }} />);
+    expect(html).toContain('Sources');
+    expect(html).toContain('il y a 6 h');
+    expect(html).toContain('365 jours');
+    expect(html).toContain('Tous les éléments');
+    expect(html).toContain('Sans plan');
+    expect(html.match(/row-muted/g)).toHaveLength(1);
+  });
+
+  it('shows no services section when the server sends none, an error when it is null', () => {
+    expect(renderToString(<StatusView state={report} />)).not.toContain('Sources');
+    expect(renderToString(<StatusView state={{ ...report, services: null }} />)).toContain(
+      'Synthèse des services indisponible',
+    );
+  });
+
   it('says so when there is no alert', () => {
     const ok = report.rows.filter((r) => r.state === 'ok');
     const html = renderToString(<StatusView state={{ ...report, alertCount: 0, rows: ok }} />);

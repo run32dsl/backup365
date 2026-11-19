@@ -66,6 +66,55 @@ export function sortRows(rows: Row[]): Row[] {
   );
 }
 
+type ServiceEntry = NonNullable<StatusReport['services']>[number];
+
+const SERVICE_COLUMNS: Column<ServiceEntry>[] = [
+  { header: 'Service', cell: (s) => workloadLabel(s.service) },
+  { header: 'Dernière sauvegarde (UTC)', cell: (s) => dateTimeOrDash(s.lastSnapshotAt) },
+  {
+    header: 'État',
+    cell: (s) =>
+      s.hasPlan ? (
+        <StateBadge state={s.state} />
+      ) : (
+        <StatusPill status="pending" label="Sans plan" />
+      ),
+  },
+  { header: 'Ancienneté', cell: (s) => (s.hasPlan ? ageLabel(s.ageHours) : '') },
+  {
+    header: 'Conservation',
+    cell: (s) => (s.retentionDays === null ? '' : plural(s.retentionDays, 'jour')),
+  },
+  {
+    header: 'Périmètre',
+    cell: (s) =>
+      s.scope === null
+        ? ''
+        : s.scope.kind === 'all'
+          ? 'Tous les éléments'
+          : plural(s.scope.count, 'élément choisi', 'éléments choisis'),
+  },
+];
+
+/** Page « Sources » : une ligne par service ; un service sans plan est grisé. */
+function Services({ services }: { services: StatusReport['services'] }) {
+  if (services === undefined) return null;
+  if (services === null) return <Alert tone="error">Synthèse des services indisponible</Alert>;
+  return (
+    <section className="status-section" aria-labelledby="services-title">
+      <h2 id="services-title">Sources</h2>
+      <DataTable
+        caption="État par service"
+        hideCaption
+        columns={SERVICE_COLUMNS}
+        rows={services}
+        rowKey={(s) => s.service}
+        rowClassName={(s) => (s.hasPlan ? undefined : 'row-muted')}
+      />
+    </section>
+  );
+}
+
 type PlanEntry = PlanComplianceReport['nonCompliant'][number];
 
 const PLAN_COLUMNS: Column<PlanEntry>[] = [
@@ -198,6 +247,7 @@ export function StatusView({ state }: { state: StatusState }) {
   return (
     <>
       <Summary report={state} />
+      <Services services={state.services} />
       <PlansCompliance plans={state.plans} />
       <Backups report={state} />
     </>

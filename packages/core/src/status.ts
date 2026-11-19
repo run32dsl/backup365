@@ -1,5 +1,5 @@
 import type { BackupCatalog, Workload } from './catalog.js';
-import type { PlanComplianceReport } from './protection-plan.js';
+import type { DataType, PlanComplianceReport, ProtectionPlanInput } from './protection-plan.js';
 
 /** Seuil d'alerte par défaut : une sauvegarde nocturne doit avoir moins de 26 h. */
 export const DEFAULT_MAX_AGE_HOURS = 26;
@@ -31,6 +31,8 @@ export interface StatusReport {
   rows: StatusRow[];
   /** Ajouté par `GET /api/status` : conformité des plans ; `null` si leur base ne répond pas. */
   plans?: PlanComplianceReport | null;
+  /** Ajouté par `GET /api/status` pour les administrateurs : une ligne par service ; `null` si la base des plans ne répond pas. */
+  services?: ServiceSummary[] | null;
 }
 
 /**
@@ -112,4 +114,62 @@ export async function buildStatusReport(
     alertCount: rows.filter((r) => r.state !== 'ok').length,
     rows,
   };
+}
+
+/** Services présentés sur la page « Sources », dans l'ordre d'affichage. */
+export const SERVICES = ['mail', 'onedrive', 'sharepoint'] as const;
+export type Service = (typeof SERVICES)[number];
+
+/** Type de données d'un plan qui couvre chaque service (ADR 0011). */
+const SERVICE_DATA_TYPE: Record<Service, DataType> = {
+  mail: 'mail',
+  onedrive: 'files',
+  sharepoint: 'files',
+};
+
+export interface ServiceSummary {
+  service: Service;
+  /** Au moins un plan couvre ce service ; sinon la ligne est grisée. */
+  hasPlan: boolean;
+  /** Dernier instantané, tous éléments confondus (UTC, ISO 8601) ; `null` si aucun. */
+  lastSnapshotAt: string | null;
+  ageHours: number | null;
+  state: BackupState;
+  /** Conservation la plus longue parmi les plans qui couvrent le service ; `null` sans plan. */
+  retentionDays: number | null;
+  /** `all` si un plan couvre tout le service ; sinon nombre d'éléments distincts choisis. */
+  scope: { kind: 'all' } | { kind: 'selection'; count: number } | null;
+}
+
+type PlanFacts = Pick<ProtectionPlanInput, 'dataTypes' | 'scope' | 'selection' | 'retentionDays'>;
+
+/** Une ligne par service : dernier instantané, état, conservation et périmètre des plans. */
+export function buildServiceSummaries(
+  rows: readonly StatusRow[],
+  plans: readonly PlanFacts[],
+  maxAgeHours: number,
+  now: Date = new Date(),
+): ServiceSummary[] {
+  return SERVICES.map((service) => {
+    const snapshots = rows
+      .filter((r) => r.workload === service && r.lastSnapshotAt !== null)
+      .map((r) => ({ createdAt: r.lastSnapshotAt as string }));
+    const last = latest(snapshots);
+    const covering = plans.filter((p) => p.dataTypes.includes(SERVICE_DATA_TYPE[service]));
+    const selected = new Set(covering.flatMap((p) => (p.scope === 'selection' ? p.selection : [])));
+    const scope: ServiceSummary['scope'] =
+      covering.length === 0
+        ? null
+        : covering.some((p) => p.scope === 'all')
+          ? { kind: 'all' }
+          : { kind: 'selection', count: selected.size };
+    return {
+      service,
+      hasPlan: covering.length > 0,
+      lastSnapshotAt: last,
+      ...backupState(last, now, maxAgeHours),
+      retentionDays: covering.length > 0 ? Math.max(...covering.map((p) => p.retentionDays)) : null,
+      scope,
+    };
+  });
 }
