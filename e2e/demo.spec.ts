@@ -180,7 +180,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   }
   await expect(page.getByText('Nom choisi par OneDrive')).toBeVisible();
   await page.getByLabel('Remplacer le fichier actuel').check();
-  await expect(page.getByText(/il reste dans l’historique OneDrive/)).toBeVisible();
+  await expect(page.getByText(/L’actuel reste dans l’historique OneDrive/)).toBeVisible();
   const replaceGo = page.getByRole('button', { name: 'Restaurer', exact: true });
   await expect(replaceGo).toHaveAttribute('aria-disabled', 'true');
   // Le bouton grisé reste cliquable : le clic affiche l’erreur.
