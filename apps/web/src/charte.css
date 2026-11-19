@@ -740,6 +740,49 @@ select[aria-disabled='true'] {
   .data-table td.card-title .choice {
     font-weight: 600;
   }
+  /* Cellule sans étiquette (badge d'état) : pleine largeur, sous le titre. */
+  .data-table td.card-nolabel {
+    display: block;
+    padding-top: 0;
+  }
+  .data-table td.card-nolabel::before {
+    display: none;
+  }
+  /* Dernière exécution : une seule ligne secondaire « étiquette : valeur ». */
+  .data-table td.card-wide.plan-last-run {
+    display: block;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    padding-block: 0;
+  }
+  .data-table td.card-wide.plan-last-run::before {
+    content: attr(data-label) ' : ';
+    font-weight: 400;
+  }
+  /* Titre de carte : le nom en gras, la synthèse en texte secondaire normal. */
+  .data-table td.card-title .plan-summary {
+    font-weight: 400;
+  }
+  /* Actions d'un plan : « Lancer maintenant » puis Modifier et Supprimer en liens sur une rangée. */
+  /* Les trois actions tiennent sur une rangée ; la raison d'indisponibilité reste sous le bouton. */
+  .data-table .row-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+  .data-table .row-actions .run-action {
+    flex: 1 1 8rem;
+  }
+  .data-table .row-actions-more {
+    gap: 0;
+  }
+  .data-table .row-actions-more .btn {
+    flex: 0 1 auto;
+    border-color: transparent;
+    padding-inline: var(--space-2);
+    text-decoration: underline;
+  }
   .data-table td.card-only {
     color: var(--muted);
     /* Aligné sur le nom, sous le bouton radio (1,5 rem + espace). */
