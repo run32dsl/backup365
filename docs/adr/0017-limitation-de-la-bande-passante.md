@@ -40,21 +40,24 @@ Conclusion : **le SDK ne permet pas de limiter le débit** ni la concurrence.
 - Pas de limiteur de débit contourné autour du SDK : le principe 5 de la vision est de contribuer
   à Atlas. Une demande amont est rédigée dans `docs/upstream/limite-de-debit.md`, **non publiée** :
   le Product Manager décide de la publier.
-- Repli « planifier hors heures ouvrées » : **non implémenté, décision produit attendue** (voir
-  ci-dessous). En attendant, la limitation relève du réseau de l'utilisateur (QoS du routeur ou du
+- Repli « planifier hors heures ouvrées » : le Product Owner retient l'option 2 (2026-11-19) comme
+  comportement par défaut prudent et réversible. Seuls les plans dont le RPO est de 24 h ou plus
+  sont planifiés par défaut dans une fenêtre de nuit. Les plans à RPO plus court gardent leur
+  rythme (RPO/2, ADR 0009), sans restriction. Le lancement manuel reste toujours possible. Aucun
+  nouveau réglage, aucun objectif dégradé. Implémentation : #298.
+- En attendant, la limitation de débit relève du réseau de l'utilisateur (QoS du routeur ou du
   NAS).
 
-## Décision attendue : repli hors heures ouvrées
+## Options reportées au Product Manager
 
-Interdire les sauvegardes planifiées en journée entre en conflit avec le RPO : un plan à 4 h
-tente une sauvegarde toutes les 2 h (ADR 0009), et un plan est « en retard » si la dernière
-réussite a plus que le RPO. Options :
+Reportées dans #299, avec la question de faire entrer cette fonctionnalité dans le MVP :
 
-1. Réglage global « heures ouvrées » (jours, heures) : le planificateur ne lance que hors de ces
-   plages ; les plans dont le RPO ne le permet pas sont signalés. Les lancements manuels restent
-   possibles.
-2. Idem, mais seulement pour les plans à RPO de 24 h ; les autres ne sont pas concernés.
-3. Attendre la contribution amont et ne rien faire d'ici là.
+1. Restreindre globalement les sauvegardes aux heures non ouvrées : cela obligerait à choisir
+   entre la bande passante et le RPO, ce qui engage la promesse « objectifs » du produit.
+2. Attendre la contribution amont et ne rien faire d'ici là.
+
+La publication de la demande amont l'est aussi (#299). L'écart de concurrence (un lancement manuel
+s'exécute en parallèle d'un passage du planificateur) est suivi dans #300.
 
 ## Conséquences
 
