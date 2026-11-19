@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { PlanWizard, PlansListView } from './PlansPage.js';
 import { AUDIT_REMINDER } from './RestoreJourney.js';
+import { Alert } from './ui/index.js';
 import {
   complianceView,
   createdMessage,
@@ -376,6 +377,17 @@ describe('PlansListView', () => {
     );
     expect(runFlashText(true, 'Boîtes mail', undefined)).toBe(queuedMessage('Boîtes mail'));
     expect(runFlashText(false, 'Boîtes mail', [current])).toContain('Sauvegarde lancée');
+  });
+
+  it('renders the queued confirmation as a status banner naming both plans', () => {
+    const current = { ...plan, id: 'p0', name: 'Boîte direction', running: true };
+    // Le même rendu que la page : `Alert` au ton `success`, avec le texte choisi après l'envoi.
+    const html = renderToStaticMarkup(
+      <Alert tone="success">{runFlashText(true, 'Boîtes mail', [current, plan])}</Alert>,
+    );
+    expect(html).toContain('role="status"');
+    expect(html).toContain('« Boîtes mail »');
+    expect(html).toContain('« Boîte direction »');
   });
 
   it('handles loading, error and empty states', () => {

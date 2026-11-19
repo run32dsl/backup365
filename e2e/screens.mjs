@@ -223,10 +223,24 @@ export const SCREENS = [
     prepare: async (page) => {
       await overviewAs(page, {
         state: 'operational',
-        plans: { total: 2, operational: 2 },
+        plans: { total: 2, operational: 2, running: 0, queued: 0 },
         lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
       });
       await page.getByText('Microsoft 365 connecté').waitFor();
+    },
+  },
+  {
+    // Carte « Plans » pendant une sauvegarde : un plan en cours, un lancement en file (issue #307).
+    name: 'accueil-plans-en-file',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      await overviewAs(page, {
+        state: 'operational',
+        plans: { total: 3, operational: 3, running: 1, queued: 1 },
+        lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+      });
+      await page.getByText('En file d’attente').waitFor();
     },
   },
   {
@@ -236,7 +250,7 @@ export const SCREENS = [
     prepare: (page) =>
       overviewAs(page, {
         state: 'unconfigured',
-        plans: { total: 0, operational: 0 },
+        plans: { total: 0, operational: 0, running: 0, queued: 0 },
         lastBackupAt: null,
       }),
   },
@@ -247,7 +261,7 @@ export const SCREENS = [
     prepare: (page) =>
       overviewAs(page, {
         state: 'pending',
-        plans: { total: 1, operational: 0 },
+        plans: { total: 1, operational: 0, running: 0, queued: 0 },
         lastBackupAt: null,
       }),
   },
@@ -258,7 +272,7 @@ export const SCREENS = [
     prepare: (page) =>
       overviewAs(page, {
         state: 'unconfigured',
-        plans: { total: 0, operational: 0 },
+        plans: { total: 0, operational: 0, running: 0, queued: 0 },
         lastBackupAt: null,
       }),
   },
