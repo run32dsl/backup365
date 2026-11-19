@@ -37,6 +37,10 @@ Texte sur fond : au moins 4,5:1 ; contour des contrôles : au moins 3:1.
 ## Typographie et espacements
 
 - Police système (`system-ui`), corps 1 rem, titre de page (`h1`, un seul par écran) 1,5 rem.
+- Échelle de titres, définie une fois dans `charte.css` : `h1` 1,5 rem, `h2` 1,25 rem (parties
+  d'un écran, cartes d'accueil, résultats de parcours, titre des boîtes de dialogue), `h3`
+  1,125 rem. Un composant ne redéfinit jamais une taille de titre ; le `h1` reste le plus grand.
+  La page `#/composants` montre l'échelle.
 - Unités `rem`. Échelle d'espacement : 4, 8, 16 et 24 px (`--space-1` à `--space-4`).
 - Cibles tactiles d'au moins 44 px (2,75 rem). Lisible à 200 % de zoom.
 
