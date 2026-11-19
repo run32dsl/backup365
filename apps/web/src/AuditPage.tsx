@@ -3,6 +3,8 @@ import { AUDIT_ACTIONS, type AuditAction } from '@backup365/core';
 import {
   AUDIT_PAGE_SIZE,
   DATE_HELP,
+  FILTER_NOT_APPLIED,
+  hasDateError,
   fetchAudit,
   queryFromForm,
   submitFilters,
@@ -114,16 +116,27 @@ export function AuditView({
   state,
   planNames = null,
   onPage,
+  filterRefused = false,
 }: {
   state: AuditState;
+  /** Un filtre de date refusé n'a pas été appliqué : la liste affichée n'est pas filtrée. */
+  filterRefused?: boolean;
   planNames?: ReadonlyMap<string, string> | null;
   onPage?: (offset: number) => void;
 }) {
   if (state === 'loading') return <p role="status">Chargement du journal…</p>;
   if (state === 'error') return <Alert tone="error">Journal d’audit indisponible</Alert>;
-  if (state.items.length === 0) return <EmptyState>Aucune entrée.</EmptyState>;
+  const notice = filterRefused && <Alert tone="info">{FILTER_NOT_APPLIED}</Alert>;
+  if (state.items.length === 0)
+    return (
+      <>
+        {notice}
+        <EmptyState>Aucune entrée.</EmptyState>
+      </>
+    );
   return (
     <>
+      {notice}
       <p role="status">
         {state.total === 1
           ? '1 entrée'
@@ -219,6 +232,7 @@ export function AuditPage() {
       <AuditView
         state={state}
         planNames={planNames}
+        filterRefused={hasDateError(errors)}
         onPage={(offset) => setQuery({ ...query, offset })}
       />
     </main>

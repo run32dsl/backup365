@@ -34,7 +34,17 @@ export async function fetchAudit(
 }
 
 /** Message sous un champ de date saisi dans un autre format que jj/mm/aaaa. */
-export const DATE_ERROR = 'Date attendue au format jj/mm/aaaa';
+export const DATE_FORMAT_ERROR = 'Saisissez la date au format jj/mm/aaaa, par exemple 18/11/2026';
+
+/** Message sous un champ de date au bon format mais qui n'existe pas. */
+export const dateMissingError = (text: string): string => `Cette date n’existe pas (${text})`;
+
+/** Message sous un champ de date hors des bornes acceptées. */
+export const DATE_RANGE_ERROR = 'Date trop éloignée';
+
+/** Message au-dessus de la liste quand un filtre de date refusé n'a pas été appliqué. */
+export const FILTER_NOT_APPLIED =
+  'Filtre non appliqué : corrigez la date pour filtrer. La liste affichée n’est pas filtrée.';
 
 /** Message sous « Au » quand « Du » est postérieur. */
 export const RANGE_ERROR = 'La date « Au » doit être égale ou postérieure à « Du »';
@@ -42,16 +52,16 @@ export const RANGE_ERROR = 'La date « Au » doit être égale ou postérieure �
 /** Aide des champs « Du » et « Au ». */
 export const DATE_HELP = 'Date au format jj/mm/aaaa, en UTC comme le tableau';
 
-/** Début du jour UTC (ms) d'une date « jj/mm/aaaa » existante ; `null` si le format ou la date est invalide. */
-function parseDay(text: string): number | null {
+/** Début du jour UTC (ms) d'une date « jj/mm/aaaa » existante, ou le message du refus. */
+function parseDay(text: string): { ms: number } | { error: string } {
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text);
-  if (!m) return null;
+  if (!m) return { error: DATE_FORMAT_ERROR };
   const [day, month, year] = [Number(m[1]), Number(m[2]), Number(m[3])];
   const ms = Date.UTC(year, month - 1, day);
   const d = new Date(ms);
   return d.getUTCFullYear() === year && d.getUTCMonth() === month - 1 && d.getUTCDate() === day
-    ? ms
-    : null;
+    ? { ms }
+    : { error: dateMissingError(text) };
 }
 
 /** Dernier jour saisissable (31/12/9999) : accepté en « Du », refusé en « Au ». */
@@ -74,16 +84,23 @@ export interface DateRange {
  */
 export function dateRange(fromText: string, toText: string): DateRange {
   const out: DateRange = { from: '', to: '' };
-  const from = fromText === '' ? null : parseDay(fromText);
-  const toDay = toText === '' ? null : parseDay(toText);
+  const fromParsed = fromText === '' ? null : parseDay(fromText);
+  const toParsed = toText === '' ? null : parseDay(toText);
+  const from = fromParsed && 'ms' in fromParsed ? fromParsed.ms : null;
+  const toDay = toParsed && 'ms' in toParsed ? toParsed.ms : null;
   const to = toDay !== null && toDay >= LAST_DAY ? null : toDay;
   if (from !== null) out.from = new Date(from).toISOString();
-  else if (fromText !== '') out.fromError = DATE_ERROR;
+  else if (fromParsed && 'error' in fromParsed) out.fromError = fromParsed.error;
   if (to !== null && from !== null && from > to) out.toError = RANGE_ERROR;
   else if (to !== null) out.to = new Date(to + 86_400_000).toISOString();
-  else if (toText !== '') out.toError = DATE_ERROR;
+  else if (toDay !== null) out.toError = DATE_RANGE_ERROR;
+  else if (toParsed && 'error' in toParsed) out.toError = toParsed.error;
   return out;
 }
+
+/** Vrai quand un filtre de date est refusé : la liste affichée n'est alors pas filtrée. */
+export const hasDateError = (errors: DateRange): boolean =>
+  errors.fromError !== undefined || errors.toError !== undefined;
 
 /**
  * Décision de soumission d'un formulaire de filtres : `query` est `null` (aucune requête) tant

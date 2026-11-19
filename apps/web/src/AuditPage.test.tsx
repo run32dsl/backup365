@@ -2,7 +2,14 @@ import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
 import { AuditPage, AuditView } from './AuditPage.js';
-import { dateRange, fetchAudit, pageOffsets, queryFromForm, submitFilters } from './audit.js';
+import {
+  DATE_HELP,
+  dateRange,
+  fetchAudit,
+  pageOffsets,
+  queryFromForm,
+  submitFilters,
+} from './audit.js';
 
 const entry = {
   seq: 2,
@@ -16,6 +23,15 @@ const entry = {
 };
 
 describe('AuditView', () => {
+  it('warns above the table that a refused date filter was not applied', () => {
+    const state = { total: 1, limit: 50, offset: 0, items: [entry] };
+    const html = renderToString(<AuditView state={state} filterRefused />);
+    expect(html).toContain('role="status"');
+    expect(html).toContain('Filtre non appliqué : corrigez la date pour filtrer.');
+    expect(html.indexOf('Filtre non appliqué')).toBeLessThan(html.indexOf('<table'));
+    expect(renderToString(<AuditView state={state} />)).not.toContain('Filtre non appliqué');
+  });
+
   it('shows the entries with their action label and a short hash', () => {
     const html = renderToString(
       <AuditView state={{ total: 1, limit: 50, offset: 0, items: [entry] }} />,
@@ -204,20 +220,34 @@ describe('helpers', () => {
     expect(dateRange('', '31/12/2026').to).toBe('2027-01-01T00:00:00.000Z');
   });
 
-  it.each(['31/02/2026', '2026-11-18', '18/11/26', 'nope'])('flags %s as invalid', (text) => {
-    expect(dateRange(text, text)).toMatchObject({
-      from: '',
-      to: '',
-      fromError: 'Date attendue au format jj/mm/aaaa',
-      toError: 'Date attendue au format jj/mm/aaaa',
-    });
+  const FORMAT = 'Saisissez la date au format jj/mm/aaaa, par exemple 18/11/2026';
+
+  it.each(['2026-11-18', '18/11/26', 'nope'])(
+    'flags %s as a format error with an example',
+    (text) => {
+      expect(dateRange(text, text)).toMatchObject({
+        from: '',
+        to: '',
+        fromError: FORMAT,
+        toError: FORMAT,
+      });
+    },
+  );
+
+  it('says that 31/02/2026 does not exist instead of blaming the format', () => {
+    const r = dateRange('31/02/2026', '31/02/2026');
+    expect(r.fromError).toBe('Cette date n’existe pas (31/02/2026)');
+    expect(r.toError).toBe('Cette date n’existe pas (31/02/2026)');
+    expect(r.fromError).not.toBe(DATE_HELP);
+    expect(FORMAT).not.toBe(DATE_HELP);
+    expect(DATE_HELP).not.toContain(r.fromError);
   });
 
-  it('refuses 31/12/9999 in Au, whose next day leaves the 4-digit years', () => {
+  it('refuses 31/12/9999 in Au as too far, whose next day leaves the 4-digit years', () => {
     expect(dateRange('31/12/9999', '31/12/9999')).toEqual({
       from: '9999-12-31T00:00:00.000Z',
       to: '',
-      toError: 'Date attendue au format jj/mm/aaaa',
+      toError: 'Date trop éloignée',
     });
     expect(dateRange('', '30/12/9999').to).toBe('9999-12-31T00:00:00.000Z');
   });
@@ -226,7 +256,10 @@ describe('helpers', () => {
     const build = vi.fn(queryFromForm);
     const bad = submitFilters(form({ from: '31/02/2026', to: '18/11/2026' }), 'from', 'to', build);
     expect(bad.query).toBeNull();
-    expect(bad.errors.fromError).toBe('Date attendue au format jj/mm/aaaa');
+    expect(bad.errors.fromError).toBe('Cette date n’existe pas (31/02/2026)');
+    const format = submitFilters(form({ from: '2026-02-01', to: '' }), 'from', 'to', build);
+    expect(format.query).toBeNull();
+    expect(format.errors.fromError).toContain('par exemple 18/11/2026');
     expect(bad.errors.toError).toBeUndefined();
     expect(build).not.toHaveBeenCalled();
     const ok = submitFilters(form({ from: '18/11/2026', to: '' }), 'from', 'to', build);

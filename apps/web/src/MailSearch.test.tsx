@@ -35,6 +35,14 @@ const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
 
 describe('SearchView', () => {
+  it('warns above the results that a refused date filter was not applied', () => {
+    const state = { total: 40, limit: 25, offset: 0, items: [mail] };
+    const html = renderToString(<SearchView state={state} filterRefused />);
+    expect(html).toContain('Filtre non appliqué : corrigez la date pour filtrer.');
+    expect(html.indexOf('Filtre non appliqué')).toBeLessThan(html.indexOf('<table'));
+    expect(renderToString(<SearchView state={state} />)).not.toContain('Filtre non appliqué');
+  });
+
   it('lists results with a link to each sheet', () => {
     const html = renderToString(
       <SearchView state={{ total: 40, limit: 25, offset: 0, items: [mail] }} />,

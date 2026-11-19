@@ -324,7 +324,7 @@ export const SCREENS = [
     prepare: async (page) => {
       await page.getByLabel('Du', { exact: true }).fill('31/02/2026');
       await page.getByRole('button', { name: 'Rechercher' }).click();
-      await page.getByText('Date attendue au format jj/mm/aaaa').waitFor();
+      await page.getByText('Cette date n’existe pas (31/02/2026)').waitFor();
     },
   },
   {
@@ -362,7 +362,7 @@ export const SCREENS = [
       await page.getByRole('table').waitFor();
       await page.getByLabel('Du', { exact: true }).fill('31/02/2026');
       await page.getByRole('button', { name: 'Filtrer' }).click();
-      await page.getByText('Date attendue au format jj/mm/aaaa').waitFor();
+      await page.getByText('Cette date n’existe pas (31/02/2026)').waitFor();
     },
   },
   {
