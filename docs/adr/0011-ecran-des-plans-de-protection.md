@@ -5,15 +5,20 @@ Statut : **proposé** (issue #50, interface de #49)
 ## Contexte
 
 La maquette de l'écran des plans (`#/plans`) demande des choses que l'API de l'ADR 0009 ne portait
-pas : choisir les types de données protégés (messagerie, fichiers, calendriers, contacts), afficher
+pas : choisir les charges protégées (messagerie, OneDrive, SharePoint), afficher
 dans la liste la conformité et la dernière exécution, et laisser un opérateur lire la liste.
 
 ## Décision
 
-- **Types de données.** Un plan porte `dataTypes`, sous-ensemble non vide de `mail`, `files`,
-  `calendar`, `contacts` (colonne `data_types`, migration 3, défaut « tout » pour les plans
-  existants). C'est la vue de l'utilisateur, distincte des charges du catalogue (`WORKLOADS`) ; le
-  planificateur n'en tient pas encore compte (exécuteur simulé).
+- **Types de données.** Un plan porte `dataTypes`, sous-ensemble non vide de `mail`, `onedrive`,
+  `sharepoint` (colonne `data_types`), avec les mots et l'ordre de l'accueil. Le SDK ne sépare pas
+  le calendrier ni les contacts de la boîte : l'écran dit « avec le calendrier et les contacts »
+  sous « Messagerie ». L'exécuteur applique chaque choix : sans `mail` pas d'`outlook.backup`, sans
+  `onedrive` pas d'`onedrive.backup`, sans `sharepoint` aucun site (pour « toute l'organisation »,
+  les sites ne sont listés que si `sharepoint` est choisi). La migration 5 convertit les anciennes
+  valeurs : `files` devient `onedrive` et `sharepoint` ; `mail`, `calendar` et `contacts` deviennent
+  `mail`. Un plan « Fichiers et calendriers » protège donc les trois charges, comme l'exécuteur le
+  faisait déjà (il sauvegardait tout) ; un plan « Messagerie » seule ne sauvegarde plus OneDrive.
 - **Liste.** `GET /api/plans` ajoute à chaque plan `compliance` (`planCompliance`, ADR 0009),
   `running` et `lastRun` (statut et dates, jamais l'erreur). La conformité se calcule sur le serveur,
   à l'heure du serveur.

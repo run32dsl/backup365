@@ -31,11 +31,11 @@ describe('parseProtectionPlanInput', () => {
   });
   it('protects every data type by default and orders a given list', () => {
     expect(parseProtectionPlanInput(valid)).toMatchObject({
-      plan: { dataTypes: ['mail', 'files', 'calendar', 'contacts'] },
+      plan: { dataTypes: ['mail', 'onedrive', 'sharepoint'] },
     });
     expect(
-      parseProtectionPlanInput({ ...valid, dataTypes: ['contacts', 'mail', 'mail'] }),
-    ).toMatchObject({ ok: true, plan: { dataTypes: ['mail', 'contacts'] } });
+      parseProtectionPlanInput({ ...valid, dataTypes: ['sharepoint', 'mail', 'mail'] }),
+    ).toMatchObject({ ok: true, plan: { dataTypes: ['mail', 'sharepoint'] } });
   });
   it('refuses an empty or unknown list of data types', () => {
     for (const dataTypes of [[], ['teams'], 'mail', [1], null]) {

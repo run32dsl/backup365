@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ConfigurationLink } from './ConfigurationBlock.js';
 import {
   DATA_TYPE_LABELS,
+  MAIL_HELP,
   MESSAGES,
   NEW_PLAN_HASH,
   PLANS_HASH,
@@ -238,6 +239,7 @@ export function PlanWizard({
                 <label key={t} className="choice">
                   <input
                     type="checkbox"
+                    aria-describedby={t === 'mail' ? 'data-type-mail-help' : undefined}
                     checked={form.dataTypes.includes(t)}
                     onChange={() => {
                       patch({
@@ -246,6 +248,11 @@ export function PlanWizard({
                     }}
                   />
                   {DATA_TYPE_LABELS[t]}
+                  {t === 'mail' && (
+                    <small id="data-type-mail-help" className="state-note">
+                      {MAIL_HELP}
+                    </small>
+                  )}
                 </label>
               ))}
             </div>

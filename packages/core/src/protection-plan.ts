@@ -5,8 +5,11 @@ export const DEFAULT_RPO_HOURS: RpoHours = 24;
 
 export type PlanScope = 'all' | 'selection';
 
-/** Types de données qu'un plan protège, dans l'ordre d'affichage (ADR 0011). */
-export const DATA_TYPES = ['mail', 'files', 'calendar', 'contacts'] as const;
+/**
+ * Charges qu'un plan protège, dans l'ordre de l'accueil (ADR 0011). Le SDK ne sépare pas le
+ * calendrier ni les contacts de la boîte : ils suivent « mail ».
+ */
+export const DATA_TYPES = ['mail', 'onedrive', 'sharepoint'] as const;
 export type DataType = (typeof DATA_TYPES)[number];
 
 export interface ProtectionPlanInput {

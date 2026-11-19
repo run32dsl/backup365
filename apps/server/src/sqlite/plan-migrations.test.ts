@@ -77,7 +77,7 @@ describe('PLAN_MIGRATIONS', () => {
     });
   });
 
-  it('upgrades an existing plan to all data types and refuses an empty list', () => {
+  it('upgrades an existing plan to all workloads and refuses an empty list', () => {
     const db = new DatabaseSync(':memory:');
     migrate(db, PLAN_MIGRATIONS.slice(0, 2));
     db.prepare(
@@ -85,9 +85,30 @@ describe('PLAN_MIGRATIONS', () => {
     ).run();
     migrate(db, PLAN_MIGRATIONS);
     expect(db.prepare("SELECT data_types FROM plans WHERE id = 'old'").get()).toEqual({
-      data_types: 'mail,files,calendar,contacts',
+      data_types: 'mail,onedrive,sharepoint',
     });
     expect(() => db.prepare("UPDATE plans SET data_types = '' WHERE id = 'old'").run()).toThrow();
+  });
+
+  it('migrates files, calendar and contacts to mail, onedrive and sharepoint (#310)', () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db, PLAN_MIGRATIONS.slice(0, 4));
+    const cases: [string, string][] = [
+      ['mail,files,calendar,contacts', 'mail,onedrive,sharepoint'],
+      ['files,calendar', 'mail,onedrive,sharepoint'],
+      ['files', 'onedrive,sharepoint'],
+      ['calendar,contacts', 'mail'],
+      ['mail', 'mail'],
+      ['unknown', 'mail,onedrive,sharepoint'],
+    ];
+    cases.forEach(([before], i) => {
+      db.prepare(
+        "INSERT INTO plans (id, name, scope, retention_days, gdpr_justification, created_at, data_types) VALUES (?, ?, 'all', 30, 'F', 'd', ?)",
+      ).run(`p${i}`, `N${i}`, before);
+    });
+    migrate(db, PLAN_MIGRATIONS);
+    const rows = db.prepare('SELECT data_types AS d FROM plans ORDER BY id').all();
+    expect(rows).toEqual(cases.map(([, after]) => ({ d: after })));
   });
 
   it('refuses a plan without GDPR justification or with an RPO outside the list', () => {

@@ -48,7 +48,7 @@ describe('API des plans', () => {
     const plan = plans.create({
       name: 'Mails',
       scope: 'selection',
-      dataTypes: ['mail', 'contacts'],
+      dataTypes: ['mail', 'sharepoint'],
       selection: ['a', 'b'],
       rpoHours: 4,
       rtoHours: null,
@@ -81,7 +81,7 @@ describe('API des plans', () => {
       403,
     );
     expect(before.items[0]).toMatchObject({
-      dataTypes: ['mail', 'contacts'],
+      dataTypes: ['mail', 'sharepoint'],
       compliance: { state: 'late', lastSuccessAt: null, lastRestorePointAt: null },
       running: false,
       lastRun: null,
@@ -300,18 +300,21 @@ describe('API des plans', () => {
     const { app, audit } = setup();
     const created = await send(app, 'POST', '/api/plans', {
       ...valid,
-      dataTypes: ['mail', 'contacts'],
+      dataTypes: ['mail', 'sharepoint'],
     });
     expect(created.statusCode).toBe(201);
     const { id } = created.json<{ id: string }>();
-    expect(created.json<{ dataTypes: string[] }>().dataTypes).toEqual(['mail', 'contacts']);
+    expect(created.json<{ dataTypes: string[] }>().dataTypes).toEqual(['mail', 'sharepoint']);
 
-    const replaced = await send(app, 'PUT', `/api/plans/${id}`, { ...valid, dataTypes: ['files'] });
+    const replaced = await send(app, 'PUT', `/api/plans/${id}`, {
+      ...valid,
+      dataTypes: ['onedrive'],
+    });
     expect(replaced.statusCode).toBe(200);
-    expect(replaced.json<{ dataTypes: string[] }>().dataTypes).toEqual(['files']);
+    expect(replaced.json<{ dataTypes: string[] }>().dataTypes).toEqual(['onedrive']);
     const list = await send(app, 'GET', '/api/plans');
     expect(list.json<{ items: { dataTypes: string[] }[] }>().items[0]?.dataTypes).toEqual([
-      'files',
+      'onedrive',
     ]);
 
     const entries = await log(audit);
