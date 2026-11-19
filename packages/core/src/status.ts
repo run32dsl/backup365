@@ -134,6 +134,7 @@ export interface ServiceSummary {
   /** Dernier instantané, tous éléments confondus (UTC, ISO 8601) ; `null` si aucun. */
   lastSnapshotAt: string | null;
   ageHours: number | null;
+  /** Pire état parmi les sources du service : une source en retard n'est pas masquée par une autre à jour. */
   state: BackupState;
   /** Conservation la plus longue parmi les plans qui couvrent le service ; `null` sans plan. */
   retentionDays: number | null;
@@ -143,7 +144,9 @@ export interface ServiceSummary {
 
 type PlanFacts = Pick<ProtectionPlanInput, 'dataTypes' | 'scope' | 'selection' | 'retentionDays'>;
 
-/** Une ligne par service : dernier instantané, état, conservation et périmètre des plans. */
+const WORST_FIRST: readonly BackupState[] = ['missing', 'stale', 'ok'];
+
+/** Une ligne par service : dernier instantané, pire état, conservation et périmètre des plans. */
 export function buildServiceSummaries(
   rows: readonly StatusRow[],
   plans: readonly PlanFacts[],
@@ -151,10 +154,11 @@ export function buildServiceSummaries(
   now: Date = new Date(),
 ): ServiceSummary[] {
   return SERVICES.map((service) => {
-    const snapshots = rows
-      .filter((r) => r.workload === service && r.lastSnapshotAt !== null)
-      .map((r) => ({ createdAt: r.lastSnapshotAt as string }));
-    const last = latest(snapshots);
+    const own = rows.filter((r) => r.workload === service);
+    const last = latest(
+      own.flatMap((r) => (r.lastSnapshotAt === null ? [] : [{ createdAt: r.lastSnapshotAt }])),
+    );
+    const state = WORST_FIRST.find((s) => own.some((r) => r.state === s)) ?? 'missing';
     const covering = plans.filter((p) => p.dataTypes.includes(SERVICE_DATA_TYPE[service]));
     const selected = new Set(covering.flatMap((p) => (p.scope === 'selection' ? p.selection : [])));
     const scope: ServiceSummary['scope'] =
@@ -167,7 +171,8 @@ export function buildServiceSummaries(
       service,
       hasPlan: covering.length > 0,
       lastSnapshotAt: last,
-      ...backupState(last, now, maxAgeHours),
+      ageHours: backupState(last, now, maxAgeHours).ageHours,
+      state,
       retentionDays: covering.length > 0 ? Math.max(...covering.map((p) => p.retentionDays)) : null,
       scope,
     };

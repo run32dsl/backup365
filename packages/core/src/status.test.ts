@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BackupCatalog } from './catalog.js';
 import { FakeBackupCatalog } from './fake-catalog.js';
-import { backupState, buildStatusReport } from './status.js';
+import { backupState, buildServiceSummaries, buildStatusReport, type StatusRow } from './status.js';
 
 const now = new Date('2026-11-12T12:00:00Z');
 
@@ -106,5 +106,78 @@ describe('buildStatusReport', () => {
     expect(report.alertCount).toBe(3);
     const without = await buildStatusReport(withSites, ['mail'], 26, now);
     expect(without.rows.map((r) => r.kind)).toEqual(['mailbox']);
+  });
+});
+
+describe('buildServiceSummaries', () => {
+  const row = (workload: StatusRow['workload'], lastSnapshotAt: string | null): StatusRow => ({
+    kind: workload === 'sharepoint' ? 'site' : 'mailbox',
+    sourceId: `${workload}-${String(lastSnapshotAt)}`,
+    displayName: 'Source',
+    workload,
+    lastSnapshotAt,
+    ...backupState(lastSnapshotAt, now, 26),
+  });
+  type Plan = Parameters<typeof buildServiceSummaries>[1][number];
+  const plan = (over: Partial<Plan> = {}): Plan => ({
+    dataTypes: ['mail'],
+    scope: 'all',
+    selection: [],
+    retentionDays: 30,
+    ...over,
+  });
+
+  it('gives one line per service, in display order, even without row or plan', () => {
+    expect(buildServiceSummaries([], [], 26, now)).toEqual(
+      ['mail', 'onedrive', 'sharepoint'].map((service) => ({
+        service,
+        hasPlan: false,
+        lastSnapshotAt: null,
+        ageHours: null,
+        state: 'missing',
+        retentionDays: null,
+        scope: null,
+      })),
+    );
+  });
+
+  it('keeps the latest snapshot but the worst state of the service', () => {
+    const rows = [
+      row('onedrive', '2026-11-12T06:00:00Z'),
+      row('onedrive', '2026-11-09T06:00:00Z'),
+      row('mail', '2026-11-12T00:00:00Z'),
+      row('sharepoint', '2026-11-12T06:00:00Z'),
+      row('sharepoint', null),
+    ];
+    const [mail, onedrive, sharepoint] = buildServiceSummaries(rows, [], 26, now);
+    expect(mail).toMatchObject({ state: 'ok', ageHours: 12 });
+    expect(onedrive).toMatchObject({
+      state: 'stale',
+      lastSnapshotAt: '2026-11-12T06:00:00Z',
+      ageHours: 6,
+    });
+    expect(sharepoint).toMatchObject({ state: 'missing', ageHours: 6 });
+  });
+
+  it('maps a files plan to OneDrive and SharePoint, a mail plan to mail only', () => {
+    const files = buildServiceSummaries([], [plan({ dataTypes: ['files'] })], 26, now);
+    expect(files.map((s) => s.hasPlan)).toEqual([false, true, true]);
+    const mail = buildServiceSummaries([], [plan()], 26, now);
+    expect(mail.map((s) => s.hasPlan)).toEqual([true, false, false]);
+  });
+
+  it('takes the longest retention among several plans', () => {
+    const plans = [plan({ retentionDays: 30 }), plan({ retentionDays: 365 })];
+    expect(buildServiceSummaries([], plans, 26, now)[0]?.retentionDays).toBe(365);
+  });
+
+  it('counts the distinct selected items, unless a plan covers everything', () => {
+    const a = plan({ scope: 'selection', selection: ['a', 'b'] });
+    const b = plan({ scope: 'selection', selection: ['b', 'c'] });
+    expect(buildServiceSummaries([], [a, b], 26, now)[0]?.scope).toEqual({
+      kind: 'selection',
+      count: 3,
+    });
+    expect(buildServiceSummaries([], [a, plan()], 26, now)[0]?.scope).toEqual({ kind: 'all' });
   });
 });

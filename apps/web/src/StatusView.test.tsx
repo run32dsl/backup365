@@ -2,7 +2,7 @@ import type { StatusReport } from '@backup365/core';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { NoBackupError, fetchStatus } from './status.js';
-import { StatusView, sortRows } from './StatusView.js';
+import { StatusView, scopeLabel, sortRows } from './StatusView.js';
 import { ageLabel } from './format.js';
 import { complianceView, type PlanItem } from './plans.js';
 
@@ -102,11 +102,100 @@ describe('StatusView', () => {
     ];
     const html = renderToString(<StatusView state={{ ...report, services }} />);
     expect(html).toContain('Sources');
-    expect(html).toContain('il y a 6 h');
     expect(html).toContain('365 jours');
-    expect(html).toContain('Tous les éléments');
-    expect(html).toContain('Sans plan');
+    expect(html).toContain('Toutes les boîtes');
     expect(html.match(/row-muted/g)).toHaveLength(1);
+  });
+
+  describe('services (page « Sources »)', () => {
+    type Entry = NonNullable<StatusReport['services']>[number];
+    const entry = (over: Partial<Entry> = {}): Entry => ({
+      service: 'mail',
+      hasPlan: true,
+      lastSnapshotAt: '2026-11-12T06:00:00Z',
+      ageHours: 6,
+      state: 'ok',
+      retentionDays: 365,
+      scope: { kind: 'all' },
+      ...over,
+    });
+    const noPlan = entry({
+      service: 'onedrive',
+      hasPlan: false,
+      lastSnapshotAt: null,
+      ageHours: null,
+      state: 'missing',
+      retentionDays: null,
+      scope: null,
+    });
+    /** Ligne du tableau « Sources » qui porte ce service. */
+    const line = (services: Entry[], label: string): string => {
+      const html = renderToString(<StatusView state={{ ...report, services }} />);
+      const table = html.slice(html.indexOf('services-title'), html.indexOf('backups-title'));
+      const found = table.split('<tr').find((tr) => tr.includes(`>${label}</td>`));
+      if (found === undefined) throw new Error(`ligne ${label} absente`);
+      return found;
+    };
+
+    it('says « Aucun plan » with a link to create one, and nothing to read in the journal', () => {
+      const tr = line([noPlan], 'OneDrive');
+      expect(tr).toContain('row-muted');
+      expect(tr).toContain('Aucun plan');
+      expect(tr).toContain(
+        '<a class="state-link" href="#/plans" aria-label="Créer un plan pour OneDrive">Créer un plan</a>',
+      );
+      expect(tr).toContain('Jamais');
+      expect(tr).not.toContain('#/audit');
+      expect(tr).not.toContain('En échec');
+    });
+
+    it('links a late or failed service to the audit journal, not an up-to-date one', () => {
+      const audit =
+        '<a class="state-link" href="#/audit" aria-label="Voir dans le journal d’audit : Messagerie">Voir dans le journal d’audit</a>';
+      expect(line([entry({ state: 'stale' })], 'Messagerie')).toContain(audit);
+      expect(line([entry({ state: 'missing' })], 'Messagerie')).toContain(audit);
+      const ok = line([entry()], 'Messagerie');
+      expect(ok).not.toContain('#/audit');
+      expect(ok).not.toContain('#/plans');
+    });
+
+    it('shows the relative time, then the exact date in a <time datetime>', () => {
+      const tr = line([entry()], 'Messagerie');
+      expect(tr).toContain('<time dateTime="2026-11-12T06:00:00Z">Il y a 6 h');
+      expect(tr).toContain('<small class="state-note">12/11/2026 06:00 UTC</small></time>');
+    });
+
+    it('says « Jamais » without a readable date, never an empty date', () => {
+      for (const over of [{ lastSnapshotAt: 'pas une date' }, { ageHours: null }]) {
+        const tr = line([entry(over)], 'Messagerie');
+        expect(tr).toContain('Jamais');
+        expect(tr).not.toContain('<time');
+      }
+    });
+
+    it('shows a service with a plan but no backup yet as failed, with the journal link', () => {
+      const tr = line(
+        [entry({ lastSnapshotAt: null, ageHours: null, state: 'missing' })],
+        'Messagerie',
+      );
+      expect(tr).toContain('Jamais');
+      expect(tr).toContain('En échec');
+      expect(tr).toContain('#/audit');
+      expect(tr).not.toContain('row-muted');
+    });
+
+    it('names the scope after the service: mailboxes, accounts, sites', () => {
+      const selection = (count: number) => ({ kind: 'selection' as const, count });
+      expect(scopeLabel(entry({ scope: selection(12) }))).toBe('12 boîtes');
+      expect(scopeLabel(entry({ scope: selection(1) }))).toBe('1 boîte');
+      expect(scopeLabel(entry({ service: 'onedrive', scope: selection(3) }))).toBe('3 comptes');
+      expect(scopeLabel(entry({ service: 'onedrive' }))).toBe('Tous les comptes');
+      expect(scopeLabel(entry({ service: 'sharepoint' }))).toBe('Tous les sites');
+      expect(scopeLabel(entry({ service: 'sharepoint', scope: selection(2) }))).toBe(
+        '2 éléments choisis',
+      );
+      expect(scopeLabel(noPlan)).toBe('');
+    });
   });
 
   it('shows no services section when the server sends none, an error when it is null', () => {

@@ -161,7 +161,8 @@ describe('GET /api/status', () => {
       expect(
         services?.map((s) => [s.service, s.hasPlan, s.state, s.retentionDays, s.scope]),
       ).toEqual([
-        ['mail', true, 'ok', 365, { kind: 'all' }],
+        // Boîte b en retard (40 h) : l'état du service est le pire de ses sources.
+        ['mail', true, 'stale', 365, { kind: 'all' }],
         ['onedrive', false, 'missing', null, null],
         ['sharepoint', false, 'missing', null, null],
       ]);

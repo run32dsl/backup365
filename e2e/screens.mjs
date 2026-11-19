@@ -439,6 +439,35 @@ export const SCREENS = [
     },
   },
   {
+    // En démo chaque service a un plan : la réponse est modifiée pour montrer la ligne grisée
+    // « Aucun plan » et son lien « Créer un plan ».
+    name: 'etat-detaille-sans-plan',
+    hash: '#/etat',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/status', async (route) => {
+        const res = await route.fetch();
+        const body = await res.json();
+        body.services = body.services.map((s) =>
+          s.service === 'sharepoint'
+            ? {
+                ...s,
+                hasPlan: false,
+                lastSnapshotAt: null,
+                ageHours: null,
+                state: 'missing',
+                retentionDays: null,
+                scope: null,
+              }
+            : s,
+        );
+        await route.fulfill({ response: res, json: body });
+      });
+      await page.reload();
+      await page.getByRole('link', { name: 'Créer un plan' }).waitFor();
+    },
+  },
+  {
     name: 'plans-liste',
     hash: '#/plans',
     role: 'admin',
