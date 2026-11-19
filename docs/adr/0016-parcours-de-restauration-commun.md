@@ -23,7 +23,8 @@ de trois produits.
 - Le motif est un texte libre, obligatoire, de 120 caractères au plus (`MAX_REASON_LENGTH`, la
   limite du serveur), pour les trois parcours. SharePoint n'a plus de liste de motifs.
 - Le rappel d'audit reprend la phrase de la charte : « Chaque consultation, export ou
-  restauration est inscrite au journal d'audit. »
+  restauration est inscrite au journal d'audit. » Il n'apparaît que là où un élément sauvegardé
+  est consulté, exporté ou restauré, et pas dans les boîtes de résultat (voir la charte).
 - Barre d'actions : le composant `WizardActions` (`apps/web/src/ui/`), utilisé à chaque étape et
   sur les écrans de fin, aussi par l'assistant de plan. En bureau, retour en contour à gauche et
   action principale à droite ; en mobile, pleine largeur, action principale en haut.

@@ -158,6 +158,11 @@ function Playground() {
         />
       </Section>
       <Section id="dialogue" title="Boîte de dialogue">
+        <p>
+          Rappel d’audit : premier bandeau d’information, sous le titre de l’étape de saisie. Il est
+          retiré des boîtes de résultat et absent des actions qui ne touchent pas à un élément
+          sauvegardé.
+        </p>
         <Button
           variant="secondary"
           onClick={() => {
@@ -173,9 +178,9 @@ function Playground() {
             setOpen(false);
           }}
         >
+          <AuditReminder />
           <p>Indiquez le motif de l’export.</p>
           <ReasonField of="de l’export" value={dialogReason} onChange={setDialogReason} />
-          <AuditReminder />
           <div className="button-row dialog-actions">
             <Button
               variant="secondary"

@@ -880,7 +880,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
     <main tabIndex={-1}>
       <h1>{T.title}</h1>
       {journey && <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />}
-      {journey && !direct && <AuditReminder />}
+      {journey && !direct && !job && <AuditReminder />}
       {content}
     </main>
   );

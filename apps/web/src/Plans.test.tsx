@@ -444,7 +444,7 @@ describe('PlanWizard', () => {
     expect(html).not.toContain('Précédent');
   });
 
-  it('recaps the plan on step 3 as a labelled list with the audit reminder', () => {
+  it('recaps the plan on step 3 as a labelled list without the audit reminder', () => {
     const html = renderToStaticMarkup(
       <PlanWizard
         initial={{
@@ -463,8 +463,7 @@ describe('PlanWizard', () => {
     expect(html).toContain('<dl class="meta-list">');
     expect(html).toContain('<dd>Messagerie Direction</dd>');
     expect(html).toContain('<dd>Autre : Contrat client</dd>');
-    expect(html).toContain(AUDIT_REMINDER);
-    expect(html).toContain('role="status"');
+    expect(html).not.toContain(AUDIT_REMINDER);
     expect(html).not.toContain('recap-sentence');
   });
 

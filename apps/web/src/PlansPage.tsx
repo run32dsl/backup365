@@ -43,7 +43,7 @@ import {
   type ReasonKind,
 } from './plans.js';
 import { type Problem } from './apiError.js';
-import { AuditReminder, REASON, reasonLabel } from './RestoreJourney.js';
+import { REASON, reasonLabel } from './RestoreJourney.js';
 import {
   Alert,
   Button,
@@ -366,7 +366,6 @@ export function PlanWizard({
         <>
           <h2>Récapitulatif</h2>
           <ResultList rows={recapRows(form)} />
-          <AuditReminder />
         </>
       )}
 
@@ -545,7 +544,6 @@ function RunDialog({
               setDetail(e.currentTarget.value);
             }}
           />
-          <AuditReminder />
           <RunFeedback problem={problem} busy={busy} onClose={onClose} />
         </form>
       )}

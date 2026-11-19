@@ -8,9 +8,9 @@ describe('réinitialisation : étape 2', () => {
     expect(html).toContain('jean.exemple');
     expect(html).toContain('Motif de la réinitialisation (obligatoire)');
     expect(html).toContain('affiché une seule fois');
-    expect(html).toContain(
-      'Chaque consultation, export ou restauration est inscrite au journal d’audit. Le mot de passe n’y figure pas.',
-    );
+    expect(html).toContain('Ce motif sera inscrit au journal d’audit.');
+    expect(html).not.toContain('Chaque consultation');
+    expect(html).not.toContain('alert-info');
     expect(html).toContain('>Réinitialiser</button>');
     expect(html).toContain('>Annuler</button>');
   });

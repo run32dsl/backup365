@@ -225,7 +225,7 @@ export function RestoreAction({
         Restaurer
       </Button>
       <Dialog open={open} title={dialogTitle(job)} onClose={closePanel}>
-        <AuditReminder />
+        {job === null && <AuditReminder />}
         {job === null && (
           <form onSubmit={submit} noValidate>
             <p>
