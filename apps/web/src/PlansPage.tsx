@@ -21,6 +21,7 @@ import {
   fetchPlans,
   formFromPlan,
   lastRunLabel,
+  planSummary,
   retentionLabel,
   withCurrent,
   retentionHelp,
@@ -597,7 +598,15 @@ function planColumns(
   actions: { onRun: (p: PlanItem) => void; onDelete: (p: PlanItem) => void },
 ): Column<PlanItem>[] {
   const columns: Column<PlanItem>[] = [
-    { header: 'Plan', cell: (p) => p.name, className: 'nowrap-wide' },
+    {
+      header: 'Plan',
+      cell: (p) => (
+        <div>
+          <span className="nowrap-wide">{p.name}</span>
+          <small className="state-note plan-summary">{planSummary(p)}</small>
+        </div>
+      ),
+    },
     {
       header: 'État',
       className: 'compliance-cell',
@@ -611,7 +620,7 @@ function planColumns(
         );
       },
     },
-    { header: 'Dernière exécution', cell: lastRunLabel },
+    { header: 'Dernière exécution (UTC)', cell: lastRunLabel },
   ];
   if (admin) {
     columns.push({

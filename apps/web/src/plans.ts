@@ -9,20 +9,26 @@ import {
   type RunStatus,
 } from '@backup365/core';
 import { readFailure, requestError } from './apiError.js';
+import { dateTimeOf } from './format.js';
 import { UNREACHABLE, type Outcome } from './session.js';
 import type { PillStatus } from './ui/index.js';
 
-/** Plan tel que `GET /api/plans` le rend : le plan, sa conformité et sa dernière exécution. */
+/**
+ * Plan tel que `GET /api/plans` le rend : le plan, sa conformité et sa dernière exécution. Les
+ * trois champs optionnels ne sont envoyés qu'à un administrateur : un opérateur ne reçoit ni
+ * sélection, ni délai de remise en service, ni justification. Tout code partagé par les deux
+ * rôles doit donc s'en passer.
+ */
 export interface PlanItem {
   id: string;
   name: string;
   scope: PlanScope;
   dataTypes: DataType[];
-  selection: string[];
+  selection?: string[];
   rpoHours: RpoHours;
-  rtoHours: number | null;
+  rtoHours?: number | null;
   retentionDays: number;
-  gdprJustification: string;
+  gdprJustification?: string;
   createdAt: string;
   compliance: {
     state: ComplianceState;
@@ -50,6 +56,14 @@ export const DATA_TYPE_LABELS: Record<DataType, string> = {
   files: 'Fichiers',
   calendar: 'Calendriers',
   contacts: 'Contacts',
+};
+
+/** Complément du nom dans la synthèse de la liste (« mails, fichiers… »). */
+const DATA_TYPE_PHRASES: Record<DataType, string> = {
+  mail: 'mails',
+  files: 'fichiers',
+  calendar: 'calendriers',
+  contacts: 'contacts',
 };
 
 export const RPO_CHOICES: readonly RpoHours[] = [4, 12, 24];
@@ -159,12 +173,12 @@ export function parseJustification(text: string): { kind: ReasonKind; detail: st
 }
 
 export function formFromPlan(plan: PlanItem): PlanForm {
-  const reason = parseJustification(plan.gdprJustification);
+  const reason = parseJustification(plan.gdprJustification ?? '');
   return {
     name: plan.name,
     dataTypes: plan.dataTypes,
     scope: plan.scope,
-    selection: plan.selection,
+    selection: plan.selection ?? [],
     rpoHours: plan.rpoHours,
     rtoHours: plan.rtoHours ?? 24,
     retentionDays: plan.retentionDays,
@@ -231,6 +245,40 @@ export function recapRows(form: PlanForm): [string, string][] {
   ];
 }
 
+/** Liste « a, b et c » ; une seule entrée reste telle quelle. */
+function enumerate(items: string[]): string {
+  if (items.length <= 1) return items.join('');
+  return `${items.slice(0, -1).join(', ')} et ${items.at(-1) ?? ''}`;
+}
+
+/**
+ * Synthèse d'un plan en une ligne pour la liste, avec les termes du récapitulatif de l'assistant :
+ * « Mails, fichiers et contacts · toute l'organisation · toutes les 12 h · conservés 1 an ».
+ */
+export function planSummary(
+  plan: Pick<PlanItem, 'dataTypes' | 'scope' | 'selection' | 'rpoHours' | 'retentionDays'>,
+): string {
+  const what = enumerate(
+    DATA_TYPES.filter((t) => plan.dataTypes.includes(t)).map((t) => DATA_TYPE_PHRASES[t]),
+  );
+  const where =
+    plan.scope === 'all'
+      ? 'toute l’organisation'
+      : plan.selection?.length === 1
+        ? 'une boîte ou un compte choisi'
+        : plan.selection && plan.selection.length > 1
+          ? `${plan.selection.length} boîtes ou comptes choisis`
+          : 'boîtes ou comptes choisis';
+  return [
+    what.charAt(0).toUpperCase() + what.slice(1),
+    where,
+    `toutes les ${plan.rpoHours} h`,
+    `conservés ${retentionLabel(plan.retentionDays)}`,
+  ]
+    .filter((part) => part !== '')
+    .join(' · ');
+}
+
 export const rpoHelp = (hours: number): string =>
   `Si un incident survient, vous pouvez perdre au plus ${hours} h de données.`;
 
@@ -243,12 +291,6 @@ export const retentionHelp = (days: number): string =>
 // ---- Affichage de la liste ------------------------------------------------------------------
 
 const pad = (n: number): string => String(n).padStart(2, '0');
-
-/** `14/11 06:00`, à l'heure locale. */
-export function shortDate(iso: string): string {
-  const d = new Date(iso);
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 /** `18:00`, à l'heure locale. */
 export const timeOf = (date: Date): string => `${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -289,7 +331,7 @@ export function lastRunLabel(plan: PlanItem): string {
   if (plan.running) return 'En cours…';
   const run = plan.lastRun;
   if (!run) return 'Pas encore sauvegardé';
-  const at = shortDate(run.finishedAt ?? run.startedAt);
+  const at = dateTimeOf(run.finishedAt ?? run.startedAt);
   if (run.status !== 'success') return `Échec, ${at}`;
   const outcome =
     run.noSnapshotReason === 'no_content' ? 'Réussie (rien à sauvegarder)' : 'Réussie';

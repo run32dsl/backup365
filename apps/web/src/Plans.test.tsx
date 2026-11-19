@@ -10,6 +10,7 @@ import {
   formFromPlan,
   justificationText,
   lastRunLabel,
+  planSummary,
   parseJustification,
   parsePlansHash,
   RETENTION_CHOICES,
@@ -46,6 +47,18 @@ const plan: PlanItem = {
     noSnapshotReason: null,
   },
 };
+
+/**
+ * Le plan tel que `GET /api/plans` l'envoie à un opérateur : sans sélection, délai de remise en
+ * service ni justification (le test de `plan-routes.ts` fige la même liste de champs).
+ */
+function asOperator(item: PlanItem): PlanItem {
+  const visible = { ...item };
+  delete visible.selection;
+  delete visible.rtoHours;
+  delete visible.gdprJustification;
+  return visible;
+}
 
 const noop = () => undefined;
 const list = (
@@ -175,13 +188,13 @@ describe('list labels', () => {
   });
 
   it('describes the last run', () => {
-    expect(lastRunLabel(plan)).toMatch(/^Réussie, \d\d\/\d\d \d\d:\d\d$/);
-    expect(lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, status: 'failed' } })).toMatch(
-      /^Échec, \d\d\/\d\d \d\d:\d\d$/,
+    expect(lastRunLabel(plan)).toBe('Réussie, 14/11/2026 06:00');
+    expect(lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, status: 'failed' } })).toBe(
+      'Échec, 14/11/2026 06:00',
     );
     expect(
       lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, noSnapshotReason: 'no_content' } }),
-    ).toMatch(/^Réussie \(rien à sauvegarder\), \d\d\/\d\d \d\d:\d\d$/);
+    ).toBe('Réussie (rien à sauvegarder), 14/11/2026 06:00');
     // « rien à sauvegarder » : une seule fois par ligne.
     const empty = { ...plan.compliance, lastRestorePointAt: null };
     expect(complianceView({ ...plan, compliance: empty }).note).toBe(
@@ -215,6 +228,7 @@ describe('PlansListView', () => {
     const html = list([plan], true);
     expect(html).toContain('Messagerie Direction');
     expect(html).toContain('À jour');
+    expect(html).toContain('Dernière exécution (UTC)');
     expect(
       list(
         [{ ...plan, compliance: { ...plan.compliance, state: 'failed', lastSuccessAt: null } }],
@@ -227,8 +241,42 @@ describe('PlansListView', () => {
     expect(html).toContain('aria-label="Supprimer Messagerie Direction"');
   });
 
+  it('summarises what each plan protects, for both roles', () => {
+    const other: PlanItem = {
+      ...plan,
+      id: 'p2',
+      name: 'Fichiers Services',
+      scope: 'selection',
+      selection: ['a', 'b'],
+      dataTypes: ['files'],
+      rpoHours: 24,
+      retentionDays: 1095,
+    };
+    const all =
+      '<small class="state-note plan-summary">Mails, fichiers, calendriers et contacts · toute l’organisation · toutes les 12 h · conservés 1 an</small>';
+    const html = list([plan, other], true);
+    expect(html).toContain(all);
+    expect(html).toContain(
+      '<small class="state-note plan-summary">Fichiers · 2 boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans</small>',
+    );
+    // L'API n'envoie pas la sélection à l'opérateur : la synthèse se passe du nombre.
+    const operatorHtml = list([plan, other].map(asOperator), false);
+    expect(operatorHtml).toContain(all);
+    expect(operatorHtml).toContain(
+      '<small class="state-note plan-summary">Fichiers · boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans</small>',
+    );
+    expect(planSummary({ ...other, selection: ['a'] })).toContain('une boîte ou un compte choisi');
+    expect(planSummary({ ...other, selection: [] })).toBe(
+      'Fichiers · boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans',
+    );
+    expect(planSummary({ ...other, dataTypes: [] })).toBe(
+      '2 boîtes ou comptes choisis · toutes les 24 h · conservés 3 ans',
+    );
+  });
+
   it('is read-only for an operator: no Actions column, a notice', () => {
-    const html = list([plan], false);
+    const html = list([asOperator(plan)], false);
+    expect(html).toContain('Messagerie Direction');
     expect(html).not.toContain('Actions');
     expect(html).not.toContain('Lancer');
     expect(html).toContain('Lecture seule : seul un administrateur peut modifier les plans.');
