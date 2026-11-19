@@ -102,6 +102,26 @@ describe('charte.css data tables', () => {
   });
 });
 
+describe('charte.css wizard actions', () => {
+  it('keeps the primary action on the right on desktop, even alone', () => {
+    expect(/\.wizard-actions > :last-child\s*\{\s*margin-left:\s*auto;/.test(css)).toBe(true);
+    expect(css).not.toMatch(/\.wizard-actions > :only-child/);
+  });
+
+  it('aligns the help under the primary action only where the buttons are not full width', () => {
+    expect(
+      /@media \(min-width: 40\.01rem\)\s*\{\s*\.wizard-actions \+ \.field-help\s*\{\s*text-align:\s*right;/.test(
+        css,
+      ),
+    ).toBe(true);
+    expect(
+      /@media \(max-width: 40rem\)\s*\{[\s\S]*?\.wizard-actions\s*\{\s*flex-direction:\s*column-reverse;/.test(
+        css,
+      ),
+    ).toBe(true);
+  });
+});
+
 describe('charte.css steps indicator', () => {
   it('never hides the list of steps, whatever the width or the journey', () => {
     const rules = [...css.matchAll(/([^{}]*)\{([^{}]*)\}/g)];

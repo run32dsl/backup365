@@ -839,8 +839,11 @@ select[aria-disabled='true'] {
 .wizard-actions > :last-child {
   margin-left: auto;
 }
-.wizard-actions > :only-child {
-  margin-left: 0;
+/* Sans retour, l'action principale reste à droite ; l'aide qui la suit s'aligne avec elle. */
+@media (min-width: 40.01rem) {
+  .wizard-actions + .field-help {
+    text-align: right;
+  }
 }
 .empty + .wizard-actions {
   margin-top: var(--space-3);
