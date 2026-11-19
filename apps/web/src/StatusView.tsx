@@ -8,7 +8,9 @@ import type {
 import { Alert, Button, DataTable, EmptyState, StatusPill, type Column } from './ui/index.js';
 import { PLANS_HASH } from './plans.js';
 import { searchHref } from './mail.js';
-import { ageLabel, dateTimeOrDash, plural, workloadLabel } from './format.js';
+import { ageLabel, dateTimeOf, dateTimeOrDash, plural, workloadLabel } from './format.js';
+import { AUDIT_HASH } from './routes.js';
+import { RESTORE_BUTTONS } from './RestoreJourney.js';
 
 type Row = StatusReport['rows'][number];
 
@@ -63,6 +65,104 @@ export function sortRows(rows: Row[]): Row[] {
     (a, b) =>
       SEVERITY[a.state] - SEVERITY[b.state] ||
       (b.ageHours ?? Number.POSITIVE_INFINITY) - (a.ageHours ?? Number.POSITIVE_INFINITY),
+  );
+}
+
+type ServiceEntry = NonNullable<StatusReport['services']>[number];
+
+/** Nom des éléments d'un périmètre : la sélection d'un plan désigne des boîtes ou des comptes. */
+const SCOPE_UNITS: Record<ServiceEntry['service'], { one: string; all: string } | null> = {
+  mail: { one: 'boîte', all: 'Toutes les boîtes' },
+  onedrive: { one: 'compte', all: 'Tous les comptes' },
+  sharepoint: null,
+};
+
+/** `12 boîtes`, `Tous les comptes` ; chaîne vide sans plan. */
+export function scopeLabel(s: Pick<ServiceEntry, 'service' | 'scope'>): string {
+  if (s.scope === null) return '';
+  const unit = SCOPE_UNITS[s.service];
+  if (s.scope.kind === 'all') return unit?.all ?? 'Tous les sites';
+  return unit
+    ? plural(s.scope.count, unit.one)
+    : plural(s.scope.count, 'élément choisi', 'éléments choisis');
+}
+
+/** Temps relatif, puis la date exacte dessous (`<time datetime>`) ; « Jamais » sans sauvegarde. */
+function LastBackup({ at, ageHours }: { at: string | null; ageHours: number | null }) {
+  const exact = dateTimeOf(at);
+  // Une date illisible est une absence, comme dans `backupState`.
+  if (at === null || ageHours === null || exact === '') return <>Jamais</>;
+  const age = ageLabel(ageHours);
+  return (
+    <time dateTime={at}>
+      {age.charAt(0).toUpperCase() + age.slice(1)}
+      <small className="state-note">{`${exact} UTC`}</small>
+    </time>
+  );
+}
+
+/**
+ * Pastille, puis l'action utile : créer un plan s'il n'y en a pas, lire le journal si l'état n'est
+ * pas bon. Le nom accessible du lien nomme le service : le même libellé revient sur plusieurs
+ * lignes. Un seul élément dans la cellule : en carte, le lien reste sous la pastille.
+ */
+function ServiceState({ service }: { service: ServiceEntry }) {
+  const name = workloadLabel(service.service);
+  if (!service.hasPlan)
+    return (
+      <div>
+        <StatusPill status="pending" label="Aucun plan" />
+        <a className="state-link" href={PLANS_HASH} aria-label={`Créer un plan pour ${name}`}>
+          Créer un plan
+        </a>
+      </div>
+    );
+  return (
+    <div>
+      <StateBadge state={service.state} />
+      {service.state !== 'ok' && (
+        <a
+          className="state-link"
+          href={AUDIT_HASH}
+          aria-label={`${RESTORE_BUTTONS.audit} : ${name}`}
+        >
+          {RESTORE_BUTTONS.audit}
+        </a>
+      )}
+    </div>
+  );
+}
+
+const SERVICE_COLUMNS: Column<ServiceEntry>[] = [
+  { header: 'Service', cell: (s) => workloadLabel(s.service) },
+  {
+    header: 'Dernière sauvegarde',
+    cell: (s) => <LastBackup at={s.lastSnapshotAt} ageHours={s.ageHours} />,
+  },
+  { header: 'État', cell: (s) => <ServiceState service={s} /> },
+  {
+    header: 'Conservation',
+    cell: (s) => (s.retentionDays === null ? '' : plural(s.retentionDays, 'jour')),
+  },
+  { header: 'Périmètre', cell: scopeLabel },
+];
+
+/** Page « Sources » : une ligne par service ; un service sans plan est grisé. */
+function Services({ services }: { services: StatusReport['services'] }) {
+  if (services === undefined) return null;
+  if (services === null) return <Alert tone="error">Synthèse des services indisponible</Alert>;
+  return (
+    <section className="status-section" aria-labelledby="services-title">
+      <h2 id="services-title">Sources</h2>
+      <DataTable
+        caption="État par service"
+        hideCaption
+        columns={SERVICE_COLUMNS}
+        rows={services}
+        rowKey={(s) => s.service}
+        rowClassName={(s) => (s.hasPlan ? undefined : 'row-muted')}
+      />
+    </section>
   );
 }
 
@@ -198,6 +298,7 @@ export function StatusView({ state }: { state: StatusState }) {
   return (
     <>
       <Summary report={state} />
+      <Services services={state.services} />
       <PlansCompliance plans={state.plans} />
       <Backups report={state} />
     </>

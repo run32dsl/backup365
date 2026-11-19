@@ -1,5 +1,7 @@
 import {
   buildPlanComplianceReport,
+  buildServiceSummaries,
+  type StatusRow,
   buildStatusReport,
   type BackupCatalog,
   type SearchIndex,
@@ -34,6 +36,21 @@ function planCompliance(store: SqlitePlanStore, log: { warn(obj: object, msg: st
   }
 }
 
+/** Une ligne par service (page « Sources ») ; `null` si la base des plans ne répond pas. */
+function serviceSummaries(
+  store: SqlitePlanStore,
+  rows: readonly StatusRow[],
+  maxAgeHours: number,
+  log: { warn(obj: object, msg: string): void },
+) {
+  try {
+    return buildServiceSummaries(rows, store.list(), maxAgeHours);
+  } catch (err) {
+    log.warn({ code: (err as NodeJS.ErrnoException).code }, 'synthèse des services indisponible');
+    return null;
+  }
+}
+
 /**
  * `GET /api/status` : état de la dernière sauvegarde par boîte et par charge. Simple lecture de
  * métadonnées du catalogue, hors journal d'audit (ADR 0002). Sans catalogue, ou si le SDK échoue
@@ -56,7 +73,11 @@ export function registerStatusRoutes(
     // attente de #86, donc absente pour tout autre rôle et sans session ; absente sans base des plans, `null` si elle ne répond pas.
     const store = req.session?.role === 'admin' ? indexing?.plans : undefined;
     const base = store
-      ? { ...catalogReport, plans: planCompliance(store, req.log) }
+      ? {
+          ...catalogReport,
+          plans: planCompliance(store, req.log),
+          services: serviceSummaries(store, catalogReport.rows, options.maxAgeHours, req.log),
+        }
       : catalogReport;
     const report = options.auditAnchor
       ? {

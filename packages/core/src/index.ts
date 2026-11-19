@@ -14,8 +14,11 @@ export {
 export {
   DEFAULT_MAX_AGE_HOURS,
   backupState,
+  buildServiceSummaries,
   buildStatusReport,
   type BackupState,
+  type Service,
+  type ServiceSummary,
   type SourceKind,
   type StatusReport,
   type StatusRow,

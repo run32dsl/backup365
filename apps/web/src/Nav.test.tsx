@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
-import { closeMenuOnEscape, ConsoleView, ForbiddenView, navEntries, skipToContent } from './App.js';
+import {
+  closeMenuOnEscape,
+  ConsoleView,
+  ForbiddenView,
+  navEntries,
+  screenFor,
+  screenOf,
+  skipToContent,
+} from './App.js';
 
 describe('skip link target', () => {
   it('renders the screen main as a focusable target', () => {
@@ -167,8 +175,19 @@ describe('navEntries', () => {
       'Journal d’audit',
     ]);
     const admin = navEntries('home', true).map((e) => e.label);
-    expect(admin).toHaveLength(7);
-    expect(admin.at(-1)).toBe('Administration');
+    expect(admin).toHaveLength(8);
+    expect(admin.slice(-2)).toEqual(['État détaillé', 'Administration']);
+  });
+
+  it('reaches the detailed status from the menu for an administrator only', () => {
+    expect(navEntries('home', true).find((e) => e.label === 'État détaillé')?.href).toBe('#/etat');
+    expect(screenOf('#/etat')).toBe('status');
+    expect(screenFor('#/etat', true)).toBe('status');
+    expect(navEntries('status', true).filter((e) => e.current)).toEqual([
+      { href: '#/etat', label: 'État détaillé', current: true },
+    ]);
+    expect(navEntries('home', false).map((e) => e.href)).not.toContain('#/etat');
+    expect(screenFor('#/etat', false)).toBe('forbidden');
   });
 
   it('marks exactly one entry as current, the search entry for a mail sheet', () => {
