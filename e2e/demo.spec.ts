@@ -372,35 +372,36 @@ test('SharePoint : fil d’Ariane à 390 px, séparateurs et liens par niveau', 
   const parent = nav.getByRole('link', { name: 'Documents partagés' });
   await expect(parent).toHaveAttribute('href', library);
 
-  // Chaque « > » est dans le `li` du niveau qui le suit, donc sur sa ligne. Celui d'un niveau en
-  // début de ligne est hors du cadre rogné de la liste : il ne se voit pas.
-  const levels = await nav.locator('ol').evaluate((ol) => {
-    const clip = /inset\(\S+ \S+ \S+ ([\d.]+)px\)/.exec(getComputedStyle(ol).clipPath);
-    const visibleFrom = ol.getBoundingClientRect().left + Number(clip?.[1] ?? Number.NaN);
-    return [...ol.children].map((li) => {
+  // Chaque « > » est dans le `li` du niveau qui le suit, donc sur sa ligne, avant le libellé. Le
+  // premier niveau n'en a pas.
+  const levels = await nav.locator('ol').evaluate((ol) =>
+    [...ol.children].map((li) => {
       const box = li.getBoundingClientRect();
       const label = li.firstElementChild!.getBoundingClientRect();
       const before = getComputedStyle(li, '::before');
-      const separatorEnd = box.left + parseFloat(before.width);
       return {
         top: Math.round(box.top),
-        separator: before.content,
-        separatorHidden: separatorEnd <= visibleFrom + 0.5,
-        labelVisible: label.left >= visibleFrom,
+        display: before.display,
+        content: before.content,
         // Le libellé suit son séparateur, sur la même ligne.
-        glued: label.left >= separatorEnd && label.top < box.bottom && label.bottom > box.top,
+        glued:
+          label.left >= box.left + parseFloat(before.width) &&
+          label.top < box.bottom &&
+          label.bottom > box.top,
       };
-    });
-  });
+    }),
+  );
   expect(levels).toHaveLength(3);
   // À 390 px, le chemin à trois niveaux du jeu de démo ne tient pas sur une ligne.
   expect(new Set(levels.map((l) => l.top)).size).toBeGreaterThan(1);
   for (const [i, level] of levels.entries()) {
-    const startsLine = i === 0 || levels[i - 1]!.top !== level.top;
-    expect(level.separator).toBe('">"');
+    if (i === 0) {
+      expect(level.display).toBe('none');
+      continue;
+    }
+    expect(level.display).not.toBe('none');
+    expect(level.content).toBe('">"');
     expect(level.glued).toBe(true);
-    expect(level.labelVisible).toBe(true);
-    expect(level.separatorHidden).toBe(startsLine);
   }
 
   // Clic simple : on remonte d'un niveau sans quitter la page.
