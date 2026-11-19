@@ -611,6 +611,7 @@ function planColumns(
   const columns: Column<PlanItem>[] = [
     {
       header: 'Plan',
+      className: 'card-title',
       cell: (p) => (
         <div>
           <span className="nowrap-wide">{p.name}</span>
@@ -623,7 +624,7 @@ function planColumns(
     },
     {
       header: 'État',
-      className: 'compliance-cell',
+      className: 'compliance-cell card-nolabel',
       cell: (p) => {
         const view = complianceView(p, runningName);
         return (
@@ -634,11 +635,16 @@ function planColumns(
         );
       },
     },
-    { header: 'Dernière exécution (UTC)', cell: lastRunLabel },
+    {
+      header: 'Dernière exécution (UTC)',
+      className: 'card-wide plan-last-run',
+      cell: lastRunLabel,
+    },
   ];
   if (admin) {
     columns.push({
       header: 'Actions',
+      className: 'card-action',
       cell: (p) => (
         <div className="row-actions">
           <div className="run-action">

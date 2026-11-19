@@ -235,6 +235,15 @@ describe('routes', () => {
 });
 
 describe('PlansListView', () => {
+  it('gives the columns their mobile card classes', () => {
+    const html = list([plan], true);
+    expect(html).toMatch(/<th[^>]*class="card-title"[^>]*>Plan</);
+    expect(html).toMatch(/<th[^>]*class="card-action"[^>]*>Actions</);
+    expect(html).toMatch(/<td[^>]*data-label="Plan"[^>]*class="card-title"/);
+    expect(html).toContain('card-wide plan-last-run');
+    expect(html).toContain('compliance-cell card-nolabel');
+  });
+
   it('shows the table with action buttons named after the plan for an administrator', () => {
     const html = list([plan], true);
     expect(html).toContain('Messagerie Direction');
