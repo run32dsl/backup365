@@ -159,3 +159,25 @@ describe('charte.css collapsible menu (keyboard access)', () => {
     );
   });
 });
+
+describe('charte.css heading scale', () => {
+  const rules = [...css.matchAll(/([^{}]*)\{([^{}]*)\}/g)].map((m) => ({
+    selector: m[1]!.trim().replace(/\/\*[\s\S]*?\*\/\s*/g, ''),
+    size: /font-size:\s*([0-9.]+)rem/.exec(m[2]!)?.[1],
+  }));
+  const sizeOf = (selector: string) => Number(rules.find((r) => r.selector === selector)?.size);
+
+  it('gives h2 and h3 a rem size strictly below the h1, in decreasing order', () => {
+    expect(sizeOf('h1')).toBe(1.5);
+    expect(sizeOf('h2')).toBeLessThan(sizeOf('h1'));
+    expect(sizeOf('h3')).toBeLessThan(sizeOf('h2'));
+  });
+
+  it('sets heading sizes only on the bare h1, h2 and h3 rules (no component redefines them)', () => {
+    for (const r of rules) {
+      if (/\bh[1-6]\b/.test(r.selector) && r.size !== undefined) {
+        expect(['h1', 'h2', 'h3'], r.selector).toContain(r.selector);
+      }
+    }
+  });
+});

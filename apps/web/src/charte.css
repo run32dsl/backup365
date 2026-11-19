@@ -70,6 +70,15 @@ h1 {
   margin: 0 0 var(--space-3);
 }
 
+/* Échelle de titres : h1 1,5 rem > h2 1,25 rem > h3 1,125 rem. Aucun composant ne la redéfinit. */
+h2 {
+  font-size: 1.25rem;
+}
+
+h3 {
+  font-size: 1.125rem;
+}
+
 a {
   color: var(--accent);
 }
@@ -924,7 +933,6 @@ select[aria-disabled='true'] {
 }
 .dialog-header h2 {
   margin: 0 0 var(--space-3);
-  font-size: 1.25rem;
 }
 .dialog-actions {
   justify-content: flex-end;

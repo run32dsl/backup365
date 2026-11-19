@@ -27,6 +27,7 @@ export const SECTIONS = [
   { id: 'etapes', summary: 'Étapes', title: 'Indicateur d’étapes' },
   { id: 'actions-etapes', summary: 'Actions d’étapes', title: 'Barre d’actions des parcours' },
   { id: 'pastilles', summary: 'Pastilles', title: 'Pastilles d’état' },
+  { id: 'titres', summary: 'Titres', title: 'Échelle de titres' },
 ] as const;
 
 /**
@@ -266,6 +267,13 @@ export function ComponentsPage() {
           <StatusPill status="unconfigured" />
           <StatusPill status="pending" />
         </div>
+      </Section>
+      <Section id="titres" title="Échelle de titres">
+        <p>
+          Le titre de la page (<code>h1</code>, 1,5 rem) domine ; les parties de la page sont en{' '}
+          <code>h2</code> (1,25 rem), leurs sous-parties en <code>h3</code> (1,125 rem).
+        </p>
+        <h3>Exemple de sous-partie</h3>
       </Section>
     </main>
   );
