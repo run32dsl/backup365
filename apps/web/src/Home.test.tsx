@@ -13,6 +13,7 @@ import {
 } from './Home.js';
 import { fetchHealth } from './health.js';
 import { fetchOverview, type Overview } from './overview.js';
+import { MESSAGES as PLAN_MESSAGES } from './plans.js';
 
 const NOW = Date.parse('2026-11-18T17:02:00Z');
 const retry = () => undefined;
@@ -21,22 +22,22 @@ const render = (state: Parameters<typeof OverviewView>[0]['state'], admin = true
 
 const operational: Overview = {
   state: 'operational',
-  plans: { total: 4, operational: 4 },
+  plans: { total: 4, operational: 4, running: 0, queued: 0 },
   lastBackupAt: '2026-11-18T14:02:00Z',
 };
 const unconfigured: Overview = {
   state: 'unconfigured',
-  plans: { total: 0, operational: 0 },
+  plans: { total: 0, operational: 0, running: 0, queued: 0 },
   lastBackupAt: null,
 };
 const pending: Overview = {
   state: 'pending',
-  plans: { total: 1, operational: 0 },
+  plans: { total: 1, operational: 0, running: 0, queued: 0 },
   lastBackupAt: null,
 };
 const failed: Overview = {
   state: 'failed',
-  plans: { total: 4, operational: 2 },
+  plans: { total: 4, operational: 2, running: 0, queued: 0 },
   lastBackupAt: '2026-11-16T02:00:00Z',
 };
 
@@ -109,6 +110,25 @@ describe('OverviewView', () => {
     expect(html).toContain('il y a 2 j');
     expect(html).toContain('(dernière réussie)');
     expect(html).not.toContain('Erreur inattendue');
+  });
+
+  it('Plans card: running and queued plans with the pills and words of the plans list', () => {
+    const busy = render({ ...failed, plans: { ...failed.plans, running: 1, queued: 2 } });
+    const card = busy.slice(busy.indexOf('>Plans<'), busy.indexOf('>Dernière sauvegarde<'));
+    expect(card).toContain(
+      `<span aria-hidden="true">↻</span> ${PLAN_MESSAGES.running}</span> <strong>1</strong>`,
+    );
+    expect(card).toContain(
+      `<span aria-hidden="true">◷</span> ${PLAN_MESSAGES.queued}</span> <strong>2</strong>`,
+    );
+    // Le dernier résultat reste dit : le décompte « à jour » et l'état de la carte « Sauvegarde ».
+    expect(card).toContain('2 plans à jour sur 4');
+    expect(busy).toContain('La dernière exécution a échoué.');
+    const queuedOnly = render({ ...failed, plans: { ...failed.plans, queued: 1 } });
+    expect(queuedOnly).toContain('En file d’attente');
+    expect(queuedOnly).not.toContain('En cours');
+    // Au repos : aucune pastille d'activité.
+    expect(render(operational)).not.toContain('plan-counts');
   });
 
   it('request error: an alert with Réessayer as the only action', () => {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ConfigurationNotice, connectionLine, useConfiguration } from './ConfigurationBlock.js';
 import { dateTimeOf } from './format.js';
 import { fetchOverview, type Overview } from './overview.js';
-import { PLANS_HASH } from './plans.js';
+import { MESSAGES as PLAN_MESSAGES, PLANS_HASH } from './plans.js';
 import { Alert, Button, StatusPill } from './ui/index.js';
 
 /** État du chargement de l'accueil. */
@@ -38,6 +38,28 @@ function Card({ id, title, children }: { id: string; title: string; children: Re
       </h2>
       {children}
     </section>
+  );
+}
+
+/**
+ * Plans en cours et en file, avec les pastilles et les mots de la liste des plans ; rien quand
+ * aucune sauvegarde ne tourne ni n'attend.
+ */
+function PlanActivity({ running, queued }: { running: number; queued: number }) {
+  if (running + queued === 0) return null;
+  return (
+    <ul className="plan-counts">
+      {running > 0 && (
+        <li>
+          <StatusPill status="running" label={PLAN_MESSAGES.running} /> <strong>{running}</strong>
+        </li>
+      )}
+      {queued > 0 && (
+        <li>
+          <StatusPill status="pending" label={PLAN_MESSAGES.queued} /> <strong>{queued}</strong>
+        </li>
+      )}
+    </ul>
   );
 }
 
@@ -108,6 +130,7 @@ export function OverviewView({
         ) : (
           <>
             <p>{plansLabel(plans.operational, plans.total)}</p>
+            <PlanActivity running={plans.running} queued={plans.queued} />
             <a href={PLANS_HASH}>Voir les plans</a>
           </>
         )}

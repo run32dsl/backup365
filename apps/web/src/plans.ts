@@ -125,9 +125,10 @@ export const MESSAGES = {
   updated: 'Plan modifié.',
   deleted: 'Plan supprimé.',
   runStarted: 'Sauvegarde lancée. Motif enregistré au journal d’audit.',
-  queued: 'En attente de la sauvegarde en cours',
-  runQueued:
-    'En attente de la sauvegarde en cours : elle démarrera ensuite. Motif enregistré au journal d’audit.',
+  running: 'En cours',
+  queued: 'En file d’attente',
+  runBusy: 'Sauvegarde déjà en cours',
+  runAlreadyQueued: 'Déjà en file d’attente',
 } as const;
 
 // ---- Formulaire -----------------------------------------------------------------------------
@@ -320,11 +321,24 @@ export const timeOf = (date: Date): string => `${pad(date.getHours())}:${pad(dat
  * État du plan : le libellé court de la charte (celui du tableau de bord) et, si elle apporte
  * plus que la colonne « Dernière exécution », une explication en texte secondaire.
  */
-export function complianceView(plan: PlanItem): {
+export function complianceView(
+  plan: PlanItem,
+  runningName?: string,
+): {
   status: PillStatus;
   label: string;
   note?: string;
 } {
+  // Une exécution ou une mise en file prime : le dernier résultat terminé reste lisible dans
+  // la colonne « Dernière exécution ».
+  if (plan.running) return { status: 'running', label: MESSAGES.running };
+  if (plan.queued) {
+    return {
+      status: 'pending',
+      label: MESSAGES.queued,
+      ...(runningName && { note: `Démarrera après « ${runningName} »` }),
+    };
+  }
   const { state, lastSuccessAt, lastRestorePointAt } = plan.compliance;
   if (state === 'compliant') {
     // Réussi, mais sans point de restauration : rien n'a été copié, donc rien n'est protégé
@@ -350,10 +364,24 @@ export function complianceView(plan: PlanItem): {
     : { status: 'late', label: 'En retard', ...(note && { note }) };
 }
 
-/** Dernière exécution en une ligne. */
+/** Confirmation d'un lancement mis en file : le plan lancé et celui qui le précède. */
+export const queuedMessage = (plan: string, running?: string): string =>
+  `Sauvegarde de « ${plan} » mise en file : elle démarrera à la fin de ${
+    running ? `« ${running} »` : 'la sauvegarde en cours'
+  }.`;
+
+/** Message affiché après l'envoi d'un lancement : mis en file (deux plans nommés) ou démarré. */
+export function runFlashText(
+  queued: boolean,
+  plan: string,
+  list: readonly PlanItem[] | undefined,
+): string {
+  if (!queued) return MESSAGES.runStarted;
+  return queuedMessage(plan, list?.find((p) => p.running)?.name);
+}
+
+/** Dernier résultat terminé en une ligne, même si le plan tourne ou attend son tour. */
 export function lastRunLabel(plan: PlanItem): string {
-  if (plan.running) return 'En cours…';
-  if (plan.queued) return MESSAGES.queued;
   const run = plan.lastRun;
   if (!run) return 'Pas encore sauvegardé';
   const at = dateTimeOf(run.finishedAt ?? run.startedAt);

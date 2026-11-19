@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { PlanWizard, PlansListView } from './PlansPage.js';
 import { AUDIT_REMINDER } from './RestoreJourney.js';
+import { Alert } from './ui/index.js';
 import {
   complianceView,
   createdMessage,
@@ -10,6 +11,8 @@ import {
   formFromPlan,
   justificationText,
   lastRunLabel,
+  queuedMessage,
+  runFlashText,
   planSummary,
   parseJustification,
   parsePlansHash,
@@ -204,9 +207,18 @@ describe('list labels', () => {
       label: 'En attente',
       note: 'Rien à sauvegarder dans le périmètre',
     });
-    expect(lastRunLabel({ ...plan, running: true })).toBe('En cours…');
-    // En file derrière une autre sauvegarde : ni échec, ni en cours.
-    expect(lastRunLabel({ ...plan, queued: true })).toBe('En attente de la sauvegarde en cours');
+    // En cours ou en file : la colonne garde le dernier résultat terminé.
+    expect(lastRunLabel({ ...plan, running: true })).toBe(lastRunLabel(plan));
+    expect(lastRunLabel({ ...plan, queued: true })).toBe(lastRunLabel(plan));
+    expect(complianceView({ ...plan, running: true })).toEqual({
+      status: 'running',
+      label: 'En cours',
+    });
+    expect(complianceView({ ...plan, queued: true }, 'Boîte direction')).toEqual({
+      status: 'pending',
+      label: 'En file d’attente',
+      note: 'Démarrera après « Boîte direction »',
+    });
     expect(lastRunLabel({ ...plan, lastRun: null })).toBe('Pas encore sauvegardé');
   });
 });
@@ -325,10 +337,57 @@ describe('PlansListView', () => {
 
   it('disables « Lancer maintenant » while a run is in progress', () => {
     const html = list([{ ...plan, running: true }], true);
-    expect(html).toContain('En cours…');
+    expect(html).toContain('En cours');
+    expect(html).not.toContain('En échec');
     expect(html).toMatch(
-      /aria-label="Lancer Messagerie Direction maintenant"[^>]*aria-disabled="true"/,
+      /aria-label="Lancer Messagerie Direction maintenant"[^>]*aria-disabled="true"[^>]*aria-describedby="run-hint-/,
     );
+    expect(html).toContain('Sauvegarde déjà en cours');
+  });
+
+  it('shows a queued plan and the plan it waits for', () => {
+    const other = { ...plan, id: 'p2', name: 'Boîte direction', running: true };
+    const html = list([other, { ...plan, queued: true }], true);
+    expect(html).toContain('En file d’attente');
+    expect(html).toContain('Démarrera après « Boîte direction »');
+    expect(html).toContain('Déjà en file d’attente');
+  });
+
+  it('falls back when the running plan is unknown', () => {
+    expect(complianceView({ ...plan, queued: true })).toEqual({
+      status: 'pending',
+      label: 'En file d’attente',
+    });
+    expect(queuedMessage('Boîtes mail')).toBe(
+      'Sauvegarde de « Boîtes mail » mise en file : elle démarrera à la fin de la sauvegarde en cours.',
+    );
+    expect(list([{ ...plan, queued: true }], true)).toContain('Déjà en file d’attente');
+  });
+
+  it('names both plans in the queued confirmation', () => {
+    expect(queuedMessage('Boîtes mail', 'Boîte direction')).toBe(
+      'Sauvegarde de « Boîtes mail » mise en file : elle démarrera à la fin de « Boîte direction ».',
+    );
+  });
+
+  it('picks the confirmation text after a run is sent', () => {
+    const current = { ...plan, id: 'p0', name: 'Boîte direction', running: true };
+    expect(runFlashText(true, 'Boîtes mail', [current, plan])).toBe(
+      queuedMessage('Boîtes mail', 'Boîte direction'),
+    );
+    expect(runFlashText(true, 'Boîtes mail', undefined)).toBe(queuedMessage('Boîtes mail'));
+    expect(runFlashText(false, 'Boîtes mail', [current])).toContain('Sauvegarde lancée');
+  });
+
+  it('renders the queued confirmation as a status banner naming both plans', () => {
+    const current = { ...plan, id: 'p0', name: 'Boîte direction', running: true };
+    // Le même rendu que la page : `Alert` au ton `success`, avec le texte choisi après l'envoi.
+    const html = renderToStaticMarkup(
+      <Alert tone="success">{runFlashText(true, 'Boîtes mail', [current, plan])}</Alert>,
+    );
+    expect(html).toContain('role="status"');
+    expect(html).toContain('« Boîtes mail »');
+    expect(html).toContain('« Boîte direction »');
   });
 
   it('handles loading, error and empty states', () => {

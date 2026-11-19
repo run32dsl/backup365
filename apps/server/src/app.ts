@@ -203,7 +203,7 @@ export function buildApp({
     done();
   });
   void app.register((scope, _opts, done) => {
-    registerOverviewRoutes(scope, plans);
+    registerOverviewRoutes(scope, plans, planScheduler);
     registerConfigurationRoutes(scope, { backupConfigured, workloads: status.workloads });
     done();
   });
