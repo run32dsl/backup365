@@ -583,6 +583,16 @@ select[aria-disabled='true'] {
   color: var(--muted);
 }
 
+/* « Lancer maintenant » et, s'il est grisé, sa raison juste en dessous. */
+.run-action {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.run-action .btn {
+  width: 100%;
+}
+
 /* Synthèse d'un plan sous son nom : passe à la ligne sans élargir la page. */
 .plan-summary {
   overflow-wrap: anywhere;

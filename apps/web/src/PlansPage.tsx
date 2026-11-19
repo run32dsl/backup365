@@ -22,6 +22,7 @@ import {
   formFromPlan,
   lastRunLabel,
   planSummary,
+  queuedMessage,
   retentionLabel,
   withCurrent,
   retentionHelp,
@@ -596,6 +597,7 @@ export type PlansState = PlanItem[] | 'loading' | 'error';
 function planColumns(
   admin: boolean,
   mailboxes: readonly Mailbox[],
+  runningName: string | undefined,
   actions: { onRun: (p: PlanItem) => void; onDelete: (p: PlanItem) => void },
 ): Column<PlanItem>[] {
   const columns: Column<PlanItem>[] = [
@@ -615,7 +617,7 @@ function planColumns(
       header: 'État',
       className: 'compliance-cell',
       cell: (p) => {
-        const view = complianceView(p);
+        const view = complianceView(p, runningName);
         return (
           <div>
             <StatusPill status={view.status} label={view.label} />
@@ -631,16 +633,24 @@ function planColumns(
       header: 'Actions',
       cell: (p) => (
         <div className="row-actions">
-          <Button
-            variant="secondary"
-            aria-label={`Lancer ${p.name} maintenant`}
-            aria-disabled={p.running || p.queued || undefined}
-            onClick={() => {
-              if (!p.running && !p.queued) actions.onRun(p);
-            }}
-          >
-            Lancer maintenant
-          </Button>
+          <div className="run-action">
+            <Button
+              variant="secondary"
+              aria-label={`Lancer ${p.name} maintenant`}
+              aria-disabled={p.running || p.queued || undefined}
+              aria-describedby={p.running || p.queued ? `run-hint-${p.id}` : undefined}
+              onClick={() => {
+                if (!p.running && !p.queued) actions.onRun(p);
+              }}
+            >
+              Lancer maintenant
+            </Button>
+            {(p.running || p.queued) && (
+              <small className="state-note" id={`run-hint-${p.id}`}>
+                {p.running ? MESSAGES.runBusy : MESSAGES.runAlreadyQueued}
+              </small>
+            )}
+          </div>
           <div className="row-actions-more">
             <a
               className="btn btn-secondary"
@@ -757,7 +767,10 @@ export function PlansListView({
       <DataTable
         caption="Plans de protection"
         hideCaption
-        columns={planColumns(admin, mailboxes, { onRun, onDelete })}
+        columns={planColumns(admin, mailboxes, state.find((p) => p.running)?.name, {
+          onRun,
+          onDelete,
+        })}
         rows={state}
         rowKey={(p) => p.id}
       />
@@ -818,9 +831,10 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     const outcome = await runPlan(plan.id, reason);
     if (!outcome.ok) return outcome;
     setRunTarget(null);
+    const current = Array.isArray(state) ? state.find((p) => p.running) : undefined;
     setFlash({
       tone: 'success',
-      text: outcome.value.queued ? MESSAGES.runQueued : MESSAGES.runStarted,
+      text: outcome.value.queued ? queuedMessage(plan.name, current?.name) : MESSAGES.runStarted,
     });
     load();
     return undefined;

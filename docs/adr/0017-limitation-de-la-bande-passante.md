@@ -62,7 +62,7 @@ Conclusion : **le SDK ne permet pas de limiter le débit** ni la concurrence.
   mis en file : rien n'est ouvert en base avant son tour, donc il n'est ni un échec, ni une
   exécution « en cours », et l'état « en retard » du tableau de bord ne change pas. `POST
 /api/plans/:id/run` répond `202 { started: 0, skipped: 0, queued: true }` et la liste des plans
-  porte `queued` ; l'écran affiche « En attente de la sauvegarde en cours ». La file est en
+  porte `queued` ; l'écran affiche « En file d’attente » (pastille) et « Démarrera après « <plan en cours> » ». La file est en
   mémoire : un redémarrage la perd (le lancement est à refaire, rien n'est faussé).
 - En attendant, la limitation de débit relève du réseau de l'utilisateur (QoS du routeur ou du
   NAS).
