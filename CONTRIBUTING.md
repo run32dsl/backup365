@@ -96,6 +96,28 @@ présente ; utiliser un `BACKUP365_DATA_DIR` jetable.
   navigateur une fois avec `pnpm exec playwright install chromium`, ou pointer
   `BACKUP365_CHROMIUM` vers un exécutable Chromium existant.
 
+## Durées de la CI
+
+Le job `ci` porte `timeout-minutes: 15` (`.github/workflows/ci.yml`) ; `pnpm run captures` en est
+une étape, et sa durée croît avec le nombre d'écrans. Le suivi se fait sans réseau côté
+développement :
+
+- `pnpm run captures` termine par une ligne de relevé, qui commence par
+  `captures : durée <n> s pour <m> images` et rappelle le seuil. C'est la durée de toute la
+  commande : construction comprise sur un poste ou sur l'hôte, sans construction dans la CI
+  (`BACKUP365_SKIP_BUILD`). Dans la CI, la même ligne est écrite dans le résumé du run. Au-delà de
+  5 min, la commande ajoute un avertissement, sans échouer ;
+- la reprise de cette ligne dans `.review/verifs-<PR>.txt` à chaque revue relève de l'outillage de
+  l'hôte (suivi dans #249). Ce sera la durée mesurée sur l'hôte, distincte de celle de l'étape
+  `captures` du job `ci` ;
+- le bilan hebdomadaire du Product Owner reprend la durée médiane et la durée maximale du job `ci`
+  sur `develop` pour la semaine écoulée (lues dans l'interface Actions), et la plus longue durée de
+  `captures` relevée dans les résumés de run et les fichiers `verifs` de la semaine ;
+- seuils d'alerte, tous deux sous le timeout de 15 min : 10 min pour le job `ci`, 5 min pour
+  `captures`. Au-delà, le Product Owner ouvre une issue pendant le bilan (mise en place suivie
+  dans #250) : rien dans le dépôt ne l'ouvre à sa place. Cas limite accepté : un dépassement du
+  job `ci` en milieu de semaine n'est vu qu'au bilan suivant.
+
 ## Version affichée
 
 Le pied de page de la console affiche la version du serveur (`/api/health`).
