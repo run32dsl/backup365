@@ -249,6 +249,18 @@ export interface PlanRun {
   noSnapshotReason?: NoSnapshotReason | null;
 }
 
+/**
+ * Causes d'échec exposées à l'interface : liste fermée, jamais le code ni le message du SDK. Le
+ * libellé français de chaque cause est écrit dans l'interface.
+ */
+export const FAILURE_CAUSES = ['interrupted', 'backup_errors', 'no_result', 'unknown'] as const;
+export type FailureCause = (typeof FAILURE_CAUSES)[number];
+
+/** Cause (liste fermée) d'un code d'erreur enregistré ; `unknown` pour tout autre code. */
+export function failureCauseOf(code: string | null | undefined): FailureCause {
+  return FAILURE_CAUSES.find((c) => c === code && c !== 'unknown') ?? 'unknown';
+}
+
 /** Seul motif noté : `no_changes` laisse le point de restauration précédent valable. */
 export type NoSnapshotReason = 'no_content';
 

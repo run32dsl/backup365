@@ -20,7 +20,9 @@ dans la liste la conformité et la dernière exécution, et laisser un opérateu
   `mail`. Un plan « Fichiers et calendriers » protège donc les trois charges, comme l'exécuteur le
   faisait déjà (il sauvegardait tout) ; un plan « Messagerie » seule ne sauvegarde plus OneDrive.
 - **Liste.** `GET /api/plans` ajoute à chaque plan `compliance` (`planCompliance`, ADR 0009),
-  `running` et `lastRun` (statut et dates, jamais l'erreur). La conformité se calcule sur le serveur,
+  `running` et `lastRun` (statut, dates et, pour un échec, `failureCause` : une cause d'une liste
+  fermée du core, jamais le code ni le message du SDK ; l'interface la traduit en français sous la
+  pastille « En échec », et `#/plans?etat=echec` réduit la liste aux plans en échec). La conformité se calcule sur le serveur,
   à l'heure du serveur.
 - **Lecture seule.** `GET /api/plans` est la seule route ouverte à l'opérateur ; création,
   modification, suppression, historique et lancement restent réservés aux administrateurs. Pour

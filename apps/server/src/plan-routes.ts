@@ -1,4 +1,9 @@
-import { parseProtectionPlanInput, planCompliance, type AuditLog } from '@backup365/core';
+import {
+  failureCauseOf,
+  parseProtectionPlanInput,
+  planCompliance,
+  type AuditLog,
+} from '@backup365/core';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { auditEvent, recordDenied } from './audit-events.js';
 import type { PlanScheduler } from './plan-scheduler.js';
@@ -137,6 +142,8 @@ export function registerPlanRoutes(
               startedAt: last.startedAt,
               finishedAt: last.finishedAt,
               noSnapshotReason: last.noSnapshotReason,
+              // Cause traduite (liste fermée), jamais le code ni le message brut.
+              ...(last.status === 'failed' && { failureCause: failureCauseOf(last.error) }),
             }
           : null,
       };

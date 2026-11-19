@@ -3,7 +3,15 @@ export interface Overview {
   /** `unconfigured` : aucun plan. `pending` : des plans, mais aucun résultat encore. */
   state: 'operational' | 'unconfigured' | 'pending' | 'failed';
   /** `running` et `queued` : plans en cours et plans en file, comme dans la liste des plans. */
-  plans: { total: number; operational: number; running: number; queued: number };
+  plans: {
+    total: number;
+    operational: number;
+    running: number;
+    queued: number;
+    /** Plans en échec et en retard, comme dans la liste des plans. */
+    failed: number;
+    late: number;
+  };
   lastBackupAt: string | null;
 }
 

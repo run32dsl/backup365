@@ -22,22 +22,22 @@ const render = (state: Parameters<typeof OverviewView>[0]['state'], admin = true
 
 const operational: Overview = {
   state: 'operational',
-  plans: { total: 4, operational: 4, running: 0, queued: 0 },
+  plans: { total: 4, operational: 4, running: 0, queued: 0, failed: 0, late: 0 },
   lastBackupAt: '2026-11-18T14:02:00Z',
 };
 const unconfigured: Overview = {
   state: 'unconfigured',
-  plans: { total: 0, operational: 0, running: 0, queued: 0 },
+  plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
   lastBackupAt: null,
 };
 const pending: Overview = {
   state: 'pending',
-  plans: { total: 1, operational: 0, running: 0, queued: 0 },
+  plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
   lastBackupAt: null,
 };
 const failed: Overview = {
   state: 'failed',
-  plans: { total: 4, operational: 2, running: 0, queued: 0 },
+  plans: { total: 4, operational: 2, running: 0, queued: 0, failed: 1, late: 1 },
   lastBackupAt: '2026-11-16T02:00:00Z',
 };
 
@@ -70,7 +70,7 @@ describe('OverviewView', () => {
     expect(html).toContain('Aucune donnée Microsoft 365 n’est encore protégée.');
     expect(html).toContain('Aucun plan');
     expect(html).toContain('Aucune sauvegarde');
-    expect(html.match(/<button/g)).toHaveLength(1);
+    expect(html.match(/<button/g)).toHaveLength(2);
     expect(html).toContain('Configurer');
     expect(html).not.toContain('Voir les plans');
     expect(html).not.toContain('Erreur inattendue');

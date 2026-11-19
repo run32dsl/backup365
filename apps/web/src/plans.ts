@@ -4,6 +4,7 @@ import {
   nextRunAt,
   type ComplianceState,
   type DataType,
+  type FailureCause,
   type NoSnapshotReason,
   type PlanScope,
   type RpoHours,
@@ -44,6 +45,8 @@ export interface PlanItem {
     startedAt: string;
     finishedAt: string | null;
     noSnapshotReason: NoSnapshotReason | null;
+    /** Cause de l'échec, d'une liste fermée ; absente si la dernière exécution n'a pas échoué. */
+    failureCause?: FailureCause;
   } | null;
 }
 
@@ -124,6 +127,14 @@ export const MESSAGES = {
   runBusy: 'Sauvegarde déjà en cours',
   runAlreadyQueued: 'Déjà en file d’attente',
 } as const;
+
+/** Cause d'un échec en une phrase, sans code ni détail technique. */
+export const FAILURE_LABELS: Record<FailureCause, string> = {
+  interrupted: 'Sauvegarde interrompue',
+  backup_errors: 'Des dossiers n’ont pas pu être sauvegardés',
+  no_result: 'Aucune donnée n’a été sauvegardée',
+  unknown: 'Cause non précisée',
+};
 
 // ---- Formulaire -----------------------------------------------------------------------------
 
@@ -344,19 +355,36 @@ export function complianceView(
         note: 'Rien à sauvegarder dans le périmètre',
       };
     }
-    return { status: 'compliant', label: 'À jour' };
+    // Une réussite récente, puis un échec : la cause reste dite (le plan est dans « en échec »).
+    const failure = plan.lastRun?.failureCause;
+    return {
+      status: 'compliant',
+      label: 'À jour',
+      ...(failure && {
+        note: `Dernière exécution en échec : ${FAILURE_LABELS[failure].toLowerCase()}`,
+      }),
+    };
   }
   // Même état que le tableau de bord (`state` du plan), jamais déduit d'ailleurs.
-  const note =
+  const base =
     lastSuccessAt === null
       ? 'Aucune sauvegarde réussie'
       : state === 'late'
         ? 'Dernière sauvegarde plus ancienne que prévu'
-        : undefined; // échec : « Dernière exécution » le dit
+        : undefined;
+  const cause =
+    state === 'failed' && plan.lastRun?.failureCause
+      ? FAILURE_LABELS[plan.lastRun.failureCause]
+      : undefined;
+  const note = [cause, base].filter(Boolean).join(' · ') || undefined;
   return state === 'failed'
     ? { status: 'failed', label: 'En échec', ...(note && { note }) }
     : { status: 'late', label: 'En retard', ...(note && { note }) };
 }
+
+/** Plan « en échec » : conformité en échec ou dernière exécution en échec (règle de l'accueil). */
+export const isFailed = (plan: PlanItem): boolean =>
+  plan.compliance.state === 'failed' || plan.lastRun?.status === 'failed';
 
 /** Confirmation d'un lancement mis en file : le plan lancé et celui qui le précède. */
 export const queuedMessage = (plan: string, running?: string): string =>
@@ -394,14 +422,18 @@ export function createdMessage(plan: { id: string; rpoHours: RpoHours }, now = n
 // ---- Ancres ---------------------------------------------------------------------------------
 
 export const PLANS_HASH = '#/plans';
+/** Liste des plans réduite à ceux en échec (bouton « Voir l'erreur » de l'accueil). */
+export const FAILED_PLANS_HASH = '#/plans?etat=echec';
 export const NEW_PLAN_HASH = '#/plans/nouveau';
 export const editHash = (id: string): string => `#/plans/${encodeURIComponent(id)}/modifier`;
 
-export type PlansRoute = { page: 'list' } | { page: 'new' } | { page: 'edit'; id: string };
+export type PlansRoute =
+  { page: 'list'; failedOnly?: boolean } | { page: 'new' } | { page: 'edit'; id: string };
 
 /** Écran des plans demandé par l'ancre, ou `null` si l'ancre est autre. */
 export function parsePlansHash(hash: string): PlansRoute | null {
   if (hash === PLANS_HASH) return { page: 'list' };
+  if (hash === FAILED_PLANS_HASH) return { page: 'list', failedOnly: true };
   if (hash === NEW_PLAN_HASH) return { page: 'new' };
   const m = /^#\/plans\/([^/]+)\/modifier$/.exec(hash);
   if (!m?.[1]) return null;
