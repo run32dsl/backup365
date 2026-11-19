@@ -1,4 +1,4 @@
-import { DATA_TYPES, type DataType, type RpoHours } from '@backup365/core';
+import { DATA_TYPES, scheduleWindowLabel, type DataType, type RpoHours } from '@backup365/core';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ConfigurationLink } from './ConfigurationBlock.js';
 import {
@@ -605,6 +605,9 @@ function planColumns(
         <div>
           <span className="nowrap-wide">{p.name}</span>
           <small className="state-note plan-summary">{planSummary(p, mailboxes)}</small>
+          {scheduleWindowLabel(p.rpoHours) && (
+            <small className="state-note plan-summary">{scheduleWindowLabel(p.rpoHours)}</small>
+          )}
         </div>
       ),
     },

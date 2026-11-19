@@ -1,4 +1,10 @@
-import { nextRunAt, runIntervalMinutes, type NoSnapshotReason } from '@backup365/core';
+import {
+  NIGHT_SLOT_GAP,
+  currentRunSlot,
+  nightWindowStart,
+  isNightPlan,
+  type NoSnapshotReason,
+} from '@backup365/core';
 import type { SqlitePlanStore, StoredPlan } from './sqlite/sqlite-plan-store.js';
 
 /** Ce que le planificateur demande à l'exécuteur : un plan sur un élément, rien d'autre. */
@@ -121,9 +127,17 @@ export class PlanScheduler {
       for (const id of this.settledSlot.keys()) if (!ids.has(id)) this.settledSlot.delete(id);
       for (const plan of current) {
         if (this.stopped) return;
-        // Les créneaux forment une suite arithmétique : le dernier est le prochain moins un intervalle.
-        const slot = new Date(
-          nextRunAt(plan, now).getTime() - runIntervalMinutes(plan.rpoHours) * 60_000,
+        // Plan de nuit : rien en journée, ni création ni redémarrage (ADR 0017, pas de rattrapage).
+        const night = isNightPlan(plan.rpoHours);
+        const windowStart = night ? nightWindowStart(now) : null;
+        if (night && !windowStart) continue;
+        const slotAt = currentRunSlot(plan, now);
+        // Le dernier créneau d'une nuit passée n'est pas rattrapé à l'ouverture de la fenêtre.
+        if (windowStart && slotAt < windowStart) continue;
+        const slot = slotAt.toISOString();
+        // Le second passage de la nuit ne reprend que les éléments sans réussite depuis le premier.
+        const successSince = new Date(
+          new Date(slot).getTime() - NIGHT_SLOT_GAP * 60_000,
         ).toISOString();
         // Lister les boîtes interroge le stockage : on ne le refait pas pour un créneau déjà traité.
         // Une boîte apparue en cours de créneau est donc prise au créneau suivant.
@@ -140,6 +154,7 @@ export class PlanScheduler {
         for (const itemId of items) {
           if (this.stopped) return;
           if (plans.hasRunSince(plan.id, itemId, slot)) continue;
+          if (night && plans.hasSuccessSince(plan.id, itemId, successSince)) continue;
           const runId = plans.startRun(plan.id, itemId, now.toISOString());
           if (runId === undefined) settled = false;
           else await this.execute(plan.id, itemId, runId);

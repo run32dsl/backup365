@@ -161,6 +161,9 @@ describe('plan form', () => {
     expect(createdMessage({ id: 'p1', rpoHours: 12 })).toMatch(
       /^Plan créé\. Première sauvegarde prévue à \d\d:\d\d\.$/,
     );
+    expect(createdMessage({ id: 'p1', rpoHours: 24 })).toBe(
+      'Plan créé. Première sauvegarde prévue cette nuit.',
+    );
   });
 });
 
