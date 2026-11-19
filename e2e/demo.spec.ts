@@ -317,7 +317,7 @@ test('SharePoint : un accès direct au site entier est refusé à un opérateur'
   await signInAs(context, baseURL!, 'operator');
   await page.goto(`/#/sharepoint/${SITES.rh}/site`);
   await expect(
-    page.getByText(/Vous n’avez pas le droit de restaurer le site « Ressources humaines »/),
+    page.getByText(/vous n’avez pas le droit de restaurer le site « Ressources humaines »/),
   ).toBeVisible();
   await expect(page.getByText(/Étape 1 sur 3 : Choisir/)).toBeVisible();
   await expect(page.getByRole('link', { name: 'Choisir un autre site' })).toBeVisible();

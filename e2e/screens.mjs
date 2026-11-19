@@ -774,7 +774,7 @@ export const SCREENS = [
     role: 'operator',
     prepare: async (page) => {
       await page.goto(`/#/sharepoint/${SITES.commerce}/site`);
-      await page.getByText(/Vous n’avez pas le droit de restaurer le site/u).waitFor();
+      await page.getByText(/vous n’avez pas le droit de restaurer le site/u).waitFor();
     },
   },
   {

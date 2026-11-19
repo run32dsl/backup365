@@ -17,9 +17,9 @@ import { parseMailHash, parseSearchHash } from './mail.js';
 import { PlansPage } from './PlansPage.js';
 import { parsePlansHash } from './plans.js';
 import { COMPONENTS_HASH } from './routes.js';
-import { Alert, EmptyState } from './ui/index.js';
+import { AccessDenied } from './AccessDenied.js';
+import { Alert } from './ui/index.js';
 import {
-  ADMIN_ONLY,
   LOGIN_HASH,
   installSessionFetch,
   loadGate,
@@ -120,15 +120,10 @@ export function ForbiddenView() {
   return (
     <main tabIndex={-1}>
       <h1>Administration</h1>
-      <EmptyState
-        action={
-          <a className="btn btn-secondary" href="#/">
-            Retour au tableau de bord
-          </a>
-        }
-      >
-        {ADMIN_ONLY} Demandez à un administrateur de la console de faire cette action.
-      </EmptyState>
+      <AccessDenied title="Accès réservé :" href="#/" exit="Retour au tableau de bord">
+        cette page est réservée aux administrateurs. Demandez à un administrateur de la console de
+        faire cette action.
+      </AccessDenied>
     </main>
   );
 }
