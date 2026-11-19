@@ -1,5 +1,5 @@
 import { nextRunAt, runIntervalMinutes, type ProtectionPlanInput } from '@backup365/core';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   PlanScheduler,
   errorCode,
@@ -46,6 +46,12 @@ function setup(over: { executeur?: Executeur; selection?: string[] } = {}) {
 }
 
 describe('planificateur', () => {
+  const zone = process.env.TZ;
+  afterEach(() => {
+    if (zone === undefined) delete process.env.TZ;
+    else process.env.TZ = zone;
+  });
+
   it('runs a 24 h plan only in the night window, once per night when it succeeds', async () => {
     process.env.TZ = 'Europe/Paris';
     const plans = SqlitePlanStore.open(':memory:');
