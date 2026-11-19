@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ConfigurationBlock } from './ConfigurationBlock.js';
 import { dateTimeOf } from './format.js';
 import { fetchOverview, type Overview } from './overview.js';
@@ -33,7 +33,9 @@ const goToPlans = () => {
 function Card({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section className="overview-card" aria-labelledby={id}>
-      <h2 id={id}>{title}</h2>
+      <h2 id={id} tabIndex={id === 'overview-backup' ? -1 : undefined}>
+        {title}
+      </h2>
       {children}
     </section>
   );
@@ -120,19 +122,52 @@ export function OverviewView({
   );
 }
 
+/** Texte annoncé après « Réessayer » ; vide pour l'erreur (l'alerte s'annonce seule). */
+export function announcementOf(state: OverviewState): string {
+  if (state === 'loading') return 'Chargement de l’état de la sauvegarde…';
+  return state === 'error' ? '' : 'État de la sauvegarde mis à jour.';
+}
+
+/** Le bouton « Réessayer » est démonté : le focus va au titre de la carte « Sauvegarde », sinon au `h1`. */
+export function focusAfterRetry(
+  doc: { querySelector: (selector: string) => { focus: () => void } | null } = document,
+): void {
+  (doc.querySelector('#overview-backup') ?? doc.querySelector('h1'))?.focus();
+}
+
+/** Lance la lecture et publie `loading` puis le résultat, ou `error` ; ne rejette jamais. */
+export function loadOverview(
+  publish: (state: OverviewState) => void,
+  fetcher: () => Promise<Overview> = fetchOverview,
+): Promise<void> {
+  publish('loading');
+  return fetcher().then(publish, () => publish('error'));
+}
+
 /** Page d'accueil : trois informations. La version du serveur est dans le pied de page. */
 export function Home({ admin = false }: { admin?: boolean }) {
   const [state, setState] = useState<OverviewState>('loading');
+  const retried = useRef(false);
   const load = useCallback(() => {
-    setState('loading');
-    fetchOverview().then(setState, () => setState('error'));
+    void loadOverview(setState);
   }, []);
+  const retry = useCallback(() => {
+    retried.current = true;
+    load();
+  }, [load]);
   useEffect(load, [load]);
+  // Après « Réessayer » le bouton disparaît : sans cela le focus tomberait sur `body`.
+  useEffect(() => {
+    if (retried.current) focusAfterRetry();
+  }, [state]);
   return (
     <main tabIndex={-1}>
-      <h1>Tableau de bord</h1>
+      <h1 tabIndex={-1}>Tableau de bord</h1>
+      <div role="status" className="sr-only">
+        {retried.current ? announcementOf(state) : ''}
+      </div>
       {admin && <ConfigurationBlock />}
-      <OverviewView state={state} admin={admin} onRetry={load} />
+      <OverviewView state={state} admin={admin} onRetry={retry} />
     </main>
   );
 }
