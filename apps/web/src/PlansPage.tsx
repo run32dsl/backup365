@@ -633,9 +633,9 @@ function planColumns(
           <Button
             variant="secondary"
             aria-label={`Lancer ${p.name} maintenant`}
-            aria-disabled={p.running || undefined}
+            aria-disabled={p.running || p.queued || undefined}
             onClick={() => {
-              if (!p.running) actions.onRun(p);
+              if (!p.running && !p.queued) actions.onRun(p);
             }}
           >
             Lancer maintenant
@@ -788,7 +788,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   }, []);
   useEffect(load, [load]);
   // Une exécution en cours se suit : la liste se relit tant qu'elle dure.
-  const running = Array.isArray(state) && state.some((p) => p.running);
+  const running = Array.isArray(state) && state.some((p) => p.running || p.queued);
   useEffect(() => {
     if (!running) return;
     const timer = setInterval(load, 3000);
@@ -815,7 +815,10 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     const outcome = await runPlan(plan.id, reason);
     if (!outcome.ok) return outcome;
     setRunTarget(null);
-    setFlash({ tone: 'success', text: MESSAGES.runStarted });
+    setFlash({
+      tone: 'success',
+      text: outcome.value.queued ? MESSAGES.runQueued : MESSAGES.runStarted,
+    });
     load();
     return undefined;
   };

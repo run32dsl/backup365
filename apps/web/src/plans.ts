@@ -37,6 +37,8 @@ export interface PlanItem {
     lastRestorePointAt: string | null;
   };
   running: boolean;
+  /** Lancement manuel en file derrière la sauvegarde en cours : ni échec, ni exécution. */
+  queued?: boolean;
   lastRun: {
     status: RunStatus;
     startedAt: string;
@@ -123,6 +125,9 @@ export const MESSAGES = {
   updated: 'Plan modifié.',
   deleted: 'Plan supprimé.',
   runStarted: 'Sauvegarde lancée. Motif enregistré au journal d’audit.',
+  queued: 'En attente de la sauvegarde en cours',
+  runQueued:
+    'En attente de la sauvegarde en cours : elle démarrera ensuite. Motif enregistré au journal d’audit.',
 } as const;
 
 // ---- Formulaire -----------------------------------------------------------------------------
@@ -333,6 +338,7 @@ export function complianceView(plan: PlanItem): {
 /** Dernière exécution en une ligne. */
 export function lastRunLabel(plan: PlanItem): string {
   if (plan.running) return 'En cours…';
+  if (plan.queued) return MESSAGES.queued;
   const run = plan.lastRun;
   if (!run) return 'Pas encore sauvegardé';
   const at = dateTimeOf(run.finishedAt ?? run.startedAt);
@@ -443,7 +449,13 @@ export const deletePlan = (id: string, fetchFn: typeof fetch = fetch) =>
   send(fetchFn, 'DELETE', `/api/plans/${encodeURIComponent(id)}`);
 
 export const runPlan = (id: string, reason: string, fetchFn: typeof fetch = fetch) =>
-  send(fetchFn, 'POST', `/api/plans/${encodeURIComponent(id)}/run`, { reason: reason.trim() });
+  send(
+    fetchFn,
+    'POST',
+    `/api/plans/${encodeURIComponent(id)}/run`,
+    { reason: reason.trim() },
+    async (r) => ({ queued: ((await r.json()) as { queued?: boolean }).queued === true }),
+  );
 
 /** Motif d'un lancement manuel : le choix, suivi de la précision. */
 export function runReasonText(choice: string, detail: string): string {

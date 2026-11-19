@@ -51,6 +51,8 @@ export interface ManualRunResult {
   started: number;
   /** Éléments ignorés parce qu'une exécution est déjà en cours dessus. */
   skipped: number;
+  /** Vrai si une sauvegarde est en cours : le lancement attend son tour (rien n'est encore ouvert). */
+  queued: boolean;
   /** Se résout quand les exécutions ouvertes sont terminées (ne rejette jamais). */
   done: Promise<void>;
 }
@@ -78,12 +80,33 @@ export class PlanScheduler {
   private ticking: Promise<void> | undefined;
   private readonly background = new Set<Promise<void>>();
   private stopped = false;
+  /** Une seule sauvegarde à la fois (l'instance ne sert qu'un tenant) : file d'attente en mémoire. */
+  private tail: Promise<void> = Promise.resolve();
+  private waiting = 0;
+  /** Plans dont un lancement manuel attend son tour (perdu au redémarrage, rien n'est en base). */
+  private readonly queuedPlans = new Map<string, number>();
   /** Plans `all` : dernier créneau dont tous les éléments ont une exécution (évite de relister). */
   private readonly settledSlot = new Map<string, string>();
   private readonly now: () => Date;
 
   constructor(private readonly options: SchedulerOptions) {
     this.now = options.now ?? (() => new Date());
+  }
+
+  /** Vrai si un lancement manuel de ce plan attend la fin de la sauvegarde en cours. */
+  isQueued(planId: string): boolean {
+    return (this.queuedPlans.get(planId) ?? 0) > 0;
+  }
+
+  /** Exécute `fn` quand toutes les sauvegardes déjà demandées sont terminées. */
+  private exclusive<T>(fn: () => Promise<T>): Promise<T> {
+    this.waiting += 1;
+    const result = this.tail.then(fn);
+    const release = (): void => {
+      this.waiting -= 1;
+    };
+    this.tail = result.then(release, release);
+    return result;
   }
 
   start(): void {
@@ -153,11 +176,20 @@ export class PlanScheduler {
         let settled = true;
         for (const itemId of items) {
           if (this.stopped) return;
-          if (plans.hasRunSince(plan.id, itemId, slot)) continue;
-          if (night && plans.hasSuccessSince(plan.id, itemId, successSince)) continue;
-          const runId = plans.startRun(plan.id, itemId, now.toISOString());
-          if (runId === undefined) settled = false;
-          else await this.execute(plan.id, itemId, runId);
+          const due = (): boolean =>
+            !plans.hasRunSince(plan.id, itemId, slot) &&
+            !(night && plans.hasSuccessSince(plan.id, itemId, successSince));
+          if (!due()) continue;
+          const opened = await this.exclusive(async () => {
+            // Revérifié à son tour : un lancement manuel a pu sauvegarder l'élément entre-temps.
+            if (this.stopped) return false;
+            if (!due()) return true;
+            const runId = plans.startRun(plan.id, itemId, this.now().toISOString());
+            if (runId === undefined) return false;
+            await this.execute(plan.id, itemId, runId);
+            return true;
+          });
+          if (!opened) settled = false;
         }
         if (memo && settled) this.settledSlot.set(plan.id, slot);
       }
@@ -167,45 +199,76 @@ export class PlanScheduler {
   }
 
   /**
-   * Lancement immédiat de tous les éléments du plan. Les exécutions sont ouvertes avant le retour ;
-   * elles s'exécutent ensuite en arrière-plan, l'une après l'autre.
+   * Lancement immédiat de tous les éléments du plan, l'un après l'autre, en arrière-plan. Si une
+   * sauvegarde est déjà en cours (passage du planificateur ou autre lancement), le lancement est mis
+   * en file : rien n'est ouvert en base avant son tour, donc il ne compte ni comme échec ni comme
+   * exécution en cours. Sinon les exécutions sont ouvertes avant le retour.
    */
   async runNow(plan: StoredPlan): Promise<ManualRunResult> {
-    const { plans } = this.options;
     const items = await this.options.listItems(plan);
-    const opened: { itemId: string; runId: number }[] = [];
-    const startedAt = this.now().toISOString();
-    try {
-      for (const itemId of items) {
-        const runId = plans.startRun(plan.id, itemId, startedAt);
-        if (runId !== undefined) opened.push({ itemId, runId });
-      }
-    } catch (err) {
-      // Ne laisse aucune exécution ouverte sans suite : elle bloquerait son élément.
-      for (const { runId } of opened) {
-        plans.finishRun(runId, 'failed', this.now().toISOString(), errorCode(err));
-      }
-      throw err;
+    if (items.length === 0) {
+      return { started: 0, skipped: 0, queued: false, done: Promise.resolve() };
     }
-    const job = (async () => {
-      for (const { itemId, runId } of opened) {
-        if (this.stopped) {
-          try {
-            plans.finishRun(runId, 'failed', this.now().toISOString(), 'interrupted');
-          } catch (err) {
-            // `done` ne rejette jamais : la base peut déjà être fermée à l'arrêt.
-            this.options.logger.error(
-              { runId, code: errorCode(err) },
-              'clôture interrompue en échec',
-            );
-          }
-          continue;
+    // Déjà en file : une seconde demande ne ferait que sauvegarder le plan deux fois de suite.
+    if (this.isQueued(plan.id)) {
+      return { started: 0, skipped: 0, queued: true, done: Promise.resolve() };
+    }
+    const queued = this.waiting > 0;
+    const opened: { itemId: string; runId: number }[] = [];
+    const open = (): void => {
+      const startedAt = this.now().toISOString();
+      try {
+        for (const itemId of items) {
+          const runId = this.options.plans.startRun(plan.id, itemId, startedAt);
+          if (runId !== undefined) opened.push({ itemId, runId });
         }
-        await this.execute(plan.id, itemId, runId);
+      } catch (err) {
+        // Ne laisse aucune exécution ouverte sans suite : elle bloquerait son élément.
+        this.closeInterrupted(opened, errorCode(err));
+        opened.length = 0;
+        throw err;
       }
-    })().finally(() => this.background.delete(job));
+    };
+    if (queued) this.queuedPlans.set(plan.id, (this.queuedPlans.get(plan.id) ?? 0) + 1);
+    // Prend sa place dans la file avant tout `await` : un passage qui suit attend ce lancement.
+    const job: Promise<void> = this.exclusive(async () => {
+      if (queued) {
+        const left = (this.queuedPlans.get(plan.id) ?? 1) - 1;
+        if (left > 0) this.queuedPlans.set(plan.id, left);
+        else this.queuedPlans.delete(plan.id);
+        if (this.stopped) return;
+        open();
+      }
+      for (const run of opened) {
+        if (this.stopped) this.closeInterrupted([run], 'interrupted');
+        else await this.execute(plan.id, run.itemId, run.runId);
+      }
+    })
+      .catch((err: unknown) => {
+        this.options.logger.error({ code: errorCode(err) }, 'lancement manuel en échec');
+      })
+      .finally(() => this.background.delete(job));
     this.background.add(job);
-    return { started: opened.length, skipped: items.length - opened.length, done: job };
+    if (queued) return { started: 0, skipped: 0, queued: true, done: job };
+    // Libre : les exécutions sont ouvertes tout de suite, la file ne fait que les enchaîner.
+    open();
+    return {
+      started: opened.length,
+      skipped: items.length - opened.length,
+      queued: false,
+      done: job,
+    };
+  }
+
+  private closeInterrupted(runs: { runId: number }[], code: string): void {
+    for (const { runId } of runs) {
+      try {
+        this.options.plans.finishRun(runId, 'failed', this.now().toISOString(), code);
+      } catch (err) {
+        // `done` ne rejette jamais : la base peut déjà être fermée à l'arrêt.
+        this.options.logger.error({ runId, code: errorCode(err) }, 'clôture interrompue en échec');
+      }
+    }
   }
 
   private async execute(planId: string, itemId: string, runId: number): Promise<void> {

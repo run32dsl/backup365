@@ -206,6 +206,8 @@ describe('list labels', () => {
       note: 'Rien à sauvegarder dans le périmètre',
     });
     expect(lastRunLabel({ ...plan, running: true })).toBe('En cours…');
+    // En file derrière une autre sauvegarde : ni échec, ni en cours.
+    expect(lastRunLabel({ ...plan, queued: true })).toBe('En attente de la sauvegarde en cours');
     expect(lastRunLabel({ ...plan, lastRun: null })).toBe('Pas encore sauvegardé');
   });
 });

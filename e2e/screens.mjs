@@ -468,6 +468,26 @@ export const SCREENS = [
     },
   },
   {
+    // Lancement manuel en file derrière une sauvegarde en cours (issue #300) : réponse modifiée,
+    // le mode démo n'a jamais deux sauvegardes à la fois.
+    name: 'plans-lancement-en-file',
+    hash: '#/plans',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/plans', async (route) => {
+        const res = await route.fetch();
+        const body = await res.json();
+        body.items.forEach((plan, i) => {
+          plan.running = i === 0;
+          plan.queued = i === 1;
+        });
+        await route.fulfill({ response: res, json: body });
+      });
+      await page.reload();
+      await page.getByRole('table').waitFor();
+    },
+  },
+  {
     name: 'plans-liste-operateur',
     hash: '#/plans',
     role: 'operator',
