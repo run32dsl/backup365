@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { IndexedMail } from '@backup365/core';
 import { API_ERRORS, type Problem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
+import { RestoreFailureAlert, restoreFailureBanner } from './restoreFailure.js';
 import { isReasonValid } from './mail.js';
 import { AuditReminder, REASON, RESTORE_BUTTONS as B, ReasonField } from './RestoreJourney.js';
 import {
@@ -107,10 +108,15 @@ export function RestoreOutcome({
   }
   return (
     <>
-      <Alert tone="error">
-        La restauration a échoué : {failureCause(job.error).replace(/\.$/, '')}.{' '}
-        {isOutcomeUncertain(job.error) ? T.uncertain : T.untouched}
-      </Alert>
+      <RestoreFailureAlert
+        banner={restoreFailureBanner({
+          item: mail.subject === '' ? '(sans objet)' : mail.subject,
+          at: job.finishedAt ?? job.startedAt,
+          cause: failureCause(job.error),
+          consequence: isOutcomeUncertain(job.error) ? T.uncertain : T.untouched,
+          uncertain: isOutcomeUncertain(job.error),
+        })}
+      />
       <ResultList rows={[...recall, ['Durée', formatDuration(job.durationMs ?? 0)]]} />
       <div className="button-row dialog-actions">
         <a className="btn btn-secondary" href="#/audit">

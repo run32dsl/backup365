@@ -236,8 +236,8 @@ describe('RestoreOutcome', () => {
     expect(html).toContain('<dt>Mail</dt><dd>Facture 1 · ');
     expect(html).toContain('<dt>Boîte</dt><dd>mbx 1</dd>');
     expect(html).not.toContain('<dt>Dossier</dt>');
-    expect(html).toContain('La restauration a échoué : ');
-    expect(html).toContain('le service de restauration a signalé une erreur');
+    expect(html).toContain('<strong>Échec de la restauration de « Facture 1 » le ');
+    expect(html).toContain('Le service de restauration a signalé une erreur.');
     expect(html).toContain('Rien n’a été modifié.');
     expect(html).not.toContain('Cause :');
     expect(html).toContain('<dt>Durée</dt><dd>2 s</dd>');

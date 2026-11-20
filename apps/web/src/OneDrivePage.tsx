@@ -4,6 +4,7 @@ import { type Problem as FailureProblem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { StorageUnavailable } from './StorageUnavailable.js';
 import { cardSummary, dateTimeOrDash } from './format.js';
+import { RestoreFailureAlert, restoreFailureBanner } from './restoreFailure.js';
 import { RESTORE_LABELS } from './restoreLabels.js';
 import { isReasonValid } from './mail.js';
 import {
@@ -695,12 +696,17 @@ export function TrackStep({
   } else {
     body = (
       <>
-        <Alert tone="error">
-          La restauration a échoué : {failureCause(job.error)}.{' '}
-          {isOutcomeUncertain(job.error)
-            ? 'L’état de OneDrive est incertain : vérifiez avant de réessayer.'
-            : 'Rien n’a été modifié.'}
-        </Alert>
+        <RestoreFailureAlert
+          banner={restoreFailureBanner({
+            item: choice.entry.name,
+            at: job.finishedAt ?? job.startedAt,
+            cause: failureCause(job.error),
+            consequence: isOutcomeUncertain(job.error)
+              ? 'L’état de OneDrive est incertain : vérifiez avant de réessayer'
+              : 'Rien n’a été modifié',
+            uncertain: isOutcomeUncertain(job.error),
+          })}
+        />
         {items}
         <WizardActions
           back={
