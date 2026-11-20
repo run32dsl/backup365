@@ -487,8 +487,8 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await page.getByRole('button', { name: 'Lancer Contacts Exemple maintenant' }).click();
   const run = page.getByRole('dialog', { name: 'Lancer « Contacts Exemple » maintenant' });
   await run.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
-  await expect(run.getByText('Indiquez un motif.')).toBeVisible();
-  await run.getByLabel('Motif').selectOption({ label: 'Après un incident' });
+  await expect(run.getByText('Indiquez un motif pour continuer.')).toBeVisible();
+  await run.getByLabel('Motif du lancement (obligatoire)').fill('Après un incident');
   await run.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
   await expect(
     page.getByText('Sauvegarde lancée. Motif enregistré au journal d’audit.'),
@@ -525,7 +525,7 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
   const run = page.getByRole('dialog', { name: 'Lancer « Messagerie Direction » maintenant' });
   const submit = run.getByRole('button', { name: 'Lancer la sauvegarde' });
-  await run.getByLabel('Motif').selectOption({ label: 'Après un incident' });
+  await run.getByLabel('Motif du lancement (obligatoire)').fill('Après un incident');
   await submit.click();
 
   // Console non reliée : avertissement sans identifiant, au-dessus du seul bouton « Fermer ».
@@ -555,14 +555,14 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
     }),
   );
   await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
-  await run.getByLabel('Motif').selectOption({ label: 'Après un incident' });
+  await run.getByLabel('Motif du lancement (obligatoire)').fill('Après un incident');
   await submit.click();
   await expect(run.getByRole('alert').filter({ hasText: 'Erreur du serveur' })).toBeVisible();
   await expect(run.getByText('Identifiant de requête')).toHaveCount(0);
   await expect(submit).toBeEnabled();
-  await run.getByLabel('Motif').selectOption({ label: 'Autre (préciser)' });
+  await run.getByLabel('Motif du lancement (obligatoire)').fill('');
   await submit.click();
-  await expect(run.getByText('Indiquez un motif.')).toBeVisible();
+  await expect(run.getByText('Indiquez un motif pour continuer.')).toBeVisible();
   await expect(run.getByText('Erreur du serveur')).toHaveCount(0);
   await run.getByRole('button', { name: 'Annuler' }).click();
 

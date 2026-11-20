@@ -22,6 +22,7 @@ import {
   withCurrent,
   payloadOf,
   runPlan,
+  runReasonError,
   OBJECTIVE_LABELS,
   recapRows,
   validateStep,
@@ -169,6 +170,26 @@ describe('plan form', () => {
     expect(createdMessage({ id: 'p1', rpoHours: 24 })).toBe(
       'Plan créé. Première sauvegarde prévue cette nuit.',
     );
+  });
+});
+
+describe('run reason', () => {
+  it('refuses an empty reason with the shared message and accepts any free text', () => {
+    expect(runReasonError('')).toBe('Indiquez un motif pour continuer.');
+    expect(runReasonError('   ')).toBe('Indiquez un motif pour continuer.');
+    expect(runReasonError('x'.repeat(120))).toBeUndefined();
+  });
+
+  it('sends the typed reason as is', async () => {
+    const reason = 'Ticket INC-1 : ' + 'x'.repeat(105);
+    let body = '';
+    const fetchFn = ((_url: string, init: RequestInit) => {
+      body = String(init.body);
+      return Promise.resolve(new Response(JSON.stringify({ queued: true })));
+    }) as unknown as typeof fetch;
+    await runPlan('p1', reason, fetchFn);
+    expect(JSON.parse(body)).toEqual({ reason });
+    expect(reason).toHaveLength(120);
   });
 });
 
