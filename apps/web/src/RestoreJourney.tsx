@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { MAX_REASON_LENGTH } from './mail.js';
 import { Alert, FormField, WIZARD_LABELS } from './ui/index.js';
 
@@ -7,10 +7,10 @@ import { Alert, FormField, WIZARD_LABELS } from './ui/index.js';
  * étapes, même bloc motif, mêmes boutons, même rappel d'audit, même indicateur « en cours ».
  */
 
-/** Étapes de OneDrive et de SharePoint ; `Steps` les affiche à chaque écran, fin comprise. */
+/** Étapes de OneDrive et de SharePoint ; `Steps` les affiche jusqu'à la confirmation, pas au suivi. */
 export const RESTORE_STEPS = ['Choisir', 'Motif', 'Confirmation'];
 
-/** Rang de l'écran pour `Steps` : au-delà de la dernière étape (suivi), toutes sont terminées. */
+/** Rang de l'écran pour `Steps` : au-delà de la dernière étape, toutes sont terminées (le suivi n'affiche plus `Steps`). */
 export const stepOf = (n: number): number => Math.min(n, RESTORE_STEPS.length + 1);
 
 /** Titre du suivi, identique pour OneDrive et SharePoint (mêmes mots que le mail). */
@@ -28,9 +28,16 @@ export function RestoreResult({
   status: keyof typeof RESULT_TITLES;
   children: ReactNode;
 }) {
+  const title = useRef<HTMLHeadingElement>(null);
+  // Plus d'indicateur d'étapes au suivi : le titre du résultat reçoit le focus.
+  useEffect(() => {
+    title.current?.focus();
+  }, []);
   return (
     <section aria-labelledby="restore-result-title">
-      <h2 id="restore-result-title">{RESULT_TITLES[status]}</h2>
+      <h2 id="restore-result-title" ref={title} tabIndex={-1}>
+        {RESULT_TITLES[status]}
+      </h2>
       {children}
     </section>
   );

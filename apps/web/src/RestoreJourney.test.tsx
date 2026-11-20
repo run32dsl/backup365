@@ -148,7 +148,7 @@ describe('restore result', () => {
         </RestoreResult>,
       ),
     );
-    expect(heads[0]).toContain('<h2 id="restore-result-title">Restauration en cours</h2>');
+    expect(heads[0]).toContain('>Restauration en cours</h2>');
     expect(heads[1]).toContain('>Restauration terminée</h2>');
     expect(heads[2]).toContain('>Restauration échouée</h2>');
     expect(heads[1]).toContain('<dt>Emplacement</dt><dd>Images</dd>');
@@ -160,4 +160,26 @@ describe('restore result', () => {
       expect(source(name)).toContain('<RestoreResult status={job.status}>');
     }
   });
+
+  it.each(['running', 'succeeded', 'failed'] as const)(
+    'shows no step indicator on the %s result',
+    (status) => {
+      const html = renderToStaticMarkup(
+        <RestoreResult status={status}>
+          <ResultList rows={[['Emplacement', 'Images']]} />
+        </RestoreResult>,
+      );
+      expect(html).not.toContain('aria-current="step"');
+      expect(html).not.toContain('<ol');
+      expect(html).not.toContain('Toutes les étapes sont terminées');
+    },
+  );
+
+  it.each(['OneDrivePage.tsx', 'SharePointPage.tsx'])(
+    '%s hides the steps as soon as a job exists',
+    (name) => {
+      expect(source(name)).toMatch(/\{journey && !job && \(\s*<Steps/);
+      expect(source(name)).not.toContain('{journey && <Steps');
+    },
+  );
 });
