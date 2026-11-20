@@ -867,7 +867,9 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
   return (
     <main tabIndex={-1}>
       <h1>{T.title}</h1>
-      {journey && <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />}
+      {journey && !job && (
+        <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />
+      )}
       {journey && !job && <AuditReminder />}
       {content}
     </main>
