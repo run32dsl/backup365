@@ -18,7 +18,7 @@ import { Alert, Button, Dialog, StatusPill } from './ui/index.js';
 export type MailState = IndexedMail | 'loading' | 'error';
 
 /** Restauration non configurée : cause courte en titre, conduite à tenir dans le corps. */
-function RestoreUnavailable() {
+export function RestoreUnavailable() {
   const { title, text } = splitTitle(API_ERRORS['restore_unavailable'] ?? '');
   return (
     <Alert tone="warning" {...(title ? { title } : {})}>
