@@ -114,14 +114,14 @@ export async function openSite(page, site, scope = 'item') {
   await page.getByText('Étape 1 sur 3').waitFor();
 }
 
-/** Ouvre les dossiers de la liste (liens), puis (facultatif) choisit le fichier (bouton radio). */
+/** Ouvre les niveaux de la liste (liens), puis coche le dernier nom (bouton radio de sa ligne). */
 export async function browseSite(page, ...names) {
-  for (const name of names) {
-    const link = page.getByRole('link', { name: new RegExp(`^${name}$`, 'u') });
-    const radio = page.getByRole('radio', { name: new RegExp(name, 'u') });
-    await link.or(radio).first().waitFor();
-    if (await link.count()) await link.click();
-    else await radio.check();
+  for (const [i, name] of names.entries()) {
+    if (i === names.length - 1) {
+      await page.getByRole('radio', { name, exact: true }).check();
+    } else {
+      await page.getByRole('link', { name, exact: true }).click();
+    }
   }
 }
 

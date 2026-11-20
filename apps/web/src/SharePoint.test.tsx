@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   SHAREPOINT_MESSAGES,
-  canContinue,
   continueHint,
+  restoredContentLabel,
+  scopeOfKind,
+  selectionLabel,
   failureCause,
   fetchScope,
   breadcrumbLevels,
@@ -135,20 +137,19 @@ describe('SharePoint entries table', () => {
       sizeBytes: 1_000,
     },
   ];
-  const render = (scope: 'item' | 'folder', file: string | null) =>
+  const render = (selected: { path: string; kind: 'library' | 'folder' | 'file' } | null) =>
     renderToStaticMarkup(
       <SiteEntriesTable
         siteId="s"
-        scope={scope}
         rows={rows}
-        file={file}
+        selected={selected}
         onOpen={vi.fn()}
-        onFile={vi.fn()}
+        onSelect={vi.fn()}
       />,
     );
 
   it('is a table with the same columns as OneDrive, and no emoji', () => {
-    const html = render('item', null);
+    const html = render(null);
     for (const h of ['Nom', 'Version du (UTC)', 'Taille']) {
       expect(html).toContain(`scope="col"`);
       expect(html).toContain(`>${h}</th>`);
@@ -159,20 +160,24 @@ describe('SharePoint entries table', () => {
     expect(html).toContain('href="#/sharepoint/s/item/Plans"');
   });
 
-  it('names a radio button after each file and checks the chosen one only', () => {
-    const html = render('item', '/plan-b.pdf');
-    const radios = html.match(
-      /<label[^>]*><input[^>]*type="radio"[^>]*\/>[^<]*(?:<!-- -->)?[^<]*<\/label>/gu,
-    );
-    expect(radios).toHaveLength(2);
-    expect(radios?.[0]).toMatch(/plan-a\.pdf/u);
-    expect(radios?.[0]).not.toContain('checked');
-    expect(radios?.[1]).toContain('checked');
-    expect(radios?.[1]).toMatch(/plan-b\.pdf/u);
+  it('gives every row a named radio button, library and folder included, and checks one only', () => {
+    const html = render({ path: '/plan-b.pdf', kind: 'file' });
+    const radios = html.match(/<input[^>]*type="radio"[^>]*\/>/gu) ?? [];
+    expect(radios).toHaveLength(4);
+    expect(radios.map((r) => /aria-label="([^"]+)"/u.exec(r)?.[1])).toEqual([
+      'Documents',
+      'Plans',
+      'plan-a.pdf',
+      'plan-b.pdf',
+    ]);
+    expect(radios.filter((r) => r.includes('checked'))).toHaveLength(1);
+    expect(radios[3]).toContain('checked');
   });
 
-  it('offers no radio button for a file when the granularity is not « item »', () => {
-    expect(render('folder', null)).not.toContain('type="radio"');
+  it('checks a library or a folder without opening it, and keeps its name as a link', () => {
+    const html = render({ path: '/Documents', kind: 'library' });
+    expect(/<input[^>]*aria-label="Documents"[^>]*>/u.exec(html)?.[0]).toContain('checked');
+    expect(html).toContain('href="#/sharepoint/s/item/Documents"');
   });
 });
 
@@ -198,11 +203,10 @@ describe('SharePoint breadcrumb', () => {
         siteId="a,b"
         siteName="Commerce"
         snapshotId="s1"
-        scope="item"
         path="/Documents/Plans 2024"
-        file={null}
+        selected={null}
         onPath={vi.fn()}
-        onFile={vi.fn()}
+        onSelect={vi.fn()}
       />,
     );
     expect(html).toContain('href="#/sharepoint/a%2Cb/item"');
@@ -256,16 +260,21 @@ describe('SharePoint breadcrumb', () => {
 });
 
 describe('SharePoint wording', () => {
-  it('only lets a choice through when it fits the granularity', () => {
-    expect(canContinue('site', '/', null)).toBe(true);
-    expect(canContinue('library', '/', null)).toBe(false);
-    expect(canContinue('library', '/Documents', null)).toBe(true);
-    expect(canContinue('library', '/Documents/Plans', null)).toBe(false);
-    expect(canContinue('folder', '/Documents', null)).toBe(false);
-    expect(canContinue('folder', '/Documents/Plans', null)).toBe(true);
-    expect(canContinue('item', '/Documents/Plans', null)).toBe(false);
-    expect(canContinue('item', '/Documents/Plans', '/Documents/Plans/a.pdf')).toBe(true);
-    expect(continueHint('item')).toMatch(/Choisissez un élément/);
+  it('deduces the restored kind from the checked row', () => {
+    expect(scopeOfKind('library')).toBe('library');
+    expect(scopeOfKind('folder')).toBe('folder');
+    expect(scopeOfKind('file')).toBe('item');
+    expect(selectionLabel({ path: '/Documents partagés', kind: 'library' })).toBe(
+      'Bibliothèque Documents partagés',
+    );
+    expect(selectionLabel({ path: '/Docs/Plans', kind: 'folder' })).toBe('Dossier Docs > Plans');
+    expect(selectionLabel({ path: '/Docs/a.pdf', kind: 'file' })).toBe('Fichier Docs > a.pdf');
+    expect(restoredContentLabel('library', '/Documents partagés')).toBe(
+      'Bibliothèque : Documents partagés',
+    );
+    expect(continueHint()).toBe(
+      'Cochez un fichier, un dossier ou une bibliothèque pour continuer.',
+    );
   });
 
   it('formats counts and sizes in French', () => {

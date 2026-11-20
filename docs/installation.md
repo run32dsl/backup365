@@ -134,9 +134,9 @@ en écriture n'est configuré (ADR 0012), la fiche d'un mail affiche un avertiss
 version antérieure : on parcourt la sauvegarde (lecture seule, journalisée), puis la
 restauration se fait par défaut en copie `nom (restauré le jj-mm-aaaa).ext`, le remplacement d'un
 fichier exigeant une confirmation (ADR 0013, même réserve sur le tenant). L'écran « SharePoint »
-(`#/sharepoint`) restaure un élément, un dossier, une bibliothèque ou le site entier, toujours à
-son emplacement d'origine et sans rien écraser ; le site entier est réservé à l'administrateur, qui
-coche une case puis retape le nom du site (ADR 0014, même réserve sur le tenant). Les
+(`#/sharepoint`) restaure un élément, un dossier, une bibliothèque (chaque ligne se coche, son nom
+ouvre le niveau) ou le site entier, toujours à son emplacement d'origine et sans rien écraser ; le
+site entier est réservé à l'administrateur, qui coche une case puis retape le nom du site (ADR 0014, même réserve sur le tenant). Les
 plans se créent en trois étapes dans « Plans de protection » (`#/plans`) : quoi protéger,
 objectifs (perte de données acceptable, remise en service, conservation et justification RGPD), récapitulatif ; « Lancer maintenant »
 demande un motif, inscrit au journal d'audit. L'administrateur crée, désactive et change le rôle des comptes dans l'écran « Comptes »

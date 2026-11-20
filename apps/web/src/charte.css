@@ -1219,8 +1219,8 @@ a.btn-secondary {
   gap: var(--space-2) var(--space-4);
 }
 /*
- * Fil d'Ariane. Chaque « > » appartient au niveau qui le suit (`li::before`) : il passe à la ligne
- * avec lui et reste visible en début de ligne ; seul le premier niveau n'en a pas.
+ * Fil d'Ariane. Chaque « > » appartient au niveau qui le précède (`li::after`) : il reste en fin
+ * de ligne, jamais seul en début de la suivante ; seul le dernier niveau n'en a pas.
  */
 .breadcrumb {
   --crumb-sep: 1rem;
@@ -1231,7 +1231,7 @@ a.btn-secondary {
   padding: 0;
   list-style: none;
 }
-.breadcrumb li:first-child::before {
+.breadcrumb li:last-child::after {
   display: none;
 }
 .breadcrumb li {
@@ -1250,11 +1250,11 @@ a.btn-secondary {
   color: var(--muted);
   font-size: 0.875em;
 }
-.breadcrumb li::before {
+.breadcrumb li::after {
   content: '>';
   flex: none;
   width: var(--crumb-sep);
-  margin-right: var(--space-1);
+  margin-left: var(--space-1);
   text-align: center;
 }
 .breadcrumb a,
