@@ -550,9 +550,7 @@ export function ConfirmStep({
       />
       {mode === 'copy' && <p>{COPY_CONSEQUENCE}</p>}
       {mode === 'replace' && (
-        <Alert tone="warning">
-          <strong>{REPLACE_WARNING_TITLE}</strong>
-          <br />
+        <Alert tone="warning" title={REPLACE_WARNING_TITLE}>
           {replaceWarningOf(entry.name, versionAt)}
         </Alert>
       )}

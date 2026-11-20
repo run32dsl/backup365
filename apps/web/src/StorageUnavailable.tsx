@@ -7,9 +7,8 @@ import { Alert, Button } from './ui/index.js';
 export function StorageUnavailable({ onRetry }: { onRetry: () => void }) {
   return (
     <div>
-      <Alert tone="warning">
-        <strong>Sauvegardes inaccessibles :</strong> le stockage n’est pas configuré ou ne répond
-        pas. Prévenez un administrateur.
+      <Alert tone="warning" title="Sauvegardes inaccessibles">
+        Le stockage n’est pas configuré ou ne répond pas. Prévenez un administrateur.
       </Alert>
       <Button variant="secondary" onClick={onRetry}>
         Réessayer

@@ -44,7 +44,7 @@ import {
   type PlansRoute,
   type ReasonKind,
 } from './plans.js';
-import { type Problem } from './apiError.js';
+import { splitTitle, type Problem } from './apiError.js';
 import { REASON, reasonLabel } from './RestoreJourney.js';
 import {
   Alert,
@@ -69,9 +69,13 @@ const goTo = (hash: string) => {
 /** Échec d'une action sur les plans : la phrase pour l'utilisateur, sans détail technique. */
 export function PlanFailure({ problem }: { problem: Problem }) {
   const tone = problem.code === 'backup_not_configured' ? 'warning' : 'error';
+  const { title, text } =
+    problem.code === 'backup_not_configured'
+      ? splitTitle(problem.message)
+      : { title: undefined, text: problem.message };
   return (
-    <Alert tone={tone}>
-      {problem.message}
+    <Alert tone={tone} {...(title ? { title } : {})}>
+      {text}
       {problem.code === 'backup_not_configured' ? <ConfigurationLink /> : null}
     </Alert>
   );
@@ -790,6 +794,7 @@ export function PlansListView({
               <Alert
                 key={p.id}
                 tone="error"
+                title={banner.title}
                 action={
                   admin ? (
                     <Button
@@ -805,8 +810,6 @@ export function PlansListView({
                   ) : undefined
                 }
               >
-                <strong>{banner.title}</strong>
-                <br />
                 {[banner.cause, banner.consequence, banner.advice].filter(Boolean).join(' ')}
                 {busy && (
                   <small className="state-note" id={`banner-run-hint-${p.id}`}>

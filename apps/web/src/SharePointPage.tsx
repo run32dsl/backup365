@@ -530,9 +530,7 @@ export function ConfirmStep({
       {summary === null && <p role="status">{T.loading}</p>}
       {whole && (
         <>
-          <Alert tone="warning">
-            <strong>{SITE_WARNING_TITLE}</strong>
-            <br />
+          <Alert tone="warning" title={SITE_WARNING_TITLE}>
             {siteWarningOf(site.displayName)}
           </Alert>
           <div className="field">
@@ -715,7 +713,7 @@ export function TrackStep({
 export function SiteDenied({ site }: { site: Site }) {
   return (
     <AccessDenied
-      title="Restauration non autorisée :"
+      title="Restauration non autorisée"
       href={sharePointHash(site.id)}
       exit={T.chooseOther}
     >

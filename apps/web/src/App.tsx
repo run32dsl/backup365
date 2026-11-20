@@ -132,8 +132,8 @@ export function ForbiddenView() {
   return (
     <main tabIndex={-1}>
       <h1>Administration</h1>
-      <AccessDenied title="Accès réservé :" href="#/" exit="Retour au tableau de bord">
-        cette page est réservée aux administrateurs. Demandez à un administrateur de la console de
+      <AccessDenied title="Accès réservé" href="#/" exit="Retour au tableau de bord">
+        Cette page est réservée aux administrateurs. Demandez à un administrateur de la console de
         faire cette action.
       </AccessDenied>
     </main>

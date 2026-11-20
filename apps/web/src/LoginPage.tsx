@@ -144,16 +144,15 @@ export function CredentialsView({
       <main className="login-card" tabIndex={-1}>
         <h1>{setup ? 'Créer le compte administrateur' : 'Connexion à la console'}</h1>
         {refusal && !setup && (
-          <Alert tone="error">
-            <strong className="alert-title">Accès refusé</strong>
+          <Alert tone="error" title="Accès refusé">
             <span className="alert-detail">{refusal}</span>
           </Alert>
         )}
         {locked && (
-          <Alert tone="warning">
+          <Alert tone="warning" title="Connexion temporairement bloquée">
             <span className="sr-only">{lockedMessage(lockedStartSec ?? lockedSec)}</span>
             <span aria-hidden="true">
-              Connexion impossible pour le moment. Nouvel essai possible dans{' '}
+              Nouvel essai possible dans{' '}
               <span className="countdown">{formatCountdown(lockedSec)}</span>.
             </span>
           </Alert>

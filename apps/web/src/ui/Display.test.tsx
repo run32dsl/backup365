@@ -25,6 +25,19 @@ describe('Alert', () => {
     expect(html).toContain('Avertissement : à voir.');
     expect(html).toContain('Réessayer');
   });
+
+  it('renders the title in its own element, before the text, inside the same alert', () => {
+    const html = renderToStaticMarkup(
+      <Alert tone="warning" title="Sauvegardes inaccessibles">
+        Prévenez un administrateur.
+      </Alert>,
+    );
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('<strong class="alert-title">Sauvegardes inaccessibles</strong>');
+    expect(html.indexOf('alert-title')).toBeLessThan(html.indexOf('Prévenez'));
+    expect(html.indexOf('role="alert"')).toBeLessThan(html.indexOf('alert-title'));
+    expect(renderToStaticMarkup(<Alert tone="info">Ok</Alert>)).not.toContain('<strong');
+  });
 });
 
 describe('EmptyState', () => {

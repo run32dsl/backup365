@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { IndexedMail } from '@backup365/core';
 import { exportEml, fetchMail, isReasonValid, saveBlob } from './mail.js';
 import { dateTimeOrDash, folderLabel, sizeOf } from './format.js';
-import { API_ERRORS } from './apiError.js';
+import { API_ERRORS, splitTitle } from './apiError.js';
 import { RestoreAction } from './RestoreAction.js';
 import { AuditReminder, REASON, RESTORE_BUTTONS as B, ReasonField } from './RestoreJourney.js';
 import {
@@ -16,6 +16,16 @@ import { Alert, Button, Dialog, StatusPill } from './ui/index.js';
 
 /** État de la fiche. */
 export type MailState = IndexedMail | 'loading' | 'error';
+
+/** Restauration non configurée : cause courte en titre, conduite à tenir dans le corps. */
+function RestoreUnavailable() {
+  const { title, text } = splitTitle(API_ERRORS['restore_unavailable'] ?? '');
+  return (
+    <Alert tone="warning" {...(title ? { title } : {})}>
+      {text}
+    </Alert>
+  );
+}
 
 /** Titre de la fiche : l'objet du mail, un repli s'il est vide, un titre générique sinon. */
 export function mailTitle(state: MailState): string {
@@ -221,7 +231,7 @@ export function RestoreSectionView({
         <RestoreAction mail={mail} configured onJob={onJob} />
       ) : (
         <div className="restore-unavailable">
-          <Alert tone="warning">{API_ERRORS['restore_unavailable']}</Alert>
+          <RestoreUnavailable />
         </div>
       )}
       {summary && (

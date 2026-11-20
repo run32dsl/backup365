@@ -38,7 +38,7 @@ describe('SharePoint right refusal', () => {
     expect(html).toContain('Choisir un autre site');
     expect(html).not.toContain('alert-error');
     expect(html).toMatch(/<div class="alert alert-warning" role="alert">/u);
-    expect(html).toContain('<strong>Restauration non autorisée :</strong>');
+    expect(html).toContain('<strong class="alert-title">Restauration non autorisée</strong>');
     expect(html).not.toContain('class="empty');
     const href = /href="([^"]+)"/u.exec(html)?.[1];
     expect(href).toBe(sharePointHash('abc'));

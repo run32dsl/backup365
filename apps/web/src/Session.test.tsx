@@ -424,14 +424,14 @@ describe('textes restants de la maquette de #22', () => {
 
   it('tells an operator that the accounts page is reserved, with a link home', () => {
     const html = renderToString(<ForbiddenView />);
-    expect(html).toContain('cette page est réservée aux administrateurs.');
+    expect(html).toContain('Cette page est réservée aux administrateurs.');
     expect(html).toContain('<h1>Administration</h1>');
     expect(html).toContain('Demandez à un administrateur');
     expect(html).toContain('href="#/"');
     expect(html).toContain('Retour au tableau de bord');
     expect(html).not.toContain('alert-error');
     expect(html).toMatch(/<div class="alert alert-warning" role="alert">/u);
-    expect(html).toContain('<strong>Accès réservé :</strong>');
+    expect(html).toContain('<strong class="alert-title">Accès réservé</strong>');
     expect(html).not.toContain('class="empty');
     expect(ADMIN_ONLY).toBe('Cette page est réservée aux administrateurs.');
   });

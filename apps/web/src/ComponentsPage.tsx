@@ -241,6 +241,12 @@ export function ComponentsPage() {
         <Alert tone="success">Succès : le compte a été créé.</Alert>
         <Alert tone="warning">Avertissement : la dernière sauvegarde date de plus de 24 h.</Alert>
         <Alert tone="error">Erreur : l’action n’a pas abouti. Réessayez.</Alert>
+        <Alert tone="warning" title="Sauvegardes inaccessibles">
+          Le stockage ne répond pas. Prévenez un administrateur.
+        </Alert>
+        <Alert tone="error" title="Restauration impossible">
+          Le fichier n’a pas été modifié. Réessayez plus tard.
+        </Alert>
       </Section>
       <Section id="etapes" title="Indicateur d’étapes">
         <Steps steps={['Choisir', 'Vérifier', 'Confirmer']} current={1} />

@@ -30,8 +30,8 @@ describe.each(pages)('%s, storage unavailable', (_name, Problem) => {
     expect(html).toContain('alert alert-warning');
     expect(html).toContain('role="alert"');
     expect(html).toContain('⚠');
-    expect(html).toContain('<strong>Sauvegardes inaccessibles :</strong>');
-    expect(html).toContain('le stockage n’est pas configuré ou ne répond pas');
+    expect(html).toContain('<strong class="alert-title">Sauvegardes inaccessibles</strong>');
+    expect(html).toContain('Le stockage n’est pas configuré ou ne répond pas');
     expect(html).not.toContain('class="empty"');
     expect(html).not.toContain('<a');
   });
