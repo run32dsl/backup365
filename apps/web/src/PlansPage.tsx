@@ -31,6 +31,7 @@ import {
   retentionHelp,
   rpoHelp,
   rtoHelp,
+  OBJECTIVE_LABELS,
   recapRows,
   runPlan,
   runReasonText,
@@ -302,7 +303,7 @@ export function PlanWizard({
       {step === 2 && (
         <>
           <ChoiceGroup<RpoHours>
-            legend="Perte de données acceptable"
+            legend={OBJECTIVE_LABELS.rpo}
             name="rpo"
             value={form.rpoHours}
             options={RPO_CHOICES.map((h) => ({ value: h, label: `${h} h` }))}
@@ -312,7 +313,7 @@ export function PlanWizard({
             }}
           />
           <ChoiceGroup<number>
-            legend="Remise en service souhaitée"
+            legend={OBJECTIVE_LABELS.rto}
             name="rto"
             value={form.rtoHours}
             options={withCurrent(RTO_CHOICES, form.rtoHours).map((h) => ({
@@ -325,7 +326,7 @@ export function PlanWizard({
             }}
           />
           <ChoiceGroup<number>
-            legend="Durée de conservation"
+            legend={OBJECTIVE_LABELS.retention}
             name="retention"
             value={form.retentionDays}
             options={withCurrent(RETENTION_CHOICES, form.retentionDays).map((d) => ({
@@ -339,7 +340,7 @@ export function PlanWizard({
           />
           <SelectField
             id="reason-kind"
-            label="Justification de cette durée *"
+            label={`${OBJECTIVE_LABELS.justification} (obligatoire)`}
             value={form.reasonKind}
             placeholder="Choisir un motif"
             options={REASON_CHOICES}

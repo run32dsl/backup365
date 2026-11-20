@@ -22,6 +22,7 @@ import {
   withCurrent,
   payloadOf,
   runPlan,
+  OBJECTIVE_LABELS,
   recapRows,
   validateStep,
   type PlanItem,
@@ -134,10 +135,10 @@ describe('plan form', () => {
       ['Nom du plan', 'Messagerie Direction'],
       ['Données', 'Messagerie, OneDrive, SharePoint'],
       ['Périmètre', 'Toute l’organisation'],
-      ['Fréquence', 'toutes les 12 h'],
-      ['Remise en service visée', 'sous 24 h'],
-      ['Conservation', '1 an'],
-      ['Justification', 'Obligation légale'],
+      ['Perte de données acceptable', '12\u00a0h (une sauvegarde toutes les 12\u00a0h)'],
+      ['Remise en service souhaitée', '24\u00a0h'],
+      ['Durée de conservation', '1 an'],
+      ['Justification de cette durée', 'Obligation légale'],
     ]);
   });
 
@@ -157,7 +158,7 @@ describe('plan form', () => {
     );
     expect(row({ ...form, selection: ['a'] }, 'Périmètre')).toBe('1 boîte ou compte choisi');
     expect(row(form, 'Périmètre')).toBe('Aucune boîte ou compte choisi');
-    expect(row(form, 'Justification')).toBe('Besoin métier : Audit annuel');
+    expect(row(form, 'Justification de cette durée')).toBe('Besoin métier : Audit annuel');
     expect(row({ ...form, dataTypes: [] }, 'Données')).toBe('Aucune donnée choisie');
   });
 
@@ -506,6 +507,20 @@ describe('PlanWizard', () => {
     [...html.matchAll(new RegExp(`<input[^>]*name="${name}"[^>]*>`, 'g'))].map(
       (m) => [/value="(\d+)"/.exec(m[0])?.[1], m[0].includes('checked=""')] as const,
     );
+
+  it('names the recap rows like the objectives step, and marks no label with an asterisk', () => {
+    const html = step2();
+    const recapLabels = recapRows(emptyForm())
+      .map(([label]) => label)
+      .slice(3);
+    expect(recapLabels).toEqual(Object.values(OBJECTIVE_LABELS));
+    const legends = [...html.matchAll(/<legend>([^<]*)<\/legend>/g)].map((m) => m[1]);
+    expect(legends).toEqual(recapLabels.slice(0, 3));
+    expect(html).toContain('Justification de cette durée (obligatoire)');
+    const labels = [...html.matchAll(/<(?:label|legend)[^>]*>([^<]*)</g)].map((m) => m[1]);
+    for (const label of labels) expect(label).not.toMatch(/\*\s*$/);
+    expect(html).not.toContain('*');
+  });
 
   it('lists the objectives in ascending order, defaults checked, without acronyms', () => {
     const html = step2();
