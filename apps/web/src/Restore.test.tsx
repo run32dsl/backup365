@@ -263,10 +263,21 @@ describe('RestoreOutcome', () => {
     expect(actions.map((a) => a.secondary)).toEqual([true, false]);
   });
 
-  it('puts the primary action last on failure: Fermer outline, then Réessayer filled', () => {
+  it('puts the primary action last on failure: audit and Fermer outline, then Réessayer filled', () => {
     const actions = actionsOf(render({ status: 'failed', error: 'restore_error' }));
-    expect(actions.map((a) => a.label)).toEqual(['Fermer', 'Réessayer']);
-    expect(actions.map((a) => a.secondary)).toEqual([true, false]);
+    expect(actions.map((a) => a.label)).toEqual([
+      'Voir dans le journal d’audit',
+      'Fermer',
+      'Réessayer',
+    ]);
+    expect(actions.map((a) => a.secondary)).toEqual([true, true, false]);
+  });
+
+  it('links to the same audit journal from the success and the failure dialogs', () => {
+    const href = (html: string) =>
+      /<div class="button-row dialog-actions">.*?<a[^>]*href="([^"]*)"/s.exec(html)?.[1];
+    expect(href(render({ status: 'failed', error: 'restore_error' }))).toBe(href(render({})));
+    expect(href(render({}))).toBe('#/audit');
   });
 });
 

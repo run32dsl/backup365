@@ -113,6 +113,9 @@ export function RestoreOutcome({
       </Alert>
       <ResultList rows={[...recall, ['Durée', formatDuration(job.durationMs ?? 0)]]} />
       <div className="button-row dialog-actions">
+        <a className="btn btn-secondary" href="#/audit">
+          {B.audit}
+        </a>
         <Button variant="secondary" onClick={onClose}>
           Fermer
         </Button>
