@@ -13,6 +13,7 @@ import {
   RTO_CHOICES,
   RUN_REASONS,
   complianceView,
+  failureBanner,
   createPlan,
   createdMessage,
   deletePlan,
@@ -780,10 +781,44 @@ export function PlansListView({
       {notice}
       {!admin && <p>{MESSAGES.readOnly}</p>}
       {filtered && (
-        <p>
-          {failed.length === 1 ? 'Plan en échec' : `${failed.length} plans en échec`} ·{' '}
-          <a href={PLANS_HASH}>Voir tous les plans</a>
-        </p>
+        <>
+          {failed.map((p) => {
+            const banner = failureBanner(p, admin);
+            const busy = p.running || p.queued;
+            return (
+              <Alert
+                key={p.id}
+                tone="error"
+                action={
+                  admin ? (
+                    <Button
+                      aria-label={`Lancer ${p.name} maintenant`}
+                      aria-disabled={busy || undefined}
+                      aria-describedby={busy ? `banner-run-hint-${p.id}` : undefined}
+                      onClick={() => {
+                        if (!busy) onRun(p);
+                      }}
+                    >
+                      Lancer maintenant
+                    </Button>
+                  ) : undefined
+                }
+              >
+                <strong>{banner.title}</strong>
+                <br />
+                {[banner.cause, banner.consequence, banner.advice].filter(Boolean).join(' ')}
+                {busy && (
+                  <small className="state-note" id={`banner-run-hint-${p.id}`}>
+                    {p.running ? MESSAGES.runBusy : MESSAGES.runAlreadyQueued}
+                  </small>
+                )}
+              </Alert>
+            );
+          })}
+          <p>
+            <a href={PLANS_HASH}>Voir tous les plans</a>
+          </p>
+        </>
       )}
       <DataTable
         caption="Plans de protection"
