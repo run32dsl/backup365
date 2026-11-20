@@ -11,7 +11,6 @@ import {
   RETENTION_CHOICES,
   RPO_CHOICES,
   RTO_CHOICES,
-  RUN_REASONS,
   complianceView,
   failureBanner,
   createPlan,
@@ -34,7 +33,7 @@ import {
   OBJECTIVE_LABELS,
   recapRows,
   runPlan,
-  runReasonText,
+  runReasonError,
   updatePlan,
   validateStep,
   type FormErrors,
@@ -45,7 +44,7 @@ import {
   type ReasonKind,
 } from './plans.js';
 import { splitTitle, type Problem } from './apiError.js';
-import { REASON, reasonLabel } from './RestoreJourney.js';
+import { ReasonField } from './RestoreJourney.js';
 import {
   Alert,
   Button,
@@ -484,21 +483,19 @@ function RunDialog({
   onClose: () => void;
   onRun: (plan: PlanItem, reason: string) => Promise<Problem | undefined>;
 }) {
-  const [choice, setChoice] = useState('');
-  const [detail, setDetail] = useState('');
+  const [reason, setReason] = useState('');
   const [error, setError] = useState<string>();
   const [problem, setProblem] = useState<Problem>();
   const [busy, setBusy] = useState(false);
   // Chaque ouverture repart d'un formulaire vide.
   useEffect(() => {
-    setChoice('');
-    setDetail('');
+    setReason('');
     setError(undefined);
     setProblem(undefined);
     setBusy(false);
   }, [plan]);
   const blocked = isRunBlocked(problem);
-  const missing = choice === '' || (choice === 'Autre (préciser)' && detail.trim() === '');
+  const missing = runReasonError(reason);
   return (
     <Dialog
       open={plan !== null}
@@ -509,7 +506,7 @@ function RunDialog({
         <RunBlocked
           problem={problem}
           planName={plan?.name ?? ''}
-          reason={runReasonText(choice, detail)}
+          reason={reason.trim()}
           onClose={onClose}
         />
       ) : (
@@ -520,36 +517,19 @@ function RunDialog({
             if (!plan || busy) return;
             // Une nouvelle tentative efface l'échec précédent : un seul message à la fois.
             setProblem(undefined);
-            if (missing) {
-              setError(MESSAGES.runReason);
+            if (missing !== undefined) {
+              setError(missing);
               return;
             }
             setError(undefined);
             setBusy(true);
-            void onRun(plan, runReasonText(choice, detail)).then((failure) => {
+            void onRun(plan, reason).then((failure) => {
               setBusy(false);
               setProblem(failure);
             });
           }}
         >
-          <SelectField
-            id="run-reason"
-            label={reasonLabel('du lancement')}
-            help={REASON.help}
-            value={choice}
-            placeholder="Choisir un motif"
-            options={RUN_REASONS.map((r) => ({ value: r, label: r }))}
-            error={error}
-            onChange={setChoice}
-          />
-          <FormField
-            label="Précision (facultatif)"
-            value={detail}
-            counterMax={REASON.maxLength}
-            onChange={(e) => {
-              setDetail(e.currentTarget.value);
-            }}
-          />
+          <ReasonField of="du lancement" value={reason} error={error} onChange={setReason} />
           <RunFeedback problem={problem} busy={busy} onClose={onClose} />
         </form>
       )}

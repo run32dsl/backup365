@@ -598,7 +598,7 @@ export const SCREENS = [
       const dialog = page.getByRole('dialog', {
         name: 'Lancer « Messagerie Direction » maintenant',
       });
-      await dialog.getByLabel('Motif du lancement (obligatoire)').selectOption({ index: 1 });
+      await dialog.getByLabel('Motif du lancement (obligatoire)').fill('Contrôle de conformité');
       await dialog.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
       // Le titre devient celui du résultat : la boîte se retrouve par son nouveau nom.
       const blocked = page.getByRole('dialog', { name: 'Lancement impossible' });

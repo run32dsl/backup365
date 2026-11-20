@@ -79,10 +79,9 @@ describe('restore journey', () => {
     expect(html).toContain(`0 / ${MAX_REASON_LENGTH}`);
     expect(html).not.toContain('*');
     const plans = source('PlansPage.tsx');
-    expect(plans).toContain("reasonLabel('du lancement')");
-    expect(plans).toContain('help={REASON.help}');
-    expect(plans).toContain('counterMax={REASON.maxLength}');
-    expect(plans).toContain('Précision (facultatif)');
+    expect(plans).toContain('<ReasonField of="du lancement"');
+    expect(plans).not.toContain('RUN_REASONS');
+    expect(plans).not.toContain('id="run-reason"');
     expect(plans).not.toContain('AuditReminder');
   });
 

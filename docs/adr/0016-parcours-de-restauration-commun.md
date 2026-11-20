@@ -21,7 +21,10 @@ de trois produits.
   cours », « Restauration terminée », « Restauration échouée ») et un récapitulatif libellé
   (`ResultList`, dans `apps/web/src/ui/`, aussi utilisé par l’étape « Récapitulatif » des plans).
 - Le motif est un texte libre, obligatoire, de 120 caractères au plus (`MAX_REASON_LENGTH`, la
-  limite du serveur), pour les trois parcours. SharePoint n'a plus de liste de motifs.
+  limite du serveur), pour les trois parcours. SharePoint n'a plus de liste de motifs. La règle
+  couvre aussi « Lancer maintenant » d'un plan : un seul champ `ReasonField`, sans liste ni
+  « Précision », envoyé tel quel au serveur et repris tel quel au journal d'audit. La
+  justification de la durée de conservation d'un plan reste hors règle (base légale, pas motif).
 - Le rappel d'audit reprend la phrase de la charte : « Chaque consultation, export ou
   restauration est inscrite au journal d'audit. » Il n'apparaît que là où un élément sauvegardé
   est consulté, exporté ou restauré, et pas dans les boîtes de résultat (voir la charte).

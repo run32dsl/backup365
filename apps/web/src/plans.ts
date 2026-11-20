@@ -95,13 +95,6 @@ export const REASON_CHOICES = [
 ] as const;
 export type ReasonKind = (typeof REASON_CHOICES)[number]['value'];
 
-export const RUN_REASONS = [
-  'Contrôle de conformité',
-  'Avant une opération de maintenance',
-  'Après un incident',
-  'Autre (préciser)',
-] as const;
-
 export const MESSAGES = {
   loading: 'Chargement des plans…',
   loadError: 'Impossible de charger les plans.',
@@ -117,7 +110,7 @@ export const MESSAGES = {
   dataTypes: 'Choisissez au moins un type de données.',
   selection: 'Choisissez au moins une boîte ou un compte.',
   justification: 'Indiquez la justification de la durée de conservation.',
-  runReason: 'Indiquez un motif.',
+  runReason: 'Indiquez un motif pour continuer.',
   created: 'Plan créé.',
   updated: 'Plan modifié.',
   deleted: 'Plan supprimé.',
@@ -548,6 +541,10 @@ export const updatePlan = (id: string, form: PlanForm, fetchFn: typeof fetch = f
 export const deletePlan = (id: string, fetchFn: typeof fetch = fetch) =>
   send(fetchFn, 'DELETE', `/api/plans/${encodeURIComponent(id)}`);
 
+/** Motif d'un lancement manuel : le même texte libre que partout, refusé s'il est vide. */
+export const runReasonError = (reason: string): string | undefined =>
+  reason.trim() === '' ? MESSAGES.runReason : undefined;
+
 export const runPlan = (id: string, reason: string, fetchFn: typeof fetch = fetch) =>
   send(
     fetchFn,
@@ -556,10 +553,3 @@ export const runPlan = (id: string, reason: string, fetchFn: typeof fetch = fetc
     { reason: reason.trim() },
     async (r) => ({ queued: ((await r.json()) as { queued?: boolean }).queued === true }),
   );
-
-/** Motif d'un lancement manuel : le choix, suivi de la précision. */
-export function runReasonText(choice: string, detail: string): string {
-  const extra = detail.trim();
-  const base = choice === 'Autre (préciser)' ? 'Autre' : choice;
-  return extra === '' ? base : `${base} : ${extra}`;
-}
