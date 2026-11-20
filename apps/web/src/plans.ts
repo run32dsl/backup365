@@ -411,6 +411,23 @@ export function lastRunLabel(plan: PlanItem): string {
   return `Réussie, ${at}`;
 }
 
+/** Contenu du bandeau d'un plan en échec : titre daté (UTC), cause, conséquence, conduite à tenir. */
+export function failureBanner(
+  plan: PlanItem,
+  admin: boolean,
+): { title: string; cause: string; consequence?: string; advice: string } {
+  const run = plan.lastRun;
+  const at = run?.status === 'failed' ? dateTimeOf(run.finishedAt ?? run.startedAt) : '';
+  return {
+    title: `Échec de « ${plan.name} »${at && ` le ${at} UTC`}`,
+    cause: `${FAILURE_LABELS[run?.failureCause ?? 'unknown']}.`,
+    ...(plan.compliance.lastSuccessAt === null && {
+      consequence: 'Ces données ne sont pas encore protégées.',
+    }),
+    advice: `${admin ? 'Relancez' : 'Demandez à un administrateur de relancer'} le plan ; si l’échec se répète, prévenez l’exploitant du serveur.`,
+  };
+}
+
 /** Message de succès d'une création : l'heure du premier créneau planifié. */
 export function createdMessage(plan: { id: string; rpoHours: RpoHours }, now = new Date()): string {
   // Plan de nuit : le créneau suit le fuseau du serveur, que le navigateur ne connaît pas.

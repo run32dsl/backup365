@@ -86,6 +86,55 @@ describe('failure cause on the plans list', () => {
     expect(list([okPlan, recent], true)).not.toContain('Messagerie Direction');
   });
 
+  it.each([
+    ['interrupted', 'Sauvegarde interrompue'],
+    ['backup_errors', 'Des dossiers n’ont pas pu être sauvegardés'],
+    ['no_result', 'Aucune donnée n’a été sauvegardée'],
+    ['unknown', 'Cause non précisée'],
+  ] as const)('shows an error banner with name, UTC date and cause for %s', (cause, label) => {
+    const plan: PlanItem = {
+      ...failedPlan,
+      lastRun: { ...failedPlan.lastRun!, failureCause: cause },
+    };
+    const html = list([okPlan, plan], true);
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('Échec de « Plan en échec » le 19/11/2026 17:55 UTC');
+    expect(html).toContain(`${label}.`);
+    expect(html).toContain('Ces données ne sont pas encore protégées.');
+    expect(html).toContain('prévenez l’exploitant du serveur');
+    expect(html).toContain('Voir tous les plans');
+  });
+
+  it('offers a primary run button to an administrator only', () => {
+    const html = list([failedPlan], true);
+    expect(html).toContain('Relancez le plan');
+    expect(html).toMatch(/class="btn btn-primary"[^>]*>Lancer maintenant/);
+    const operator = renderToStaticMarkup(
+      <PlansListView
+        state={[failedPlan]}
+        admin={false}
+        configured
+        failedOnly
+        onRetry={noop}
+        onRun={noop}
+        onDelete={noop}
+      />,
+    );
+    expect(operator).toContain('role="alert"');
+    expect(operator).toContain('Demandez à un administrateur de relancer le plan');
+    expect(operator).not.toContain('Lancer maintenant');
+  });
+
+  it('explains why the banner run button is unavailable while the plan runs', () => {
+    const html = list([{ ...failedPlan, running: true }], true);
+    expect(html).toContain('banner-run-hint-p2');
+  });
+
+  it('says nothing about protection when a backup has already succeeded', () => {
+    const recent: PlanItem = { ...failedPlan, compliance: okPlan.compliance };
+    expect(list([recent], true)).not.toContain('pas encore protégées');
+  });
+
   it('Voir l’erreur targets the filtered list', () => {
     expect(parsePlansHash(FAILED_PLANS_HASH)).toEqual({ page: 'list', failedOnly: true });
   });
