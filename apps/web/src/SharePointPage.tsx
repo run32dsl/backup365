@@ -4,6 +4,7 @@ import { FailureAlert } from './FailureAlert.js';
 import { AccessDenied } from './AccessDenied.js';
 import { StorageUnavailable } from './StorageUnavailable.js';
 import { cardSummary, dateTimeOrDash } from './format.js';
+import { RestoreFailureAlert, restoreFailureBanner } from './restoreFailure.js';
 import { RESTORE_LABELS } from './restoreLabels.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
 import {
@@ -23,7 +24,9 @@ import {
   canContinue,
   continueHint,
   dateTimeOf,
+  errorItemLabel,
   failureCause,
+  failureConsequence,
   fetchLastSiteJob,
   fetchScope,
   fetchSiteEntries,
@@ -657,6 +660,8 @@ export function TrackStep({
   if (failedNormally && untreated > 0) countRows.push(['Éléments non traités', untreated]);
   if (job.status !== 'running' && job.errors > 0) {
     countRows.push(['Éléments en erreur', job.errors]);
+    const named = errorItemLabel(job);
+    if (named) countRows.push(['En erreur', named]);
   }
   const counts = <ResultList rows={countRows} />;
   let body: ReactNode;
@@ -699,11 +704,16 @@ export function TrackStep({
   } else {
     body = (
       <>
-        <Alert tone="error">
-          {isOutcomeUncertain(job.error)
-            ? `La restauration a échoué : ${failureCause(job.error)}. L’état de SharePoint est incertain : vérifiez avant de réessayer.`
-            : `La restauration a échoué : ${failureCause(job.error)}. ${job.restored > 0 ? 'Rien n’a été écrasé.' : 'Rien n’a été modifié.'}`}
-        </Alert>
+        <RestoreFailureAlert
+          banner={restoreFailureBanner({
+            item:
+              job.scope === 'site' || pathLabel(job.path) === '' ? siteName : pathLabel(job.path),
+            uncertain: isOutcomeUncertain(job.error),
+            at: job.finishedAt ?? job.startedAt,
+            cause: failureCause(job.error),
+            consequence: failureConsequence(job),
+          })}
+        />
         {counts}
         <WizardActions
           back={

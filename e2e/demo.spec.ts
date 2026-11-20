@@ -108,7 +108,7 @@ test('restauration : un échec propose de réessayer', async ({ page, context, b
   await dialog.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #1 : essai');
   await dialog.getByRole('button', { name: 'Restaurer', exact: true }).click();
   const failed = page.getByRole('dialog', { name: 'Restauration échouée' });
-  await expect(failed.getByRole('alert')).toContainText('La restauration a échoué :');
+  await expect(failed.getByRole('alert')).toContainText('Échec de la restauration de ');
   await expect(failed.getByRole('alert')).toContainText('Rien n’a été modifié.');
   // Une nouvelle tentative repasse par la confirmation.
   await failed.getByRole('button', { name: 'Réessayer' }).click();
@@ -222,7 +222,7 @@ test('OneDrive : un échec propose de réessayer, rien n’est modifié', async 
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #8 : essai');
   await page.getByRole('button', { name: 'Continuer' }).click();
   await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
-  const failed = page.getByRole('alert').getByText(/La restauration a échoué/);
+  const failed = page.getByRole('alert').getByText(/Échec de la restauration de /);
   await expect(failed).toBeVisible();
   await expect(page.getByText(/Rien n’a été modifié/)).toBeVisible();
   await page.getByRole('button', { name: 'Réessayer' }).click();
@@ -344,9 +344,7 @@ test('SharePoint : un échec affiche le résultat partiel et propose de réessay
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #11 : essai');
   await page.getByRole('button', { name: 'Continuer' }).click();
   await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
-  await expect(
-    page.getByRole('alert').getByText(/^La restauration a échoué : .*Rien n’a été modifié\.$/),
-  ).toBeVisible();
+  await expect(page.getByRole('alert').getByText(/Rien n’a été modifié\./)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Restauration échouée' })).toBeVisible();
   await expect(page.getByText('Éléments en erreur', { exact: true })).toBeVisible();
   // Réessayer ramène au récapitulatif, motif et choix conservés.

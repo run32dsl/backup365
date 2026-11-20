@@ -75,9 +75,9 @@ describe('SharePoint result', () => {
 
   it('writes the shared failure sentence, with no restored label', () => {
     const html = render({ status: 'failed', restored: 0, errors: 1, error: 'restore_error' });
-    expect(html).toContain(
-      'La restauration a échoué : le service de restauration a signalé une erreur. Rien n’a été modifié.',
-    );
+    expect(html).toContain('Le service de restauration a signalé une erreur.');
+    expect(html).toContain('Rien n’a été modifié.');
+    expect(html).toContain('Réessayez ; si l’échec se répète');
     expect(html).not.toContain('Élément restauré');
     expect(html).not.toContain('Éléments restaurés');
   });
@@ -85,7 +85,26 @@ describe('SharePoint result', () => {
   it('counts the restored items and keeps "écrasé" on a partial failure', () => {
     const html = render({ status: 'failed', restored: 2, errors: 1, error: 'restore_error' });
     expect(html).toContain('<dt>Éléments restaurés</dt><dd>2</dd>');
-    expect(html).toContain('Rien n’a été écrasé.');
+    expect(html).toContain('2 éléments restaurés, 1 élément en erreur.');
+  });
+
+  it('names the failed file in the summary', () => {
+    const html = render({ status: 'failed', restored: 0, errors: 1, error: 'restore_error' });
+    expect(html).toContain(
+      '<dt>En erreur</dt><dd>Documents partagés &gt; Plans 2024 &gt; plan-a.pdf</dd>',
+    );
+  });
+
+  it('names the folder holding the failed items', () => {
+    const html = render({
+      status: 'failed',
+      scope: 'folder',
+      path: '/Documents partagés/Contrats',
+      restored: 2,
+      errors: 2,
+      error: 'restore_error',
+    });
+    expect(html).toContain('<dt>En erreur</dt><dd>dans Documents partagés &gt; Contrats</dd>');
   });
 
   it('says the state is uncertain when the outcome is unknown', () => {

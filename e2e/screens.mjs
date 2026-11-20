@@ -665,7 +665,7 @@ export const SCREENS = [
     prepare: async (page) => {
       await openRestorePanel(page, 25);
       await confirmRestore(page);
-      await page.getByText(/La restauration a échoué : /u).waitFor();
+      await page.getByText(/Échec de la restauration de /u).waitFor();
     },
   },
   {
@@ -793,7 +793,7 @@ export const SCREENS = [
       await openDrive(page);
       await chooseDriveFile(page, 'previsions.xlsx');
       await launchDriveRestore(page);
-      await page.getByText(/La restauration a échoué/u).waitFor();
+      await page.getByText(/Échec de la restauration de /u).waitFor();
     },
   },
   {
@@ -892,7 +892,7 @@ export const SCREENS = [
         'plan-b.pdf',
       );
       await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
-      await page.getByText(/La restauration a échoué : /u).waitFor();
+      await page.getByText(/Échec de la restauration de /u).waitFor();
     },
   },
   {

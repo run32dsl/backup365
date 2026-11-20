@@ -80,6 +80,11 @@ composant s'y ajoute avec ses tests de comportement.
   inscrit au journal d’audit… ») reste. `#/composants` montre ce placement.
 - **Bandeau d'alerte** : `role="alert"` pour une erreur, `role="status"` pour une information ;
   sans détail technique.
+- **Échec d'une restauration** (messagerie, OneDrive, SharePoint) : un seul `Alert` d'erreur
+  (`RestoreFailureAlert`), construit comme celui d'un plan. Première ligne en gras « Échec de la
+  restauration de « élément » le jj/mm/aaaa hh:mm UTC », puis la cause, la conséquence et la
+  conduite à tenir (réessayer, puis prévenir l'exploitant du serveur avec l'heure). Si le
+  résultat est inconnu, la conduite à tenir demande de vérifier l'état avant de réessayer.
 - **État vide** (`.empty`) : phrase claire et, au plus, un bouton d'action.
 - **Navigation** : `<nav aria-label="Navigation principale">`, entrée active en
   `aria-current="page"`, lien d'évitement « Aller au contenu ». Sous 900 px, la barre latérale
