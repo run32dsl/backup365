@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
+import { scheduleWindowLabel } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
 import { PlanWizard, PlansListView } from './PlansPage.js';
 import { AUDIT_REMINDER } from './RestoreJourney.js';
@@ -135,7 +136,7 @@ describe('plan form', () => {
       ['Périmètre', 'Toute l’organisation'],
       ['Fréquence', 'toutes les 12 h'],
       ['Remise en service visée', 'sous 24 h'],
-      ['Conservation', '1 an'],
+      ['Conservation', '1 an'],
       ['Justification', 'Obligation légale'],
     ]);
   });
@@ -288,11 +289,11 @@ describe('PlansListView', () => {
       retentionDays: 1095,
     };
     const all =
-      '<small class="state-note plan-summary">Messagerie, OneDrive et SharePoint · toute l’organisation · toutes les 12 h · conservés 1 an</small>';
+      '<small class="state-note plan-summary">Messagerie, OneDrive et SharePoint · toute l’organisation · toutes les 12 h · conservés 1 an</small>';
     const html = list([plan, other], true);
     expect(html).toContain(all);
     expect(html).toContain(
-      '<small class="state-note plan-summary">OneDrive · 2 boîtes choisies · toutes les 24 h · conservés 3 ans</small>',
+      '<small class="state-note plan-summary">OneDrive · 2 boîtes choisies · toutes les 24 h · conservés 3 ans</small>',
     );
     // Les deux rôles reçoivent la sélection : même plan, même synthèse.
     const operatorHtml = list([plan, other].map(asOperator), false);
@@ -300,12 +301,25 @@ describe('PlansListView', () => {
     expect(operatorHtml).toContain('OneDrive · 2 boîtes choisies ·');
   });
 
+  it('never splits a number from its unit in a plan description', () => {
+    for (const retentionDays of [90, 180, 365, 1095, 400]) {
+      for (const rpoHours of [4, 12, 24] as const) {
+        const text = [
+          planSummary({ ...plan, rpoHours, retentionDays }),
+          scheduleWindowLabel(rpoHours) ?? '',
+        ].join(' ');
+        expect(text).not.toMatch(/\d (h|jours|mois|ans?)\b/);
+        expect(text).toMatch(/\d\u00a0(h|jours|mois|ans?)/);
+      }
+    }
+  });
+
   it('names the mailboxes of a restricted plan, the same way for both roles', () => {
     const boxes = [
       { id: 'a', displayName: 'claire.durand@exemple.fr' },
       { id: 'b', displayName: 'paul.martin@exemple.fr' },
     ];
-    const tail = 'toutes les 24 h · conservés 3 ans';
+    const tail = 'toutes les 24 h · conservés 3 ans';
     const restricted: PlanItem = {
       ...plan,
       scope: 'selection',
@@ -352,6 +366,17 @@ describe('PlansListView', () => {
       /aria-label="Lancer Messagerie Direction maintenant"[^>]*aria-disabled="true"[^>]*aria-describedby="run-hint-/,
     );
     expect(html).toContain('Sauvegarde déjà en cours');
+  });
+
+  it('puts the three actions in one row of outline buttons, the hint below the row', () => {
+    const html = list([{ ...plan, running: true }], true);
+    const row = /<div class="row-actions-buttons">(.*?)<\/div>/.exec(html)?.[1] ?? '';
+    expect(row).toMatch(/aria-label="Lancer [^>]*btn btn-secondary/);
+    expect(row).toMatch(/<a class="btn btn-secondary"[^>]*aria-label="Modifier /);
+    expect(row).toMatch(/aria-label="Supprimer [^>]*btn btn-danger/);
+    expect(html.indexOf('id="run-hint-')).toBeGreaterThan(
+      html.indexOf('</div>', html.indexOf(row)),
+    );
   });
 
   it('shows a queued plan and the plan it waits for', () => {

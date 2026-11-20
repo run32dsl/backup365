@@ -645,7 +645,7 @@ function planColumns(
       className: 'card-action',
       cell: (p) => (
         <div className="row-actions">
-          <div className="run-action">
+          <div className="row-actions-buttons">
             <Button
               variant="secondary"
               aria-label={`Lancer ${p.name} maintenant`}
@@ -657,13 +657,6 @@ function planColumns(
             >
               Lancer maintenant
             </Button>
-            {(p.running || p.queued) && (
-              <small className="state-note" id={`run-hint-${p.id}`}>
-                {p.running ? MESSAGES.runBusy : MESSAGES.runAlreadyQueued}
-              </small>
-            )}
-          </div>
-          <div className="row-actions-more">
             <a
               className="btn btn-secondary"
               href={editHash(p.id)}
@@ -681,6 +674,11 @@ function planColumns(
               Supprimer
             </Button>
           </div>
+          {(p.running || p.queued) && (
+            <small className="state-note" id={`run-hint-${p.id}`}>
+              {p.running ? MESSAGES.runBusy : MESSAGES.runAlreadyQueued}
+            </small>
+          )}
         </div>
       ),
     });

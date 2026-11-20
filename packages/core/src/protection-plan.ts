@@ -167,7 +167,7 @@ export function isNightPlan(rpoHours: number): boolean {
 /** Ligne de la fiche du plan : la fenêtre utilisée, ou `null` si le plan garde son rythme RPO/2. */
 export function scheduleWindowLabel(rpoHours: number): string | null {
   return isNightPlan(rpoHours)
-    ? `Sauvegarde planifiée la nuit (${NIGHT_WINDOW.startHour} h – ${NIGHT_WINDOW.endHour} h)`
+    ? `Sauvegarde planifiée la nuit (${NIGHT_WINDOW.startHour}\u00a0h – ${NIGHT_WINDOW.endHour}\u00a0h)`
     : null;
 }
 

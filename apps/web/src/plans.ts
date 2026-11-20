@@ -81,10 +81,10 @@ export function withCurrent(choices: readonly number[], current: number): number
 }
 
 export function retentionLabel(days: number): string {
-  if (days === 180) return '6 mois';
-  if (days === 365) return '1 an';
-  if (days % 365 === 0) return `${days / 365} ans`;
-  return `${days} jours`;
+  if (days === 180) return '6\u00a0mois';
+  if (days === 365) return '1\u00a0an';
+  if (days % 365 === 0) return `${days / 365}\u00a0ans`;
+  return `${days}\u00a0jours`;
 }
 
 export const REASON_CHOICES = [
@@ -299,7 +299,7 @@ export function planSummary(
   return [
     what.charAt(0).toUpperCase() + what.slice(1),
     where,
-    `toutes les ${plan.rpoHours} h`,
+    `toutes les ${plan.rpoHours}\u00a0h`,
     `conservés ${retentionLabel(plan.retentionDays)}`,
   ]
     .filter((part) => part !== '')
@@ -313,7 +313,7 @@ export const rtoHelp = (hours: number): string =>
   `Le service doit être rétabli en ${hours} h au plus.`;
 
 export const retentionHelp = (days: number): string =>
-  `Les sauvegardes sont supprimées au bout de ${retentionLabel(days).replace(' ', ' ')}.`;
+  `Les sauvegardes sont supprimées au bout de ${retentionLabel(days)}.`;
 
 // ---- Affichage de la liste ------------------------------------------------------------------
 

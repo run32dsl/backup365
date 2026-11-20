@@ -276,6 +276,6 @@ describe('night window (ADR 0017)', () => {
 
   it('labels the window on the plan sheet', () => {
     expect(isNightPlan(24)).toBe(true);
-    expect(scheduleWindowLabel(24)).toBe('Sauvegarde planifiée la nuit (22 h – 6 h)');
+    expect(scheduleWindowLabel(24)).toBe('Sauvegarde planifiée la nuit (22 h – 6 h)');
   });
 });
