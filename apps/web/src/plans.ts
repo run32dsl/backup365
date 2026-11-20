@@ -243,6 +243,14 @@ function scopeLabel(form: PlanForm): string {
   return n === 1 ? '1 boîte ou compte choisi' : `${n} boîtes ou comptes choisis`;
 }
 
+/** Libellés de l'étape « Objectifs », repris tels quels par le récapitulatif. */
+export const OBJECTIVE_LABELS = {
+  rpo: 'Perte de données acceptable',
+  rto: 'Remise en service souhaitée',
+  retention: 'Durée de conservation',
+  justification: 'Justification de cette durée',
+} as const;
+
 /** Lignes du récapitulatif (dernière étape de création) : libellé et valeur. */
 export function recapRows(form: PlanForm): [string, string][] {
   const data = DATA_TYPES.filter((t) => form.dataTypes.includes(t)).map((t) => DATA_TYPE_LABELS[t]);
@@ -250,10 +258,16 @@ export function recapRows(form: PlanForm): [string, string][] {
     ['Nom du plan', form.name.trim()],
     ['Données', data.length === 0 ? 'Aucune donnée choisie' : data.join(', ')],
     ['Périmètre', scopeLabel(form)],
-    ['Fréquence', `toutes les ${form.rpoHours} h`],
-    ['Remise en service visée', `sous ${form.rtoHours} h`],
-    ['Conservation', retentionLabel(form.retentionDays)],
-    ['Justification', justificationText(form.reasonKind || 'other', form.reasonDetail)],
+    [
+      OBJECTIVE_LABELS.rpo,
+      `${form.rpoHours}\u00a0h (une sauvegarde toutes les ${form.rpoHours}\u00a0h)`,
+    ],
+    [OBJECTIVE_LABELS.rto, `${form.rtoHours}\u00a0h`],
+    [OBJECTIVE_LABELS.retention, retentionLabel(form.retentionDays)],
+    [
+      OBJECTIVE_LABELS.justification,
+      justificationText(form.reasonKind || 'other', form.reasonDetail),
+    ],
   ];
 }
 
