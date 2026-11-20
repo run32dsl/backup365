@@ -20,6 +20,15 @@ describe('DialogPanel', () => {
     expect(html).toContain('<h2 id="t">Exporter cette boîte ?</h2>');
     expect(html).toContain('aria-label="Fermer"');
   });
+
+  it('offers no close button when it is not dismissible', () => {
+    const html = renderToStaticMarkup(
+      <DialogPanel titleId="t" title="T" onClose={() => undefined} dismissible={false}>
+        <p>Corps</p>
+      </DialogPanel>,
+    );
+    expect(html).not.toContain('aria-label="Fermer"');
+  });
 });
 
 describe('trapTab', () => {
@@ -68,6 +77,12 @@ describe('closeOnEscape', () => {
     expect(close).not.toHaveBeenCalled();
     expect(closeOnEscape({ key: 'Escape', stopPropagation: vi.fn() }, close)).toBe(true);
     expect(close).toHaveBeenCalledOnce();
+  });
+
+  it('does nothing on Escape when the dialog is not dismissible', () => {
+    const close = vi.fn();
+    expect(closeOnEscape({ key: 'Escape', stopPropagation: vi.fn() }, close, false)).toBe(true);
+    expect(close).not.toHaveBeenCalled();
   });
 });
 
