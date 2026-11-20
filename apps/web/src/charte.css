@@ -598,16 +598,6 @@ select[aria-disabled='true'] {
   color: var(--muted);
 }
 
-/* « Lancer maintenant » et, s'il est grisé, sa raison juste en dessous. */
-.run-action {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-.run-action .btn {
-  width: 100%;
-}
-
 /* Synthèse d'un plan sous son nom : passe à la ligne sans élargir la page. */
 .plan-summary {
   overflow-wrap: anywhere;
@@ -794,29 +784,6 @@ select[aria-disabled='true'] {
   }
   .data-table td.card-title .plan-summary + .plan-summary {
     margin-left: 0;
-  }
-  .data-table .row-actions .run-action .btn {
-    padding-inline: var(--space-2);
-  }
-  /* Actions d'un plan : « Lancer maintenant », Modifier et Supprimer (liens) sur une seule rangée ;
-     la raison d'indisponibilité reste sous le bouton. */
-  .data-table .row-actions {
-    flex-direction: row;
-    flex-wrap: nowrap;
-    align-items: flex-start;
-    gap: var(--space-1);
-  }
-  .data-table .row-actions .run-action {
-    flex: 0 1 auto;
-  }
-  .data-table .row-actions-more {
-    gap: 0;
-  }
-  .data-table .row-actions-more .btn {
-    flex: 0 1 auto;
-    border-color: transparent;
-    padding-inline: var(--space-2);
-    text-decoration: underline;
   }
   .data-table td.card-only {
     color: var(--muted);
@@ -1100,26 +1067,28 @@ a.btn-secondary {
   background: transparent;
   color: var(--accent);
 }
-.row-actions,
-.row-actions-more {
+/* Actions d'une ligne : boutons à contour alignés en haut, qui passent à la ligne si la place
+   manque ; la raison d'un bouton grisé s'écrit sous la rangée. */
+.row-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+.row-actions-buttons {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: var(--space-2);
 }
-/* Bureau : une seule rangée ; Modifier et Supprimer ne passent pas à la ligne. */
+/* Tableau (bureau) : les trois boutons restent sur une même rangée, le tableau leur laisse la place. */
 @media (min-width: 40.01rem) {
-  .row-actions,
-  .row-actions-more {
+  .data-table .row-actions-buttons {
     flex-wrap: nowrap;
+    gap: var(--space-1);
   }
-  /* Actions secondaires discrètes : le contour est réservé à « Lancer maintenant ». */
-  .data-table .row-actions-more {
-    gap: 0;
-  }
-  .data-table .row-actions-more .btn {
-    border-color: transparent;
+  .data-table .row-actions-buttons .btn {
     padding-inline: var(--space-2);
-    text-decoration: underline;
   }
 }
 .choices {
@@ -1194,10 +1163,6 @@ a.btn-secondary {
   border: 1px solid var(--border-soft);
 }
 @media (max-width: 40rem) {
-  .row-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
   /* Boutons pleine largeur, action principale en haut, comme dans les boîtes de dialogue. */
   .wizard-actions {
     flex-direction: column-reverse;
@@ -1209,26 +1174,6 @@ a.btn-secondary {
     justify-content: center;
     text-align: center;
   }
-  /* Carte : « Lancer maintenant » en pleine largeur, puis Modifier et Supprimer côte à côte. */
-  .row-actions-more {
-    flex-direction: row;
-  }
-  .row-actions-more .btn {
-    flex: 1;
-  }
-  /* Carte de tableau : les trois actions restent sur une seule rangée. */
-  .data-table .row-actions {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-  .data-table .row-actions-more {
-    flex-wrap: nowrap;
-  }
-  .data-table .row-actions-more .btn {
-    flex: 0 0 auto;
-    padding-inline: var(--space-1);
-  }
-  .row-actions > .btn,
   .wizard-actions .btn,
   .page-header .btn {
     width: 100%;
