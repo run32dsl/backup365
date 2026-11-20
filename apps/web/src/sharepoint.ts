@@ -183,20 +183,20 @@ export function restoredContentLabel(scope: SiteScope, path: string): string {
   return `${kind} : ${pathLabel(path)}`;
 }
 
-/** Choix valide pour la granularité ? Mêmes règles que le serveur (`isPathOfScope`). */
-export function canContinue(scope: SiteScope, path: string, file: string | null): boolean {
-  const depth = path.split('/').filter(Boolean).length;
-  if (scope === 'site') return true;
-  if (scope === 'library') return depth === 1;
-  if (scope === 'folder') return depth >= 2;
-  return file !== null;
+/** Granularité de restauration déduite de la ligne cochée. */
+export function scopeOfKind(kind: SiteEntry['kind']): SiteScope {
+  return kind === 'file' ? 'item' : kind;
+}
+
+/** Ligne « Sélection : … » sous le tableau : `Bibliothèque Documents partagés`. */
+export function selectionLabel(selected: { path: string; kind: SiteEntry['kind'] }): string {
+  const kind = { library: 'Bibliothèque', folder: 'Dossier', file: 'Fichier' }[selected.kind];
+  return `${kind} ${pathLabel(selected.path)}`;
 }
 
 /** Pourquoi « Continuer » est inactif, en une phrase. */
-export function continueHint(scope: SiteScope): string {
-  if (scope === 'library') return 'Ouvrez la bibliothèque à restaurer pour continuer.';
-  if (scope === 'folder') return 'Ouvrez le dossier à restaurer pour continuer.';
-  return 'Choisissez un élément pour continuer.';
+export function continueHint(): string {
+  return 'Cochez un fichier, un dossier ou une bibliothèque pour continuer.';
 }
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n > 1 ? many : one}`;

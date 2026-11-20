@@ -244,17 +244,18 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   ).toBeVisible();
 
   // Un opérateur ne peut pas restaurer le site entier : l'option dit pourquoi, en texte.
-  await expect(page.getByLabel('Le site entier')).toBeDisabled();
+  await expect(page.getByLabel('Restaurer le site entier')).toBeDisabled();
   await expect(page.getByText('Réservé aux administrateurs')).toBeVisible();
 
-  // Bibliothèque : « Continuer » reste inactif tant qu'aucune n'est ouverte.
-  await page.getByLabel('Une bibliothèque').check();
+  // Rien de coché : « Continuer » reste inactif et la consigne est au-dessus du bouton.
   const next = page.getByRole('button', { name: 'Continuer' });
   await expect(next).toHaveAttribute('aria-disabled', 'true');
-  await expect(page.getByText('Ouvrez la bibliothèque à restaurer pour continuer.')).toBeVisible();
-  // Le lien d'une bibliothèque ouvre le niveau et la choisit.
-  await page.getByRole('link', { name: 'Documents partagés', exact: true }).click();
-  await expect(page.getByText('Sélection : Documents partagés')).toBeVisible();
+  await expect(
+    page.getByText('Cochez un fichier, un dossier ou une bibliothèque pour continuer.'),
+  ).toBeVisible();
+  // Une bibliothèque se coche sans être ouverte.
+  await page.getByRole('radio', { name: 'Documents partagés', exact: true }).check();
+  await expect(page.getByText('Sélection : Bibliothèque Documents partagés')).toBeVisible();
   await next.click();
 
   // Motif : la précision est obligatoire.
@@ -297,7 +298,7 @@ test('SharePoint : le site entier exige la case, puis le nom exact du site (admi
 }) => {
   await signInAs(context, baseURL!, 'admin');
   await page.goto(`/#/sharepoint/${SITES.rh}`);
-  await page.getByLabel('Le site entier').check();
+  await page.getByLabel('Restaurer le site entier').check();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #10 : reprise après incident');
   await page.getByRole('button', { name: 'Continuer' }).click();
@@ -371,20 +372,20 @@ test('SharePoint : fil d’Ariane à 390 px, séparateurs et liens par niveau', 
   const parent = nav.getByRole('link', { name: 'Documents partagés' });
   await expect(parent).toHaveAttribute('href', library);
 
-  // Chaque « > » est dans le `li` du niveau qui le suit, donc sur sa ligne, avant le libellé. Le
-  // premier niveau n'en a pas.
+  // Chaque « > » est dans le `li` du niveau qui le précède, donc sur sa ligne, après le libellé :
+  // aucune ligne ne commence par « > ». Le dernier niveau n'en a pas.
   const levels = await nav.locator('ol').evaluate((ol) =>
     [...ol.children].map((li) => {
       const box = li.getBoundingClientRect();
       const label = li.firstElementChild!.getBoundingClientRect();
-      const before = getComputedStyle(li, '::before');
+      const after = getComputedStyle(li, '::after');
       return {
         top: Math.round(box.top),
-        display: before.display,
-        content: before.content,
-        // Le libellé suit son séparateur, sur la même ligne.
+        display: after.display,
+        content: after.content,
+        // Le séparateur suit le libellé, sur la même ligne.
         glued:
-          label.left >= box.left + parseFloat(before.width) &&
+          label.right <= box.right - parseFloat(after.width) &&
           label.top < box.bottom &&
           label.bottom > box.top,
       };
@@ -394,7 +395,7 @@ test('SharePoint : fil d’Ariane à 390 px, séparateurs et liens par niveau', 
   // À 390 px, le chemin à trois niveaux du jeu de démo ne tient pas sur une ligne.
   expect(new Set(levels.map((l) => l.top)).size).toBeGreaterThan(1);
   for (const [i, level] of levels.entries()) {
-    if (i === 0) {
+    if (i === levels.length - 1) {
       expect(level.display).toBe('none');
       continue;
     }

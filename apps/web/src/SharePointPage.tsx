@@ -18,10 +18,10 @@ import {
 } from './RestoreJourney.js';
 import { isReasonValid } from './mail.js';
 import {
-  SCOPE_OPTIONS,
   SHAREPOINT_MESSAGES as T,
-  canContinue,
   continueHint,
+  scopeOfKind,
+  selectionLabel,
   dateTimeOf,
   failureCause,
   fetchLastSiteJob,
@@ -32,7 +32,6 @@ import {
   fetchSites,
   formatDuration,
   isOutcomeUncertain,
-  pathLabel,
   successSummary,
   breadcrumbLevels,
   breadcrumbLink,
@@ -98,21 +97,28 @@ export function Problem({
   );
 }
 
+/** Granularité portée par les ancres des liens : elle n'a plus d'effet sur l'écran. */
+const LINK_SCOPE: SiteScope = 'item';
+
+/** Ce que la ligne cochée désigne : une bibliothèque, un dossier ou un fichier. */
+export interface Selected {
+  path: string;
+  kind: SiteEntry['kind'];
+}
+
 /** Liste d'un niveau du site : même présentation que celle d'OneDrive (`EntriesTable`). */
 export function SiteEntriesTable({
   siteId,
-  scope,
   rows,
-  file,
+  selected,
   onOpen,
-  onFile,
+  onSelect,
 }: {
   siteId: string;
-  scope: SiteScope;
   rows: SiteEntry[];
-  file: string | null;
+  selected: Selected | null;
   onOpen: (path: string) => void;
-  onFile: (path: string) => void;
+  onSelect: (selected: Selected) => void;
 }) {
   return (
     <div className="drive-list">
@@ -121,44 +127,38 @@ export function SiteEntriesTable({
         hideCaption
         rows={rows}
         rowKey={(e) => e.path}
-        onRowClick={
-          scope === 'item'
-            ? (e) => {
-                if (e.kind === 'file') onFile(e.path);
-              }
-            : undefined
-        }
+        onRowClick={(e) => {
+          onSelect({ path: e.path, kind: e.kind });
+        }}
         columns={[
           {
             header: 'Nom',
             className: 'card-title',
-            cell: (e) => {
-              if (e.kind === 'file') {
-                return scope === 'item' ? (
-                  <label className="choice">
-                    <input
-                      type="radio"
-                      name="selection"
-                      checked={file === e.path}
-                      onChange={() => {
-                        onFile(e.path);
-                      }}
-                    />{' '}
-                    {e.name}
-                  </label>
-                ) : (
+            cell: (e) => (
+              <span className="choice">
+                <input
+                  type="radio"
+                  name="selection"
+                  aria-label={e.name}
+                  checked={selected?.path === e.path}
+                  onChange={() => {
+                    onSelect({ path: e.path, kind: e.kind });
+                  }}
+                />
+                {e.kind === 'file' ? (
                   e.name
-                );
-              }
-              return (
-                <span className="choice">
-                  <a {...breadcrumbLink({ path: e.path }, siteId, scope, onOpen)}>{e.name}</a>
-                  <span className="cell-secondary-inline">
-                    {e.kind === 'library' ? 'bibliothèque' : 'dossier'}
-                  </span>
-                </span>
-              );
-            },
+                ) : (
+                  <>
+                    <a {...breadcrumbLink({ path: e.path }, siteId, LINK_SCOPE, onOpen)}>
+                      {e.name}
+                    </a>
+                    <span className="cell-secondary-inline">
+                      {e.kind === 'library' ? 'bibliothèque' : 'dossier'}
+                    </span>
+                  </>
+                )}
+              </span>
+            ),
           },
           {
             header: 'Version du (UTC)',
@@ -182,28 +182,26 @@ export function SiteEntriesTable({
 }
 
 /**
- * Contenu du site à une date, un niveau à la fois : les bibliothèques et les dossiers sont des
- * liens qui ouvrent le niveau suivant, un fichier se choisit par son bouton radio (granularité
- * « élément »). Le chemin ouvert est le fil d'Ariane.
+ * Contenu du site à une date, un niveau à la fois : chaque ligne (bibliothèque, dossier ou
+ * fichier) se choisit par son bouton radio ; le nom d'une bibliothèque ou d'un dossier est un lien
+ * qui l'ouvre. Le chemin ouvert est le fil d'Ariane.
  */
 export function ContentTree({
   siteId,
   siteName,
   snapshotId,
-  scope,
   path,
-  file,
+  selected,
   onPath,
-  onFile,
+  onSelect,
 }: {
   siteId: string;
   siteName: string;
   snapshotId: string;
-  scope: SiteScope;
   path: string;
-  file: string | null;
+  selected: Selected | null;
   onPath: (path: string) => void;
-  onFile: (path: string | null) => void;
+  onSelect: (selected: Selected | null) => void;
 }) {
   const [entries, setEntries] = useState<Loaded<SiteEntry[]> | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -221,7 +219,7 @@ export function ContentTree({
 
   const rows = entries?.status === 'ok' ? entries.data : [];
   const go = (to: string) => {
-    onFile(null);
+    onSelect(null);
     onPath(to);
   };
   const crumbs = breadcrumbLevels(siteName, path);
@@ -232,10 +230,16 @@ export function ContentTree({
         <ol className="breadcrumb">
           {crumbs.map((c, i) => (
             <li key={c.path}>
-              {i === crumbs.length - 1 ? (
+              {i === crumbs.length - 1 && i > 0 ? (
                 <span aria-current="location">{c.label}</span>
               ) : (
-                <a {...breadcrumbLink(c, siteId, scope, go)}>{c.label}</a>
+                // La racine reste un lien, même ouverte (demande de l'issue #355).
+                <a
+                  {...breadcrumbLink(c, siteId, LINK_SCOPE, go)}
+                  aria-current={i === crumbs.length - 1 ? 'location' : undefined}
+                >
+                  {c.label}
+                </a>
               )}
             </li>
           ))}
@@ -255,11 +259,10 @@ export function ContentTree({
         {rows.length > 0 && (
           <SiteEntriesTable
             siteId={siteId}
-            scope={scope}
             rows={rows}
-            file={file}
+            selected={selected}
             onOpen={go}
-            onFile={onFile}
+            onSelect={onSelect}
           />
         )}
       </div>
@@ -292,13 +295,14 @@ export function ChooseStep({
   onSnapshot: (id: string) => void;
   onContinue: (choice: Choice) => void;
 }) {
-  const [scope, setScope] = useState<SiteScope>(initialScope);
+  const [whole, setWhole] = useState(initialScope === 'site' && admin);
   const [path, setPath] = useState(initialPath);
-  const [file, setFile] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Selected | null>(null);
   const hintId = useId();
+  const adminId = useId();
   const notConfiguredId = useId();
-  const ok = canContinue(scope, path, file);
-  const target = scope === 'item' ? (file ?? path) : path;
+  const ok = whole || selected !== null;
+  const scope: SiteScope = whole ? 'site' : scopeOfKind(selected?.kind ?? 'file');
   const point = snapshots.find((s) => s.id === snapshotId);
   const blocked = !ok || !configured;
 
@@ -311,7 +315,7 @@ export function ChooseStep({
             id="sp-site"
             value={site.id}
             onChange={(e) => {
-              window.location.hash = sharePointHash(e.currentTarget.value, scope);
+              window.location.hash = sharePointHash(e.currentTarget.value);
             }}
           >
             {sites.map((s) => (
@@ -329,7 +333,7 @@ export function ChooseStep({
             onChange={(e) => {
               onSnapshot(e.currentTarget.value);
               setPath('/');
-              setFile(null);
+              setSelected(null);
             }}
           >
             {snapshots.map((s) => (
@@ -341,61 +345,53 @@ export function ChooseStep({
         </div>
       </div>
 
-      <fieldset className="choices">
-        <legend>Restaurer</legend>
-        {SCOPE_OPTIONS.map((o) => {
-          const locked = o.value === 'site' && !admin;
-          return (
-            <div key={o.value} className="choice-item">
-              <label className="choice">
-                <input
-                  type="radio"
-                  name="scope"
-                  value={o.value}
-                  checked={scope === o.value}
-                  disabled={locked}
-                  aria-describedby={locked ? `${hintId}-admin` : undefined}
-                  onChange={() => {
-                    setScope(o.value);
-                    setPath('/');
-                    setFile(null);
-                  }}
-                />
-                {o.label}
-              </label>
-              {locked && (
-                <p id={`${hintId}-admin`} className="field-help choice-help">
-                  {T.adminOnly}
-                </p>
-              )}
-            </div>
-          );
-        })}
-      </fieldset>
+      <div className="choice-item">
+        <label className="choice">
+          <input
+            type="checkbox"
+            checked={whole}
+            disabled={!admin}
+            aria-describedby={admin ? undefined : adminId}
+            onChange={(e) => {
+              setWhole(e.currentTarget.checked);
+            }}
+          />
+          Restaurer le site entier
+        </label>
+        {!admin && (
+          <p id={adminId} className="field-help choice-help">
+            {T.adminOnly}
+          </p>
+        )}
+      </div>
 
-      {scope === 'site' ? (
+      {whole ? (
         <p>Tout le contenu de « {site.displayName} » sera concerné.</p>
       ) : (
         <ContentTree
-          key={`${snapshotId}-${scope}`}
+          key={snapshotId}
           siteId={site.id}
           siteName={site.displayName}
           snapshotId={snapshotId}
-          scope={scope}
           path={path}
-          file={file}
+          selected={selected}
           onPath={setPath}
-          onFile={setFile}
+          onSelect={setSelected}
         />
       )}
 
       <p aria-live="polite">
-        {scope === 'site'
+        {whole
           ? 'Sélection : le site entier'
-          : ok
-            ? `Sélection : ${pathLabel(target)}`
-            : 'Aucune sélection'}
+          : selected
+            ? `Sélection : ${selectionLabel(selected)}`
+            : null}
       </p>
+      {!ok && (
+        <p id={hintId} className="field-help">
+          {continueHint()}
+        </p>
+      )}
       <WizardActions>
         <Button
           aria-disabled={blocked || undefined}
@@ -405,7 +401,7 @@ export function ChooseStep({
             if (!blocked && point) {
               onContinue({
                 scope,
-                path: scope === 'item' ? (file ?? '/') : path,
+                path: whole ? '/' : (selected?.path ?? '/'),
                 snapshotId,
                 pointAt: point.createdAt,
               });
@@ -415,11 +411,6 @@ export function ChooseStep({
           {B.next}
         </Button>
       </WizardActions>
-      {!ok && (
-        <p id={hintId} className="field-help">
-          {continueHint(scope)}
-        </p>
-      )}
       {!configured && <RestoreNotConfigured id={notConfiguredId} />}
     </>
   );
