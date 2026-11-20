@@ -130,7 +130,7 @@ test('connexion verrouillée : décompte, bouton inactif, puis le champ reprend 
 
   const alert = page.getByRole('alert');
   await expect(alert).toContainText(
-    /Connexion impossible pour le moment\. Nouvel essai possible dans 00:0\d\./,
+    /Connexion temporairement bloquée.*Nouvel essai possible dans 00:0\d\./s,
   );
   const submit = page.getByRole('button', { name: 'Se connecter' });
   await expect(submit).toBeDisabled();

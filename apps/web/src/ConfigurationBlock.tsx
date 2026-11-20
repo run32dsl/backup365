@@ -61,8 +61,7 @@ export function ConfigurationNotice({ config }: { config: ConfigurationState }) 
   }
   if (config.microsoft.connected) return null;
   return (
-    <Alert tone="warning" role="status">
-      <strong>Connexion Microsoft 365 à configurer</strong>
+    <Alert tone="warning" role="status" title="Connexion Microsoft 365 à configurer">
       <span className="alert-detail">
         Les identifiants se renseignent sur le serveur, pas dans la console.
       </span>

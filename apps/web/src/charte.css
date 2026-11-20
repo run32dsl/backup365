@@ -820,6 +820,9 @@ select[aria-disabled='true'] {
   flex: 1;
   min-width: 12rem;
 }
+.alert-title {
+  display: block;
+}
 .alert-steps {
   margin: var(--space-1) 0 0;
   padding-left: var(--space-4);
@@ -1382,9 +1385,6 @@ a.btn-secondary {
 .login-card a.btn {
   text-align: center;
   text-decoration: none;
-}
-.login-card .alert-title {
-  display: block;
 }
 .login-or {
   display: flex;

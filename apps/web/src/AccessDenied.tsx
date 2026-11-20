@@ -18,8 +18,8 @@ export function AccessDenied({
 }) {
   return (
     <div>
-      <Alert tone="warning">
-        <strong>{title}</strong> {children}
+      <Alert tone="warning" title={title}>
+        {children}
       </Alert>
       <a className="btn btn-secondary access-denied-exit" href={href}>
         {exit}

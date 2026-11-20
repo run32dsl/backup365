@@ -27,6 +27,19 @@ export const API_ERRORS: Record<string, string> = {
   internal_error: 'Erreur du serveur. Réessayez ; si elle persiste, prévenez un administrateur.',
 };
 
+/**
+ * Sépare « Titre : texte » d'un message d'API en cause courte et corps, pour `Alert title`.
+ * Sans titre court en tête, le message reste entier.
+ */
+export function splitTitle(message: string): { title?: string; text: string } {
+  const i = message.indexOf(' : ');
+  if (i <= 0 || i > 40) return { text: message };
+  return {
+    title: message.slice(0, i),
+    text: message.charAt(i + 3).toUpperCase() + message.slice(i + 4),
+  };
+}
+
 /** Échec à afficher : le message, et de quoi le retrouver dans les journaux. */
 export type Problem = { message: string; code?: string; requestId?: string };
 

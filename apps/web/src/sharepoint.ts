@@ -45,7 +45,7 @@ export const SHAREPOINT_MESSAGES = {
   adminOnly: 'Réservé aux administrateurs',
   forbidden: 'Vous n’avez pas le droit de restaurer ce site. Contactez un administrateur.',
   forbiddenSite: (name: string) =>
-    `vous n’avez pas le droit de restaurer le site « ${name} ». Demandez à un administrateur ou choisissez un autre site.`,
+    `Vous n’avez pas le droit de restaurer le site « ${name} ». Demandez à un administrateur ou choisissez un autre site.`,
   chooseOther: 'Choisir un autre site',
   reasonError: REASON.error,
   nameError: 'Le nom saisi ne correspond pas au site.',
