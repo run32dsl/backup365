@@ -390,15 +390,15 @@ describe('PlansListView', () => {
     expect(html).toContain('Sauvegarde déjà en cours');
   });
 
-  it('puts the three actions in one row of outline buttons, the hint below the row', () => {
+  it('puts the three actions in one button row, the hint right after the disabled button', () => {
     const html = list([{ ...plan, running: true }], true);
-    const row = /<div class="row-actions-buttons">(.*?)<\/div>/.exec(html)?.[1] ?? '';
+    const row = /<div class="button-row row-actions">(.*?)<\/div>/.exec(html)?.[1] ?? '';
+    expect(row).toMatch(
+      /aria-describedby="(run-hint-[^"]+)"[^>]*>Lancer maintenant<\/button><small class="state-note" id="\1">Sauvegarde déjà en cours<\/small><a /,
+    );
     expect(row).toMatch(/aria-label="Lancer [^>]*btn btn-secondary/);
     expect(row).toMatch(/<a class="btn btn-secondary"[^>]*aria-label="Modifier /);
     expect(row).toMatch(/aria-label="Supprimer [^>]*btn btn-danger/);
-    expect(html.indexOf('id="run-hint-')).toBeGreaterThan(
-      html.indexOf('</div>', html.indexOf(row)),
-    );
   });
 
   it('shows a queued plan and the plan it waits for', () => {
