@@ -1,5 +1,5 @@
 import { API_ERRORS } from './apiError.js';
-import { REASON } from './RestoreJourney.js';
+import { REASON, RESULT_TITLES } from './RestoreJourney.js';
 import { UNREACHABLE } from './session.js';
 
 export type RestoreStatus = 'running' | 'succeeded' | 'failed';
@@ -26,8 +26,7 @@ export const RESTORE_MESSAGES = {
   sending: 'Envoi de la demande…',
   running: 'Restauration en cours…',
   runningTitle: 'Restauration en cours',
-  keepsRunning: 'Vous pouvez fermer cette fenêtre, elle continue.',
-  succeededTitle: 'Restauration réussie',
+  succeededTitle: RESULT_TITLES.succeeded,
   failedTitle: 'Restauration échouée',
   untouched: 'Rien n’a été modifié.',
   uncertain:

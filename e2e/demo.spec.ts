@@ -73,9 +73,8 @@ test('restauration : motif obligatoire, suivi, résultat et journal', async ({
   await reason.fill('Ticket #4242 : mail supprimé par erreur');
   await dialog.getByRole('button', { name: 'Restaurer', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Restauration en cours' })).toBeVisible();
-  await expect(
-    page.getByRole('dialog').getByText('Vous pouvez fermer cette fenêtre'),
-  ).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('Vous pouvez quitter cette page')).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('progressbar')).toBeVisible();
   // La restauration continue quand on ferme le panneau ; le focus revient au bouton.
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toBeHidden();

@@ -94,7 +94,10 @@ describe('restore helpers', () => {
       />,
     );
     expect(html).toContain('alert-info');
-    expect(html).toContain('Vous pouvez fermer cette fenêtre, elle continue.');
+    expect(html).toContain('Vous pouvez quitter cette page, la restauration continue.');
+    expect(html).toContain('role="progressbar"');
+    expect(html).toContain('href="#/audit"');
+    expect(html.indexOf('Voir dans le journal d’audit')).toBeLessThan(html.indexOf('Fermer'));
     expect(html).toContain('Facture 1');
     expect(html).toContain('mbx 1');
     expect(html).toContain('Restauré par backup365 14/11/2026');
@@ -105,7 +108,7 @@ describe('restore helpers', () => {
   it('titles the panel after the state and explains the cause of a failure', () => {
     expect(dialogTitle(null)).toBe('Restaurer ce mail');
     expect(dialogTitle(job({ status: 'running' }))).toBe('Restauration en cours');
-    expect(dialogTitle(job())).toBe('Restauration réussie');
+    expect(dialogTitle(job())).toBe('Restauration terminée');
     expect(dialogTitle(job({ status: 'failed' }))).toBe('Restauration échouée');
     expect(failureCause('restore_unreachable')).toBe('boîte injoignable pour le moment.');
     expect(failureCause('restore_lost')).toContain('perdu');
