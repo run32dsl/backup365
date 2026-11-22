@@ -140,12 +140,7 @@ function Playground() {
           value="item"
           options={[
             { value: 'item', label: 'Un élément' },
-            {
-              value: 'site',
-              label: 'Le site entier',
-              disabled: true,
-              hint: 'Réservé aux administrateurs',
-            },
+            { value: 'site', label: 'Le site entier' },
           ]}
           onChange={() => undefined}
         />

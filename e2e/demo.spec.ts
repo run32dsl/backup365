@@ -242,9 +242,9 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
     page.getByText(/Chaque consultation, export ou restauration est inscrite/),
   ).toBeVisible();
 
-  // Un opérateur ne peut pas restaurer le site entier : l'option dit pourquoi, en texte.
-  await expect(page.getByLabel('Restaurer le site entier')).toBeDisabled();
-  await expect(page.getByText('Réservé aux administrateurs')).toBeVisible();
+  // Un opérateur ne peut pas restaurer le site entier : l'option n'est pas proposée.
+  await expect(page.getByLabel('Restaurer le site entier')).toHaveCount(0);
+  await expect(page.getByText('Réservé aux administrateurs')).toHaveCount(0);
 
   // Rien de coché : « Continuer » reste inactif et la consigne est au-dessus du bouton.
   const next = page.getByRole('button', { name: 'Continuer' });
@@ -692,11 +692,7 @@ test('dialogue : focus piégé, Échap, retour du focus', async ({ page, context
   await expect(trigger).toBeFocused();
 });
 
-test('groupe d’options : légende, flèches du clavier, option désactivée', async ({
-  page,
-  context,
-  baseURL,
-}) => {
+test('groupe d’options : légende, flèches du clavier', async ({ page, context, baseURL }) => {
   await signInAs(context, baseURL!, 'admin');
   await page.goto('/#/composants');
 
@@ -711,16 +707,15 @@ test('groupe d’options : légende, flèches du clavier, option désactivée', 
   await page.keyboard.press('ArrowLeft');
   await expect(copy).toBeChecked();
 
-  // Une option désactivée n'est jamais atteinte par les flèches et garde son explication.
+  // Les flèches passent d'une option à l'autre du groupe.
   const scope = page.getByRole('group', { name: 'Restaurer' });
   const item = scope.getByRole('radio', { name: 'Un élément' });
   const site = scope.getByRole('radio', { name: /Le site entier/ });
-  await expect(site).toBeDisabled();
-  await expect(site).toHaveAccessibleDescription('(Réservé aux administrateurs)');
+  await expect(item).toBeChecked();
   await item.focus();
   await page.keyboard.press('ArrowRight');
-  await expect(item).toBeChecked();
-  await expect(site).not.toBeChecked();
+  await expect(site).toBeChecked();
+  await expect(item).not.toBeChecked();
 });
 
 test('recherche à 1280 px : le tableau tient dans son conteneur, avec ou sans filtre de boîte', async ({

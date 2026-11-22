@@ -1131,10 +1131,6 @@ a.btn-secondary {
   display: flex;
   flex-direction: column;
 }
-.choice-help {
-  margin: 0 0 var(--space-1) 2.25rem;
-  color: var(--muted);
-}
 @media (max-width: 37.5rem) {
   .choices:has(.choice-item) {
     display: flex;
