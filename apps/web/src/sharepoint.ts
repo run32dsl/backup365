@@ -42,7 +42,6 @@ export const SHAREPOINT_MESSAGES = {
   noPoints: 'Aucun point de restauration pour ce site.',
   emptyFolder: 'Ce dossier ne contient aucun élément à cette date.',
   readError: 'La sauvegarde n’a pas pu être lue.',
-  adminOnly: 'Réservé aux administrateurs',
   forbidden: 'Vous n’avez pas le droit de restaurer ce site. Contactez un administrateur.',
   forbiddenSite: (name: string) =>
     `Vous n’avez pas le droit de restaurer le site « ${name} ». Demandez à un administrateur ou choisissez un autre site.`,

@@ -300,7 +300,6 @@ export function ChooseStep({
   const [path, setPath] = useState(initialPath);
   const [selected, setSelected] = useState<Selected | null>(null);
   const hintId = useId();
-  const adminId = useId();
   const notConfiguredId = useId();
   const ok = whole || selected !== null;
   const scope: SiteScope = whole ? 'site' : scopeOfKind(selected?.kind ?? 'file');
@@ -346,25 +345,20 @@ export function ChooseStep({
         </div>
       </div>
 
-      <div className="choice-item">
-        <label className="choice">
-          <input
-            type="checkbox"
-            checked={whole}
-            disabled={!admin}
-            aria-describedby={admin ? undefined : adminId}
-            onChange={(e) => {
-              setWhole(e.currentTarget.checked);
-            }}
-          />
-          Restaurer le site entier
-        </label>
-        {!admin && (
-          <p id={adminId} className="field-help choice-help">
-            {T.adminOnly}
-          </p>
-        )}
-      </div>
+      {admin && (
+        <div className="choice-item">
+          <label className="choice">
+            <input
+              type="checkbox"
+              checked={whole}
+              onChange={(e) => {
+                setWhole(e.currentTarget.checked);
+              }}
+            />
+            Restaurer le site entier
+          </label>
+        </div>
+      )}
 
       {whole ? (
         <p>Tout le contenu de « {site.displayName} » sera concerné.</p>

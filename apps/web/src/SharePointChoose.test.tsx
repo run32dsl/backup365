@@ -65,14 +65,11 @@ describe('SharePoint choose step', () => {
     expect(html(true)).toContain('Restaurer le site entier');
   });
 
-  it('disables the whole site for an operator and links it to its help', () => {
+  it('does not render the whole site option nor its mention for an operator', () => {
     const out = html(false);
-    const input = /<input[^>]*type="checkbox"[^>]*>/.exec(out)?.[0] ?? '';
-    expect(input).toContain('disabled');
-    const id = /aria-describedby="([^"]+)"/.exec(input)?.[1];
-    expect(id).toBeTruthy();
-    expect(out).toContain(`id="${id}"`);
-    expect(out).toMatch(/class="field-help choice-help"[^>]*>Réservé aux administrateurs</);
+    expect(out).not.toContain('Restaurer le site entier');
+    expect(out).not.toContain('Réservé aux administrateurs');
+    expect(out).not.toContain('class="choice-item"');
   });
 
   it('shows the hint above « Continuer », never below', () => {
