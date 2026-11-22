@@ -591,6 +591,16 @@ select[aria-disabled='true'] {
   overflow-wrap: break-word;
 }
 
+/* La partie locale d'une adresse ne se coupe jamais au tiret. */
+.data-table td.card-title .addr-local {
+  white-space: nowrap;
+}
+
+/* Raison d'un bouton grisé : après les boutons en tableau, avant eux en carte (ci-dessous). */
+.acct-reason {
+  order: 1;
+}
+
 /* Une adresse trop longue se coupe après le « @ », pas au milieu du domaine (sauf `.address`, ci-dessous). */
 .data-table .addr-domain::before {
   content: '\200b';
@@ -789,6 +799,25 @@ select[aria-disabled='true'] {
   }
   .data-table td.card-title .plan-summary + .plan-summary {
     margin-left: 0;
+  }
+  /* Comptes : mention « (Microsoft) » en ligne secondaire ; rôle et état côte à côte. */
+  .data-table td.card-title .acct-kind {
+    display: block;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .data-table td.acct-inline {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: var(--space-2);
+  }
+  /* « Modifier le rôle » et « Désactiver » se partagent une ligne : la carte reste sous 260 px. */
+  .data-table td.card-action .button-row .btn.acct-half {
+    flex: 1 1 calc(50% - var(--space-2));
+  }
+  .data-table td.card-action .acct-reason {
+    order: -1;
+    flex: 1 1 100%;
   }
   .data-table td.card-nolabel:empty {
     display: none;

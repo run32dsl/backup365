@@ -445,6 +445,20 @@ describe('textes restants de la maquette de #22', () => {
     expect(some).not.toContain('Aucun opérateur');
   });
 
+  it('titles the account card with the identifier and drops the role and state labels', () => {
+    const html = renderToString(
+      <AccountsView state={[account(1, 'admin'), account(2, 'operator')]} />,
+    );
+    const cls = (label: string) =>
+      (html.match(new RegExp(`<th[^>]*class="([^"]*)"[^>]*>${label}<`)) ?? [])[1]?.split(' ');
+    expect(cls('Identifiant')).toContain('card-title');
+    expect(cls('Rôle')).toContain('card-nolabel');
+    expect(cls('État')).toContain('card-nolabel');
+    // La raison précède les boutons qu'elle explique.
+    const cell = html.match(/<td[^>]*data-label="Actions"[^>]*>(.*?)<\/td>/)![1]!;
+    expect(cell.indexOf('Dernier administrateur')).toBeLessThan(cell.indexOf('<button'));
+  });
+
   it('flags the last active administrator and marks its actions aria-disabled', () => {
     const only = [account(1, 'admin'), account(2, 'operator')];
     expect(isLastAdmin(only, only[0]!)).toBe(true);
