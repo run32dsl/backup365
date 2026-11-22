@@ -1,7 +1,15 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { API_ERRORS } from './apiError.js';
-import { RestoreAction, RestoreOutcome, Tracking, dialogTitle } from './RestoreAction.js';
+import {
+  RestoreAction,
+  RestoreOutcome,
+  Tracking,
+  dialogTitle,
+  formRows,
+  recallRows,
+} from './RestoreAction.js';
+import { ResultList } from './ui/index.js';
 import { SearchView } from './SearchPage.js';
 import {
   announcement,
@@ -281,6 +289,38 @@ describe('RestoreOutcome', () => {
       /<div class="button-row dialog-actions">.*?<a[^>]*href="([^"]*)"/s.exec(html)?.[1];
     expect(href(render({ status: 'failed', error: 'restore_error' }))).toBe(href(render({})));
     expect(href(render({}))).toBe('#/audit');
+  });
+});
+
+describe('restore form recall', () => {
+  const now = Date.parse('2026-11-18T10:00:00.000Z');
+  const job: RestoreJob = {
+    id: 'j',
+    mailboxId: 'mbx 1',
+    messageId: 'm/1=',
+    status: 'running',
+    startedAt: '2026-11-18T10:00:00.000Z',
+    finishedAt: null,
+    durationMs: null,
+    folder: restoreFolderName(new Date(now)),
+    error: null,
+  };
+
+  it('lists Mail, Boîte and Dossier like the running dialog', () => {
+    const rows = formRows(mail, now);
+    expect(rows.map(([label]) => label)).toEqual(['Mail', 'Boîte', 'Dossier']);
+    expect(rows[2]?.[1]).toBe('Restauré par backup365 18/11/2026');
+    const html = renderToString(<Tracking job={job} mail={mail} now={now} onClose={vi.fn()} />);
+    expect(html).toContain(renderToString(<ResultList rows={rows} />));
+  });
+
+  it('gives the same Mail and Boîte rows as the outcome dialog', () => {
+    const done = { ...job, status: 'succeeded' as const, durationMs: 2000 };
+    const html = renderToString(
+      <RestoreOutcome job={done} mail={mail} onClose={vi.fn()} onRetry={vi.fn()} />,
+    );
+    expect(html).toContain(renderToString(<ResultList rows={formRows(mail, now)} />));
+    expect(formRows(mail, now).slice(0, 2)).toEqual(recallRows(mail));
   });
 });
 

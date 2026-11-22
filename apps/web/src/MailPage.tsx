@@ -5,7 +5,7 @@ import { dateTimeOrDash, folderLabel, sizeOf } from './format.js';
 import { apiErrorFor, splitTitle } from './apiError.js';
 import { ConfigurationLink } from './ConfigurationBlock.js';
 import { useAdmin } from './role.js';
-import { RestoreAction } from './RestoreAction.js';
+import { RestoreAction, recallRows } from './RestoreAction.js';
 import {
   AuditReminder,
   REASON,
@@ -17,10 +17,9 @@ import {
   fetchLastRestore,
   fetchRestoreConfigured,
   lastRestoreSummary,
-  shortUtcDate,
   type RestoreJob,
 } from './restore.js';
-import { Alert, Button, Dialog, StatusPill } from './ui/index.js';
+import { Alert, Button, Dialog, ResultList, StatusPill } from './ui/index.js';
 
 /** État de la fiche. */
 export type MailState = IndexedMail | 'loading' | 'error';
@@ -138,7 +137,6 @@ export function ExportSection({ mail }: { mail: IndexedMail }) {
     });
   }
 
-  const date = shortUtcDate(mail.date);
   const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
   return (
     <section aria-labelledby="export-title" className="mail-section">
@@ -155,12 +153,7 @@ export function ExportSection({ mail }: { mail: IndexedMail }) {
       <Dialog open={open} title="Exporter ce mail" onClose={closePanel}>
         <AuditReminder />
         <form onSubmit={submit} noValidate>
-          <p>
-            {subject}
-            {date && ` · ${date}`}
-            <br />
-            Boîte : {mail.mailboxId}
-          </p>
+          <ResultList rows={recallRows(mail)} />
           <ReasonField
             of="de l’export"
             placeholder={REASON_EXAMPLES.export}
