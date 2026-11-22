@@ -5,7 +5,13 @@ import { ConfigurationLink } from './ConfigurationBlock.js';
 import { useAdmin } from './role.js';
 import { FailureAlert } from './FailureAlert.js';
 import { isReasonValid } from './mail.js';
-import { AuditReminder, REASON, RESTORE_BUTTONS as B, ReasonField } from './RestoreJourney.js';
+import {
+  AuditReminder,
+  REASON,
+  RESTORE_BUTTONS as B,
+  ReasonField,
+  RunningProgress,
+} from './RestoreJourney.js';
 import {
   RESTORE_MESSAGES as T,
   announcement,
@@ -68,14 +74,15 @@ export function Tracking({
   const elapsed = Math.max(0, now - Date.parse(job.startedAt));
   return (
     <>
-      <Alert tone="info">
-        {T.running} {T.keepsRunning}
-      </Alert>
+      <RunningProgress />
       <p className="sr-only" role="status" aria-live="polite">
         {announcement(elapsed)}
       </p>
       <ResultList rows={[...recallRows(mail), ['Dossier', job.folder]]} />
       <div className="button-row dialog-actions">
+        <a className="btn btn-secondary" href="#/audit">
+          {B.audit}
+        </a>
         <Button onClick={onClose}>Fermer</Button>
       </div>
     </>
