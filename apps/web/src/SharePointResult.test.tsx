@@ -62,6 +62,21 @@ describe('SharePoint result', () => {
     );
   });
 
+  it('recalls the location and the kept files on every step, for each scope', () => {
+    const where =
+      '<dt>Emplacement</dt><dd>Équipe commerciale &gt; Documents partagés (emplacement d’origine)</dd>';
+    const kept = '<dt>Fichiers déjà présents</dt><dd>conservés, non remplacés</dd>';
+    for (const status of ['running', 'succeeded', 'failed'] as const) {
+      const html = render({ status, errors: status === 'failed' ? 1 : 0 });
+      expect(html).toContain(where);
+      expect(html).toContain(kept);
+    }
+    expect(render({ scope: 'library', path: '/Documents partagés' })).toContain(where);
+    expect(render({ scope: 'site', path: '/' })).toContain(
+      '<dt>Emplacement</dt><dd>Emplacement d’origine de chaque élément</dd>',
+    );
+  });
+
   it('names the copy on success only, and does not repeat the banner', () => {
     expect(render({ copyName: 'plan-a (restauré le 14-11-2026).pdf' })).toContain(
       '<dt>Restauré sous</dt><dd>plan-a (restauré le 14-11-2026).pdf</dd>',
