@@ -164,8 +164,8 @@ describe('Administration page structure', () => {
     expect(html).not.toContain('<form');
     expect(html).not.toContain('Réinitialiser un mot de passe');
     expect(html).not.toContain('<h2>Créer un compte</h2>');
-    // Un seul menu par ligne : le rôle.
-    expect(html.match(/<select/g)).toHaveLength(2);
+    // Le rôle est un texte : plus aucun menu dans le tableau.
+    expect(html).not.toContain('<select');
   });
 
   it('offers an outlined reset button on every row, naming the account', () => {
@@ -450,7 +450,9 @@ describe('textes restants de la maquette de #22', () => {
     expect(isLastAdmin(only, only[0]!)).toBe(true);
     expect(isLastAdmin(only, only[1]!)).toBe(false);
     const html = renderToString(<AccountsView state={only} />);
-    expect(html).toContain('Dernier administrateur : ce compte ne peut pas être désactivé.');
+    expect(html).toContain(
+      'Dernier administrateur : ce compte ne peut être ni désactivé ni rétrogradé.',
+    );
     expect(html.match(/aria-disabled="true"/g)).toHaveLength(2);
     expect(html.match(/aria-describedby="last-admin-1"/g)).toHaveLength(2);
     expect(html).toContain('id="last-admin-1"');
@@ -569,8 +571,8 @@ describe('textes restants de la maquette de #22', () => {
     const only = [account(1, 'admin'), account(2, 'operator')];
     const tree = AccountsView({ state: only, actions: { onDisabled } });
     const disable = find(tree, (e) => isButton(e) && e.props?.['aria-disabled'] === true);
-    expect(disable).toHaveLength(1);
-    (disable[0]!.props!.onClick as () => void)();
+    expect(disable).toHaveLength(2);
+    (disable[1]!.props!.onClick as () => void)();
     expect(onDisabled).not.toHaveBeenCalled();
     const other = find(tree, (e) => isButton(e) && e.props?.children === 'Désactiver');
     (other.find((e) => e.props?.['aria-disabled'] === undefined)!.props!.onClick as () => void)();

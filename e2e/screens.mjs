@@ -446,6 +446,28 @@ export const SCREENS = [
     },
   },
   {
+    name: 'comptes-modifier-role',
+    hash: '#/comptes',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').first().waitFor();
+      await page.getByRole('button', { name: 'Modifier le rôle : operateur-demo' }).click();
+      await page
+        .getByLabel('Motif du changement de rôle (obligatoire)')
+        .fill('Remplacement pendant les congés');
+    },
+  },
+  {
+    name: 'comptes-desactiver',
+    hash: '#/comptes',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').first().waitFor();
+      await page.getByRole('button', { name: 'Désactiver : operateur-demo' }).click();
+      await page.getByLabel('Motif de la désactivation (obligatoire)').fill('Départ du service');
+    },
+  },
+  {
     // Réponse simulée : réinitialiser le vrai compte fermerait ses sessions de démonstration.
     name: 'mot-de-passe-temporaire',
     hash: '#/comptes',

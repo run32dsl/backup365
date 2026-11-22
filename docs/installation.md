@@ -140,7 +140,9 @@ site entier est réservé à l'administrateur, qui coche une case puis retape le
 plans se créent en trois étapes dans « Plans de protection » (`#/plans`) : quoi protéger,
 objectifs (perte de données acceptable, remise en service, conservation et justification RGPD), récapitulatif ; « Lancer maintenant »
 demande un motif, inscrit au journal d'audit. L'administrateur crée, désactive et change le rôle des comptes dans l'écran « Comptes »
-(`#/comptes`) ; il ne peut pas désactiver ni rétrograder le dernier administrateur actif. Un mot
+(`#/comptes`) ; « Modifier le rôle » et « Désactiver » ouvrent une boîte qui nomme le compte et
+demande un motif obligatoire, inscrit au journal d'audit. Il ne peut pas désactiver ni rétrograder
+le dernier administrateur actif (boutons grisés). Un mot
 de passe provisoire (création ou réinitialisation) est à changer à la connexion suivante.
 
 Pour réinitialiser un mot de passe, l'administrateur choisit le compte, saisit un motif

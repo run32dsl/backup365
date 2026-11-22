@@ -108,7 +108,7 @@ export function registerAccountRoutes(
     },
   );
 
-  app.patch<{ Params: { id: number }; Body: { role?: Role; disabled?: boolean } }>(
+  app.patch<{ Params: { id: number }; Body: { role?: Role; disabled?: boolean; reason?: string } }>(
     '/api/accounts/:id',
     {
       schema: {
@@ -117,19 +117,32 @@ export function registerAccountRoutes(
           type: 'object',
           additionalProperties: false,
           minProperties: 1,
-          properties: { role, disabled: { type: 'boolean' } },
+          properties: {
+            role,
+            disabled: { type: 'boolean' },
+            reason: { type: 'string', maxLength: 200 },
+          },
         },
       },
     },
     async (req, reply) => {
       const ctx = guard(req, reply);
       if (!ctx) return reply;
+      // Changer un rôle ou désactiver un compte exige un motif ; réactiver n'en demande pas.
+      const reason = req.body.reason?.trim() ?? '';
+      if (!reason && (req.body.role !== undefined || req.body.disabled === true)) {
+        return reply.code(400).send({ error: 'reason_required' });
+      }
       // Le rôle d'un compte Microsoft vient des groupes Entra : le changer ici serait écrasé.
       if (req.body.role !== undefined && ctx.auth.accounts.findById(req.params.id)?.oidc) {
         return reply.code(409).send({ error: 'managed_by_oidc' });
       }
       try {
-        const account = ctx.auth.accounts.update(req.params.id, req.body);
+        const { role: newRole, disabled } = req.body;
+        const account = ctx.auth.accounts.update(req.params.id, {
+          ...(newRole === undefined ? {} : { role: newRole }),
+          ...(disabled === undefined ? {} : { disabled }),
+        });
         if (!account) return reply.code(404).send({ error: 'account_not_found' });
         const changes = [
           ...(req.body.role === undefined ? [] : [`role:${req.body.role}`]),
@@ -137,7 +150,13 @@ export function registerAccountRoutes(
         ];
         // Un compte désactivé perd ses sessions tout de suite (getSession relit aussi la base).
         if (account.disabled) ctx.auth.revokeAccount(account.id);
-        await record(ctx, account.username, 'account.update', changes.join(','));
+        // Même forme que les autres motifs saisis : le journal affiche le texte dans « Motif ».
+        await record(
+          ctx,
+          account.username,
+          'account.update',
+          reason ? `${changes.join(',')};reason=${reason}` : changes.join(','),
+        );
         return publicAccount(account);
       } catch (err) {
         if (err instanceof LastAdminError) {
