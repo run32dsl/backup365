@@ -97,7 +97,7 @@ export function Problem({
   );
 }
 
-/** Panneau des versions d'un fichier : une seule choisie, puis « Restaurer cette version ». */
+/** Panneau des versions d'un fichier : une seule choisie, la restauration vient après le motif. */
 function VersionsDialog({
   account,
   entry,
@@ -126,6 +126,9 @@ function VersionsDialog({
   const rows = versions?.status === 'ok' ? versions.data : [];
   return (
     <Dialog open title={`Versions de ${entry.name}`} onClose={onClose}>
+      <p className="field-help">
+        La version choisie sera restaurée après le motif et la confirmation.
+      </p>
       {versions === null && (
         <p role="status" aria-busy="true">
           {T.loading}
@@ -170,7 +173,7 @@ function VersionsDialog({
             if (chosen) onChoose(chosen);
           }}
         >
-          Restaurer cette version
+          Choisir cette version
         </Button>
       </div>
     </Dialog>
@@ -182,6 +185,7 @@ export function EntriesTable({
   account,
   rows,
   selected,
+  pickedVersion = null,
   emptyMessage,
   onSelect,
   onVersions,
@@ -189,6 +193,8 @@ export function EntriesTable({
   account: string;
   rows: DriveEntry[];
   selected: string | null;
+  /** Version choisie dans la boîte « Versions » : remplace la date de la ligne cochée. */
+  pickedVersion?: DriveVersion | null;
   emptyMessage: string;
   onSelect: (path: string) => void;
   onVersions: (entry: DriveEntry, button: HTMLButtonElement) => void;
@@ -238,7 +244,8 @@ export function EntriesTable({
         {
           header: 'Version du (UTC)',
           className: 'card-hidden',
-          cell: (e) => dateTimeOrDash(e.versionAt),
+          cell: (e) =>
+            dateTimeOrDash(pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt),
         },
         {
           header: 'Taille',
@@ -248,7 +255,11 @@ export function EntriesTable({
         {
           header: 'Détail',
           className: 'card-only',
-          cell: (e) => cardSummary(e.versionAt, e.sizeBytes),
+          cell: (e) =>
+            cardSummary(
+              pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt,
+              e.sizeBytes,
+            ),
         },
         {
           header: 'Versions',
@@ -295,6 +306,7 @@ function BrowseStep({
 }) {
   const [entries, setEntries] = useState<Loaded<DriveEntry[]> | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [pickedVersion, setPickedVersion] = useState<DriveVersion | null>(null);
   const [versionsOf, setVersionsOf] = useState<DriveEntry | null>(null);
   const [attempt, setAttempt] = useState(0);
   const versionsButton = useRef<HTMLButtonElement | null>(null);
@@ -305,6 +317,7 @@ function BrowseStep({
     let current = true;
     setEntries(null);
     setSelected(null);
+    setPickedVersion(null);
     void fetchEntries(account, snapshotId, path).then((result) => {
       if (current) setEntries(result);
     });
@@ -385,7 +398,12 @@ function BrowseStep({
               rows={rows}
               selected={selected}
               emptyMessage={`Ce dossier est vide dans la sauvegarde du ${dayOf(snapshot?.createdAt ?? null)}.`}
-              onSelect={setSelected}
+              pickedVersion={pickedVersion}
+              onSelect={(p) => {
+                if (p === selected) return;
+                setSelected(p);
+                setPickedVersion(null);
+              }}
               onVersions={(entry, button) => {
                 versionsButton.current = button;
                 setVersionsOf(entry);
@@ -395,13 +413,22 @@ function BrowseStep({
         )}
       </div>
 
-      <p aria-live="polite">{chosen ? '1 élément sélectionné' : 'Aucun élément sélectionné'}</p>
+      <p aria-live="polite">
+        {chosen
+          ? `Sélection : ${chosen.name}${pickedVersion ? `, version du ${dateTimeOf(pickedVersion.at)}` : ''}`
+          : null}
+      </p>
       <WizardActions>
         <Button
           aria-disabled={!configured || !chosen || undefined}
           aria-describedby={!configured ? hintId : undefined}
           onClick={() => {
-            if (configured && chosen) onChoose({ entry: chosen, snapshotId });
+            if (configured && chosen)
+              onChoose(
+                pickedVersion
+                  ? { entry: chosen, snapshotId: pickedVersion.snapshotId, version: pickedVersion }
+                  : { entry: chosen, snapshotId },
+              );
           }}
         >
           {B.next}
@@ -417,9 +444,9 @@ function BrowseStep({
             setVersionsOf(null);
           }}
           onChoose={(version) => {
+            setSelected(versionsOf.path);
+            setPickedVersion(version);
             setVersionsOf(null);
-            if (configured)
-              onChoose({ entry: versionsOf, snapshotId: version.snapshotId, version });
           }}
         />
       )}

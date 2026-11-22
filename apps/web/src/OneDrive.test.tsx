@@ -209,6 +209,30 @@ describe('OneDrive entries table', () => {
     expect(html).not.toContain('>-<');
   });
 
+  it('shows the version picked in the dialog on the checked row only', () => {
+    const picked = renderToString(
+      <EntriesTable
+        account="a"
+        rows={rows}
+        selected="/budget.xlsx"
+        pickedVersion={{
+          snapshotId: 's0',
+          versionId: 'v0',
+          at: '2026-11-16T23:17:00.000Z',
+          sizeBytes: 1,
+          current: false,
+        }}
+        emptyMessage="vide"
+        onSelect={() => undefined}
+        onVersions={() => undefined}
+      />,
+    );
+    const fileRow = picked.split('<tr').find((r) => r.includes('budget.xlsx')) ?? '';
+    expect(fileRow).toContain('16/11/2026 23:17');
+    expect(fileRow).toMatch(/checked/u);
+    expect(fileRow).not.toContain('13/11/2026 22:04</td>');
+  });
+
   it('names each radio button after the item', () => {
     // Dossier : le bouton est nommé par le lien ; fichier : il est dans son libellé.
     const folderId = /<input[^>]*aria-labelledby="([^"]+)"/u.exec(html)?.[1];
