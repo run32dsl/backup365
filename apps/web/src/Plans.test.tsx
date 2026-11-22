@@ -25,6 +25,7 @@ import {
   OBJECTIVE_LABELS,
   recapRows,
   validateStep,
+  JUSTIFICATION_PLACEHOLDER,
   type PlanItem,
 } from './plans.js';
 
@@ -504,7 +505,8 @@ describe('PlanWizard', () => {
     expect(html).not.toContain('<select');
     expect(html).not.toContain('Précision');
     expect(html).toContain('Justification de cette durée (obligatoire)');
-    expect(html).toContain('placeholder="Obligation légale : conservation des courriers 1 an"');
+    expect(html).toContain('placeholder="Obligation légale : courriers 1 an"');
+    expect([...JUSTIFICATION_PLACEHOLDER].length).toBeLessThanOrEqual(40);
     expect(html).toContain('maxLength="120"');
     expect(html).toContain('0 / 120');
     expect(html).toMatch(/aria-describedby="[^"]*-help"/);
