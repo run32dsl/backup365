@@ -218,15 +218,16 @@ describe('list labels', () => {
     expect(lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, status: 'failed' } })).toBe(
       'Échec, 14/11/2026 06:00',
     );
-    // Rien copié : la date seule, l'état est dans la pastille.
+    // Rien copié : jamais « Réussie ».
     const empty = { ...plan.compliance, lastRestorePointAt: null };
     const emptyRun = { ...plan.lastRun!, noSnapshotReason: 'no_content' as const };
-    expect(lastRunLabel({ ...plan, lastRun: emptyRun })).toBe('Réussie, 14/11/2026 06:00');
+    expect(lastRunLabel({ ...plan, lastRun: emptyRun })).toBe('Rien copié, 14/11/2026 06:00');
+    expect(lastRunLabel({ ...plan, compliance: empty })).toBe('Rien copié, 14/11/2026 06:00');
     expect(complianceView({ ...plan, compliance: empty }).status).toBe('pending');
     expect(complianceView({ ...plan, compliance: empty, lastRun: emptyRun })).toEqual({
       status: 'pending',
       label: 'En attente',
-      note: 'Rien à sauvegarder dans le périmètre',
+      note: 'Rien à sauvegarder dans le périmètre : vérifiez la boîte, le compte ou le site choisi.',
     });
     // En cours ou en file : la colonne garde le dernier résultat terminé.
     expect(lastRunLabel({ ...plan, running: true })).toBe(lastRunLabel(plan));
@@ -291,7 +292,7 @@ describe('PlansListView', () => {
     const html = list([empty], false);
     expect(html).toContain('◷</span> En attente');
     expect(html).toContain(
-      '<small class="state-note">Rien à sauvegarder dans le périmètre</small>',
+      '<small class="state-note">Rien à sauvegarder dans le périmètre : vérifiez la boîte, le compte ou le site choisi.</small>',
     );
     expect(html).not.toContain('À jour');
     expect(html).not.toContain('rien à sauvegarder)');
