@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { IndexedMail } from '@backup365/core';
-import { API_ERRORS, type Problem } from './apiError.js';
+import { apiErrorFor, type Problem } from './apiError.js';
+import { ConfigurationLink } from './ConfigurationBlock.js';
+import { useAdmin } from './role.js';
 import { FailureAlert } from './FailureAlert.js';
 import { isReasonValid } from './mail.js';
 import { AuditReminder, REASON, RESTORE_BUTTONS as B, ReasonField } from './RestoreJourney.js';
@@ -25,9 +27,11 @@ export type RestorableMail = Pick<IndexedMail, 'mailboxId' | 'messageId' | 'subj
  * `POST …/restore` répond 503 `restore_unavailable`.
  */
 export function RestoreNotConfigured({ id }: { id: string }) {
+  const admin = useAdmin();
   return (
     <p id={id} className="field-help">
-      {API_ERRORS['restore_unavailable']}
+      {apiErrorFor('restore_unavailable', admin)}
+      {admin ? <ConfigurationLink /> : null}
     </p>
   );
 }

@@ -43,7 +43,8 @@ import {
   type PlanItem,
   type PlansRoute,
 } from './plans.js';
-import { splitTitle, type Problem } from './apiError.js';
+import { problemMessage, splitTitle, type Problem } from './apiError.js';
+import { useAdmin } from './role.js';
 import { MAX_REASON_LENGTH } from './mail.js';
 import { ReasonField } from './RestoreJourney.js';
 import {
@@ -68,11 +69,12 @@ const goTo = (hash: string) => {
 
 /** Échec d'une action sur les plans : la phrase pour l'utilisateur, sans détail technique. */
 export function PlanFailure({ problem }: { problem: Problem }) {
+  const message = problemMessage(problem, useAdmin());
   const tone = problem.code === 'backup_not_configured' ? 'warning' : 'error';
   const { title, text } =
     problem.code === 'backup_not_configured'
-      ? splitTitle(problem.message)
-      : { title: undefined, text: problem.message };
+      ? splitTitle(message)
+      : { title: undefined, text: message };
   return (
     <Alert tone={tone} {...(title ? { title } : {})}>
       {text}

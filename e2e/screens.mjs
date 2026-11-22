@@ -710,6 +710,22 @@ export const SCREENS = [
     },
   },
   {
+    // Même panne vue par un administrateur : la conduite à tenir, pas « Prévenez un administrateur ».
+    name: 'onedrive-non-configure-admin',
+    hash: '#/onedrive',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/onedrive/**', (route) =>
+        route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
+      );
+      await page.route('**/api/mail/mailboxes', (route) =>
+        route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
+      );
+      await page.reload();
+      await page.getByText('prévenez l’exploitant du serveur').waitFor();
+    },
+  },
+  {
     name: 'onedrive-parcourir',
     hash: '#/onedrive',
     role: 'operator',

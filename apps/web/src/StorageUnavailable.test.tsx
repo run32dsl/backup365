@@ -6,6 +6,9 @@ import { Problem as SharePointProblem } from './SharePointPage.js';
 import { StorageUnavailable } from './StorageUnavailable.js';
 import { Button } from './ui/index.js';
 
+// Le test appelle le composant comme une fonction, hors rendu : pas de contexte.
+vi.mock('./role.js', () => ({ useAdmin: () => false }));
+
 type Clickable = ReactElement<{ onClick?: () => void }>;
 
 /** Premier élément de l'arbre dont le type est `type` (pas de DOM dans ces tests). */

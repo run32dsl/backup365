@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { fetchConfiguration, type Configuration } from './configuration.js';
 import { workloadLabel } from './format.js';
+import { useAdmin } from './role.js';
 import { Alert } from './ui/index.js';
 
 /** Étapes côté serveur : la console n'écrit aucun identifiant, tout se fait sur le serveur. */
@@ -20,6 +21,13 @@ export const SERVER_STEPS: ReactNode[] = [
 
 /** Lien des messages « sauvegarde non configurée » vers le bandeau de la page d'accueil. */
 export function ConfigurationLink() {
+  if (useAdmin()) {
+    return (
+      <small className="alert-detail">
+        <a href="#/">Voir les étapes de configuration sur la page d’accueil</a>
+      </small>
+    );
+  }
   return (
     <small className="alert-detail">
       <a href="#/">Voir les étapes sur la page d’accueil</a> (réservé aux administrateurs).
