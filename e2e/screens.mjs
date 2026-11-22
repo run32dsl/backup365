@@ -778,6 +778,19 @@ export const SCREENS = [
     },
   },
   {
+    name: 'onedrive-version-choisie',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await openDrive(page);
+      await page.getByRole('button', { name: 'Versions de budget.xlsx' }).click();
+      const panel = page.getByRole('dialog', { name: 'Versions de budget.xlsx' });
+      await panel.getByRole('radio').nth(1).check();
+      await panel.getByRole('button', { name: 'Choisir cette version' }).click();
+      await page.getByText(/Sélection : budget\.xlsx, version du /).waitFor();
+    },
+  },
+  {
     name: 'onedrive-motif',
     hash: '#/onedrive',
     role: 'operator',

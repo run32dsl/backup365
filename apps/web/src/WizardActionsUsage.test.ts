@@ -17,7 +17,7 @@ describe('barre d’actions des parcours', () => {
 
   it('la boîte Versions met Fermer avant l’action principale, sans primary-first', () => {
     const src = read('OneDrivePage.tsx');
-    expect(src.indexOf('onClick={onClose}')).toBeLessThan(src.indexOf('Restaurer cette version\n'));
+    expect(src.indexOf('onClick={onClose}')).toBeLessThan(src.indexOf('Choisir cette version\n'));
     for (const f of ['OneDrivePage.tsx', 'RestoreAction.tsx', 'charte.css']) {
       expect(read(f)).not.toContain('primary-first');
     }
