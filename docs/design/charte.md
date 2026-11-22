@@ -53,7 +53,10 @@ seulement (lien « Composants » en pied de page), les montre dans tous leurs é
 composant s'y ajoute avec ses tests de comportement.
 
 - **Bouton** : plein pour l'action principale, contour pour les actions secondaires et la
-  barre latérale ; grisé quand il est désactivé.
+  barre latérale ; grisé quand il est désactivé. Action irréversible ou retrait d'accès =
+  variante danger (`Button variant="danger"`), au déclenchement comme à la confirmation
+  (« Supprimer » / « Supprimer le plan », « Désactiver » / « Désactiver ») ; « Annuler » reste
+  secondaire, comme « Réactiver ». Exemple sur `#/composants`.
 - **Champ** : un `<label>` visible au-dessus, contour 3:1, aide reliée par `aria-describedby`.
 - **Tableau** : `<th scope="col">`, légende (masquée visuellement si le titre la remplace),
   texte qui passe à la ligne plutôt que de déborder.

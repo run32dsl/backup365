@@ -81,6 +81,7 @@ function Playground() {
   const [mode, setMode] = useState('copy');
   const [open, setOpen] = useState(false);
   const [dialogReason, setDialogReason] = useState('');
+  const [destructiveOpen, setDestructiveOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   return (
     <>
@@ -172,6 +173,42 @@ function Playground() {
         >
           Ouvrir l’exemple de dialogue
         </Button>
+        <Button
+          variant="danger"
+          onClick={() => {
+            setDestructiveOpen(true);
+          }}
+        >
+          Supprimer
+        </Button>
+        <Dialog
+          open={destructiveOpen}
+          title="Supprimer cet exemple ?"
+          onClose={() => {
+            setDestructiveOpen(false);
+          }}
+        >
+          <p>Confirmation destructive : le bouton qui confirme est en variante danger.</p>
+          <div className="button-row dialog-actions">
+            <Button
+              variant="secondary"
+              data-safe
+              onClick={() => {
+                setDestructiveOpen(false);
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                setDestructiveOpen(false);
+              }}
+            >
+              Supprimer
+            </Button>
+          </div>
+        </Dialog>
         <Dialog
           open={open}
           title="Exporter cette boîte ?"

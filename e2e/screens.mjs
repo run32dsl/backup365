@@ -959,4 +959,13 @@ export const SCREENS = [
       await page.getByRole('dialog', { name: 'Exporter cette boîte ?' }).waitFor();
     },
   },
+  {
+    name: 'composants-confirmation-destructive',
+    hash: '#/composants',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('button', { name: 'Supprimer', exact: true }).last().click();
+      await page.getByRole('dialog', { name: 'Supprimer cet exemple ?' }).waitFor();
+    },
+  },
 ];

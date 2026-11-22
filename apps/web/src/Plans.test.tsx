@@ -654,8 +654,8 @@ describe('delete plan dialog', () => {
 
   it('asks a mandatory reason and uses the same button variant as account deactivation', () => {
     expect(html).toContain('Motif de la suppression');
-    expect(html).toMatch(/btn btn-primary[^>]*>(<[^>]*>)*Supprimer le plan/);
-    expect(html).not.toContain('btn-danger');
+    expect(html).toMatch(/btn btn-danger[^>]*>(<[^>]*>)*Supprimer le plan/);
+    expect(html).not.toContain('btn-primary');
   });
 
   it('sends the trimmed reason with the DELETE', async () => {
