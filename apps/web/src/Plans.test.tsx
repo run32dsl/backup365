@@ -397,8 +397,8 @@ describe('PlansListView', () => {
       /aria-describedby="(run-hint-[^"]+)"[^>]*>Lancer maintenant<\/button><small class="state-note" id="\1">Sauvegarde déjà en cours<\/small><a /,
     );
     expect(row).toMatch(/aria-label="Lancer [^>]*btn btn-secondary/);
-    expect(row).toMatch(/<a class="btn btn-secondary"[^>]*aria-label="Modifier /);
-    expect(row).toMatch(/aria-label="Supprimer [^>]*btn btn-danger/);
+    expect(row).toMatch(/<a class="btn btn-secondary action-half"[^>]*aria-label="Modifier /);
+    expect(row).toMatch(/aria-label="Supprimer [^>]*btn btn-danger action-half/);
   });
 
   it('shows a queued plan and the plan it waits for', () => {

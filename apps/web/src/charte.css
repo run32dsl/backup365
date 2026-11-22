@@ -597,7 +597,7 @@ select[aria-disabled='true'] {
 }
 
 /* Raison d'un bouton grisé : après les boutons en tableau, avant eux en carte (ci-dessous). */
-.acct-reason {
+.action-reason {
   order: 1;
 }
 
@@ -811,11 +811,12 @@ select[aria-disabled='true'] {
     vertical-align: middle;
     margin-right: var(--space-2);
   }
-  /* « Modifier le rôle » et « Désactiver » se partagent une ligne : la carte reste sous 260 px. */
-  .data-table td.card-action .button-row .btn.acct-half {
+  /* Règle commune (comptes, plans) : action principale seule en pleine largeur, puis les deux
+     secondaires (.action-half) côte à côte ; la raison d'un bouton grisé juste sous lui. */
+  .data-table td.card-action .button-row .btn.action-half {
     flex: 1 1 calc(50% - var(--space-2));
   }
-  .data-table td.card-action .acct-reason {
+  .data-table td.card-action .action-reason {
     order: -1;
     flex: 1 1 100%;
   }
@@ -1217,7 +1218,7 @@ a.btn-secondary {
 /* Actions d'une ligne (`.button-row.row-actions`) : sur mobile, la règle des cartes les met en
    pleine largeur, la raison d'un bouton grisé juste sous lui. Au bureau, les boutons restent sur
    une rangée et la raison, placée après le bouton dans le DOM, passe sous la rangée. */
-@media (min-width: 40.01rem) {
+@media (min-width: 56.26rem) {
   .data-table .row-actions {
     display: grid;
     grid-template-columns: repeat(3, max-content);

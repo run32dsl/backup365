@@ -654,11 +654,16 @@ function planColumns(
               {p.running ? MESSAGES.runBusy : MESSAGES.runAlreadyQueued}
             </small>
           )}
-          <a className="btn btn-secondary" href={editHash(p.id)} aria-label={`Modifier ${p.name}`}>
+          <a
+            className="btn btn-secondary action-half"
+            href={editHash(p.id)}
+            aria-label={`Modifier ${p.name}`}
+          >
             Modifier
           </a>
           <Button
             variant="danger"
+            className="action-half"
             aria-label={`Supprimer ${p.name}`}
             onClick={() => {
               actions.onDelete(p);
