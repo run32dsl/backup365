@@ -133,9 +133,11 @@ true }` (ADR 0017).
   `GET /api/plans` est la fin de la dernière réussite qui a créé un point, lue par le magasin sur
   tout l'historique ; ce champ est propre à cette route, le type `Compliance` du core (partagé
   avec le tableau de bord) ne change pas. `lastSuccessAt` (qui fonde la conformité) compte
-  toujours une réussite vide. L’écran des plans écrit « Réussie » avec la date seule et,
-  si aucune réussite n’a créé de point, la pastille neutre « En attente » avec la note « Rien à
-  sauvegarder dans le périmètre » (issue #289) : rien n’a été copié, l’état ne doit pas être vert.
+  toujours une réussite vide. L’écran des plans écrit « Rien copié, <date> » dans la colonne « Dernière
+  exécution » (jamais « Réussie », issue #369) et, si aucune réussite n’a créé de point, la
+  pastille neutre « En attente » avec la note « Rien à sauvegarder dans le périmètre : vérifiez
+  la boîte, le compte ou le site choisi. » (issue #289) : rien n’a été copié, l’état ne doit pas
+  être vert.
   Le tableau de bord, fondé sur `compliance.state`, n’est pas modifié par cette issue.
 - Identifiants : `BACKUP365_M365_CLIENT_ID` et `BACKUP365_M365_CLIENT_SECRET` (variante
   `_FILE`). Un seul des deux : démarrage refusé, l'erreur nomme la variable. Aucun : « sauvegarde

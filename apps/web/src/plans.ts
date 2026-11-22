@@ -327,7 +327,7 @@ export function complianceView(
       return {
         status: 'pending',
         label: 'En attente',
-        note: 'Rien à sauvegarder dans le périmètre',
+        note: 'Rien à sauvegarder dans le périmètre : vérifiez la boîte, le compte ou le site choisi.',
       };
     }
     // Une réussite récente, puis un échec : la cause reste dite (le plan est dans « en échec »).
@@ -383,6 +383,10 @@ export function lastRunLabel(plan: PlanItem): string {
   if (!run) return 'Pas encore sauvegardé';
   const at = dateTimeOf(run.finishedAt ?? run.startedAt);
   if (run.status !== 'success') return `Échec, ${at}`;
+  // Même constat que la pastille « En attente » : rien copié n'est pas une réussite.
+  if (run.noSnapshotReason !== null || plan.compliance.lastRestorePointAt === null) {
+    return `Rien copié, ${at}`;
+  }
   return `Réussie, ${at}`;
 }
 
