@@ -58,6 +58,12 @@ export function searchQueryFromForm(form: FormData): SearchQuery {
   };
 }
 
+/** Même recherche sans boîte ni période, de retour à la première page. */
+export function withoutFilters(query: SearchQuery): SearchQuery {
+  const { q, limit } = query;
+  return { q, limit, offset: 0 };
+}
+
 /** Requête lancée à l'ouverture de l'écran : première page de la boîte demandée, sinon aucune. */
 export function initialSearchQuery(mailbox?: string): SearchQuery | null {
   return mailbox ? { limit: SEARCH_PAGE_SIZE, offset: 0, mailbox } : null;

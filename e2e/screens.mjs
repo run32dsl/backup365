@@ -344,6 +344,17 @@ export const SCREENS = [
     },
   },
   {
+    name: 'recherche-sans-resultat-filtre-boite',
+    hash: '#/search',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Recherche').fill('introuvable-xyz');
+      await page.getByLabel('Boîte', { exact: true }).fill('alice@example.test');
+      await page.getByRole('button', { name: 'Rechercher' }).click();
+      await page.getByRole('button', { name: 'Retirer les filtres' }).waitFor();
+    },
+  },
+  {
     name: 'navigation-restaurer',
     hash: '#/search',
     role: 'admin',
