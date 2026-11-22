@@ -510,8 +510,8 @@ export const createPlan = (form: PlanForm, fetchFn: typeof fetch = fetch) =>
 export const updatePlan = (id: string, form: PlanForm, fetchFn: typeof fetch = fetch) =>
   send(fetchFn, 'PUT', `/api/plans/${encodeURIComponent(id)}`, payloadOf(form));
 
-export const deletePlan = (id: string, fetchFn: typeof fetch = fetch) =>
-  send(fetchFn, 'DELETE', `/api/plans/${encodeURIComponent(id)}`);
+export const deletePlan = (id: string, reason: string, fetchFn: typeof fetch = fetch) =>
+  send(fetchFn, 'DELETE', `/api/plans/${encodeURIComponent(id)}`, { reason: reason.trim() });
 
 /** Motif d'un lancement manuel : le même texte libre que partout, refusé s'il est vide. */
 export const runReasonError = (reason: string): string | undefined =>

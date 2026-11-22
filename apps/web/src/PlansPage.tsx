@@ -479,47 +479,100 @@ function RunDialog({
   );
 }
 
+/** Contenu de la boîte de suppression : le plan, ce qui disparaît, le motif. Sans accès réseau. */
+export function DeleteForm({
+  plan,
+  mailboxes = [],
+  error,
+  failure,
+  busy = false,
+  onSubmit,
+  onCancel,
+}: {
+  plan: PlanItem;
+  mailboxes?: readonly Mailbox[];
+  error?: string | undefined;
+  failure?: Problem | undefined;
+  busy?: boolean;
+  onSubmit?: (reason: string) => void;
+  onCancel?: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  return (
+    <form
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit?.(reason.trim());
+      }}
+    >
+      <p>
+        Plan : <strong>{plan.name}</strong>
+        <small className="state-note plan-summary">{planSummary(plan, mailboxes)}</small>
+      </p>
+      <Alert tone="warning" title="Suppression définitive">
+        Aucune nouvelle sauvegarde ne sera faite. L’historique des exécutions de ce plan sera
+        effacé. Les sauvegardes déjà faites restent dans le stockage : la console ne les supprime
+        pas.
+      </Alert>
+      <ReasonField of="de la suppression" value={reason} error={error} onChange={setReason} />
+      {failure && <PlanFailure problem={failure} />}
+      <div className="button-row dialog-actions">
+        <Button variant="secondary" data-safe onClick={onCancel}>
+          Annuler
+        </Button>
+        <Button type="submit" busy={busy}>
+          Supprimer le plan
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function DeleteDialog({
   plan,
+  mailboxes,
   onClose,
   onDelete,
 }: {
   plan: PlanItem | null;
+  mailboxes: readonly Mailbox[];
   onClose: () => void;
-  onDelete: (plan: PlanItem) => Promise<Problem | undefined>;
+  onDelete: (plan: PlanItem, reason: string) => Promise<Problem | undefined>;
 }) {
-  const [error, setError] = useState<Problem>();
+  const [error, setError] = useState<string>();
+  const [failure, setFailure] = useState<Problem>();
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     setError(undefined);
+    setFailure(undefined);
     setBusy(false);
   }, [plan]);
   return (
     <Dialog open={plan !== null} title={`Supprimer « ${plan?.name ?? ''} » ?`} onClose={onClose}>
-      <p>
-        Les sauvegardes existantes sont conservées jusqu’à la fin de leur durée de conservation.
-        Aucune nouvelle sauvegarde ne sera faite.
-      </p>
-      {error && <PlanFailure problem={error} />}
-      <div className="button-row dialog-actions">
-        <Button variant="secondary" data-safe onClick={onClose}>
-          Annuler
-        </Button>
-        <Button
-          variant="danger"
+      {plan && (
+        <DeleteForm
+          key={plan.id}
+          plan={plan}
+          mailboxes={mailboxes}
+          error={error}
+          failure={failure}
           busy={busy}
-          onClick={() => {
-            if (!plan) return;
+          onCancel={onClose}
+          onSubmit={(reason) => {
+            if (busy) return;
+            setFailure(undefined);
+            const missing = runReasonError(reason);
+            setError(missing);
+            if (missing !== undefined) return;
             setBusy(true);
-            void onDelete(plan).then((failure) => {
+            void onDelete(plan, reason).then((problem) => {
               setBusy(false);
-              setError(failure);
+              setFailure(problem);
             });
           }}
-        >
-          Supprimer le plan
-        </Button>
-      </div>
+        />
+      )}
     </Dialog>
   );
 }
@@ -820,8 +873,8 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     load();
     return undefined;
   };
-  const onDelete = async (plan: PlanItem) => {
-    const outcome = await deletePlan(plan.id);
+  const onDelete = async (plan: PlanItem, reason: string) => {
+    const outcome = await deletePlan(plan.id, reason);
     if (!outcome.ok) return outcome;
     setDeleteTarget(null);
     setFlash({ tone: 'success', text: MESSAGES.deleted });
@@ -931,6 +984,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
           <RunDialog plan={runTarget} onClose={closeRun} onRun={onRun} />
           <DeleteDialog
             plan={deleteTarget}
+            mailboxes={boxes.mailboxes}
             onClose={() => {
               setDeleteTarget(null);
             }}

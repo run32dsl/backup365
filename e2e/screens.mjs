@@ -639,6 +639,17 @@ export const SCREENS = [
     },
   },
   {
+    name: 'plans-supprimer-motif-manquant',
+    hash: '#/plans',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Supprimer « Messagerie Direction » ?' });
+      await dialog.getByRole('button', { name: 'Supprimer le plan' }).click();
+      await dialog.getByText('Indiquez un motif pour continuer.').waitFor();
+    },
+  },
+  {
     name: 'export-formulaire',
     hash: DEMO_MAIL_HASH,
     role: 'operator',

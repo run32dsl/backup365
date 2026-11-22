@@ -493,10 +493,14 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
     page.getByText('Sauvegarde lancée. Motif enregistré au journal d’audit.'),
   ).toBeVisible();
 
-  // Suppression : la confirmation s'ouvre sur « Annuler ».
+  // Suppression : la confirmation s'ouvre sur le champ du motif (comme les autres boîtes à motif).
   await page.getByRole('button', { name: 'Supprimer Contacts Exemple' }).click();
   const del = page.getByRole('dialog', { name: 'Supprimer « Contacts Exemple » ?' });
-  await expect(del.getByRole('button', { name: 'Annuler' })).toBeFocused();
+  await expect(del.getByLabel('Motif de la suppression (obligatoire)')).toBeFocused();
+  await del.getByRole('button', { name: 'Supprimer le plan' }).click();
+  await expect(del.getByText('Indiquez un motif pour continuer.')).toBeVisible();
+  await expect(page.getByText('Plan supprimé.')).toHaveCount(0);
+  await del.getByLabel('Motif de la suppression (obligatoire)').fill('Plan remplacé');
   await del.getByRole('button', { name: 'Supprimer le plan' }).click();
   await expect(page.getByText('Plan supprimé.')).toBeVisible();
   await expect(
@@ -577,6 +581,7 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   );
   await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
   const del = page.getByRole('dialog', { name: 'Supprimer « Messagerie Direction » ?' });
+  await del.getByLabel('Motif de la suppression (obligatoire)').fill('Plan remplacé');
   await del.getByRole('button', { name: 'Supprimer le plan' }).click();
   const refused = del.getByRole('alert').filter({ hasText: 'Journal d’audit indisponible' });
   await expect(refused).toBeVisible();
