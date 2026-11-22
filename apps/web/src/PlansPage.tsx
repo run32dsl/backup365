@@ -637,41 +637,35 @@ function planColumns(
       header: 'Actions',
       className: 'card-action',
       cell: (p) => (
-        <div className="row-actions">
-          <div className="row-actions-buttons">
-            <Button
-              variant="secondary"
-              aria-label={`Lancer ${p.name} maintenant`}
-              aria-disabled={p.running || p.queued || undefined}
-              aria-describedby={p.running || p.queued ? `run-hint-${p.id}` : undefined}
-              onClick={() => {
-                if (!p.running && !p.queued) actions.onRun(p);
-              }}
-            >
-              Lancer maintenant
-            </Button>
-            <a
-              className="btn btn-secondary"
-              href={editHash(p.id)}
-              aria-label={`Modifier ${p.name}`}
-            >
-              Modifier
-            </a>
-            <Button
-              variant="danger"
-              aria-label={`Supprimer ${p.name}`}
-              onClick={() => {
-                actions.onDelete(p);
-              }}
-            >
-              Supprimer
-            </Button>
-          </div>
+        <div className="button-row row-actions">
+          <Button
+            variant="secondary"
+            aria-label={`Lancer ${p.name} maintenant`}
+            aria-disabled={p.running || p.queued || undefined}
+            aria-describedby={p.running || p.queued ? `run-hint-${p.id}` : undefined}
+            onClick={() => {
+              if (!p.running && !p.queued) actions.onRun(p);
+            }}
+          >
+            Lancer maintenant
+          </Button>
           {(p.running || p.queued) && (
             <small className="state-note" id={`run-hint-${p.id}`}>
               {p.running ? MESSAGES.runBusy : MESSAGES.runAlreadyQueued}
             </small>
           )}
+          <a className="btn btn-secondary" href={editHash(p.id)} aria-label={`Modifier ${p.name}`}>
+            Modifier
+          </a>
+          <Button
+            variant="danger"
+            aria-label={`Supprimer ${p.name}`}
+            onClick={() => {
+              actions.onDelete(p);
+            }}
+          >
+            Supprimer
+          </Button>
         </div>
       ),
     });
