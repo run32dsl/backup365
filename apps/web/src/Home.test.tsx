@@ -1,7 +1,8 @@
 import { renderToStaticMarkup, renderToString } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ConsoleFooter } from './ConsoleFooter.js';
 import {
+  BackupAction,
   OverviewView,
   Home,
   agoLabel,
@@ -13,7 +14,7 @@ import {
 } from './Home.js';
 import { fetchHealth } from './health.js';
 import { fetchOverview, type Overview } from './overview.js';
-import { MESSAGES as PLAN_MESSAGES } from './plans.js';
+import { MESSAGES as PLAN_MESSAGES, NEW_PLAN_HASH } from './plans.js';
 
 const NOW = Date.parse('2026-11-18T17:02:00Z');
 const retry = () => undefined;
@@ -64,21 +65,42 @@ describe('OverviewView', () => {
     expect(html).not.toContain('Erreur inattendue');
   });
 
-  it('unconfigured: one Configurer button, no plan link, no backup', () => {
+  it('unconfigured: one Créer un plan button in the Sauvegarde card, said once, plain lines', () => {
     const html = render(unconfigured);
     expect(html).toContain('Non configurée');
-    expect(html).toContain('Aucune donnée Microsoft 365 n’est encore protégée.');
-    expect(html).toContain('Aucun plan');
-    expect(html).toContain('Aucune sauvegarde');
-    expect(html.match(/<button/g)).toHaveLength(2);
-    expect(html).toContain('Configurer');
+    expect(html.match(/protégée/g)).toHaveLength(1);
+    expect(html).toContain('<p>Aucun plan pour l’instant.</p>');
+    expect(html).toContain(
+      'Aucune sauvegarde pour l’instant. Elle apparaîtra ici après la première exécution d’un plan.',
+    );
+    expect(html.match(/<button/g)).toHaveLength(1);
+    const backupCard = html.split('<section')[1] ?? '';
+    expect(backupCard).toContain('Créer un plan</button>');
+    expect(html).not.toContain('Configurer');
+    expect(html).not.toContain('empty');
     expect(html).not.toContain('Voir les plans');
     expect(html).not.toContain('Erreur inattendue');
   });
 
-  it('unconfigured, operator: no button, asks an administrator', () => {
+  it('unconfigured: Créer un plan opens the wizard, not the list', () => {
+    const win = { location: { hash: '' } };
+    vi.stubGlobal('window', win);
+    try {
+      const button = BackupAction({ state: 'unconfigured', admin: true }) as {
+        props: { onClick: () => void };
+      };
+      button.props.onClick();
+      expect(win.location.hash).toBe(NEW_PLAN_HASH);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('unconfigured, operator: no button, asks an administrator, plain plans line', () => {
     const html = render(unconfigured, false);
     expect(html).not.toContain('<button');
+    expect(html).toContain('<p>Aucun plan pour l’instant.</p>');
+    expect(html).not.toContain('empty');
     expect(html).toContain(
       'Demandez à un administrateur de la console de configurer la sauvegarde.',
     );

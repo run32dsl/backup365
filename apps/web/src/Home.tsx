@@ -8,7 +8,7 @@ import {
   NEW_PLAN_HASH,
   PLANS_HASH,
 } from './plans.js';
-import { Alert, Button, EmptyState, StatusPill } from './ui/index.js';
+import { Alert, Button, StatusPill } from './ui/index.js';
 
 /** État du chargement de l'accueil. */
 export type OverviewState = Overview | 'loading' | 'error';
@@ -31,8 +31,9 @@ export function agoLabel(iso: string, now: number): string {
 export const plansLabel = (operational: number, total: number): string =>
   `${operational} ${operational < 2 ? 'plan' : 'plans'} à jour sur ${total}`;
 
-const goToPlans = () => {
-  window.location.hash = PLANS_HASH;
+/** « Créer un plan » : directement l'assistant, sans passer par la liste vide. */
+const goToNewPlan = () => {
+  window.location.hash = NEW_PLAN_HASH;
 };
 
 /** « Voir l'erreur » : la liste des plans, réduite à ceux en échec, avec la cause. */
@@ -84,12 +85,12 @@ function PlanActivity({ running, queued }: { running: number; queued: number }) 
   );
 }
 
-/** Action unique de la carte « Sauvegarde » : « Configurer » (administrateur) ou « Voir l'erreur ». */
-function BackupAction({ state, admin }: { state: Overview['state']; admin: boolean }) {
+/** Action unique de la carte « Sauvegarde » : « Créer un plan » (administrateur) ou « Voir l'erreur ». */
+export function BackupAction({ state, admin }: { state: Overview['state']; admin: boolean }) {
   if (state === 'failed') return <Button onClick={goToFailedPlans}>Voir l’erreur</Button>;
   if (state !== 'unconfigured') return null;
   return admin ? (
-    <Button onClick={goToPlans}>Configurer</Button>
+    <Button onClick={goToNewPlan}>Créer un plan</Button>
   ) : (
     <p>Demandez à un administrateur de la console de configurer la sauvegarde.</p>
   );
@@ -147,23 +148,7 @@ export function OverviewView({
       </Card>
       <Card id="overview-plans" title="Plans">
         {plans.total === 0 ? (
-          <EmptyState
-            action={
-              admin ? (
-                <Button
-                  onClick={() => {
-                    window.location.hash = NEW_PLAN_HASH;
-                  }}
-                >
-                  Créer un plan
-                </Button>
-              ) : undefined
-            }
-          >
-            {admin
-              ? 'Aucun plan : vos données Microsoft 365 ne sont pas protégées.'
-              : 'Aucun plan n’a encore été créé par un administrateur.'}
-          </EmptyState>
+          <p>Aucun plan pour l’instant.</p>
         ) : (
           <>
             <p>{plansSummary(plans)}</p>
@@ -174,7 +159,10 @@ export function OverviewView({
       </Card>
       <Card id="overview-last" title="Dernière sauvegarde">
         {last === null || lastDate === '' ? (
-          <p>Aucune sauvegarde</p>
+          <p>
+            Aucune sauvegarde pour l’instant. Elle apparaîtra ici après la première exécution d’un
+            plan.
+          </p>
         ) : (
           <p>
             {agoLabel(last, now)} · <time dateTime={last}>{lastDate}</time>
