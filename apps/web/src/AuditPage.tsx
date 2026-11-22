@@ -49,13 +49,13 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
     },
     {
       header: 'Date (UTC)',
-      className: 'nowrap',
+      className: 'nowrap audit-date',
       cell: (e) => <span title={e.at}>{auditDate(e.at) || '—'}</span>,
     },
-    { header: 'Acteur', className: 'keep-words', cell: (e) => actorLabel(e.actor) },
+    { header: 'Acteur', className: 'keep-words audit-actor', cell: (e) => actorLabel(e.actor) },
     {
       header: 'Action',
-      className: 'keep-words',
+      className: 'keep-words card-title',
       cell: (e) => {
         const detail = detailLabel(e.reason);
         return (
@@ -68,7 +68,7 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
     },
     {
       header: 'Cible',
-      className: 'keep-words address',
+      className: 'keep-words address card-nolabel',
       cell: (e) => {
         const { name, secondary } = targetView(e, planNames);
         // Sans cible : cellule vide, comme Éléments et Motif (la carte l'omet).
