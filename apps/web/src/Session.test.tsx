@@ -4,7 +4,7 @@ import { Console, ForbiddenView, screenFor, screenOf } from './App.js';
 import { AccountsPage, AccountsView, CreateAccountForm, submitCreate } from './AccountsPage.js';
 import { AuditPage } from './AuditPage.js';
 import { CredentialsView, ErrorView, Field, PasswordView } from './LoginPage.js';
-import { createAccount, isLastAdmin, resetPassword } from './accounts.js';
+import { ROLE_OPTIONS, createAccount, isLastAdmin, resetPassword } from './accounts.js';
 import { Button, DataTable } from './ui/index.js';
 import {
   ADMIN_ONLY,
@@ -473,10 +473,26 @@ describe('textes restants de la maquette de #22', () => {
     expect(isLastAdmin(left, left[0]!)).toBe(true);
   });
 
-  it('describes each role in the create form', () => {
+  it('describes each role in the create form with radio buttons, as the role dialog does', () => {
     const html = renderToString(<CreateAccountForm />);
+    expect(html).not.toContain('<select');
+    expect(html).not.toContain('<ul');
+    expect(html.match(/type="radio"/g)).toHaveLength(2);
+    expect(html).toMatch(/<input[^>]*checked=""[^>]*value="operator"/);
+    for (const o of ROLE_OPTIONS) expect(html).toContain(o.label);
     expect(html).toContain('gère les comptes, les plans et les restaurations.');
     expect(html).toContain('consulte, exporte et restaure, avec un motif.');
+  });
+
+  it('gives the temporary password a help linked by aria-describedby', () => {
+    const html = renderToString(<CreateAccountForm />);
+    expect(html).toContain('>Mot de passe temporaire</label>');
+    const help =
+      /<p id="([^"]+-help)" class="field-help">12 caractères minimum\. Le compte devra le changer à sa première connexion\./.exec(
+        html,
+      );
+    expect(help).not.toBeNull();
+    expect(html).toContain(`aria-describedby="${help?.[1]}"`);
   });
 
   it('recaps the first start inside the form, before the validation', () => {
@@ -497,7 +513,7 @@ describe('textes restants de la maquette de #22', () => {
 
   it('says « Mot de passe temporaire » on the account forms, never « provisoire »', () => {
     const html = renderToString(<CreateAccountForm />);
-    expect(html).toContain('>Mot de passe temporaire (12 caractères au minimum)</label>');
+    expect(html).toContain('>Mot de passe temporaire</label>');
     expect(html).not.toContain('provisoire');
   });
 

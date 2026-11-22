@@ -4,8 +4,8 @@ import {
   OIDC_PASSWORD_NOTICE,
   RESET_TEXTS,
   NO_OPERATOR,
-  ROLE_DESCRIPTIONS,
   ROLE_LABELS,
+  ROLE_OPTIONS,
   isLastAdmin,
   createAccount,
   fetchAccounts,
@@ -19,7 +19,15 @@ import { FailureAlert } from './FailureAlert.js';
 import { ErrorView, Field } from './LoginPage.js';
 import { ResetPasswordDialog } from './ResetPassword.js';
 import { AUDIT_NOTICE, UNREACHABLE, type Outcome, type Role } from './session.js';
-import { Alert, Button, DataTable, Dialog, StatusPill, type Column } from './ui/index.js';
+import {
+  Alert,
+  Button,
+  ChoiceGroup,
+  DataTable,
+  Dialog,
+  StatusPill,
+  type Column,
+} from './ui/index.js';
 
 export type AccountsState = AccountInfo[] | 'loading' | 'error';
 
@@ -42,19 +50,6 @@ const stateOf = (a: AccountInfo) =>
   ) : (
     <StatusPill status="compliant" label="Actif" />
   );
-
-/** Choix du rôle du formulaire « Créer un compte » ; le tableau n'en a plus. */
-function RoleSelect({ name, value }: { name: string; value: Role }) {
-  return (
-    <select name={name} defaultValue={value}>
-      {(Object.keys(ROLE_LABELS) as Role[]).map((role) => (
-        <option key={role} value={role}>
-          {ROLE_LABELS[role]}
-        </option>
-      ))}
-    </select>
-  );
-}
 
 const columns = (
   state: AccountInfo[],
@@ -191,6 +186,7 @@ export function CreateAccountForm({
   onSubmit?: (form: FormData) => void;
   onCancel?: () => void;
 }) {
+  const [role, setRole] = useState<Role>('operator');
   return (
     <form
       onSubmit={(e: FormEvent<HTMLFormElement>) => {
@@ -199,29 +195,21 @@ export function CreateAccountForm({
       }}
     >
       {error && <FailureAlert problem={error} />}
-      <p>
-        <label>
-          Identifiant <input name="username" autoComplete="off" required />
-        </label>
-      </p>
-      <p>
-        <label>
-          Rôle <RoleSelect name="role" value="operator" />
-        </label>
-      </p>
+      <Field label="Identifiant" name="username" autoComplete="off" />
+      <ChoiceGroup<Role>
+        legend="Rôle"
+        name="role"
+        value={role}
+        options={ROLE_OPTIONS}
+        onChange={setRole}
+      />
       <Field
-        label="Mot de passe temporaire (12 caractères au minimum)"
+        label="Mot de passe temporaire"
+        help="12 caractères minimum. Le compte devra le changer à sa première connexion."
         name="password"
         type="password"
         autoComplete="new-password"
       />
-      <ul>
-        {(Object.keys(ROLE_LABELS) as Role[]).map((role) => (
-          <li key={role}>
-            {ROLE_LABELS[role]} : {ROLE_DESCRIPTIONS[role]}
-          </li>
-        ))}
-      </ul>
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onCancel}>
           Annuler
