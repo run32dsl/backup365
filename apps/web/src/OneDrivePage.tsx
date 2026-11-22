@@ -156,8 +156,8 @@ function VersionsDialog({
                   setPicked(i);
                 }}
               />{' '}
-              {dateTimeOf(v.at)}
-              {v.current ? ' · Actuelle sauvegardée' : ''} · {sizeOf(v.sizeBytes)}
+              {dateTimeOf(v.at)} · {sizeOf(v.sizeBytes)}
+              {v.current ? ' (la plus récente)' : ''}
             </label>
           ))}
         </fieldset>
@@ -250,7 +250,11 @@ export function EntriesTable({
         {
           header: 'Taille',
           className: 'card-hidden',
-          cell: (e) => (e.sizeBytes === null ? '—' : sizeOf(e.sizeBytes)),
+          cell: (e) => {
+            const size =
+              pickedVersion && selected === e.path ? pickedVersion.sizeBytes : e.sizeBytes;
+            return size === null ? '—' : sizeOf(size);
+          },
         },
         {
           header: 'Détail',
@@ -258,7 +262,7 @@ export function EntriesTable({
           cell: (e) =>
             cardSummary(
               pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt,
-              e.sizeBytes,
+              pickedVersion && selected === e.path ? pickedVersion.sizeBytes : e.sizeBytes,
             ),
         },
         {

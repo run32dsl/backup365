@@ -219,7 +219,7 @@ describe('OneDrive entries table', () => {
           snapshotId: 's0',
           versionId: 'v0',
           at: '2026-11-16T23:17:00.000Z',
-          sizeBytes: 1,
+          sizeBytes: 81_000,
           current: false,
         }}
         emptyMessage="vide"
@@ -231,6 +231,11 @@ describe('OneDrive entries table', () => {
     expect(fileRow).toContain('16/11/2026 23:17');
     expect(fileRow).toMatch(/checked/u);
     expect(fileRow).not.toContain('13/11/2026 22:04</td>');
+    expect(fileRow).toContain('81 Ko');
+    expect(fileRow).not.toContain('84 Ko');
+    expect(fileRow).toContain('Version du 16/11/2026 23:17 UTC · 81 Ko');
+    const folderRow = picked.split('<tr').find((r) => r.includes('2025')) ?? '';
+    expect(folderRow).not.toContain('81 Ko');
   });
 
   it('names each radio button after the item', () => {
