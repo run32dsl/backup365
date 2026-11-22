@@ -77,7 +77,7 @@ describe('SearchView', () => {
     expect(unfiltered).toContain('class="keep-words address card-nolabel"');
     expect(unfiltered).toContain('class="mail-meta mail-date"');
     expect(unfiltered).toContain('class="nowrap mail-meta mail-folder"');
-    expect(unfiltered).toContain('col-mailbox mail-meta');
+    expect(unfiltered).toContain('keep-words address col-mailbox mail-meta');
     expect(filtered).not.toContain('col-mailbox');
     const withRestore = renderToString(
       <SearchView state={state} mailbox="paul.moreau@exemple.fr" restoreConfigured />,

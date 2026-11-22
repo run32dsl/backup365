@@ -647,7 +647,7 @@ select[aria-disabled='true'] {
     padding-inline-start: var(--space-3);
   }
 
-  /* Boîte : l'adresse passe à la ligne (après le « @ », sinon n'importe où) quand le tableau ne tient pas. */
+  /* Boîte : une ligne en tableau (classe `address`) ; en carte, l'adresse passe à la ligne (après le « @ », sinon n'importe où). */
   .data-table .col-mailbox {
     width: 11rem;
     overflow-wrap: anywhere;

@@ -795,9 +795,11 @@ test.describe('recherche à 1280 px', () => {
     expect(button).not.toBeNull();
     expect(action).not.toBeNull();
     expect(action!.x + action!.width).toBeLessThanOrEqual(button!.x + button!.width + 1);
-    // La colonne Boîte passe à la ligne : elle reste étroite (11 rem = 176 px, plus les marges).
-    const mailbox = await page.getByRole('columnheader', { name: 'Boîte' }).boundingBox();
-    expect(mailbox!.width).toBeLessThanOrEqual(200);
+    // L'adresse de la colonne Boîte tient sur une ligne : les lignes gardent leur hauteur normale.
+    const rows = await page.getByRole('row').all();
+    for (const row of rows.slice(1)) {
+      expect((await row.boundingBox())!.height).toBeLessThanOrEqual(70);
+    }
   });
 
   test('écran recherche-boite : pas de défilement horizontal', async ({
