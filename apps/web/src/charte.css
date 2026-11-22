@@ -348,11 +348,6 @@ th {
 .overview-card .overview-connection {
   color: var(--muted);
 }
-.overview-card a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.75rem;
-}
 @media (min-width: 900px) {
   .overview {
     grid-template-columns: 1fr 1fr;

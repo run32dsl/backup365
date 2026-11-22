@@ -41,6 +41,11 @@ const goToFailedPlans = () => {
   window.location.hash = FAILED_PLANS_HASH;
 };
 
+/** « Voir les plans » : la liste des plans, sans filtre. */
+const goToPlans = () => {
+  window.location.hash = PLANS_HASH;
+};
+
 function Card({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section className="overview-card" aria-labelledby={id}>
@@ -85,6 +90,15 @@ export function BackupAction({ state, admin }: { state: Overview['state']; admin
     <Button onClick={goToNewPlan}>Créer un plan</Button>
   ) : (
     <p>Demandez à un administrateur de la console de configurer la sauvegarde.</p>
+  );
+}
+
+/** Action de la carte « Plans » : en contour, pour ne pas concurrencer « Voir l'erreur ». */
+export function PlansAction() {
+  return (
+    <Button variant="secondary" onClick={goToPlans}>
+      Voir les plans
+    </Button>
   );
 }
 
@@ -145,7 +159,7 @@ export function OverviewView({
           <>
             <p>{plansLabel(plans.operational, plans.total)}</p>
             <PlanStates plans={plans} />
-            <a href={PLANS_HASH}>Voir les plans</a>
+            <PlansAction />
           </>
         )}
       </Card>
