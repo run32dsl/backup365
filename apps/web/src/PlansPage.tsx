@@ -7,7 +7,8 @@ import {
   MESSAGES,
   NEW_PLAN_HASH,
   PLANS_HASH,
-  REASON_CHOICES,
+  JUSTIFICATION_HELP,
+  JUSTIFICATION_PLACEHOLDER,
   RETENTION_CHOICES,
   RPO_CHOICES,
   RTO_CHOICES,
@@ -41,9 +42,9 @@ import {
   type PlanForm,
   type PlanItem,
   type PlansRoute,
-  type ReasonKind,
 } from './plans.js';
 import { splitTitle, type Problem } from './apiError.js';
+import { MAX_REASON_LENGTH } from './mail.js';
 import { ReasonField } from './RestoreJourney.js';
 import {
   Alert,
@@ -90,58 +91,6 @@ function ErrorText({ id, children }: { id: string; children?: string }) {
     <p id={id} className="field-error">
       <span aria-hidden="true">✖</span> {children}
     </p>
-  );
-}
-
-/** Liste déroulante native avec libellé relié, aide d'erreur reliée par `aria-describedby`. */
-function SelectField({
-  id,
-  label,
-  value,
-  placeholder,
-  options,
-  error,
-  help,
-  onChange,
-}: {
-  id: string;
-  help?: string;
-  label: string;
-  value: string;
-  placeholder: string;
-  options: readonly { value: string; label: string }[];
-  error?: string | undefined;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="field">
-      <label htmlFor={id}>{label}</label>
-      <select
-        id={id}
-        value={value}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={
-          [help ? `${id}-help` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ') ||
-          undefined
-        }
-        onChange={(e) => {
-          onChange(e.currentTarget.value);
-        }}
-      >
-        <option value="">{placeholder}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      {help && (
-        <p id={`${id}-help`} className="field-help">
-          {help}
-        </p>
-      )}
-      <ErrorText id={`${id}-error`}>{error}</ErrorText>
-    </div>
   );
 }
 
@@ -341,29 +290,20 @@ export function PlanWizard({
               patch({ retentionDays });
             }}
           />
-          <SelectField
-            id="reason-kind"
-            label={`${OBJECTIVE_LABELS.justification} (obligatoire)`}
-            value={form.reasonKind}
-            placeholder="Choisir un motif"
-            options={REASON_CHOICES}
-            error={form.reasonKind === '' ? errors.justification : undefined}
-            onChange={(reasonKind) => {
-              patch({ reasonKind: reasonKind as ReasonKind | '' });
-            }}
-          />
           <FormField
-            label={
-              form.reasonKind === 'other' ? 'Précision (obligatoire)' : 'Précision (facultatif)'
-            }
-            value={form.reasonDetail}
-            maxLength={200}
-            error={form.reasonKind === '' ? undefined : errors.justification}
+            label={`${OBJECTIVE_LABELS.justification} (obligatoire)`}
+            type="text"
+            name="justification"
+            required
+            counterMax={MAX_REASON_LENGTH}
+            placeholder={JUSTIFICATION_PLACEHOLDER}
+            help={JUSTIFICATION_HELP}
+            error={errors.justification}
+            value={form.justification}
             onChange={(e) => {
-              patch({ reasonDetail: e.currentTarget.value });
+              patch({ justification: e.currentTarget.value });
             }}
           />
-          <p>Les durées longues doivent rester justifiées au regard du RGPD.</p>
         </>
       )}
 
