@@ -1,12 +1,13 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { scheduleWindowLabel } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
-import { PlanWizard, PlansListView } from './PlansPage.js';
+import { DeleteForm, PlanWizard, PlansListView } from './PlansPage.js';
 import { AUDIT_REMINDER } from './RestoreJourney.js';
 import { Alert } from './ui/index.js';
 import {
   complianceView,
   createdMessage,
+  deletePlan,
   emptyForm,
   fetchMailboxes,
   formFromPlan,
@@ -631,5 +632,40 @@ describe('network helpers', () => {
     });
     const down = await runPlan('p', 'x', (() => Promise.reject(new Error('net'))) as typeof fetch);
     expect(down.ok).toBe(false);
+  });
+});
+
+describe('delete plan dialog', () => {
+  const html = renderToStaticMarkup(<DeleteForm plan={plan} />);
+
+  it('does not promise that retention is applied', () => {
+    expect(html).not.toContain('conservées jusqu');
+    expect(html).not.toMatch(/durée de conservation/);
+    expect(html).toContain('la console ne les supprime pas');
+  });
+
+  it('recalls the plan and warns that the run history is erased', () => {
+    expect(html).toContain('Plan : <strong>Messagerie Direction</strong>');
+    expect(html).toContain(planSummary(plan));
+    expect(html).toContain('alert-warning');
+    expect(html).toContain('Suppression définitive');
+    expect(html).toContain('L’historique des exécutions de ce plan sera effacé.');
+  });
+
+  it('asks a mandatory reason and uses the same button variant as account deactivation', () => {
+    expect(html).toContain('Motif de la suppression');
+    expect(html).toMatch(/btn btn-primary[^>]*>(<[^>]*>)*Supprimer le plan/);
+    expect(html).not.toContain('btn-danger');
+  });
+
+  it('sends the trimmed reason with the DELETE', async () => {
+    let sent: { method?: string | undefined; body?: unknown } = {};
+    const fetchFn = ((_url: string, init?: RequestInit) => {
+      sent = { method: init?.method, body: init?.body };
+      return Promise.resolve({ ok: true, status: 204 });
+    }) as unknown as typeof fetch;
+    expect((await deletePlan('p1', '  Plan remplacé ', fetchFn)).ok).toBe(true);
+    expect(sent.method).toBe('DELETE');
+    expect(JSON.parse(String(sent.body))).toEqual({ reason: 'Plan remplacé' });
   });
 });

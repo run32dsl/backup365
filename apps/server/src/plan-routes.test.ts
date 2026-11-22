@@ -199,7 +199,8 @@ describe('API des plans', () => {
       rtoHours: null,
     });
 
-    expect((await send(app, 'DELETE', `/api/plans/${plan.id}`)).statusCode).toBe(204);
+    const removed = await send(app, 'DELETE', `/api/plans/${plan.id}`, { reason: 'Plan remplacé' });
+    expect(removed.statusCode).toBe(204);
     expect((await send(app, 'GET', '/api/plans')).json<{ items: unknown[] }>().items).toEqual([]);
   });
 
@@ -227,16 +228,30 @@ describe('API des plans', () => {
     db.prepare(
       "INSERT INTO plan_runs (plan_id, item_id, started_at, status) VALUES (?, 'a', 'x', 'running')",
     ).run(id);
-    await send(app, 'DELETE', `/api/plans/${id}`);
+    await send(app, 'DELETE', `/api/plans/${id}`, { reason: 'Plan remplacé' });
     const count = (table: string) =>
       (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
     expect([count('plans'), count('plan_items'), count('plan_runs')]).toEqual([0, 0, 0]);
   });
 
+  it('refuses to delete a plan without a reason and keeps the plan', async () => {
+    const { app, plans, audit } = setup();
+    const { id } = (await send(app, 'POST', '/api/plans', valid)).json<{ id: string }>();
+    for (const payload of [undefined, {}, { reason: '   ' }, { reason: 'x'.repeat(201) }]) {
+      const res = await send(app, 'DELETE', `/api/plans/${id}`, payload);
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toMatchObject({ error: 'reason_required' });
+    }
+    expect(plans.list()).toHaveLength(1);
+    expect((await log(audit)).some((e) => e.action === 'plan.delete')).toBe(false);
+  });
+
   it('answers 404 for an unknown plan', async () => {
     const { app, audit } = setup();
     expect((await send(app, 'PUT', '/api/plans/inconnu', valid)).statusCode).toBe(404);
-    expect((await send(app, 'DELETE', '/api/plans/inconnu')).statusCode).toBe(404);
+    expect(
+      (await send(app, 'DELETE', '/api/plans/inconnu', { reason: 'Nettoyage' })).statusCode,
+    ).toBe(404);
     expect((await log(audit)).map((e) => e.reason)).toEqual(['plan_not_found', 'plan_not_found']);
   });
 
@@ -334,12 +349,12 @@ describe('API des plans', () => {
     const { app, audit } = setup();
     const { id } = (await send(app, 'POST', '/api/plans', valid)).json<{ id: string }>();
     await send(app, 'PUT', `/api/plans/${id}`, { ...valid, rpoHours: 12, retentionDays: 30 });
-    await send(app, 'DELETE', `/api/plans/${id}`);
+    await send(app, 'DELETE', `/api/plans/${id}`, { reason: 'Plan remplacé' });
     const entries = await log(audit);
     expect(entries.map((e) => [e.actor, e.action, e.resource, e.target, e.reason])).toEqual([
       ['root', 'plan.create', 'plan', id, 'scope:all,rpo:4'],
       ['root', 'plan.update', 'plan', id, 'changed:rpoHours,retentionDays'],
-      ['root', 'plan.delete', 'plan', id, undefined],
+      ['root', 'plan.delete', 'plan', id, 'Plan remplacé'],
     ]);
     expect(JSON.stringify(entries)).not.toContain('conservation des échanges');
   });

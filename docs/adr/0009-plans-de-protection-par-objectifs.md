@@ -64,7 +64,7 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
 | `GET /api/plans`        | `{ items }` : les plans, triés par nom                    | 200                |
 | `POST /api/plans`       | crée un plan (corps = `ProtectionPlanInput`)              | 201, 400, 409      |
 | `PUT /api/plans/:id`    | remplace le plan en entier (mêmes règles que la création) | 200, 400, 404, 409 |
-| `DELETE /api/plans/:id` | supprime le plan, sa sélection et son historique          | 204, 404           |
+| `DELETE /api/plans/:id` | supprime le plan, sa sélection et son historique (motif)  | 204, 400, 404      |
 
 - Un plan : `id` (UUID), `name`, `scope`, `selection`, `rpoHours`, `rtoHours`, `retentionDays`,
   `gdprJustification`, `createdAt`.
@@ -73,9 +73,11 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
   la valeur reçue. 409 : `plan_name_taken` (nom déjà pris, casse ignorée).
 - Audit : `plan.create`, `plan.update`, `plan.delete` (ressource `plan`, cible = identifiant du
   plan). Le motif ne porte que des codes (`scope:all,rpo:4`, `changed:rpoHours,name`), jamais le nom
-  ni la justification.
+  ni la justification. Exception : `plan.delete` porte le motif saisi (obligatoire, 200 caractères
+  au plus, sinon 400 `reason_required`), comme `plan.run`.
 - La suppression d'un plan emporte son historique d'exécutions (cascade) ; la purge n'est donc pas
-  rejouable : l'écran de l'issue suivante devra demander une confirmation.
+  rejouable : la boîte de suppression le dit (« Suppression définitive »), rappelle le plan,
+  demande un motif et ne promet aucune conservation des sauvegardes déjà faites (issue #377).
 
 ### Planificateur, historique et lancement manuel (issue #62)
 

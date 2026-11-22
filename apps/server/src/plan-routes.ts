@@ -212,8 +212,17 @@ export function registerPlanRoutes(
     async (req, reply) => {
       const ctx = await guard(req, reply);
       if (!ctx) return reply;
+      const reason = parseReason(req.body);
+      if (reason === undefined) {
+        return refuse(req, reply, 'plan.delete', 400, {
+          error: 'reason_required',
+          message: `Le motif de la suppression est obligatoire (${REASON_MAX} caractères au plus).`,
+        });
+      }
       if (!ctx.plans.delete(req.params.id)) return notFound(req, reply, 'plan.delete');
-      await ctx.audit.record(auditEvent(req, 'plan.delete', 'plan', { target: req.params.id }));
+      await ctx.audit.record(
+        auditEvent(req, 'plan.delete', 'plan', { target: req.params.id, reason }),
+      );
       return reply.code(204).send();
     },
   );
