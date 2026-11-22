@@ -79,6 +79,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
 function Playground() {
   const [reason, setReason] = useState('Contrôle trimestriel du dossier');
   const [mode, setMode] = useState('copy');
+  const [scope, setScope] = useState('item');
   const [open, setOpen] = useState(false);
   const [dialogReason, setDialogReason] = useState('');
   const [destructiveOpen, setDestructiveOpen] = useState(false);
@@ -137,12 +138,12 @@ function Playground() {
         <ChoiceGroup
           legend="Restaurer"
           name="demo-scope"
-          value="item"
+          value={scope}
           options={[
             { value: 'item', label: 'Un élément' },
             { value: 'site', label: 'Le site entier' },
           ]}
-          onChange={() => undefined}
+          onChange={setScope}
         />
       </Section>
       <Section id="tableau" title="Tableau">
