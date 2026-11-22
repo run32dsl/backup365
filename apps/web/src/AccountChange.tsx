@@ -83,7 +83,7 @@ export function AccountChangeForm({
         <Button variant="secondary" data-safe onClick={onCancel}>
           Annuler
         </Button>
-        <Button type="submit" busy={busy}>
+        <Button variant={disable ? 'danger' : 'primary'} type="submit" busy={busy}>
           {disable ? 'Désactiver' : 'Enregistrer'}
         </Button>
       </div>

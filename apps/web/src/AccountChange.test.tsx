@@ -30,7 +30,7 @@ describe('account table', () => {
     expect(html).toMatch(/data-label="Rôle"[^>]*>Opérateur</);
     expect(html).toMatch(/data-label="Rôle"[^>]*>Administrateur</);
     expect(html.match(/btn-secondary[^>]*>Modifier le rôle</g)).toHaveLength(2);
-    expect(html.match(/btn-secondary[^>]*>Désactiver</g)).toHaveLength(2);
+    expect(html.match(/btn-danger[^>]*>Désactiver</g)).toHaveLength(2);
     expect(html).toContain('aria-label="Modifier le rôle : operateur-demo"');
   });
   it('greys both buttons of the last administrator and explains why', () => {
@@ -61,7 +61,8 @@ describe('AccountChangeForm', () => {
     expect(html.replaceAll('<!-- -->', '')).toContain('operateur-demo ne pourra plus se connecter');
     expect(html).toContain('Motif de la désactivation (obligatoire)');
     expect(html).not.toContain('type="radio"');
-    expect(html).toContain('>Désactiver</button>');
+    expect(html).toMatch(/btn btn-danger[^>]*>Désactiver<\/button>/);
+    expect(html).not.toContain('btn-primary');
   });
   it('names the account in the success message', () => {
     expect(changeDone(operator, 'admin')).toBe('Rôle de operateur-demo : Administrateur.');

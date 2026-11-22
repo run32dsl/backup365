@@ -521,7 +521,7 @@ export function DeleteForm({
         <Button variant="secondary" data-safe onClick={onCancel}>
           Annuler
         </Button>
-        <Button type="submit" busy={busy}>
+        <Button variant="danger" type="submit" busy={busy}>
           Supprimer le plan
         </Button>
       </div>

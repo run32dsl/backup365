@@ -98,7 +98,7 @@ const columns = (
             </Button>
           )}
           <Button
-            variant="secondary"
+            variant={a.disabled ? 'secondary' : 'danger'}
             {...lock}
             aria-label={`${a.disabled ? 'Réactiver' : 'Désactiver'} : ${a.username}`}
             onClick={() => {
