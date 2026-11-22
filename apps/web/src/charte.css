@@ -873,8 +873,7 @@ select[aria-disabled='true'] {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    margin-bottom: 0.25rem;
-    padding-block: 0;
+    column-gap: var(--space-1);
   }
   .data-table tr:has(> td.mail-subject) > td {
     flex: 1 1 100%;
@@ -907,12 +906,10 @@ select[aria-disabled='true'] {
     flex: 1 1 auto;
   }
   .data-table tr:has(> td.mail-subject) > td.card-action {
-    padding-top: 0.125rem;
-    padding-bottom: 0.25rem;
+    padding-top: var(--space-2);
   }
   .data-table tr:has(> td.mail-subject) > td.card-action .btn {
-    min-height: 0;
-    padding-block: 0.25rem;
+    width: 100%;
   }
   .data-table tr:has(> td.mail-subject) > td.mail-meta:empty {
     display: none;
@@ -920,11 +917,10 @@ select[aria-disabled='true'] {
   .data-table td.mail-meta::before {
     display: none;
   }
-  .data-table td.mail-folder::before,
-  .data-table td.col-mailbox.mail-meta::before {
-    content: '\00a0· ';
-    display: inline;
-    font-weight: 400;
+  /* Le séparateur « · » est collé à l'élément qui le précède : il ne commence jamais une ligne. */
+  .data-table td.mail-date::after,
+  .data-table tr:has(> td.col-mailbox) > td.mail-folder::after {
+    content: '\00a0·';
   }
   .data-table td.card-only {
     color: var(--muted);

@@ -181,3 +181,19 @@ describe('charte.css heading scale', () => {
     }
   });
 });
+
+describe('mail search cards on mobile', () => {
+  const start = css.indexOf('/* Recherche : objet');
+  const mail = css.slice(start, css.indexOf('.data-table td.card-only {', start));
+
+  it('keeps the touch target and the card spacing of the other cards', () => {
+    expect(mail).not.toMatch(/min-height:\s*0/);
+    expect(mail).not.toMatch(/margin-bottom:\s*0\.25rem/);
+    expect(mail).toMatch(/td\.card-action \.btn \{\s*width: 100%;/);
+  });
+
+  it('glues the separator to the previous item instead of starting a line', () => {
+    expect(mail).not.toMatch(/::before\s*\{\s*content:\s*'\\00a0·/);
+    expect(mail).toMatch(/td\.mail-date::after[^{]*\{\s*content: '\\00a0·'/);
+  });
+});
