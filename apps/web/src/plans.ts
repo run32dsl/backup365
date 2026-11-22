@@ -87,13 +87,10 @@ export function retentionLabel(days: number): string {
   return `${days}\u00a0jours`;
 }
 
-export const REASON_CHOICES = [
-  { value: 'legal', label: 'Obligation légale' },
-  { value: 'business', label: 'Besoin métier' },
-  { value: 'public', label: 'Intérêt public' },
-  { value: 'other', label: 'Autre (préciser)' },
-] as const;
-export type ReasonKind = (typeof REASON_CHOICES)[number]['value'];
+/** Aide et exemple du champ « Justification de cette durée ». */
+export const JUSTIFICATION_HELP =
+  'Les durées longues doivent rester justifiées au regard du RGPD. N’y saisissez pas de donnée personnelle.';
+export const JUSTIFICATION_PLACEHOLDER = 'Obligation légale : conservation des courriers 1 an';
 
 export const MESSAGES = {
   loading: 'Chargement des plans…',
@@ -139,8 +136,7 @@ export interface PlanForm {
   rpoHours: RpoHours;
   rtoHours: number;
   retentionDays: number;
-  reasonKind: ReasonKind | '';
-  reasonDetail: string;
+  justification: string;
 }
 
 /** Valeurs par défaut sûres : tout protégé, 12 h, 24 h, 1 an. */
@@ -153,32 +149,11 @@ export function emptyForm(): PlanForm {
     rpoHours: 12,
     rtoHours: 24,
     retentionDays: 365,
-    reasonKind: '',
-    reasonDetail: '',
+    justification: '',
   };
 }
 
-/** Texte enregistré : le motif choisi, suivi de la précision s'il y en a une. */
-export function justificationText(kind: ReasonKind, detail: string): string {
-  const label = REASON_CHOICES.find((c) => c.value === kind)?.label ?? '';
-  const base = kind === 'other' ? 'Autre' : label;
-  const extra = detail.trim();
-  return extra === '' ? base : `${base} : ${extra}`;
-}
-
-/** Relit le texte enregistré ; un texte d'une autre origine devient « Autre » avec lui pour précision. */
-export function parseJustification(text: string): { kind: ReasonKind; detail: string } {
-  for (const c of REASON_CHOICES) {
-    const base = c.value === 'other' ? 'Autre' : c.label;
-    if (text === base) return { kind: c.value, detail: '' };
-    if (text.startsWith(`${base} : `))
-      return { kind: c.value, detail: text.slice(base.length + 3) };
-  }
-  return { kind: 'other', detail: text };
-}
-
 export function formFromPlan(plan: PlanItem): PlanForm {
-  const reason = parseJustification(plan.gdprJustification ?? '');
   return {
     name: plan.name,
     dataTypes: plan.dataTypes,
@@ -187,8 +162,7 @@ export function formFromPlan(plan: PlanItem): PlanForm {
     rpoHours: plan.rpoHours,
     rtoHours: plan.rtoHours ?? 24,
     retentionDays: plan.retentionDays,
-    reasonKind: reason.kind,
-    reasonDetail: reason.detail,
+    justification: plan.gdprJustification ?? '',
   };
 }
 
@@ -202,7 +176,7 @@ export function payloadOf(form: PlanForm) {
     rpoHours: form.rpoHours,
     rtoHours: form.rtoHours,
     retentionDays: form.retentionDays,
-    gdprJustification: justificationText(form.reasonKind || 'other', form.reasonDetail),
+    gdprJustification: form.justification.trim(),
   };
 }
 
@@ -219,10 +193,7 @@ export function validateStep(form: PlanForm, step: 1 | 2): FormErrors {
     if (form.scope === 'selection' && form.selection.length === 0) {
       errors.selection = MESSAGES.selection;
     }
-  } else if (
-    form.reasonKind === '' ||
-    (form.reasonKind === 'other' && form.reasonDetail.trim() === '')
-  ) {
+  } else if (form.justification.trim() === '') {
     errors.justification = MESSAGES.justification;
   }
   return errors;
@@ -257,10 +228,7 @@ export function recapRows(form: PlanForm): [string, string][] {
     ],
     [OBJECTIVE_LABELS.rto, `${form.rtoHours}\u00a0h`],
     [OBJECTIVE_LABELS.retention, retentionLabel(form.retentionDays)],
-    [
-      OBJECTIVE_LABELS.justification,
-      justificationText(form.reasonKind || 'other', form.reasonDetail),
-    ],
+    [OBJECTIVE_LABELS.justification, form.justification],
   ];
 }
 

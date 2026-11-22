@@ -563,9 +563,7 @@ export const SCREENS = [
     prepare: async (page) => {
       await page.getByLabel('Nom du plan').fill('Messagerie Direction');
       await page.getByRole('button', { name: 'Continuer' }).click();
-      await page
-        .getByLabel('Justification de cette durée')
-        .selectOption({ label: 'Obligation légale' });
+      await page.getByLabel('Justification de cette durée (obligatoire)').fill('Obligation légale');
       await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByText('Étape 3 sur 3 : Récapitulatif').waitFor();
     },

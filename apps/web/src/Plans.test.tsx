@@ -10,12 +10,10 @@ import {
   emptyForm,
   fetchMailboxes,
   formFromPlan,
-  justificationText,
   lastRunLabel,
   queuedMessage,
   runFlashText,
   planSummary,
-  parseJustification,
   parsePlansHash,
   RETENTION_CHOICES,
   RTO_CHOICES,
@@ -84,7 +82,7 @@ const list = (
 
 describe('plan form', () => {
   it('starts with safe defaults and a payload the API accepts', () => {
-    const form = { ...emptyForm(), name: ' Mails ', reasonKind: 'legal' as const };
+    const form = { ...emptyForm(), name: ' Mails ', justification: 'Obligation légale' };
     expect(payloadOf(form)).toEqual({
       name: 'Mails',
       scope: 'all',
@@ -108,30 +106,31 @@ describe('plan form', () => {
     expect(validateStep(emptyForm(), 2).justification).toBe(
       'Indiquez la justification de la durée de conservation.',
     );
-    expect(validateStep({ ...emptyForm(), reasonKind: 'other' }, 2).justification).toBeDefined();
-    expect(validateStep({ ...emptyForm(), reasonKind: 'other', reasonDetail: 'x' }, 2)).toEqual({});
+    expect(validateStep({ ...emptyForm(), justification: '   ' }, 2).justification).toBeDefined();
+    expect(validateStep({ ...emptyForm(), justification: 'x' }, 2)).toEqual({});
   });
 
-  it('writes and reads back the justification', () => {
-    expect(justificationText('legal', '')).toBe('Obligation légale');
-    expect(justificationText('business', ' Audit ')).toBe('Besoin métier : Audit');
-    expect(justificationText('other', 'Contrat')).toBe('Autre : Contrat');
-    expect(parseJustification('Besoin métier : Audit')).toEqual({
-      kind: 'business',
-      detail: 'Audit',
-    });
-    expect(parseJustification('Texte libre')).toEqual({ kind: 'other', detail: 'Texte libre' });
-    expect(formFromPlan(plan).reasonKind).toBe('legal');
+  it('keeps the justification as typed in the form, the payload and the recap', () => {
+    const text = 'Besoin métier : archives de projets';
+    const form = formFromPlan({ ...plan, gdprJustification: text });
+    expect(form.justification).toBe(text);
+    expect(payloadOf(form).gdprJustification).toBe(text);
+    expect(Object.fromEntries(recapRows(form))['Justification de cette durée']).toBe(text);
+    expect(payloadOf({ ...form, justification: `  ${text} ` }).gdprJustification).toBe(text);
   });
 
   it('keeps the selection only for a chosen scope', () => {
-    const form = { ...emptyForm(), selection: ['a'], reasonKind: 'legal' as const };
+    const form = { ...emptyForm(), selection: ['a'], justification: 'Obligation légale' };
     expect(payloadOf(form).selection).toEqual([]);
     expect(payloadOf({ ...form, scope: 'selection' }).selection).toEqual(['a']);
   });
 
   it('lists the plan in labelled rows, in order', () => {
-    const rows = recapRows({ ...emptyForm(), name: ' Messagerie Direction ', reasonKind: 'legal' });
+    const rows = recapRows({
+      ...emptyForm(),
+      name: ' Messagerie Direction ',
+      justification: 'Obligation légale',
+    });
     expect(rows).toEqual([
       ['Nom du plan', 'Messagerie Direction'],
       ['Données', 'Messagerie, OneDrive, SharePoint'],
@@ -143,13 +142,12 @@ describe('plan form', () => {
     ]);
   });
 
-  it('adds the precision to the justification and counts a chosen selection', () => {
+  it('shows the justification as typed and counts a chosen selection', () => {
     const form = {
       ...emptyForm(),
       dataTypes: ['mail' as const],
       scope: 'selection' as const,
-      reasonKind: 'business' as const,
-      reasonDetail: 'Audit annuel',
+      justification: 'Besoin métier : Audit annuel',
     };
     const row = (f: typeof form, label: string) =>
       Object.fromEntries(recapRows(f))[label] as string;
@@ -491,14 +489,36 @@ describe('PlanWizard', () => {
     expect(html).not.toContain('Précédent');
   });
 
+  it('asks for the justification in one free text field with help and counter', () => {
+    const html = renderToStaticMarkup(
+      <PlanWizard
+        initial={emptyForm()}
+        editing={false}
+        mailboxes={[]}
+        onSubmit={() => Promise.resolve(undefined)}
+        initialStep={2}
+      />,
+    );
+    expect(html).not.toContain('<select');
+    expect(html).not.toContain('Précision');
+    expect(html).toContain('Justification de cette durée (obligatoire)');
+    expect(html).toContain('placeholder="Obligation légale : conservation des courriers 1 an"');
+    expect(html).toContain('maxLength="120"');
+    expect(html).toContain('0 / 120');
+    expect(html).toMatch(/aria-describedby="[^"]*-help"/);
+    expect(html).toMatch(
+      /-help"[^>]*>Les durées longues doivent rester justifiées au regard du RGPD\. N’y saisissez pas de donnée personnelle\.</,
+    );
+    expect(html).not.toContain('<p>Les durées longues');
+  });
+
   it('recaps the plan on step 3 as a labelled list without the audit reminder', () => {
     const html = renderToStaticMarkup(
       <PlanWizard
         initial={{
           ...emptyForm(),
           name: 'Messagerie Direction',
-          reasonKind: 'other',
-          reasonDetail: 'Contrat client',
+          justification: 'Contrat client',
         }}
         editing={false}
         mailboxes={[]}
@@ -509,7 +529,7 @@ describe('PlanWizard', () => {
     expect(html).toContain('<h2>Récapitulatif</h2>');
     expect(html).toContain('<dl class="meta-list">');
     expect(html).toContain('<dd>Messagerie Direction</dd>');
-    expect(html).toContain('<dd>Autre : Contrat client</dd>');
+    expect(html).toContain('<dd>Contrat client</dd>');
     expect(html).not.toContain(AUDIT_REMINDER);
     expect(html).not.toContain('recap-sentence');
   });
