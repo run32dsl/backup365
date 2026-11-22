@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ROLE_LABELS, ROLE_OPTIONS } from './accounts.js';
 import type { Problem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
-import { REASON, ReasonField } from './RestoreJourney.js';
+import { REASON, REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
 import type { Role } from './session.js';
 import { Button, ChoiceGroup, Dialog } from './ui/index.js';
 
@@ -74,6 +74,7 @@ export function AccountChangeForm({
       )}
       <ReasonField
         of={disable ? 'de la désactivation' : 'du changement de rôle'}
+        placeholder={disable ? REASON_EXAMPLES.disableAccount : REASON_EXAMPLES.changeRole}
         value={reason}
         error={error}
         onChange={setReason}

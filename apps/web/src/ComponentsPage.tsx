@@ -13,7 +13,7 @@ import {
   type Column,
   type PillStatus,
 } from './ui/index.js';
-import { AuditReminder, REASON, ReasonField } from './RestoreJourney.js';
+import { AuditReminder, REASON, REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
 
 /** Sections de la page, dans l'ordre du sommaire. */
 export const SECTIONS = [
@@ -109,8 +109,19 @@ function Playground() {
         </div>
       </Section>
       <Section id="champs" title="Champs de formulaire">
-        <ReasonField of="de l’export" value={reason} onChange={setReason} />
-        <ReasonField of="de l’export" value="" error={REASON.error} onChange={() => undefined} />
+        <ReasonField
+          of="de l’export"
+          placeholder={REASON_EXAMPLES.export}
+          value={reason}
+          onChange={setReason}
+        />
+        <ReasonField
+          of="du lancement"
+          placeholder={REASON_EXAMPLES.run}
+          value=""
+          error={REASON.error}
+          onChange={() => undefined}
+        />
       </Section>
       <Section id="choix" title="Groupe d’options">
         <ChoiceGroup
@@ -218,7 +229,12 @@ function Playground() {
         >
           <AuditReminder />
           <p>Indiquez le motif de l’export.</p>
-          <ReasonField of="de l’export" value={dialogReason} onChange={setDialogReason} />
+          <ReasonField
+            of="de l’export"
+            placeholder={REASON_EXAMPLES.export}
+            value={dialogReason}
+            onChange={setDialogReason}
+          />
           <div className="button-row dialog-actions">
             <Button
               variant="secondary"

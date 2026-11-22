@@ -6,7 +6,13 @@ import { apiErrorFor, splitTitle } from './apiError.js';
 import { ConfigurationLink } from './ConfigurationBlock.js';
 import { useAdmin } from './role.js';
 import { RestoreAction } from './RestoreAction.js';
-import { AuditReminder, REASON, RESTORE_BUTTONS as B, ReasonField } from './RestoreJourney.js';
+import {
+  AuditReminder,
+  REASON,
+  REASON_EXAMPLES,
+  RESTORE_BUTTONS as B,
+  ReasonField,
+} from './RestoreJourney.js';
 import {
   fetchLastRestore,
   fetchRestoreConfigured,
@@ -155,7 +161,13 @@ export function ExportSection({ mail }: { mail: IndexedMail }) {
             <br />
             Boîte : {mail.mailboxId}
           </p>
-          <ReasonField of="de l’export" value={reason} error={fieldError} onChange={setReason} />
+          <ReasonField
+            of="de l’export"
+            placeholder={REASON_EXAMPLES.export}
+            value={reason}
+            error={fieldError}
+            onChange={setReason}
+          />
           <h3>Ce qui va se passer</h3>
           <ul>
             <li>Le mail sera téléchargé sur votre poste, dans un fichier .eml.</li>

@@ -58,6 +58,10 @@ composant s'y ajoute avec ses tests de comportement.
   (« Supprimer » / « Supprimer le plan », « Désactiver » / « Désactiver ») ; « Annuler » reste
   secondaire, comme « Réactiver ». Exemple sur `#/composants`.
 - **Champ** : un `<label>` visible au-dessus, contour 3:1, aide reliée par `aria-describedby`.
+  L'exemple grisé d'un champ « Motif » décrit une raison plausible pour l'action concernée
+  (« Ticket INC-12345 : plan remplacé » pour supprimer un plan, « : demande d’accès » pour
+  un export) : jamais le même texte d'un écran à l'autre. Il tient en 40 caractères au plus,
+  sans donnée personnelle, pour s'afficher en entier à 390 px. Exemples sur `#/composants`.
 - **Tableau** : `<th scope="col">`, légende (masquée visuellement si le titre la remplace),
   texte qui passe à la ligne plutôt que de déborder.
 - **Badge d'état** (`.badge`) : « À jour » (`✔`), « En cours », « En retard » (`⚠`),

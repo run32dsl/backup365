@@ -8,6 +8,7 @@ import { isReasonValid } from './mail.js';
 import {
   AuditReminder,
   REASON,
+  REASON_EXAMPLES,
   RESTORE_BUTTONS as B,
   ReasonField,
   RunningProgress,
@@ -265,7 +266,12 @@ export function RestoreAction({
               <br />
               Boîte d’origine : {mail.mailboxId}
             </p>
-            <ReasonField value={reason} error={fieldError} onChange={setReason} />
+            <ReasonField
+              placeholder={REASON_EXAMPLES.restore}
+              value={reason}
+              error={fieldError}
+              onChange={setReason}
+            />
             <h3>Ce qui va se passer</h3>
             <ul>
               <li>

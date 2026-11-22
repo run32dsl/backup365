@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type Ref } from 'react';
 import { RESET_TEXTS } from './accounts.js';
 import type { Problem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
-import { REASON, ReasonField } from './RestoreJourney.js';
+import { REASON, REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
 import { Alert, Button, Dialog } from './ui/index.js';
 
 /** Étape 2 : récapitulatif et motif obligatoire. Sans état : le motif vide donne `error`. */
@@ -37,7 +37,13 @@ export function ResetReasonForm({
         Un mot de passe temporaire sera créé et affiché une seule fois. {username} devra le changer
         à sa prochaine connexion.
       </p>
-      <ReasonField of="de la réinitialisation" value={reason} error={error} onChange={setReason} />
+      <ReasonField
+        of="de la réinitialisation"
+        placeholder={REASON_EXAMPLES.resetPassword}
+        value={reason}
+        error={error}
+        onChange={setReason}
+      />
       {failure && <FailureAlert problem={failure} />}
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onCancel}>
