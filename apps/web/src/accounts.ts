@@ -23,6 +23,12 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   operator: 'consulte, exporte et restaure, avec un motif.',
 };
 
+/** Options du choix du rôle, communes à « Créer un compte » et « Modifier le rôle ». */
+export const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as Role[]).map((role) => ({
+  value: role,
+  label: `${ROLE_LABELS[role]} : ${ROLE_DESCRIPTIONS[role]}`,
+}));
+
 /** Textes d'état de l'écran des comptes. */
 export const NO_OPERATOR = 'Aucun opérateur pour l’instant.';
 export const OIDC_PASSWORD_NOTICE = 'Mot de passe géré par Microsoft';

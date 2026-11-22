@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { ROLE_DESCRIPTIONS, ROLE_LABELS } from './accounts.js';
+import { ROLE_LABELS, ROLE_OPTIONS } from './accounts.js';
 import type { Problem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { REASON, ReasonField } from './RestoreJourney.js';
@@ -68,10 +68,7 @@ export function AccountChangeForm({
           legend="Rôle"
           name="account-role"
           value={role}
-          options={(Object.keys(ROLE_LABELS) as Role[]).map((r) => ({
-            value: r,
-            label: `${ROLE_LABELS[r]} : ${ROLE_DESCRIPTIONS[r]}`,
-          }))}
+          options={ROLE_OPTIONS}
           onChange={(r) => onRole?.(r)}
         />
       )}
