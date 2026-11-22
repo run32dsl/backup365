@@ -51,13 +51,18 @@ export function dialogTitle(job: RestoreJob | null): string {
 }
 
 /** Rappel du mail et de la boîte, commun aux états en cours, réussi et échoué. */
-function recallRows(mail: RestorableMail): [string, string][] {
+export function recallRows(mail: RestorableMail): [string, string][] {
   const date = shortUtcDate(mail.date);
   const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
   return [
     ['Mail', date ? `${subject} · ${date}` : subject],
     ['Boîte', mail.mailboxId],
   ];
+}
+
+/** Rappel du formulaire : les lignes des résultats, avec le dossier que la restauration créera. */
+export function formRows(mail: RestorableMail, now: number): [string, string][] {
+  return [...recallRows(mail), ['Dossier', restoreFolderName(new Date(now))]];
 }
 
 /** Restauration en cours : même modèle que les résultats (alerte, liste libellée, « Fermer »). */
@@ -242,7 +247,6 @@ export function RestoreAction({
     });
   }
 
-  const date = shortUtcDate(mail.date);
   const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
   const label = `Restaurer ${subject}`;
   return (
@@ -260,12 +264,7 @@ export function RestoreAction({
         {job === null && <AuditReminder />}
         {job === null && (
           <form onSubmit={submit} noValidate>
-            <p>
-              {subject}
-              {date && ` · ${date}`}
-              <br />
-              Boîte d’origine : {mail.mailboxId}
-            </p>
+            <ResultList rows={formRows(mail, now)} />
             <ReasonField
               placeholder={REASON_EXAMPLES.restore}
               value={reason}
@@ -274,10 +273,7 @@ export function RestoreAction({
             />
             <h3>Ce qui va se passer</h3>
             <ul>
-              <li>
-                Le mail sera copié dans la boîte d’origine, dans le dossier «{' '}
-                {restoreFolderName(new Date(now))} ».
-              </li>
+              <li>Le mail sera copié dans ce dossier de la boîte d’origine.</li>
               <li>Aucun mail existant ne sera modifié ni écrasé.</li>
               <li>Le contenu du mail n’est jamais inscrit au journal d’audit.</li>
             </ul>
