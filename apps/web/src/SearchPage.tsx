@@ -37,7 +37,7 @@ type Hit = SearchResponse['items'][number];
 
 const MAILBOX_COLUMN: Column<Hit> = {
   header: 'Boîte',
-  className: 'keep-words col-mailbox mail-meta',
+  className: 'keep-words address col-mailbox mail-meta',
   cell: (m) => <Address value={m.mailboxId} />,
 };
 
