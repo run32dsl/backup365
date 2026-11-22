@@ -152,7 +152,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   const versions = page.getByRole('button', { name: 'Versions de budget.xlsx' });
   await versions.click();
   const panel = page.getByRole('dialog', { name: 'Versions de budget.xlsx' });
-  await expect(panel.getByText(/Actuelle sauvegardée/)).toBeVisible();
+  await expect(panel.getByText(/84 Ko \(la plus récente\)/)).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(panel).toBeHidden();
   await expect(versions).toBeFocused();
