@@ -349,7 +349,9 @@ describe('RestoreAction', () => {
     expect(row).toContain('card-action');
     expect(row.match(/<td[^>]*keep-words[^>]*>/g)).toHaveLength(2);
     expect(row).toMatch(/<td[^>]*subject[^>]*><a [^>]*title="/);
-    expect(row).toContain('alice@<span class="addr-domain">example.test</span>');
+    expect(row).toContain(
+      '<span class="addr-local">alice@</span><span class="addr-domain">example.test</span>',
+    );
     const off = renderToString(<SearchView state={state} restoreConfigured={false} />);
     // Même état que le 503 `restore_unavailable` du serveur (voir `restore.test.ts`).
     expect(off).toContain(API_ERRORS['restore_unavailable'] ?? 'absent');

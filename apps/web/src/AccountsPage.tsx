@@ -20,6 +20,7 @@ import { ErrorView, Field } from './LoginPage.js';
 import { ResetPasswordDialog } from './ResetPassword.js';
 import { AUDIT_NOTICE, UNREACHABLE, type Outcome, type Role } from './session.js';
 import {
+  Address,
   Alert,
   Button,
   ChoiceGroup,
@@ -55,13 +56,22 @@ const columns = (
   state: AccountInfo[],
   actions?: Partial<AccountActions>,
 ): Column<AccountInfo>[] => [
-  { header: 'Identifiant', cell: (a) => (a.oidc ? `${a.username} (Microsoft)` : a.username) },
+  {
+    header: 'Identifiant',
+    className: 'card-title',
+    cell: (a) => (
+      <>
+        <Address value={a.username} />
+        {a.oidc && <span className="acct-kind"> (Microsoft)</span>}
+      </>
+    ),
+  },
   {
     header: 'Rôle',
-    className: 'nowrap',
+    className: 'nowrap card-nolabel acct-inline',
     cell: (a) => ROLE_LABELS[a.role],
   },
-  { header: 'État', cell: stateOf },
+  { header: 'État', className: 'card-nolabel acct-inline', cell: stateOf },
   {
     header: 'Actions',
     className: 'card-action',
@@ -73,6 +83,11 @@ const columns = (
       };
       return (
         <div className="button-row">
+          {last && (
+            <span id={`last-admin-${a.id}`} className="cell-secondary acct-reason">
+              {LAST_ADMIN_NOTICE}
+            </span>
+          )}
           {a.oidc ? (
             <span className="cell-secondary">{OIDC_PASSWORD_NOTICE}</span>
           ) : (
@@ -88,6 +103,7 @@ const columns = (
           {!a.oidc && (
             <Button
               variant="secondary"
+              className="acct-half"
               {...lock}
               aria-label={`Modifier le rôle : ${a.username}`}
               onClick={() => {
@@ -98,6 +114,7 @@ const columns = (
             </Button>
           )}
           <Button
+            className={a.oidc ? undefined : 'acct-half'}
             variant={a.disabled ? 'secondary' : 'danger'}
             {...lock}
             aria-label={`${a.disabled ? 'Réactiver' : 'Désactiver'} : ${a.username}`}
@@ -107,11 +124,6 @@ const columns = (
           >
             {a.disabled ? 'Réactiver' : 'Désactiver'}
           </Button>
-          {last && (
-            <span id={`last-admin-${a.id}`} className="cell-secondary">
-              {LAST_ADMIN_NOTICE}
-            </span>
-          )}
         </div>
       );
     },
