@@ -838,6 +838,64 @@ select[aria-disabled='true'] {
     content: '\00a0· ';
     font-weight: 400;
   }
+  /* Recherche : objet, expéditeur, puis « date · dossier · boîte » sur une ligne secondaire. */
+  .data-table tr:has(> td.mail-subject) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    margin-bottom: 0.25rem;
+    padding-block: 0;
+  }
+  .data-table tr:has(> td.mail-subject) > td {
+    flex: 1 1 100%;
+    order: 6;
+    padding-block: 0.03125rem;
+  }
+  .data-table tr:has(> td.mail-subject) > td.mail-subject {
+    order: 1;
+  }
+  .data-table tr:has(> td.mail-subject) > td.card-nolabel {
+    order: 2;
+  }
+  .data-table tr:has(> td.mail-subject) > td.mail-meta {
+    display: block;
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    padding-block: 0;
+    padding-inline: 0;
+  }
+  .data-table tr:has(> td.mail-subject) > td.mail-date {
+    order: 3;
+    padding-left: var(--space-2);
+  }
+  .data-table tr:has(> td.mail-subject) > td.mail-folder {
+    order: 4;
+  }
+  .data-table tr:has(> td.mail-subject) > td.col-mailbox {
+    order: 5;
+    flex: 1 1 auto;
+  }
+  .data-table tr:has(> td.mail-subject) > td.card-action {
+    padding-top: 0.125rem;
+    padding-bottom: 0.25rem;
+  }
+  .data-table tr:has(> td.mail-subject) > td.card-action .btn {
+    min-height: 0;
+    padding-block: 0.25rem;
+  }
+  .data-table tr:has(> td.mail-subject) > td.mail-meta:empty {
+    display: none;
+  }
+  .data-table td.mail-meta::before {
+    display: none;
+  }
+  .data-table td.mail-folder::before,
+  .data-table td.col-mailbox.mail-meta::before {
+    content: '\00a0· ';
+    display: inline;
+    font-weight: 400;
+  }
   .data-table td.card-only {
     color: var(--muted);
     /* Aligné sur le nom, sous le bouton radio (1,5 rem + espace). */

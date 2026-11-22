@@ -36,20 +36,24 @@ type Hit = SearchResponse['items'][number];
 
 const MAILBOX_COLUMN: Column<Hit> = {
   header: 'Boîte',
-  className: 'keep-words col-mailbox',
+  className: 'keep-words col-mailbox mail-meta',
   cell: (m) => <Address value={m.mailboxId} />,
 };
 
 const COLUMNS: Column<Hit>[] = [
-  { header: 'Date (UTC)', cell: (m) => <span className="nowrap">{dateTimeOf(m.date)}</span> },
+  {
+    header: 'Date (UTC)',
+    className: 'mail-meta mail-date',
+    cell: (m) => <span className="nowrap">{dateTimeOf(m.date)}</span>,
+  },
   {
     header: 'Expéditeur',
-    className: 'keep-words address',
+    className: 'keep-words address card-nolabel',
     cell: (m) => <Address value={m.sender} />,
   },
   {
     header: 'Objet',
-    className: 'subject',
+    className: 'subject card-title mail-subject',
     cell: (m) => {
       const subject = m.subject === '' ? '(sans objet)' : m.subject;
       return (
@@ -60,7 +64,11 @@ const COLUMNS: Column<Hit>[] = [
     },
   },
   MAILBOX_COLUMN,
-  { header: 'Dossier', className: 'nowrap', cell: (m) => folderLabel(m.folder) },
+  {
+    header: 'Dossier',
+    className: 'nowrap mail-meta mail-folder',
+    cell: (m) => folderLabel(m.folder),
+  },
 ];
 
 export const SEARCH_HELP =

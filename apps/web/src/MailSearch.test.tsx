@@ -68,7 +68,15 @@ describe('SearchView', () => {
     expect(filtered).not.toContain('>Boîte<');
     expect(filtered).toContain('25 résultats');
     expect(filtered).toContain('dans la boîte paul.moreau@exemple.fr');
-    expect(renderToString(<SearchView state={state} />)).toContain('>Boîte<');
+    const unfiltered = renderToString(<SearchView state={state} />);
+    expect(unfiltered).toContain('>Boîte<');
+    // Carte mobile : objet en titre, expéditeur sans libellé, « date · dossier · boîte » en secondaire.
+    expect(unfiltered).toContain('class="subject card-title mail-subject"');
+    expect(unfiltered).toContain('class="keep-words address card-nolabel"');
+    expect(unfiltered).toContain('class="mail-meta mail-date"');
+    expect(unfiltered).toContain('class="nowrap mail-meta mail-folder"');
+    expect(unfiltered).toContain('col-mailbox mail-meta');
+    expect(filtered).not.toContain('col-mailbox');
     const withRestore = renderToString(
       <SearchView state={state} mailbox="paul.moreau@exemple.fr" restoreConfigured />,
     );
