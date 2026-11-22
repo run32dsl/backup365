@@ -155,13 +155,12 @@ describe('plans card of the dashboard', () => {
     expect(plansSummary({ ...plans, failed: 0, late: 0 })).toBe('2 plans à jour sur 4');
   });
 
-  it('without plan: an empty state, with Créer un plan for an administrator only', () => {
+  it('without plan: one plain line, no empty state and no button, for both roles', () => {
     const none = { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 };
-    const admin = render(none, true);
-    expect(admin).toContain('class="empty"');
-    expect(admin).toContain('Créer un plan');
-    const operator = render(none, false);
-    expect(operator).toContain('class="empty"');
-    expect(operator).not.toContain('Créer un plan');
+    for (const admin of [true, false]) {
+      const html = render(none, admin);
+      expect(html).toContain('<p>Aucun plan pour l’instant.</p>');
+      expect(html).not.toContain('class="empty"');
+    }
   });
 });
