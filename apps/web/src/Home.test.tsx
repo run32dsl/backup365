@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ConsoleFooter } from './ConsoleFooter.js';
 import {
   BackupAction,
+  PlansAction,
   OverviewView,
   Home,
   agoLabel,
@@ -14,7 +15,7 @@ import {
 } from './Home.js';
 import { fetchHealth } from './health.js';
 import { fetchOverview, type Overview } from './overview.js';
-import { MESSAGES as PLAN_MESSAGES, NEW_PLAN_HASH } from './plans.js';
+import { MESSAGES as PLAN_MESSAGES, NEW_PLAN_HASH, PLANS_HASH } from './plans.js';
 
 const NOW = Date.parse('2026-11-18T17:02:00Z');
 const retry = () => undefined;
@@ -54,14 +55,15 @@ describe('Home', () => {
 });
 
 describe('OverviewView', () => {
-  it('operational: pill, plans count with link, date, and no button', () => {
+  it('operational: pill, plans count, date, one secondary Voir les plans button', () => {
     const html = render(operational);
     expect(html).toContain('Opérationnelle');
     expect(html).toContain('4 plans à jour sur 4');
-    expect(html).toContain('href="#/plans"');
+    expect(html).not.toContain('<a ');
+    expect(html.match(/<button/g)).toHaveLength(1);
+    expect(html).toMatch(/<button[^>]*btn-secondary[^>]*>Voir les plans<\/button>/);
     expect(html).toContain('il y a 3 h');
     expect(html).toContain('<time dateTime="2026-11-18T14:02:00Z">18/11/2026 14:02</time>');
-    expect(html).not.toContain('<button');
     expect(html).not.toContain('Erreur inattendue');
   });
 
@@ -80,6 +82,18 @@ describe('OverviewView', () => {
     expect(html).not.toContain('empty');
     expect(html).not.toContain('Voir les plans');
     expect(html).not.toContain('Erreur inattendue');
+  });
+
+  it('Voir les plans opens the plans list', () => {
+    const win = { location: { hash: '' } };
+    vi.stubGlobal('window', win);
+    try {
+      const button = PlansAction() as { props: { onClick: () => void } };
+      button.props.onClick();
+      expect(win.location.hash).toBe(PLANS_HASH);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('unconfigured: Créer un plan opens the wizard, not the list', () => {
@@ -113,7 +127,7 @@ describe('OverviewView', () => {
       expect(html).not.toContain('Configurer');
       expect(html).toContain('<span aria-hidden="true">◷</span> En attente');
       expect(html).toContain('role="status"');
-      expect(html).not.toContain('<button');
+      expect(html.match(/<button/g)).toHaveLength(1);
       expect(html).toContain('Aucune sauvegarde n’est encore terminée.');
       expect(html).toContain('0 plan à jour sur 1');
       expect(html).toContain('Voir les plans');
@@ -122,11 +136,11 @@ describe('OverviewView', () => {
     }
   });
 
-  it('failed: one Voir l’erreur button, a plain message, last success date', () => {
+  it('failed: Voir l’erreur and Voir les plans buttons, a plain message, last success date', () => {
     const html = render(failed, false);
     expect(html).toContain('En échec');
     expect(html).toContain('La dernière exécution a échoué.');
-    expect(html.match(/<button/g)).toHaveLength(1);
+    expect(html.match(/<button/g)).toHaveLength(2);
     expect(html).toContain('Voir l’erreur');
     expect(html).toContain('2 plans à jour sur 4');
     expect(html).toContain('il y a 2 j');
