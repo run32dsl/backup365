@@ -656,7 +656,13 @@ export function TrackStep({
           detail={`${job.total} ${job.total > 1 ? 'éléments' : 'élément'} à traiter`}
         />
         {counts}
-        <p>Vous pouvez quitter cette page, la restauration continue.</p>
+        <WizardActions
+          back={
+            <a className="btn btn-secondary" href="#/audit">
+              {B.audit}
+            </a>
+          }
+        />
       </>
     );
   } else if (job.status === 'succeeded') {

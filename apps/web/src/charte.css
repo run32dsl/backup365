@@ -923,6 +923,10 @@ select[aria-disabled='true'] {
 .wizard-actions > :last-child {
   margin-left: auto;
 }
+/* Restauration en cours : le seul bouton (« Voir dans le journal d'audit ») reste à gauche. */
+.wizard-actions > .btn-secondary:only-child {
+  margin-left: 0;
+}
 /* Sans retour, l'action principale reste à droite ; l'aide qui la suit s'aligne avec elle. */
 @media (min-width: 40.01rem) {
   .wizard-actions + .field-help {

@@ -110,6 +110,19 @@ describe('restore journey', () => {
   it('shows one progress indicator while a restoration runs', () => {
     const html = renderToStaticMarkup(<RunningProgress />);
     expect(html).toContain('role="progressbar"');
+    expect(html).toContain('alert-info');
+    expect(html.indexOf('alert-info')).toBeLessThan(html.indexOf('role="progressbar"'));
+    expect(html).toContain('Vous pouvez quitter cette page, la restauration continue.');
+    expect(html.match(/Restauration en cours…/g)).toHaveLength(1);
+    expect(renderToStaticMarkup(<RunningProgress detail="5 éléments à traiter" />)).toContain(
+      'Restauration en cours… 5 éléments à traiter. Vous pouvez',
+    );
+    for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx']) {
+      const text = source(name);
+      expect(text).not.toContain('<p>Vous pouvez quitter cette page');
+      // Le lien du journal d'audit figure à l'état en cours, terminé et échoué.
+      expect(text.match(/\{B\.audit\}/g)?.length).toBeGreaterThanOrEqual(3);
+    }
     for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx']) {
       expect(source(name)).toContain('<RunningProgress');
     }
