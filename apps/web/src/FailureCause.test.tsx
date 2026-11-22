@@ -151,7 +151,8 @@ describe('plans card of the dashboard', () => {
 
   it('names the failed and late plans with pills, not in the counter text', () => {
     const plans = { total: 4, operational: 2, running: 0, queued: 0, failed: 1, late: 1 };
-    const html = render(plans, false);
+    const page = render(plans, false);
+    const html = page.slice(page.indexOf('>Plans<'), page.indexOf('>Dernière sauvegarde<'));
     expect(html).toContain('2 plans à jour sur 4</p>');
     expect(html).toContain('En échec</span> <strong>1</strong>');
     expect(html).toContain('En retard</span> <strong>1</strong>');
