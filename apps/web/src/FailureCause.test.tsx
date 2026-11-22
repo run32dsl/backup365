@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { OverviewView, plansSummary } from './Home.js';
+import { OverviewView } from './Home.js';
 import type { Overview } from './overview.js';
 import { PlansListView } from './PlansPage.js';
 import { FAILED_PLANS_HASH, complianceView, parsePlansHash, type PlanItem } from './plans.js';
@@ -149,10 +149,14 @@ describe('plans card of the dashboard', () => {
   const render = (plans: Overview['plans'], admin: boolean) =>
     renderToStaticMarkup(<OverviewView state={overview(plans)} admin={admin} onRetry={noop} />);
 
-  it('names the failed and late plans', () => {
+  it('names the failed and late plans with pills, not in the counter text', () => {
     const plans = { total: 4, operational: 2, running: 0, queued: 0, failed: 1, late: 1 };
-    expect(plansSummary(plans)).toBe('2 plans à jour sur 4 · 1 en échec · 1 en retard');
-    expect(plansSummary({ ...plans, failed: 0, late: 0 })).toBe('2 plans à jour sur 4');
+    const html = render(plans, false);
+    expect(html).toContain('2 plans à jour sur 4</p>');
+    expect(html).toContain('En échec</span> <strong>1</strong>');
+    expect(html).toContain('En retard</span> <strong>1</strong>');
+    expect(html).not.toContain('en échec');
+    expect(html).not.toContain('en retard');
   });
 
   it('without plan: one plain line, no empty state and no button, for both roles', () => {

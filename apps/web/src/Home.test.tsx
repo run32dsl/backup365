@@ -153,6 +153,20 @@ describe('OverviewView', () => {
     expect(render(operational)).not.toContain('plan-counts');
   });
 
+  it('Plans card: four states as pills, most serious first, none for a zero count', () => {
+    const all = render({ ...failed, plans: { ...failed.plans, running: 1, queued: 2 } });
+    const card = all.slice(all.indexOf('>Plans<'), all.indexOf('>Dernière sauvegarde<'));
+    const order = ['En échec', 'En retard', PLAN_MESSAGES.running, PLAN_MESSAGES.queued].map((w) =>
+      card.indexOf(`${w}</span> <strong>`),
+    );
+    expect(order.every((i) => i > 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(card.match(/class="badge /g)).toHaveLength(4);
+    expect(card).toContain('2 plans à jour sur 4</p>');
+    const none = render({ ...failed, plans: { ...failed.plans, failed: 0, late: 0 } });
+    expect(none).not.toContain('plan-counts');
+  });
+
   it('request error: an alert with Réessayer as the only action', () => {
     const html = render('error');
     expect(html).toContain('role="alert"');

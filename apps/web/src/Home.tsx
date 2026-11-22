@@ -41,17 +41,6 @@ const goToFailedPlans = () => {
   window.location.hash = FAILED_PLANS_HASH;
 };
 
-/** `3 plans à jour sur 4 · 1 en échec · 1 en retard` : les états anormaux sont nommés. */
-export function plansSummary(plans: Overview['plans']): string {
-  return [
-    plansLabel(plans.operational, plans.total),
-    plans.failed > 0 && `${plans.failed} en échec`,
-    plans.late > 0 && `${plans.late} en retard`,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-}
-
 function Card({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section className="overview-card" aria-labelledby={id}>
@@ -64,23 +53,26 @@ function Card({ id, title, children }: { id: string; title: string; children: Re
 }
 
 /**
- * Plans en cours et en file, avec les pastilles et les mots de la liste des plans ; rien quand
- * aucune sauvegarde ne tourne ni n'attend.
+ * Plans par état, du plus grave au moins grave, avec les pastilles et les mots de la liste des
+ * plans ; une pastille par état non nul, rien quand aucun plan n'est dans ces états.
  */
-function PlanActivity({ running, queued }: { running: number; queued: number }) {
-  if (running + queued === 0) return null;
+function PlanStates({ plans }: { plans: Overview['plans'] }) {
+  const states = [
+    { status: 'failed', count: plans.failed },
+    { status: 'late', count: plans.late },
+    { status: 'running', count: plans.running, label: PLAN_MESSAGES.running },
+    { status: 'pending', count: plans.queued, label: PLAN_MESSAGES.queued },
+  ] as const;
+  const shown = states.filter((s) => s.count > 0);
+  if (shown.length === 0) return null;
   return (
     <ul className="plan-counts">
-      {running > 0 && (
-        <li>
-          <StatusPill status="running" label={PLAN_MESSAGES.running} /> <strong>{running}</strong>
+      {shown.map((s) => (
+        <li key={s.status}>
+          <StatusPill status={s.status} label={'label' in s ? s.label : undefined} />{' '}
+          <strong>{s.count}</strong>
         </li>
-      )}
-      {queued > 0 && (
-        <li>
-          <StatusPill status="pending" label={PLAN_MESSAGES.queued} /> <strong>{queued}</strong>
-        </li>
-      )}
+      ))}
     </ul>
   );
 }
@@ -151,8 +143,8 @@ export function OverviewView({
           <p>Aucun plan pour l’instant.</p>
         ) : (
           <>
-            <p>{plansSummary(plans)}</p>
-            <PlanActivity running={plans.running} queued={plans.queued} />
+            <p>{plansLabel(plans.operational, plans.total)}</p>
+            <PlanStates plans={plans} />
             <a href={PLANS_HASH}>Voir les plans</a>
           </>
         )}
