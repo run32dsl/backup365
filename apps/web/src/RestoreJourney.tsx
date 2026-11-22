@@ -115,10 +115,10 @@ export function ReasonField({
 export function RunningProgress({ detail }: { detail?: ReactNode }) {
   return (
     <>
-      <p role="status">
-        <span className="spinner" aria-hidden="true" /> Restauration en cours…
-        {detail ? <> {detail}</> : null}
-      </p>
+      <Alert tone="info">
+        Restauration en cours…{detail ? <> {detail}.</> : null} Vous pouvez quitter cette page, la
+        restauration continue.
+      </Alert>
       {/* Le SDK ne rend pas de progression : barre sans valeur, jamais un pourcentage inventé. */}
       <div
         role="progressbar"
