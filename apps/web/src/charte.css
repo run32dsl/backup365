@@ -653,22 +653,30 @@ select[aria-disabled='true'] {
     overflow-wrap: anywhere;
   }
 
+  /* Boîte : l'adresse passe à la ligne après le « @ » seulement, jamais au milieu d'un mot. */
+  .data-table td.col-mailbox.address {
+    white-space: normal;
+  }
+  .data-table td.col-mailbox .addr-local,
+  .data-table td.col-mailbox .addr-domain {
+    white-space: nowrap;
+  }
+
   /*
-   * Objet : une seule ligne, tronquée par « … » (le titre complet est dans l'infobulle). C'est la
-   * colonne élastique du tableau : `max-width: 0` retire son texte du calcul des largeurs, elle
-   * prend la place que laissent les autres colonnes (au moins 8rem) et le tableau ne dépasse pas
-   * son conteneur quand la police ou les adresses sont plus larges.
+   * Objet : l'information cherchée, donc la colonne élastique du tableau (au moins 14rem). Le
+   * texte passe à la ligne, sur deux lignes au plus ; « … » n'apparaît qu'au-delà (le titre
+   * complet est dans l'infobulle).
    */
   .data-table .subject {
     width: 100%;
-    min-width: 8rem;
-    max-width: 0;
+    min-width: 14rem;
   }
   .data-table .subject a {
-    display: block;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
 

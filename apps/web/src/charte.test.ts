@@ -103,9 +103,28 @@ describe('charte.css data tables', () => {
     expect(/\.data-table td > \.badge\s*\{\s*justify-self:\s*start;/.test(css)).toBe(true);
   });
 
-  it('keeps addresses and subjects on one line on desktop', () => {
+  it('keeps addresses on one line on desktop', () => {
     expect(/\.data-table \.address\s*\{\s*white-space:\s*nowrap;/.test(css)).toBe(true);
-    expect(/\.data-table \.subject a\s*\{[^}]*text-overflow:\s*ellipsis;/.test(css)).toBe(true);
+  });
+
+  it('wraps mailbox addresses after the @ only', () => {
+    expect(/\.data-table td\.col-mailbox\.address\s*\{\s*white-space:\s*normal;/.test(css)).toBe(
+      true,
+    );
+    expect(
+      /\.data-table td\.col-mailbox \.addr-local,\s*\.data-table td\.col-mailbox \.addr-domain\s*\{\s*white-space:\s*nowrap;/.test(
+        css,
+      ),
+    ).toBe(true);
+  });
+
+  it('wraps subjects on at most two lines in a column of at least 14rem', () => {
+    expect(/\.data-table \.subject\s*\{[^}]*min-width:\s*14rem;/.test(css)).toBe(true);
+    expect(/\.data-table \.subject\s*\{[^}]*max-width/.test(css)).toBe(false);
+    const rule = /\.data-table \.subject a\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(rule).toMatch(/-webkit-line-clamp:\s*2;/);
+    expect(rule).toMatch(/line-clamp:\s*2;/);
+    expect(rule).not.toMatch(/white-space:\s*nowrap|text-overflow:\s*ellipsis/);
   });
 
   it('keeps words whole in keep-words cells', () => {
