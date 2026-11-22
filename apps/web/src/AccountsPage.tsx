@@ -84,7 +84,7 @@ const columns = (
       return (
         <div className="button-row">
           {last && (
-            <span id={`last-admin-${a.id}`} className="cell-secondary acct-reason">
+            <span id={`last-admin-${a.id}`} className="cell-secondary action-reason">
               {LAST_ADMIN_NOTICE}
             </span>
           )}
@@ -103,7 +103,7 @@ const columns = (
           {!a.oidc && (
             <Button
               variant="secondary"
-              className="acct-half"
+              className="action-half"
               {...lock}
               aria-label={`Modifier le rôle : ${a.username}`}
               onClick={() => {
@@ -114,7 +114,7 @@ const columns = (
             </Button>
           )}
           <Button
-            className={a.oidc ? undefined : 'acct-half'}
+            className={a.oidc ? undefined : 'action-half'}
             variant={a.disabled ? 'secondary' : 'danger'}
             {...lock}
             aria-label={`${a.disabled ? 'Réactiver' : 'Désactiver'} : ${a.username}`}
