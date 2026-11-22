@@ -6,6 +6,7 @@ import { ComponentsPage, UnavailableView } from './ComponentsPage.js';
 import { ConsoleFooter } from './ConsoleFooter.js';
 import { DemoBanner, demoOf, useHealth, type HealthState } from './DemoBanner.js';
 import { Home } from './Home.js';
+import { AdminProvider } from './role.js';
 import { CredentialsPage, ErrorView, PASSWORD_CHANGED, PasswordPage } from './LoginPage.js';
 import { MailPage } from './MailPage.js';
 import { OneDrivePage } from './OneDrivePage.js';
@@ -329,32 +330,34 @@ export function Console({
         />
       }
     >
-      {screen === 'components' && <ComponentsPage />}
-      {screen === 'unavailable' && <UnavailableView />}
-      {screen === 'audit' && <AuditPage />}
-      {screen === 'search' && (
-        <SearchPage key={hash} mailbox={parseSearchHash(hash) ?? undefined} />
-      )}
-      {screen === 'plans' && (
-        <PlansPage route={parsePlansHash(hash) ?? { page: 'list' }} admin={admin} />
-      )}
-      {screen === 'accounts' && <AccountsPage />}
-      {screen === 'forbidden' && <ForbiddenView />}
-      {screen === 'password' && (
-        <PasswordPage forced={false} onDone={() => undefined} onCancel={goHome} />
-      )}
-      {screen === 'mail' && mail && <MailPage key={hash} {...mail} />}
-      {screen === 'sharepoint' && (
-        <SharePointPage
-          key={hash}
-          route={parseSharePointHash(hash) ?? { site: '', scope: null, path: '/' }}
-          admin={admin}
-        />
-      )}
-      {screen === 'onedrive' && (
-        <OneDrivePage route={parseOneDriveHash(hash) ?? { account: '', path: '/' }} />
-      )}
-      {screen === 'home' && <Home admin={admin} />}
+      <AdminProvider value={admin}>
+        {screen === 'components' && <ComponentsPage />}
+        {screen === 'unavailable' && <UnavailableView />}
+        {screen === 'audit' && <AuditPage />}
+        {screen === 'search' && (
+          <SearchPage key={hash} mailbox={parseSearchHash(hash) ?? undefined} />
+        )}
+        {screen === 'plans' && (
+          <PlansPage route={parsePlansHash(hash) ?? { page: 'list' }} admin={admin} />
+        )}
+        {screen === 'accounts' && <AccountsPage />}
+        {screen === 'forbidden' && <ForbiddenView />}
+        {screen === 'password' && (
+          <PasswordPage forced={false} onDone={() => undefined} onCancel={goHome} />
+        )}
+        {screen === 'mail' && mail && <MailPage key={hash} {...mail} />}
+        {screen === 'sharepoint' && (
+          <SharePointPage
+            key={hash}
+            route={parseSharePointHash(hash) ?? { site: '', scope: null, path: '/' }}
+            admin={admin}
+          />
+        )}
+        {screen === 'onedrive' && (
+          <OneDrivePage route={parseOneDriveHash(hash) ?? { account: '', path: '/' }} />
+        )}
+        {screen === 'home' && <Home admin={admin} />}
+      </AdminProvider>
     </ConsoleView>
   );
 }

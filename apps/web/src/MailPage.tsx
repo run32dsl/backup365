@@ -2,7 +2,9 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { IndexedMail } from '@backup365/core';
 import { exportEml, fetchMail, isReasonValid, saveBlob } from './mail.js';
 import { dateTimeOrDash, folderLabel, sizeOf } from './format.js';
-import { API_ERRORS, splitTitle } from './apiError.js';
+import { apiErrorFor, splitTitle } from './apiError.js';
+import { ConfigurationLink } from './ConfigurationBlock.js';
+import { useAdmin } from './role.js';
 import { RestoreAction } from './RestoreAction.js';
 import { AuditReminder, REASON, RESTORE_BUTTONS as B, ReasonField } from './RestoreJourney.js';
 import {
@@ -19,10 +21,12 @@ export type MailState = IndexedMail | 'loading' | 'error';
 
 /** Restauration non configurée : cause courte en titre, conduite à tenir dans le corps. */
 export function RestoreUnavailable() {
-  const { title, text } = splitTitle(API_ERRORS['restore_unavailable'] ?? '');
+  const admin = useAdmin();
+  const { title, text } = splitTitle(apiErrorFor('restore_unavailable', admin) ?? '');
   return (
     <Alert tone="warning" {...(title ? { title } : {})}>
       {text}
+      {admin ? <ConfigurationLink /> : null}
     </Alert>
   );
 }
