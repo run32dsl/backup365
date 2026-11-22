@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   mailHref,
   initialSearchQuery,
   searchMails,
   searchQueryFromForm,
+  clearFilterFields,
   type SearchQuery,
   type SearchResponse,
 } from './mail.js';
@@ -75,12 +76,28 @@ export const SEARCH_HELP =
   'Cherchez un mail par objet ou expéditeur, dans une boîte et sur une période, puis ouvrez-le pour le restaurer ou l’exporter.';
 export const SEARCH_START = 'Lancez une recherche pour afficher les mails sauvegardés.';
 
-/** Phrase de l'état « sans résultat » : rappelle les critères et propose d'élargir. */
+/** Vrai si la requête porte un filtre de boîte ou de période. */
+export function hasSearchFilters(query?: SearchQuery): boolean {
+  return Boolean(query?.mailbox || query?.after || query?.before);
+}
+
+/** Phrase de l'état « sans résultat » : rappelle les critères saisis, ne conseille que ce qui est possible. */
 export function noResultText(query?: SearchQuery): string {
   const what = query?.q ? `« ${query.q} »` : 'cette recherche';
-  const period =
-    query?.after || query?.before ? 'dans cette période' : 'sur la période sauvegardée';
-  return `Aucun mail ne correspond à ${what} ${period}. Élargissez la période ou retirez le filtre de boîte.`;
+  const period = Boolean(query?.after || query?.before);
+  if (!query?.mailbox && !period) {
+    return `Aucun mail ne correspond à ${what} dans les sauvegardes. Vérifiez l’orthographe ou cherchez par expéditeur.`;
+  }
+  const where = [
+    query?.mailbox ? `dans la boîte ${query.mailbox}` : '',
+    period ? 'dans cette période' : '',
+  ].filter(Boolean);
+  const advice = [
+    query?.mailbox ? 'retirez le filtre de boîte' : '',
+    period ? 'élargissez la période' : '',
+  ].filter(Boolean);
+  const sentence = advice.join(' ou ');
+  return `Aucun mail ne correspond à ${what} ${where.join(', ')}. ${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`;
 }
 
 const RESTORE_HINT_ID = 'restore-not-configured';
@@ -96,6 +113,7 @@ export function SearchView({
   mailbox,
   filterRefused = false,
   query,
+  onClearFilters,
 }: {
   /** Critères saisis : l'état vide les reprend pour suggérer d'élargir la recherche. */
   query?: SearchQuery;
@@ -105,6 +123,8 @@ export function SearchView({
   /** Boîte filtrée : la colonne « Boîte » disparaît et la boîte est rappelée dans le compteur. */
   mailbox?: string;
   restoreConfigured?: boolean;
+  /** Vide boîte et période et relance la recherche ; le bouton n'apparaît que s'il y a un filtre. */
+  onClearFilters?: () => void;
   onPage?: (offset: number) => void;
 }) {
   if (state === 'loading') return <p role="status">Recherche en cours…</p>;
@@ -114,7 +134,17 @@ export function SearchView({
     return (
       <>
         {notice}
-        <EmptyState>{noResultText(query)}</EmptyState>
+        <EmptyState
+          action={
+            onClearFilters && hasSearchFilters(query) ? (
+              <Button variant="secondary" onClick={onClearFilters}>
+                Retirer les filtres
+              </Button>
+            ) : undefined
+          }
+        >
+          {noResultText(query)}
+        </EmptyState>
       </>
     );
   const base = mailbox ? COLUMNS.filter((c) => c !== MAILBOX_COLUMN) : COLUMNS;
@@ -186,6 +216,14 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
 
   const [errors, setErrors] = useState<DateRange>({ from: '', to: '' });
 
+  const formRef = useRef<HTMLFormElement>(null);
+
+  function clearFilters() {
+    const next = clearFilterFields(formRef.current?.elements, query);
+    setErrors({ from: '', to: '' });
+    if (next) setQuery(next);
+  }
+
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
@@ -199,7 +237,7 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
       <h1>Restaurer depuis la messagerie</h1>
       <p className="page-help">{SEARCH_HELP}</p>
       <AuditReminder />
-      <form onSubmit={submit} className="filters">
+      <form ref={formRef} onSubmit={submit} className="filters">
         <FormField label="Recherche" type="search" name="q" maxLength={256} />
         <FormField
           label="Boîte"
@@ -234,6 +272,7 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
           restoreConfigured={restoreConfigured}
           mailbox={query?.mailbox}
           filterRefused={hasDateError(errors)}
+          onClearFilters={clearFilters}
           onPage={(offset) => {
             if (query) setQuery({ ...query, offset });
           }}

@@ -10,7 +10,7 @@ import {
   runExport,
 } from './MailPage.js';
 import { submitFilters } from './audit.js';
-import { SEARCH_HELP, SEARCH_START, SearchPage, SearchView } from './SearchPage.js';
+import { SEARCH_HELP, SEARCH_START, SearchPage, SearchView, noResultText } from './SearchPage.js';
 import { AUDIT_REMINDER } from './RestoreJourney.js';
 import {
   exportEml,
@@ -23,6 +23,8 @@ import {
   searchHref,
   searchMails,
   searchQueryFromForm,
+  clearFilterFields,
+  withoutFilters,
 } from './mail.js';
 
 const mail = {
@@ -103,17 +105,81 @@ describe('SearchView', () => {
       <SearchView state={empty} query={{ q: 'devis', after: '2026-01-01' }} />,
     );
     expect(html).toContain('Aucun mail ne correspond à « devis » dans cette période.');
-    expect(html).toContain('Élargissez la période ou retirez le filtre de boîte.');
+    expect(html).toContain('Élargissez la période.');
+    expect(html).not.toContain('boîte');
   });
 
-  it('words the empty state without term or period', () => {
+  it('offers no filter advice and no button without mailbox nor period', () => {
     const empty = { total: 0, limit: 25, offset: 0, items: [] };
-    expect(renderToString(<SearchView state={empty} />)).toContain(
-      'Aucun mail ne correspond à cette recherche sur la période sauvegardée.',
+    const html = renderToString(
+      <SearchView state={empty} query={{ q: 'devis' }} onClearFilters={() => {}} />,
     );
-    expect(renderToString(<SearchView state={empty} query={{ before: '2026-01-01' }} />)).toContain(
-      'dans cette période.',
+    expect(html).toContain(
+      'Aucun mail ne correspond à « devis » dans les sauvegardes. Vérifiez l’orthographe ou cherchez par expéditeur.',
     );
+    expect(html).not.toMatch(/filtre|période|<button/);
+    expect(noResultText()).not.toMatch(/filtre|période/);
+  });
+
+  it('cites the mailbox and offers to remove the filters', () => {
+    const empty = { total: 0, limit: 25, offset: 0, items: [] };
+    const html = renderToString(
+      <SearchView
+        state={empty}
+        query={{ q: 'devis', mailbox: 'alice@example.test' }}
+        onClearFilters={() => {}}
+      />,
+    );
+    expect(html).toContain('dans la boîte alice@example.test. Retirez le filtre de boîte.');
+    expect(html).not.toContain('période');
+    expect(html).toContain('btn-secondary');
+    expect(html).toContain('Retirer les filtres');
+  });
+
+  it('says period alone without mentioning the mailbox, with the same button', () => {
+    const empty = { total: 0, limit: 25, offset: 0, items: [] };
+    const html = renderToString(
+      <SearchView state={empty} query={{ before: '2026-01-01' }} onClearFilters={() => {}} />,
+    );
+    expect(html).toContain('dans cette période.');
+    expect(html).not.toContain('boîte');
+    expect(html).toContain('Retirer les filtres');
+  });
+
+  it('clearing the filters keeps the term and restarts on the first page', () => {
+    expect(
+      withoutFilters({
+        q: 'devis',
+        mailbox: 'a@b.fr',
+        after: '2026-01-01',
+        before: '2026-02-01',
+        limit: 25,
+        offset: 50,
+      }),
+    ).toEqual({ q: 'devis', limit: 25, offset: 0 });
+  });
+
+  it('clearing the filters empties Boîte, Du and Au, keeps Recherche and restarts the search', () => {
+    const fields: Record<string, { value: string }> = {
+      q: { value: ' contrat ' },
+      mailbox: { value: 'a@b.fr' },
+      after: { value: '2026-01-01' },
+      before: { value: '2026-02-01' },
+    };
+    const form = { namedItem: (name: string) => fields[name] ?? null };
+    const next = clearFilterFields(form, {
+      q: 'ancien',
+      mailbox: 'a@b.fr',
+      after: '2026-01-01',
+      limit: 25,
+      offset: 50,
+    });
+    expect(fields.mailbox?.value).toBe('');
+    expect(fields.after?.value).toBe('');
+    expect(fields.before?.value).toBe('');
+    expect(fields.q?.value).toBe(' contrat ');
+    expect(next).toEqual({ q: 'contrat', limit: 25, offset: 0 });
+    expect(clearFilterFields(form, null)).toBeNull();
   });
 
   it('shows no start empty state while a preset mailbox search loads', () => {
