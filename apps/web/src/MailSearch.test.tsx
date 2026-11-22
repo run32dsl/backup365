@@ -23,6 +23,7 @@ import {
   searchHref,
   searchMails,
   searchQueryFromForm,
+  clearFilterFields,
   withoutFilters,
 } from './mail.js';
 
@@ -156,6 +157,29 @@ describe('SearchView', () => {
         offset: 50,
       }),
     ).toEqual({ q: 'devis', limit: 25, offset: 0 });
+  });
+
+  it('clearing the filters empties Boîte, Du and Au, keeps Recherche and restarts the search', () => {
+    const fields: Record<string, { value: string }> = {
+      q: { value: ' contrat ' },
+      mailbox: { value: 'a@b.fr' },
+      after: { value: '2026-01-01' },
+      before: { value: '2026-02-01' },
+    };
+    const form = { namedItem: (name: string) => fields[name] ?? null };
+    const next = clearFilterFields(form, {
+      q: 'ancien',
+      mailbox: 'a@b.fr',
+      after: '2026-01-01',
+      limit: 25,
+      offset: 50,
+    });
+    expect(fields.mailbox?.value).toBe('');
+    expect(fields.after?.value).toBe('');
+    expect(fields.before?.value).toBe('');
+    expect(fields.q?.value).toBe(' contrat ');
+    expect(next).toEqual({ q: 'contrat', limit: 25, offset: 0 });
+    expect(clearFilterFields(form, null)).toBeNull();
   });
 
   it('shows no start empty state while a preset mailbox search loads', () => {

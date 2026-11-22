@@ -4,7 +4,7 @@ import {
   initialSearchQuery,
   searchMails,
   searchQueryFromForm,
-  withoutFilters,
+  clearFilterFields,
   type SearchQuery,
   type SearchResponse,
 } from './mail.js';
@@ -219,16 +219,9 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
   const formRef = useRef<HTMLFormElement>(null);
 
   function clearFilters() {
-    for (const name of ['mailbox', 'after', 'before']) {
-      const field = formRef.current?.elements.namedItem(name);
-      if (field instanceof HTMLInputElement) field.value = '';
-    }
+    const next = clearFilterFields(formRef.current?.elements, query);
     setErrors({ from: '', to: '' });
-    const q = formRef.current?.elements.namedItem('q');
-    if (query)
-      setQuery(
-        withoutFilters({ ...query, q: q instanceof HTMLInputElement ? q.value.trim() : query.q }),
-      );
+    if (next) setQuery(next);
   }
 
   function submit(e: FormEvent<HTMLFormElement>) {
