@@ -6,6 +6,7 @@ import {
   AUDIT_REMINDER,
   AuditReminder,
   REASON,
+  REASON_EXAMPLES,
   RESTORE_BUTTONS,
   RESTORE_STEPS,
   RESULT_TITLES,
@@ -28,7 +29,9 @@ describe('restore journey', () => {
   });
 
   it('renders one reason block, limited by the same constant', () => {
-    const html = renderToStaticMarkup(<ReasonField value="" onChange={() => undefined} />);
+    const html = renderToStaticMarkup(
+      <ReasonField placeholder={REASON_EXAMPLES.restore} value="" onChange={() => undefined} />,
+    );
     expect(REASON.maxLength).toBe(MAX_REASON_LENGTH);
     expect(html).toContain('Motif de la restauration (obligatoire)');
     expect(html).toContain(`maxLength="${MAX_REASON_LENGTH}"`);
@@ -73,13 +76,18 @@ describe('restore journey', () => {
       expect(reasonLabel(of)).toBe(`Motif ${of} (obligatoire)`);
     }
     const html = renderToStaticMarkup(
-      <ReasonField of="de l’export" value="" onChange={() => undefined} />,
+      <ReasonField
+        of="de l’export"
+        placeholder={REASON_EXAMPLES.export}
+        value=""
+        onChange={() => undefined}
+      />,
     );
     expect(html).toContain(REASON.help);
     expect(html).toContain(`0 / ${MAX_REASON_LENGTH}`);
     expect(html).not.toContain('*');
     const plans = source('PlansPage.tsx');
-    expect(plans).toContain('<ReasonField of="du lancement"');
+    expect(plans).toMatch(/<ReasonField\s+of="du lancement"/);
     expect(plans).not.toContain('RUN_REASONS');
     expect(plans).not.toContain('id="run-reason"');
     expect(plans).not.toContain('AuditReminder');
@@ -147,6 +155,44 @@ describe('restore journey', () => {
       for (const phrase of banned) expect(text, `${file}: ${phrase}`).not.toContain(phrase);
     }
     expect(Object.values(RESTORE_BUTTONS)).not.toContain('Retour');
+  });
+});
+
+describe('reason examples', () => {
+  const ACTIONS = Object.entries(REASON_EXAMPLES);
+
+  it('gives each kind of action its own short example', () => {
+    expect(new Set(Object.values(REASON_EXAMPLES)).size).toBe(ACTIONS.length);
+    for (const [action, example] of ACTIONS) {
+      expect(example.length, action).toBeLessThanOrEqual(40);
+    }
+  });
+
+  it('keeps « suppression » out of every example except the restore one', () => {
+    for (const [action, example] of ACTIONS) {
+      if (action !== 'restore') expect(example, action).not.toMatch(/suppression/i);
+    }
+  });
+
+  it('renders the example it receives as the placeholder', () => {
+    for (const [action, example] of ACTIONS) {
+      const html = renderToStaticMarkup(
+        <ReasonField placeholder={example} value="" onChange={() => undefined} />,
+      );
+      expect(html, action).toContain(`placeholder="${example}"`);
+    }
+  });
+
+  it('passes an explicit example at every use of ReasonField', () => {
+    const files = readdirSync(dir).filter((f) => /\.tsx$/.test(f) && !/\.test\.tsx$/.test(f));
+    let uses = 0;
+    for (const f of files) {
+      for (const tag of source(f).match(/<ReasonField[\s\S]*?\/>/g) ?? []) {
+        uses += 1;
+        expect(tag, f).toMatch(/placeholder=\{[^}]*REASON_EXAMPLES\.\w+/);
+      }
+    }
+    expect(uses).toBeGreaterThanOrEqual(9);
   });
 });
 

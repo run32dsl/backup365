@@ -50,10 +50,20 @@ export const AUDIT_REMINDER =
 export const REASON = {
   label: 'Motif de la restauration (obligatoire)',
   help: 'Ce motif sera inscrit au journal d’audit. N’y saisissez pas de donnée personnelle.',
-  placeholder: 'Ticket INC-12345 : suppression accidentelle',
   error: 'Indiquez un motif pour continuer.',
   /** Une seule limite pour les trois parcours (celle du serveur). */
   maxLength: MAX_REASON_LENGTH,
+} as const;
+
+/** Exemple du motif, propre à l'action (40 caractères au plus, sans donnée personnelle). */
+export const REASON_EXAMPLES = {
+  restore: 'Ticket INC-12345 : suppression erronée',
+  export: 'Ticket INC-12345 : demande d’accès',
+  run: 'Ticket INC-12345 : relance après échec',
+  deletePlan: 'Ticket INC-12345 : plan remplacé',
+  resetPassword: 'Ticket INC-12345 : mot de passe oublié',
+  changeRole: 'Ticket INC-12345 : changement de poste',
+  disableAccount: 'Ticket INC-12345 : départ de l’agent',
 } as const;
 
 /** Libellé du motif : « Motif <of> (obligatoire) », ex. « du lancement ». */
@@ -85,8 +95,11 @@ export function ReasonField({
   value,
   error,
   of,
+  placeholder,
   onChange,
 }: {
+  /** Exemple grisé, propre à l'action : voir `REASON_EXAMPLES`. */
+  placeholder: string;
   /** Complément du libellé : « de la restauration » (défaut), « de l’export »… */
   of?: string;
   value: string;
@@ -100,7 +113,7 @@ export function ReasonField({
       name="reason"
       required
       counterMax={REASON.maxLength}
-      placeholder={REASON.placeholder}
+      placeholder={placeholder}
       help={REASON.help}
       error={error}
       value={value}

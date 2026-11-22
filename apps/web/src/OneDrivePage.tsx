@@ -40,6 +40,7 @@ import { RestoreNotConfigured } from './RestoreAction.js';
 import {
   AuditReminder,
   REASON,
+  REASON_EXAMPLES,
   RESTORE_BUTTONS as B,
   RESTORE_STEPS,
   ReasonField,
@@ -450,7 +451,12 @@ function ReasonStep({
 
   return (
     <form onSubmit={submit} noValidate>
-      <ReasonField value={reason} error={error} onChange={setReason} />
+      <ReasonField
+        placeholder={REASON_EXAMPLES.restore}
+        value={reason}
+        error={error}
+        onChange={setReason}
+      />
       <WizardActions
         back={
           <Button variant="secondary" data-safe onClick={onBack}>

@@ -46,7 +46,7 @@ import {
 import { problemMessage, splitTitle, type Problem } from './apiError.js';
 import { useAdmin } from './role.js';
 import { MAX_REASON_LENGTH } from './mail.js';
-import { ReasonField } from './RestoreJourney.js';
+import { REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
 import {
   Alert,
   Button,
@@ -471,7 +471,13 @@ function RunDialog({
             });
           }}
         >
-          <ReasonField of="du lancement" value={reason} error={error} onChange={setReason} />
+          <ReasonField
+            of="du lancement"
+            placeholder={REASON_EXAMPLES.run}
+            value={reason}
+            error={error}
+            onChange={setReason}
+          />
           <RunFeedback problem={problem} busy={busy} onClose={onClose} />
         </form>
       )}
@@ -515,7 +521,13 @@ export function DeleteForm({
         effacé. Les sauvegardes déjà faites restent dans le stockage : la console ne les supprime
         pas.
       </Alert>
-      <ReasonField of="de la suppression" value={reason} error={error} onChange={setReason} />
+      <ReasonField
+        of="de la suppression"
+        placeholder={REASON_EXAMPLES.deletePlan}
+        value={reason}
+        error={error}
+        onChange={setReason}
+      />
       {failure && <PlanFailure problem={failure} />}
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onCancel}>
