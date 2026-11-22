@@ -182,6 +182,31 @@ export function restoredContentLabel(scope: SiteScope, path: string): string {
   return `${kind} : ${pathLabel(path)}`;
 }
 
+/** Valeur de la ligne « Fichiers déjà présents » : la restauration ne remplace jamais. */
+export const EXISTING_FILES_KEPT = 'conservés, non remplacés';
+
+/**
+ * Destination réelle : les éléments reviennent à leur emplacement d'origine, dans la bibliothèque
+ * pour un élément, un dossier ou une bibliothèque ; à chaque emplacement pour le site entier.
+ */
+export function locationOf(scope: SiteScope, siteName: string, path: string): string {
+  if (scope === 'site') return 'Emplacement d’origine de chaque élément';
+  const library = path.split('/').filter(Boolean)[0];
+  return `${[siteName, library].filter(Boolean).join(' > ')} (emplacement d’origine)`;
+}
+
+/** Lignes « Emplacement » et « Fichiers déjà présents », communes au récapitulatif et aux résultats. */
+export function placementRows(
+  scope: SiteScope,
+  siteName: string,
+  path: string,
+): [string, string][] {
+  return [
+    [RESTORE_LABELS.location, locationOf(scope, siteName, path)],
+    [RESTORE_LABELS.existingFiles, EXISTING_FILES_KEPT],
+  ];
+}
+
 /** Granularité de restauration déduite de la ligne cochée. */
 export function scopeOfKind(kind: SiteEntry['kind']): SiteScope {
   return kind === 'file' ? 'item' : kind;
@@ -222,6 +247,7 @@ export function confirmRowsOf(input: {
     ['Site', input.siteName],
     [RESTORE_LABELS.item, restoredContentLabel(input.scope, input.path)],
     [RESTORE_LABELS.backupAt, dateTimeOf(input.pointAt)],
+    ...placementRows(input.scope, input.siteName, input.path),
   ];
   if (input.summary) {
     // Site entier : seul le nombre d'éléments est annoncé.
@@ -234,11 +260,6 @@ export function confirmRowsOf(input: {
   }
   rows.push(['Motif', input.reason]);
   return rows;
-}
-
-/** Conséquence en texte courant sous le récapitulatif ; `null` quand un bandeau la porte. */
-export function consequenceOf(scope: SiteScope): string | null {
-  return scope === 'site' ? null : 'Les fichiers existants ne seront pas remplacés.';
 }
 
 /** Site entier : titre du bandeau d'avertissement. */

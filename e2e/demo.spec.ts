@@ -272,7 +272,7 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   // Récapitulatif en langage clair, sans écrasement.
   await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
   await expect(page.getByText('Bibliothèque : Documents partagés', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Les fichiers existants ne seront pas remplacés/)).toBeVisible();
+  await expect(page.getByText(/Fichiers déjà présents/)).toBeVisible();
   await expect(page.getByText('Ticket #9 : essai trimestriel', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
 

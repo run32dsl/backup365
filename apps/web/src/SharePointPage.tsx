@@ -41,7 +41,7 @@ import {
   startSiteRestore,
   restoredContentLabel,
   confirmRowsOf,
-  consequenceOf,
+  placementRows,
   SITE_WARNING_TITLE,
   siteWarningOf,
   type Site,
@@ -526,7 +526,6 @@ export function ConfirmStep({
           reason,
         })}
       />
-      {!whole && <p>{consequenceOf(choice.scope)}</p>}
       {summary === null && <p role="status">{T.loading}</p>}
       {whole && (
         <>
@@ -638,10 +637,11 @@ export function TrackStep({
       restoredContentLabel(job.scope, job.path),
     ],
   ];
+  if (pointAt) countRows.push([RESTORE_LABELS.backupAt, dateTimeOf(pointAt)]);
+  countRows.push(...placementRows(job.scope, siteName, job.path));
   if (job.status === 'failed' && job.restored > 0) {
     countRows.push(['Éléments restaurés', job.restored]);
   }
-  if (pointAt) countRows.push([RESTORE_LABELS.backupAt, dateTimeOf(pointAt)]);
   if (job.status === 'succeeded' && job.copyName) countRows.push(['Restauré sous', job.copyName]);
   if (failedNormally && untreated > 0) countRows.push(['Éléments non traités', untreated]);
   if (job.status !== 'running' && job.errors > 0) {

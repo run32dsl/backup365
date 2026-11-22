@@ -11,4 +11,8 @@ export const RESTORE_LABELS = {
   item: 'Élément',
   /** Objet restauré, résultat. */
   itemRestored: 'Élément restauré',
+  /** Destination des éléments restaurés, récapitulatif et résultat. */
+  location: 'Emplacement',
+  /** Sort des fichiers déjà présents à la destination (SharePoint). */
+  existingFiles: 'Fichiers déjà présents',
 } as const;
