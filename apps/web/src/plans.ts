@@ -90,7 +90,7 @@ export function retentionLabel(days: number): string {
 /** Aide et exemple du champ « Justification de cette durée ». */
 export const JUSTIFICATION_HELP =
   'Les durées longues doivent rester justifiées au regard du RGPD. N’y saisissez pas de donnée personnelle.';
-export const JUSTIFICATION_PLACEHOLDER = 'Obligation légale : conservation des courriers 1 an';
+export const JUSTIFICATION_PLACEHOLDER = 'Obligation légale : courriers 1 an';
 
 export const MESSAGES = {
   loading: 'Chargement des plans…',
