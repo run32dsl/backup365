@@ -83,23 +83,43 @@ describe('gestion des comptes', () => {
     const { app, audit, auth } = setup();
     const bob = sessionFor(auth, 'bob', 'operator');
     const id = bob.account.id;
-    const disabled = await send(app, 'PATCH', `/api/accounts/${id}`, { disabled: true });
+    const disabled = await send(app, 'PATCH', `/api/accounts/${id}`, {
+      disabled: true,
+      reason: 'Départ',
+    });
     expect(disabled.json()).toMatchObject({ username: 'bob', disabled: true });
     // La session de bob s'arrête immédiatement.
     expect((await buildAppGet(app, bob.headers)).statusCode).toBe(401);
     expect(
-      (await send(app, 'PATCH', `/api/accounts/${id}`, { disabled: false, role: 'admin' })).json(),
+      (
+        await send(app, 'PATCH', `/api/accounts/${id}`, {
+          disabled: false,
+          role: 'admin',
+          reason: ' Promotion ',
+        })
+      ).json(),
     ).toMatchObject({
       disabled: false,
       role: 'admin',
     });
-    expect((await send(app, 'PATCH', '/api/accounts/9999', { disabled: true })).statusCode).toBe(
-      404,
-    );
+    expect(
+      (await send(app, 'PATCH', '/api/accounts/9999', { disabled: true, reason: 'x' })).statusCode,
+    ).toBe(404);
     expect((await send(app, 'PATCH', `/api/accounts/${id}`, {})).statusCode).toBe(400);
+    const tooLong = await send(app, 'PATCH', `/api/accounts/${id}`, {
+      disabled: true,
+      reason: 'x'.repeat(201),
+    });
+    expect(tooLong.statusCode).toBe(400);
+    // Rôle et désactivation exigent un motif ; la réactivation seule n'en demande pas.
+    for (const patch of [{ role: 'admin' }, { disabled: true, reason: '  ' }]) {
+      const res = await send(app, 'PATCH', `/api/accounts/${id}`, patch);
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toEqual({ error: 'reason_required' });
+    }
     expect((await log(audit)).map((e) => [e.actor, e.action, e.target, e.reason])).toEqual([
-      ['root', 'account.update', 'bob', 'disabled:true'],
-      ['root', 'account.update', 'bob', 'role:admin,disabled:false'],
+      ['root', 'account.update', 'bob', 'disabled:true;reason=Départ'],
+      ['root', 'account.update', 'bob', 'role:admin,disabled:false;reason=Promotion'],
     ]);
   });
 
@@ -107,9 +127,9 @@ describe('gestion des comptes', () => {
     const { app, session, auth } = setup();
     const id = session.account.id;
     for (const patch of [
-      { disabled: true },
-      { role: 'operator' },
-      { role: 'operator', disabled: true },
+      { disabled: true, reason: 'x' },
+      { role: 'operator', reason: 'x' },
+      { role: 'operator', disabled: true, reason: 'x' },
     ]) {
       const res = await send(app, 'PATCH', `/api/accounts/${id}`, patch);
       expect(res.statusCode, JSON.stringify(patch)).toBe(409);
@@ -118,16 +138,20 @@ describe('gestion des comptes', () => {
     expect(auth.accounts.findById(id)).toMatchObject({ role: 'admin', disabled: false });
     // Un second administrateur actif lève l'interdiction.
     sessionFor(auth, 'second', 'admin');
-    expect((await send(app, 'PATCH', `/api/accounts/${id}`, { role: 'operator' })).statusCode).toBe(
-      200,
-    );
+    expect(
+      (await send(app, 'PATCH', `/api/accounts/${id}`, { role: 'operator', reason: 'x' }))
+        .statusCode,
+    ).toBe(200);
   });
 
   it('does not count a disabled administrator as an administrator', async () => {
     const { app, session, auth } = setup();
     const other = sessionFor(auth, 'second', 'admin').account;
     auth.accounts.update(other.id, { disabled: true });
-    const res = await send(app, 'PATCH', `/api/accounts/${session.account.id}`, { disabled: true });
+    const res = await send(app, 'PATCH', `/api/accounts/${session.account.id}`, {
+      disabled: true,
+      reason: 'Départ',
+    });
     expect(res.statusCode).toBe(409);
   });
 

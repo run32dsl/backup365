@@ -280,14 +280,14 @@ describe('connexion Microsoft', () => {
     const patch = await app.inject({
       method: 'PATCH',
       url: `/api/accounts/${oidcAccount.id}`,
-      payload: { role: 'admin' },
+      payload: { role: 'admin', reason: 'test' },
       headers,
     });
     expect(patch.statusCode).toBe(409);
     const disable = await app.inject({
       method: 'PATCH',
       url: `/api/accounts/${oidcAccount.id}`,
-      payload: { disabled: true },
+      payload: { disabled: true, reason: 'test' },
       headers,
     });
     expect(disable.statusCode).toBe(200);

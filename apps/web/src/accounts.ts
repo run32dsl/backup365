@@ -26,7 +26,8 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
 /** Textes d'état de l'écran des comptes. */
 export const NO_OPERATOR = 'Aucun opérateur pour l’instant.';
 export const OIDC_PASSWORD_NOTICE = 'Mot de passe géré par Microsoft';
-export const LAST_ADMIN_NOTICE = 'Dernier administrateur : ce compte ne peut pas être désactivé.';
+export const LAST_ADMIN_NOTICE =
+  'Dernier administrateur : ce compte ne peut être ni désactivé ni rétrogradé.';
 
 /** Vrai pour l'unique administrateur actif : ni désactivation ni changement de rôle possibles. */
 export function isLastAdmin(accounts: AccountInfo[], account: AccountInfo): boolean {
@@ -67,7 +68,7 @@ export const createAccount = (
 
 export const updateAccount = (
   id: number,
-  patch: { role?: Role; disabled?: boolean },
+  patch: { role?: Role; disabled?: boolean; reason?: string },
   fetchFn: typeof fetch = fetch,
 ) => send(fetchFn, 'PATCH', `/api/accounts/${id}`, patch);
 
