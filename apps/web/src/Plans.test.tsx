@@ -175,11 +175,11 @@ describe('plan form', () => {
   });
 
   it('announces the first planned backup', () => {
-    expect(createdMessage({ id: 'p1', rpoHours: 12 })).toMatch(
-      /^Plan créé\. Première sauvegarde prévue à \d\d:\d\d\.$/,
+    expect(createdMessage({ id: 'p1', name: 'Direction', rpoHours: 12 })).toMatch(
+      /^Le plan « Direction » a été créé\. Première sauvegarde prévue à \d\d:\d\d\.$/,
     );
-    expect(createdMessage({ id: 'p1', rpoHours: 24 })).toBe(
-      'Plan créé. Première sauvegarde prévue cette nuit.',
+    expect(createdMessage({ id: 'p1', name: 'Direction', rpoHours: 24 })).toBe(
+      'Le plan « Direction » a été créé. Première sauvegarde prévue cette nuit.',
     );
   });
 });

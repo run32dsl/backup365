@@ -477,7 +477,7 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await expect(page.locator('dd', { hasText: '3 ans' }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Créer le plan' }).click();
   await expect(
-    page.getByText(/Plan créé\. Première sauvegarde prévue à \d\d:\d\d\./),
+    page.getByText(/Le plan « .+ » a été créé\. Première sauvegarde prévue à \d\d:\d\d\./),
   ).toBeVisible();
   await expect(page).toHaveURL(/#\/plans$/);
   await expect(
