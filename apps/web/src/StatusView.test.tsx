@@ -104,9 +104,37 @@ describe('StatusView', () => {
     ];
     const html = renderToString(<StatusView state={{ ...report, services }} />);
     expect(html).toContain('Services');
-    expect(html).toContain('365 jours');
+    expect(html).toContain('1 an');
+    expect(html).not.toContain('365 jours');
     expect(html).toContain('Toutes les boîtes');
     expect(html.match(/row-muted/g)).toHaveLength(1);
+  });
+
+  it('writes the retention as the plans do: 1 an, 3 ans, or days otherwise', () => {
+    const nbsp = String.fromCharCode(160);
+    for (const [days, label, absent] of [
+      [365, '1 an', '365 jours'],
+      [1095, '3 ans', '1095 jours'],
+      [180, '6 mois', '180 jours'],
+      [90, '90 jours', '90 jour'],
+      [1, '1 jour', '1 jours'],
+    ] as const) {
+      const services: NonNullable<StatusReport['services']> = [
+        {
+          service: 'mail',
+          hasPlan: true,
+          lastSnapshotAt: '2026-11-12T06:00:00Z',
+          ageHours: 6,
+          state: 'ok',
+          retentionDays: days,
+          scope: { kind: 'all' },
+          awaitingFirstRun: false,
+        },
+      ];
+      const html = renderToString(<StatusView state={{ ...report, services }} />);
+      expect(html).toContain(`>${label.replace(' ', nbsp)}<`);
+      expect(html).not.toContain(`>${absent.replace(' ', nbsp)}<`);
+    }
   });
 
   describe('services (page « Sources »)', () => {

@@ -84,7 +84,7 @@ export function retentionLabel(days: number): string {
   if (days === 180) return '6\u00a0mois';
   if (days === 365) return '1\u00a0an';
   if (days % 365 === 0) return `${days / 365}\u00a0ans`;
-  return `${days}\u00a0jours`;
+  return `${days}\u00a0jour${days === 1 ? '' : 's'}`;
 }
 
 /** Aide et exemple du champ « Justification de cette durée ». */

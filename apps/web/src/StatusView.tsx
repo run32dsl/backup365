@@ -6,7 +6,7 @@ import type {
   StatusReport,
 } from '@backup365/core';
 import { Alert, Button, DataTable, EmptyState, StatusPill, type Column } from './ui/index.js';
-import { PLANS_HASH, lateNote, runLabel } from './plans.js';
+import { PLANS_HASH, lateNote, retentionLabel, runLabel } from './plans.js';
 import { searchHref } from './mail.js';
 import { ageLabel, dateTimeOf, dateTimeOrDash, plural, workloadLabel } from './format.js';
 import { AUDIT_HASH } from './routes.js';
@@ -190,7 +190,7 @@ const serviceColumns = (rows: readonly Row[]): Column<ServiceEntry>[] => [
   { header: 'État', cell: (s) => <ServiceState service={s} rows={rows} /> },
   {
     header: 'Conservation',
-    cell: (s) => (s.retentionDays === null ? '' : plural(s.retentionDays, 'jour')),
+    cell: (s) => (s.retentionDays === null ? '' : retentionLabel(s.retentionDays)),
   },
   { header: 'Périmètre', cell: scopeLabel },
 ];
