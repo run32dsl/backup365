@@ -1505,6 +1505,16 @@ a.btn-secondary {
   padding-top: var(--space-4);
   border-top: 1px solid var(--border);
 }
+/* Actions seules d'une fiche de mail et réessai d'un stockage indisponible : pleine largeur sous
+   900 px, comme la sortie d'un refus de droit. */
+@media (max-width: 56.25rem) {
+  .mail-section > .btn,
+  .storage-unavailable > .btn {
+    display: flex;
+    width: 100%;
+    min-height: 2.75rem;
+  }
+}
 @media (max-width: 40rem) {
   .meta-row {
     grid-template-columns: 1fr;
