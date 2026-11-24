@@ -24,6 +24,7 @@ import {
   runReasonError,
   OBJECTIVE_LABELS,
   recapRows,
+  errorSummary,
   validateStep,
   JUSTIFICATION_PLACEHOLDER,
   type PlanItem,
@@ -99,17 +100,27 @@ describe('plan form', () => {
 
   it('refuses a missing name, no data type, an empty selection and a missing justification', () => {
     expect(validateStep({ ...emptyForm(), dataTypes: [] }, 1)).toEqual({
-      name: 'Indiquez un nom pour le plan.',
-      dataTypes: 'Choisissez au moins un type de données.',
+      name: 'Saisissez un nom pour le plan.',
+      dataTypes: 'Choisissez au moins un élément à protéger.',
     });
     expect(
       validateStep({ ...emptyForm(), name: 'a', scope: 'selection' }, 1).selection,
     ).toBeDefined();
     expect(validateStep(emptyForm(), 2).justification).toBe(
-      'Indiquez la justification de la durée de conservation.',
+      'Indiquez pourquoi cette durée est nécessaire.',
     );
     expect(validateStep({ ...emptyForm(), justification: '   ' }, 2).justification).toBeDefined();
     expect(validateStep({ ...emptyForm(), justification: 'x' }, 2)).toEqual({});
+  });
+
+  it('refuses a name already taken, case and spaces ignored', () => {
+    const form = { ...emptyForm(), name: '  messagerie DIRECTION ' };
+    expect(validateStep(form, 1, ['Messagerie Direction']).name).toBe(
+      'Ce nom est déjà utilisé. Choisissez-en un autre.',
+    );
+    expect(validateStep(form, 1, ['Autre plan']).name).toBeUndefined();
+    expect(errorSummary(1)).toBe('1 point à corriger avant de continuer');
+    expect(errorSummary(2)).toBe('2 points à corriger avant de continuer');
   });
 
   it('keeps the justification as typed in the form, the payload and the recap', () => {

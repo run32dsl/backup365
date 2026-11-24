@@ -753,33 +753,45 @@ export const SCREENS = [
     },
   },
   {
-    name: 'plans-etape-1',
+    name: 'plans-creation-etape-1',
     hash: '#/plans/nouveau',
     role: 'admin',
     prepare: async (page) => {
-      await page.getByLabel('Nom du plan').fill('Messagerie Direction');
+      await page.getByLabel('Nom du plan').fill('Plan de démonstration');
     },
   },
   {
-    name: 'plans-etape-2',
+    name: 'plans-creation-etape-2',
     hash: '#/plans/nouveau',
     role: 'admin',
     prepare: async (page) => {
-      await page.getByLabel('Nom du plan').fill('Messagerie Direction');
+      await page.getByLabel('Nom du plan').fill('Plan de démonstration');
       await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByText('Étape 2 sur 3 : Objectifs').waitFor();
     },
   },
   {
-    name: 'plans-etape-3',
+    name: 'plans-creation-etape-3',
     hash: '#/plans/nouveau',
     role: 'admin',
     prepare: async (page) => {
-      await page.getByLabel('Nom du plan').fill('Messagerie Direction');
+      await page.getByLabel('Nom du plan').fill('Plan de démonstration');
       await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByLabel('Justification de cette durée (obligatoire)').fill('Obligation légale');
       await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByText('Étape 3 sur 3 : Récapitulatif').waitFor();
+    },
+  },
+  {
+    name: 'plans-creation-erreur',
+    hash: '#/plans/nouveau',
+    role: 'admin',
+    prepare: async (page) => {
+      // Nom déjà pris et périmètre vide : les deux erreurs, le focus sur le nom.
+      await page.getByLabel('Nom du plan').fill('Messagerie Direction');
+      await page.getByRole('radio', { name: 'Boîtes et comptes choisis' }).check();
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await page.getByText('Ce nom est déjà utilisé. Choisissez-en un autre.').waitFor();
     },
   },
   {
