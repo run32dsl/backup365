@@ -34,6 +34,8 @@ describe('réinitialisation : étape 3', () => {
     );
     expect(html).toContain(password);
     expect(html).toContain('aria-label="Mot de passe temporaire"');
+    // Hors de l'ordre de tabulation : le focus initial est sur « Copier » (e2e).
+    expect(html).not.toContain('tabindex');
     expect(html).toContain('Affiché une seule fois. Il ne pourra plus être consulté.');
     expect(html).toContain('>Copier</button>');
     expect(html).toContain('J’ai transmis le mot de passe');

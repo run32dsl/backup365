@@ -180,7 +180,7 @@ test('réinitialisation : motif obligatoire, mot de passe affiché une seule foi
   const step3 = page.getByRole('dialog', { name: 'Mot de passe temporaire' });
   const password = step3.getByLabel('Mot de passe temporaire');
   await expect(password).toHaveText(TEMPORARY);
-  await expect(password).toBeFocused();
+  await expect(step3.getByRole('button', { name: 'Copier' })).toBeFocused();
   expect(JSON.parse(bodies[0]!)).toEqual({ reason: 'Oubli du mot de passe' });
 
   await step3.getByRole('button', { name: 'Copier' }).click();
@@ -201,6 +201,59 @@ test('réinitialisation : motif obligatoire, mot de passe affiché une seule foi
   expect(await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]))).not.toContain(
     TEMPORARY,
   );
+});
+
+test('mot de passe temporaire : sans case cochée, ni « ✕ » ni Échap ; le focus reste dans la boîte', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  await page.route('**/api/accounts/*/reset-password', (route) =>
+    route.fulfill({ status: 200, json: { password: TEMPORARY } }),
+  );
+  await page.goto('/#/comptes');
+  await page
+    .getByRole('button', {
+      name: `Réinitialiser le mot de passe : ${DEMO_LOGINS.operator.username}`,
+    })
+    .first()
+    .click();
+  await page.getByLabel('Motif de la réinitialisation (obligatoire)').fill('Oubli du mot de passe');
+  await page.getByRole('button', { name: 'Réinitialiser', exact: true }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Mot de passe temporaire' });
+  const copy = dialog.getByRole('button', { name: 'Copier' });
+  const handed = dialog.getByLabel('J’ai transmis le mot de passe');
+  const done = dialog.getByRole('button', { name: 'Terminer' });
+  await expect(copy).toBeFocused();
+  await expect(dialog.getByRole('button', { name: 'Fermer' })).toHaveCount(0);
+  await expect(dialog).not.toContainText('✕');
+  await expect(done).toBeDisabled();
+
+  // Case non cochée : Échap est sans effet et Tab tourne entre « Copier » et la case.
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(handed).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(copy).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(handed).toBeFocused();
+
+  // Case cochée : Tab atteint « Terminer » ; « Terminer » ferme la boîte.
+  await page.keyboard.press('Space');
+  await expect(handed).toBeChecked();
+  await expect(done).toBeEnabled();
+  await page.keyboard.press('Tab');
+  await expect(done).toBeFocused();
+  // Une fois la case cochée, « ✕ » réapparaît en tête de la boîte : le cycle le traverse.
+  await page.keyboard.press('Tab');
+  await expect(dialog.getByRole('button', { name: 'Fermer' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(copy).toBeFocused();
+  await done.click();
+  await expect(dialog).toBeHidden();
 });
 
 test('administration : la boîte « Créer un compte » s’annule, signale un identifiant pris, puis crée le compte', async ({

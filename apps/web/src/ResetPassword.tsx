@@ -64,7 +64,7 @@ export function TemporaryPasswordView({
   copied = false,
   copyFailed = false,
   handed = false,
-  codeRef,
+  copyRef,
   onCopy,
   onHanded,
   onDone,
@@ -74,7 +74,7 @@ export function TemporaryPasswordView({
   copied?: boolean;
   copyFailed?: boolean;
   handed?: boolean;
-  codeRef?: Ref<HTMLElement>;
+  copyRef?: Ref<HTMLButtonElement>;
   onCopy?: () => void;
   onHanded?: (checked: boolean) => void;
   onDone?: () => void;
@@ -86,17 +86,10 @@ export function TemporaryPasswordView({
       </p>
       <p>{RESET_TEXTS.once}</p>
       <div className="button-row temp-password-row">
-        <code
-          ref={codeRef}
-          className="temp-password"
-          tabIndex={0}
-          role="textbox"
-          aria-readonly="true"
-          aria-label="Mot de passe temporaire"
-        >
+        <code className="temp-password" role="group" aria-label="Mot de passe temporaire">
           {password}
         </code>
-        <Button variant="secondary" onClick={onCopy}>
+        <Button variant="secondary" ref={copyRef} onClick={onCopy}>
           {copied ? 'Copié' : 'Copier'}
         </Button>
         <span role="status">
@@ -131,7 +124,7 @@ export function TemporaryPasswordView({
 
 /**
  * Étape « mot de passe temporaire », commune à la création et à la réinitialisation : copie,
- * focus sur le mot de passe et case « J'ai transmis le mot de passe ». `onHanded` informe la
+ * focus sur « Copier » et case « J'ai transmis le mot de passe ». `onHanded` informe la
  * boîte, qui n'est fermable qu'une fois la case cochée. Le mot de passe ne vit que dans l'état
  * de l'appelant et disparaît à la fermeture.
  */
@@ -149,9 +142,9 @@ export function TemporaryPasswordStep({
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const [handed, setHanded] = useState(false);
-  const code = useRef<HTMLElement>(null);
+  const copyButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    code.current?.focus();
+    copyButton.current?.focus();
   }, []);
   const copy = () => {
     // `navigator.clipboard` est absent hors contexte sécurisé (console en HTTP) : même message.
@@ -175,7 +168,7 @@ export function TemporaryPasswordStep({
       copied={copied}
       copyFailed={copyFailed}
       handed={handed}
-      codeRef={code}
+      copyRef={copyButton}
       onCopy={copy}
       onHanded={(checked) => {
         setHanded(checked);
