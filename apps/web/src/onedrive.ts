@@ -114,7 +114,7 @@ export function confirmRowsOf(input: {
     [RESTORE_LABELS.item, input.name],
     [RESTORE_LABELS.backupAt, dateTimeOf(input.backupAt)],
   ];
-  if (input.versionAt !== null) rows.push(['Version du', dateTimeOf(input.versionAt)]);
+  if (input.versionAt !== null) rows.push([RESTORE_LABELS.versionAt, dateTimeOf(input.versionAt)]);
   rows.push(['Emplacement', input.folderLabel]);
   if (input.mode === 'replace') rows.push(['Fichier remplacé', input.name]);
   else {
@@ -137,7 +137,7 @@ export const REPLACE_WARNING_TITLE = 'Remplacement du fichier actuel';
 /** Mode remplacement : conséquence, nommant le fichier et la version restaurée. */
 export function replaceWarningOf(name: string, versionAt: string | null): string {
   const version =
-    versionAt === null ? 'la version sauvegardée' : `la version du ${dateTimeOf(versionAt)}`;
+    versionAt === null ? 'la version sauvegardée' : `la version du ${dateTimeOf(versionAt)} UTC`;
   return `${name} sera remplacé par ${version}. L’actuel reste dans l’historique OneDrive.`;
 }
 

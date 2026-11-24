@@ -4,9 +4,11 @@
  */
 export const RESTORE_LABELS = {
   /** Choix de la date, étape « Choisir ». */
-  backupDate: 'Date de la sauvegarde',
+  backupDate: 'Date de la sauvegarde (UTC)',
   /** Date de la sauvegarde, récapitulatif et résultat. */
-  backupAt: 'Sauvegarde du',
+  backupAt: 'Sauvegarde du (UTC)',
+  /** Date de la version d'un fichier, récapitulatif et résultat OneDrive. */
+  versionAt: 'Version du (UTC)',
   /** Objet à restaurer, récapitulatif ; la nature est dans la valeur. */
   item: 'Élément',
   /** Objet restauré, résultat. */

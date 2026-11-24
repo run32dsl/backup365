@@ -141,7 +141,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
     .click();
   const path = page.getByRole('navigation', { name: "Fil d'Ariane" });
   await expect(path.getByText('Budget')).toHaveAttribute('aria-current', 'location');
-  await expect(page.getByRole('columnheader', { name: 'Version du' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Version du (UTC)' })).toBeVisible();
   await expect(
     page.getByRole('cell', { name: /\d\d\/\d\d\/\d{4} \d\d:\d\d/ }).first(),
   ).toBeVisible();
@@ -174,7 +174,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
 
   // Confirmation : récapitulatif ; remplacer exige une confirmation explicite.
   await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
-  for (const term of ['Sauvegarde du', 'Version du']) {
+  for (const term of ['Sauvegarde du \\(UTC\\)', 'Version du \\(UTC\\)']) {
     await expect(
       page
         .locator('dt', { hasText: new RegExp(`^${term}$`) })

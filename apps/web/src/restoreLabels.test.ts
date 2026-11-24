@@ -28,6 +28,6 @@ describe('shared restore labels', () => {
       expect(sp).toContain(label);
     }
     expect(RESTORE_LABELS.itemRestored).toBe('Élément restauré');
-    expect(RESTORE_LABELS.backupDate).toBe('Date de la sauvegarde');
+    expect(RESTORE_LABELS.backupDate).toBe('Date de la sauvegarde (UTC)');
   });
 });

@@ -314,6 +314,10 @@ describe('restore form recall', () => {
     expect(html).toContain(renderToString(<ResultList rows={rows} />));
   });
 
+  it('gives the time and the UTC zone on the Mail row', () => {
+    expect(recallRows(mail)[0]).toEqual(['Mail', 'Facture 1 · 01/01/2026 10:00 UTC']);
+  });
+
   it('gives the same Mail and Boîte rows as the outcome dialog', () => {
     const done = { ...job, status: 'succeeded' as const, durationMs: 2000 };
     const html = renderToString(
