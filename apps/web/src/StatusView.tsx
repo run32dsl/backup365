@@ -6,7 +6,7 @@ import type {
   StatusReport,
 } from '@backup365/core';
 import { Alert, Button, DataTable, EmptyState, StatusPill, type Column } from './ui/index.js';
-import { PLANS_HASH } from './plans.js';
+import { PLANS_HASH, lateNote, runLabel } from './plans.js';
 import { searchHref } from './mail.js';
 import { ageLabel, dateTimeOf, dateTimeOrDash, plural, workloadLabel } from './format.js';
 import { AUDIT_HASH } from './routes.js';
@@ -224,8 +224,21 @@ type PlanEntry = PlanComplianceReport['nonCompliant'][number];
 
 const PLAN_COLUMNS: Column<PlanEntry>[] = [
   { header: 'Plan', cell: (p) => <a href={PLANS_HASH}>{p.name}</a> },
-  { header: 'Dernière réussite (UTC)', cell: (p) => dateTimeOrDash(p.lastSuccessAt) },
-  { header: 'État', cell: (p) => <StatusPill status={p.state === 'failed' ? 'failed' : 'late'} /> },
+  // Même texte que la liste des plans (hors « Rien copié » sans point de restauration, que ce
+  // rapport ne porte pas) : la dernière exécution du plan, jamais une date de service.
+  { header: 'Dernière exécution (UTC)', cell: (p) => runLabel(p.lastRun, false) },
+  {
+    header: 'État',
+    cell: (p) => {
+      const note = lateNote(p.state, p.lastSuccessAt);
+      return (
+        <div>
+          <StatusPill status={p.state === 'failed' ? 'failed' : 'late'} />
+          {note && <small className="state-note">{note}</small>}
+        </div>
+      );
+    },
+  },
 ];
 
 const COMPLIANCE_ORDER: ComplianceState[] = ['compliant', 'late', 'failed'];

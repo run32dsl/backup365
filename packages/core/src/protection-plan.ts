@@ -314,6 +314,12 @@ export interface PlanComplianceEntry extends Compliance {
   id: string;
   name: string;
   rpoHours: RpoHours;
+  /** Dernière exécution terminée du plan (la liste des plans la dit aussi) ; `null` si aucune. */
+  lastRun:
+    | (Pick<PlanRun, 'status' | 'startedAt' | 'finishedAt'> & {
+        noSnapshotReason: NoSnapshotReason | null;
+      })
+    | null;
 }
 
 /** Conformité des plans pour le tableau de bord : décompte par état et plans non conformes. */
@@ -331,10 +337,27 @@ export function buildPlanComplianceReport(
   const counts: Record<ComplianceState, number> = { compliant: 0, late: 0, failed: 0 };
   const nonCompliant: PlanComplianceEntry[] = [];
   for (const plan of plans) {
-    const compliance = planCompliance(plan.rpoHours, runsOf(plan.id), now);
+    const runs = runsOf(plan.id);
+    const compliance = planCompliance(plan.rpoHours, runs, now);
     counts[compliance.state] += 1;
     if (compliance.state !== 'compliant') {
-      nonCompliant.push({ id: plan.id, name: plan.name, rpoHours: plan.rpoHours, ...compliance });
+      // Exécutions de la plus récente à la plus ancienne ; une exécution en cours n'est pas
+      // encore un résultat.
+      const last = runs.find((r) => r.status !== 'running');
+      nonCompliant.push({
+        id: plan.id,
+        name: plan.name,
+        rpoHours: plan.rpoHours,
+        ...compliance,
+        lastRun: last
+          ? {
+              status: last.status,
+              startedAt: last.startedAt,
+              finishedAt: last.finishedAt,
+              noSnapshotReason: last.noSnapshotReason ?? null,
+            }
+          : null,
+      });
     }
   }
   return { counts, nonCompliant };

@@ -191,6 +191,28 @@ describe('buildPlanComplianceReport', () => {
     ]);
   });
 
+  it('carries the last finished run of each non-compliant plan, null without any', () => {
+    const report = buildPlanComplianceReport(plans, (id) => runs[id] ?? [], now);
+    const lastRuns = Object.fromEntries(report.nonCompliant.map((p) => [p.id, p.lastRun]));
+    expect(lastRuns['c']).toEqual({
+      status: 'failed',
+      startedAt: '2026-11-16T11:00:00Z',
+      finishedAt: '2026-11-16T11:01:00Z',
+      noSnapshotReason: null,
+    });
+    expect(lastRuns['d']).toBeNull();
+    // Une exécution en cours n'est pas un résultat : on lit la dernière terminée.
+    const running = buildPlanComplianceReport(
+      [plans[3]!],
+      () => [
+        { startedAt: '2026-11-16T11:30:00Z', finishedAt: null, status: 'running' },
+        { startedAt: '2026-11-16T10:00:00Z', finishedAt: '2026-11-16T10:01:00Z', status: 'failed' },
+      ],
+      now,
+    );
+    expect(running.nonCompliant[0]?.lastRun?.startedAt).toBe('2026-11-16T10:00:00Z');
+  });
+
   it('reports nothing without plans', () => {
     expect(buildPlanComplianceReport([], () => [], now)).toEqual({
       counts: { compliant: 0, late: 0, failed: 0 },

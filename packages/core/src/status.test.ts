@@ -2,13 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BackupCatalog } from './catalog.js';
 import { FakeBackupCatalog } from './fake-catalog.js';
 import { nextRunAt } from './protection-plan.js';
-import {
-  backupState,
-  buildServiceSummaries,
-  buildStatusReport,
-  fillPlanLastSuccess,
-  type StatusRow,
-} from './status.js';
+import { backupState, buildServiceSummaries, buildStatusReport, type StatusRow } from './status.js';
 
 const now = new Date('2026-11-12T12:00:00Z');
 
@@ -223,57 +217,5 @@ describe('buildServiceSummaries', () => {
       const plans = [plan({ createdAt: now.toISOString() }), plan({ id: 'old' })];
       expect(mailOf(plans, now)?.awaitingFirstRun).toBe(false);
     });
-  });
-});
-
-describe('fillPlanLastSuccess', () => {
-  const row = (workload: StatusRow['workload'], at: string | null): StatusRow => ({
-    kind: workload === 'sharepoint' ? 'site' : 'mailbox',
-    sourceId: workload,
-    displayName: workload,
-    workload,
-    lastSnapshotAt: at,
-    ageHours: 1,
-    state: 'ok',
-  });
-  const entry = (id: string, lastSuccessAt: string | null) => ({
-    id,
-    name: id,
-    rpoHours: 4 as const,
-    state: 'late' as const,
-    lastSuccessAt,
-  });
-  const report = (...nonCompliant: ReturnType<typeof entry>[]) => ({
-    counts: { compliant: 0, late: nonCompliant.length, failed: 0 },
-    nonCompliant,
-  });
-  const rows = [
-    row('mail', '2026-11-24T08:00:00Z'),
-    row('onedrive', '2026-11-24T05:00:00Z'),
-    row('sharepoint', '2026-11-24T10:30:00Z'),
-  ];
-
-  it('takes the latest snapshot of the covered services when no success is recorded', () => {
-    const out = fillPlanLastSuccess(
-      report(entry('p', null)),
-      [{ id: 'p', dataTypes: ['onedrive', 'sharepoint'] }],
-      rows,
-    );
-    expect(out.nonCompliant[0]?.lastSuccessAt).toBe('2026-11-24T10:30:00Z');
-  });
-
-  it('keeps a recorded success, and null when nothing covered was backed up', () => {
-    const kept = fillPlanLastSuccess(
-      report(entry('p', '2026-11-20T00:00:00Z')),
-      [{ id: 'p', dataTypes: ['mail'] }],
-      rows,
-    );
-    expect(kept.nonCompliant[0]?.lastSuccessAt).toBe('2026-11-20T00:00:00Z');
-    const none = fillPlanLastSuccess(
-      report(entry('q', null)),
-      [{ id: 'q', dataTypes: ['mail'] }],
-      [row('mail', null)],
-    );
-    expect(none.nonCompliant[0]?.lastSuccessAt).toBeNull();
   });
 });

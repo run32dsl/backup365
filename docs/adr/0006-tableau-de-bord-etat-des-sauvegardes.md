@@ -100,7 +100,8 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
 
 - `GET /api/status` ajoute `plans` : `{ counts: { compliant, late, failed }, nonCompliant: [...] }`.
   Chaque plan est classé par `planCompliance` (ADR 0009) ; `nonCompliant` liste les plans
-  « en retard » ou « en échec » (`id`, `name`, `rpoHours`, `state`, `lastSuccessAt`).
+  « en retard » ou « en échec » (`id`, `name`, `rpoHours`, `state`, `lastSuccessAt`, `lastRun`, la
+  dernière exécution terminée, dite comme la liste des plans).
 - `plans` est absent sans base des plans, `null` si elle ne répond pas (le reste du tableau est
   servi). Sans plan, les trois décomptes valent 0.
 - Par plan, les 500 dernières exécutions sont relues.

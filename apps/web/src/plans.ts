@@ -341,12 +341,7 @@ export function complianceView(
     };
   }
   // Même état que le tableau de bord (`state` du plan), jamais déduit d'ailleurs.
-  const base =
-    lastSuccessAt === null
-      ? 'Aucune sauvegarde réussie'
-      : state === 'late'
-        ? 'Dernière sauvegarde plus ancienne que prévu'
-        : undefined;
+  const base = lateNote(state, lastSuccessAt);
   const cause =
     state === 'failed' && plan.lastRun?.failureCause
       ? FAILURE_LABELS[plan.lastRun.failureCause]
@@ -356,6 +351,14 @@ export function complianceView(
     ? { status: 'failed', label: 'En échec', ...(note && { note }) }
     : { status: 'late', label: 'En retard', ...(note && { note }) };
 }
+
+/** Ligne secondaire d'un plan en retard ou en échec : partagée par Plans et Sources. */
+export const lateNote = (state: string, lastSuccessAt: string | null): string | undefined =>
+  lastSuccessAt === null
+    ? 'Aucune sauvegarde réussie'
+    : state === 'late'
+      ? 'Dernière sauvegarde plus ancienne que prévu'
+      : undefined;
 
 /** Plan « en échec » : conformité en échec ou dernière exécution en échec (règle de l'accueil). */
 export const isFailed = (plan: PlanItem): boolean =>
@@ -378,13 +381,16 @@ export function runFlashText(
 }
 
 /** Dernier résultat terminé en une ligne, même si le plan tourne ou attend son tour. */
-export function lastRunLabel(plan: PlanItem): string {
-  const run = plan.lastRun;
+export const lastRunLabel = (plan: PlanItem): string =>
+  runLabel(plan.lastRun, plan.compliance.lastRestorePointAt === null);
+
+/** Libellé d'une dernière exécution ; `noRestorePoint` : aucun point de restauration n'existe. */
+export function runLabel(run: PlanItem['lastRun'] | undefined, noRestorePoint: boolean): string {
   if (!run) return 'Pas encore sauvegardé';
   const at = dateTimeOf(run.finishedAt ?? run.startedAt);
   if (run.status !== 'success') return `Échec, ${at}`;
   // Même constat que la pastille « En attente » : rien copié n'est pas une réussite.
-  if (run.noSnapshotReason !== null || plan.compliance.lastRestorePointAt === null) {
+  if (run.noSnapshotReason !== null || noRestorePoint) {
     return `Rien copié, ${at}`;
   }
   return `Réussie, ${at}`;
