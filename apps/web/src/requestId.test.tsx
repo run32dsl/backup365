@@ -27,7 +27,7 @@ describe('identifiant de requête des échecs', () => {
   });
 
   it('is kept by failed account actions and a failed accounts list', async () => {
-    await expect(createAccount('a', 'b', 'operator', failing())).resolves.toMatchObject({
+    await expect(createAccount('a', 'operator', failing())).resolves.toMatchObject({
       ok: false,
       requestId: 'req-5',
     });

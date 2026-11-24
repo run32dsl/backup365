@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { ResetReasonForm, TemporaryPasswordView } from './ResetPassword.js';
+import { ResetReasonForm, TemporaryPasswordStep, TemporaryPasswordView } from './ResetPassword.js';
 
 describe('réinitialisation : étape 2', () => {
   it('summarises the account, asks for a reason and says it is audited without the password', () => {
@@ -57,6 +57,23 @@ describe('réinitialisation : étape 3', () => {
     );
     expect(html).not.toMatch(/disabled[^>]*>Terminer/);
     expect(html).toContain('>Copié</button>');
+  });
+
+  it('is the same step after a creation and after a reset: one component, closed by the box', () => {
+    const step = renderToStaticMarkup(
+      <TemporaryPasswordStep
+        username="jean.exemple"
+        password={password}
+        onHanded={() => undefined}
+        onDone={() => undefined}
+      />,
+    );
+    const view = renderToStaticMarkup(
+      <TemporaryPasswordView username="jean.exemple" password={password} />,
+    );
+    expect(step).toBe(view);
+    expect(step).toContain('Compte : <strong>jean.exemple</strong>');
+    expect(step).toMatch(/<button[^>]*disabled=""[^>]*>Terminer/);
   });
 
   it('explains a failed copy and keeps the text selectable', () => {

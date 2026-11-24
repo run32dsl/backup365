@@ -27,7 +27,7 @@ describe('gestion des comptes', () => {
   it('is reserved to administrators', async () => {
     const { app } = setup('operator');
     expect((await send(app, 'GET', '/api/accounts')).statusCode).toBe(403);
-    const body = { username: 'bob', password: 'un mot de passe long', role: 'operator' };
+    const body = { username: 'bob', role: 'operator' };
     expect((await send(app, 'POST', '/api/accounts', body)).statusCode).toBe(403);
     expect((await send(app, 'PATCH', '/api/accounts/1', { disabled: true })).statusCode).toBe(403);
     expect(
@@ -35,22 +35,40 @@ describe('gestion des comptes', () => {
     ).toBe(403);
   });
 
-  it('creates an account that must change its password, and lists accounts without hashes', async () => {
-    const { app, audit } = setup();
+  it('creates an account with a generated temporary password that must be changed', async () => {
+    const { app, audit, auth } = setup();
     const created = await send(app, 'POST', '/api/accounts', {
       username: 'bob',
-      password: 'un mot de passe long',
       role: 'operator',
+      // Un mot de passe envoyé par le client est ignoré.
+      password: 'un mot de passe long',
     });
     expect(created.statusCode).toBe(201);
+    expect(created.headers['cache-control']).toBe('no-store');
     expect(created.json()).toMatchObject({
       username: 'bob',
       role: 'operator',
       disabled: false,
       mustChangePassword: true,
     });
+    const { password } = created.json<{ password: string }>();
+    expect(password).toHaveLength(19);
+    expect(password).not.toBe('un mot de passe long');
+    // Le mot de passe rendu est celui du compte, et la première connexion impose le changement.
+    const stored = auth.accounts.findByUsername('bob');
+    expect(stored?.mustChangePassword).toBe(true);
+    expect(await auth.authenticate('bob', password, '127.0.0.1')).toMatchObject({
+      ok: true,
+      account: { mustChangePassword: true },
+    });
+    // Ni la liste, ni le journal, ni le magasin ne contiennent le mot de passe en clair.
+    expect((await send(app, 'GET', '/api/accounts')).body).not.toContain(password);
+    expect(JSON.stringify(await log(audit))).not.toContain(password);
+    expect(JSON.stringify(stored)).not.toContain(password);
+    const again = await send(app, 'POST', '/api/accounts', { username: 'carl', role: 'operator' });
+    expect(again.json<{ password: string }>().password).not.toBe(password);
     const list = await send(app, 'GET', '/api/accounts');
-    expect(list.json<{ items: unknown[] }>().items).toHaveLength(2);
+    expect(list.json<{ items: unknown[] }>().items).toHaveLength(3);
     expect(list.body).not.toContain('scrypt');
     expect(list.body).not.toContain('passwordHash');
     expect(created.body).not.toContain('scrypt');
@@ -62,17 +80,13 @@ describe('gestion des comptes', () => {
     });
   });
 
-  it('refuses a taken name (case ignored), a weak password and an unknown role', async () => {
+  it('refuses a taken name (case ignored) and an unknown role', async () => {
     const { app } = setup();
-    const ok = { username: 'bob', password: 'un mot de passe long', role: 'operator' };
+    const ok = { username: 'bob', role: 'operator' };
     expect((await send(app, 'POST', '/api/accounts', ok)).statusCode).toBe(201);
     expect((await send(app, 'POST', '/api/accounts', { ...ok, username: 'BOB' })).statusCode).toBe(
       409,
     );
-    expect(
-      (await send(app, 'POST', '/api/accounts', { ...ok, username: 'carl', password: 'court' }))
-        .statusCode,
-    ).toBe(400);
     expect(
       (await send(app, 'POST', '/api/accounts', { ...ok, username: 'carl', role: 'root' }))
         .statusCode,
@@ -161,7 +175,6 @@ describe('gestion des comptes', () => {
     const app = withHeaders(buildApp({ version: '1', auth }), session.headers);
     const res = await send(app, 'POST', '/api/accounts', {
       username: 'bob',
-      password: 'un mot de passe long',
       role: 'operator',
     });
     expect(res.statusCode).toBe(503);

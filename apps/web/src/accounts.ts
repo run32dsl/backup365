@@ -65,12 +65,23 @@ async function send(
   return res.ok ? { ok: true, value: null } : { ok: false, ...(await failureOf(res)) };
 }
 
-export const createAccount = (
+/**
+ * Crée un compte : le serveur génère un mot de passe temporaire et le rend ici, une seule fois.
+ * La valeur ne doit être ni journalisée ni stockée.
+ */
+export async function createAccount(
   username: string,
-  password: string,
   role: Role,
   fetchFn: typeof fetch = fetch,
-) => send(fetchFn, 'POST', '/api/accounts', { username, password, role });
+): Promise<Outcome<string>> {
+  const res = await fetchFn('/api/accounts', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username, role }),
+  });
+  if (!res.ok) return { ok: false, ...(await failureOf(res)) };
+  return { ok: true, value: ((await res.json()) as { password: string }).password };
+}
 
 export const updateAccount = (
   id: number,

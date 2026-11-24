@@ -143,13 +143,17 @@ demande un motif, inscrit au journal d'audit. L'administrateur crée, désactive
 (`#/comptes`) ; « Modifier le rôle » et « Désactiver » ouvrent une boîte qui nomme le compte et
 demande un motif obligatoire, inscrit au journal d'audit. Il ne peut pas désactiver ni rétrograder
 le dernier administrateur actif (boutons grisés). Un mot
-de passe provisoire (création ou réinitialisation) est à changer à la connexion suivante.
+de passe temporaire (création ou réinitialisation) est à changer à la connexion suivante.
 L'entrée « Sources » (`#/sources`, administrateurs ; l'ancienne adresse `#/etat` y redirige) affiche une ligne par service (Messagerie,
 OneDrive, SharePoint : dernière sauvegarde, état, conservation, périmètre), la conformité des plans
 et l'état de chaque sauvegarde. L'état d'un service est le pire de ses sources ; un service en
 retard ou en échec renvoie au journal d'audit, un service sans plan est grisé, « Non protégé », et propose « Créer un
 plan ». Un service qui a un plan mais aucune sauvegarde reste « En attente » jusqu'à l'échéance de la
 première exécution prévue par le plan, puis passe « En échec ».
+
+« Créer un compte » ne demande pas de mot de passe : la console en génère un temporaire, affiché
+une seule fois dans la même boîte qu'après une réinitialisation, que le nouveau compte doit changer
+à sa première connexion.
 
 Pour réinitialiser un mot de passe, l'administrateur choisit le compte, saisit un motif
 obligatoire, puis lit le mot de passe temporaire que la console a généré : il s'affiche une seule

@@ -2,7 +2,7 @@ import type { AuditLog } from '@backup365/core';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { AuthService } from './auth.js';
 import { usernameSchema } from './auth-routes.js';
-import { generateTemporaryPassword, passwordProblem } from './password.js';
+import { generateTemporaryPassword } from './password.js';
 import {
   LastAdminError,
   ROLES,
@@ -67,30 +67,26 @@ export function registerAccountRoutes(
     return { items: ctx.auth.accounts.list().map(publicAccount) };
   });
 
-  app.post<{ Body: { username: string; password: string; role: Role } }>(
+  app.post<{ Body: { username: string; role: Role } }>(
     '/api/accounts',
     {
       schema: {
         body: {
           type: 'object',
-          required: ['username', 'password', 'role'],
+          required: ['username', 'role'],
           additionalProperties: false,
-          properties: {
-            username: usernameSchema,
-            password: { type: 'string', maxLength: 1024 },
-            role,
-          },
+          properties: { username: usernameSchema, role },
         },
       },
     },
     async (req, reply) => {
       const ctx = guard(req, reply);
       if (!ctx) return reply;
-      const { username, password } = req.body;
-      const problem = passwordProblem(password);
-      if (problem) return reply.code(400).send({ error: problem });
+      const { username } = req.body;
+      // Mot de passe temporaire généré ici, rendu une seule fois, jamais journalisé : le compte
+      // doit le changer à sa première connexion.
+      const password = generateTemporaryPassword();
       try {
-        // Mot de passe provisoire choisi par l'administrateur : à changer à la première connexion.
         const account = ctx.auth.accounts.create({
           username,
           role: req.body.role,
@@ -98,7 +94,10 @@ export function registerAccountRoutes(
           mustChangePassword: true,
         });
         await record(ctx, account.username, 'account.create', `role:${account.role}`);
-        return reply.code(201).send(publicAccount(account));
+        return reply
+          .code(201)
+          .header('cache-control', 'no-store')
+          .send({ ...publicAccount(account), password });
       } catch (err) {
         if (err instanceof UsernameTakenError) {
           return reply.code(409).send({ error: 'username_taken' });
