@@ -144,7 +144,41 @@ describe('GET /api/status', () => {
       plans.close();
       const report = await get(plans);
       expect(report.plans).toBeNull();
+      expect(report.services).toBeNull();
       expect(report.rows).toHaveLength(4);
+    });
+
+    it('gives one line per service with retention and scope, and no plan for OneDrive', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      plans.create({ ...input('Courrier'), retentionDays: 30 });
+      plans.create({
+        ...input('Courrier long'),
+        scope: 'selection',
+        selection: ['a'],
+        retentionDays: 365,
+      });
+      const { services } = await get(plans);
+      expect(
+        services?.map((s) => [s.service, s.hasPlan, s.state, s.retentionDays, s.scope]),
+      ).toEqual([
+        // Boîte b en retard (40 h) : l'état du service est le pire de ses sources.
+        ['mail', true, 'stale', 365, { kind: 'all' }],
+        ['onedrive', false, 'missing', null, null],
+        ['sharepoint', false, 'missing', null, null],
+      ]);
+    });
+
+    it('counts the distinct selected items when no plan covers a whole service', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      plans.create({ ...input('A'), scope: 'selection', selection: ['a', 'b'] });
+      plans.create({ ...input('B'), scope: 'selection', selection: ['b'] });
+      const { services } = await get(plans);
+      expect(services?.[0]?.scope).toEqual({ kind: 'selection', count: 2 });
+    });
+
+    it('hides the services from a non-administrator', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      expect(await get(plans, 'operator')).not.toHaveProperty('services');
     });
   });
 

@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
-import { closeMenuOnEscape, ConsoleView, ForbiddenView, navEntries, skipToContent } from './App.js';
+import {
+  closeMenuOnEscape,
+  ConsoleView,
+  ForbiddenView,
+  navEntries,
+  screenFor,
+  screenOf,
+  skipToContent,
+} from './App.js';
 
 describe('skip link target', () => {
   it('renders the screen main as a focusable target', () => {
@@ -168,7 +176,7 @@ describe('navEntries', () => {
       'Plans de protection',
       'Journal d’audit',
     ]);
-    expect(top(true)).toEqual([...top(false), 'Administration']);
+    expect(top(true)).toEqual([...top(false), 'État détaillé', 'Administration']);
     const group = navEntries('home', false)[1]!;
     expect('children' in group && group.children.map((c) => c.label)).toEqual([
       'Messagerie',
@@ -176,6 +184,19 @@ describe('navEntries', () => {
       'SharePoint',
     ]);
     expect(group).not.toHaveProperty('href');
+  });
+
+  it('reaches the detailed status from the menu for an administrator only', () => {
+    expect(links('home').find((e) => e.label === 'État détaillé')?.href).toBe('#/etat');
+    expect(screenOf('#/etat')).toBe('status');
+    expect(screenFor('#/etat', true)).toBe('status');
+    expect(links('status').filter((e) => e.current)).toEqual([
+      { href: '#/etat', label: 'État détaillé', current: true },
+    ]);
+    expect(navEntries('home', false).flatMap((e) => ('href' in e ? [e.href] : []))).not.toContain(
+      '#/etat',
+    );
+    expect(screenFor('#/etat', false)).toBe('forbidden');
   });
 
   it('marks exactly one entry as current, Messagerie for a mail sheet', () => {

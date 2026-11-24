@@ -144,6 +144,11 @@ demande un motif, inscrit au journal d'audit. L'administrateur crée, désactive
 demande un motif obligatoire, inscrit au journal d'audit. Il ne peut pas désactiver ni rétrograder
 le dernier administrateur actif (boutons grisés). Un mot
 de passe provisoire (création ou réinitialisation) est à changer à la connexion suivante.
+L'entrée « État détaillé » (`#/etat`, administrateurs) affiche une ligne par service (Messagerie,
+OneDrive, SharePoint : dernière sauvegarde, état, conservation, périmètre), la conformité des plans
+et l'état de chaque sauvegarde. L'état d'un service est le pire de ses sources ; un service en
+retard ou en échec renvoie au journal d'audit, un service sans plan est grisé et propose « Créer un
+plan ».
 
 Pour réinitialiser un mot de passe, l'administrateur choisit le compte, saisit un motif
 obligatoire, puis lit le mot de passe temporaire que la console a généré : il s'affiche une seule

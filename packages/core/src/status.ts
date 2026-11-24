@@ -1,5 +1,5 @@
 import type { BackupCatalog, Workload } from './catalog.js';
-import type { PlanComplianceReport } from './protection-plan.js';
+import type { PlanComplianceReport, ProtectionPlanInput } from './protection-plan.js';
 
 /** Seuil d'alerte par défaut : une sauvegarde nocturne doit avoir moins de 26 h. */
 export const DEFAULT_MAX_AGE_HOURS = 26;
@@ -31,6 +31,8 @@ export interface StatusReport {
   rows: StatusRow[];
   /** Ajouté par `GET /api/status` : conformité des plans ; `null` si leur base ne répond pas. */
   plans?: PlanComplianceReport | null;
+  /** Ajouté par `GET /api/status` pour les administrateurs : une ligne par service ; `null` si la base des plans ne répond pas. */
+  services?: ServiceSummary[] | null;
 }
 
 /**
@@ -112,4 +114,60 @@ export async function buildStatusReport(
     alertCount: rows.filter((r) => r.state !== 'ok').length,
     rows,
   };
+}
+
+/** Services présentés sur la page « Sources », dans l'ordre d'affichage. */
+export const SERVICES = ['mail', 'onedrive', 'sharepoint'] as const;
+export type Service = (typeof SERVICES)[number];
+
+export interface ServiceSummary {
+  service: Service;
+  /** Au moins un plan couvre ce service ; sinon la ligne est grisée. */
+  hasPlan: boolean;
+  /** Dernier instantané, tous éléments confondus (UTC, ISO 8601) ; `null` si aucun. */
+  lastSnapshotAt: string | null;
+  ageHours: number | null;
+  /** Pire état parmi les sources du service : une source en retard n'est pas masquée par une autre à jour. */
+  state: BackupState;
+  /** Conservation la plus longue parmi les plans qui couvrent le service ; `null` sans plan. */
+  retentionDays: number | null;
+  /** `all` si un plan couvre tout le service ; sinon nombre d'éléments distincts choisis. */
+  scope: { kind: 'all' } | { kind: 'selection'; count: number } | null;
+}
+
+type PlanFacts = Pick<ProtectionPlanInput, 'dataTypes' | 'scope' | 'selection' | 'retentionDays'>;
+
+const WORST_FIRST: readonly BackupState[] = ['missing', 'stale', 'ok'];
+
+/** Une ligne par service : dernier instantané, pire état, conservation et périmètre des plans. */
+export function buildServiceSummaries(
+  rows: readonly StatusRow[],
+  plans: readonly PlanFacts[],
+  maxAgeHours: number,
+  now: Date = new Date(),
+): ServiceSummary[] {
+  return SERVICES.map((service) => {
+    const own = rows.filter((r) => r.workload === service);
+    const last = latest(
+      own.flatMap((r) => (r.lastSnapshotAt === null ? [] : [{ createdAt: r.lastSnapshotAt }])),
+    );
+    const state = WORST_FIRST.find((s) => own.some((r) => r.state === s)) ?? 'missing';
+    const covering = plans.filter((p) => p.dataTypes.includes(service));
+    const selected = new Set(covering.flatMap((p) => (p.scope === 'selection' ? p.selection : [])));
+    const scope: ServiceSummary['scope'] =
+      covering.length === 0
+        ? null
+        : covering.some((p) => p.scope === 'all')
+          ? { kind: 'all' }
+          : { kind: 'selection', count: selected.size };
+    return {
+      service,
+      hasPlan: covering.length > 0,
+      lastSnapshotAt: last,
+      ageHours: backupState(last, now, maxAgeHours).ageHours,
+      state,
+      retentionDays: covering.length > 0 ? Math.max(...covering.map((p) => p.retentionDays)) : null,
+      scope,
+    };
+  });
 }

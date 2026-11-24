@@ -289,6 +289,14 @@ th {
 .backups .ok-toggle {
   display: none;
 }
+.data-table .row-muted {
+  color: var(--muted);
+}
+/* Action liée à un état, sous la pastille (le lien garde sa couleur, même sur une ligne grisée). */
+.state-link {
+  display: block;
+  margin-top: var(--space-1);
+}
 .plan-counts {
   display: flex;
   flex-wrap: wrap;

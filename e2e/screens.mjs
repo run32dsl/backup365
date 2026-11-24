@@ -533,6 +533,43 @@ export const SCREENS = [
   },
   { name: 'page-reservee', hash: '#/comptes', role: 'operator' },
   {
+    name: 'etat-detaille',
+    hash: '#/etat',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('heading', { name: 'Sauvegardes' }).waitFor();
+    },
+  },
+  {
+    // En démo chaque service a un plan : la réponse est modifiée pour montrer la ligne grisée
+    // « Aucun plan » et son lien « Créer un plan ».
+    name: 'etat-detaille-sans-plan',
+    hash: '#/etat',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/status', async (route) => {
+        const res = await route.fetch();
+        const body = await res.json();
+        body.services = body.services.map((s) =>
+          s.service === 'sharepoint'
+            ? {
+                ...s,
+                hasPlan: false,
+                lastSnapshotAt: null,
+                ageHours: null,
+                state: 'missing',
+                retentionDays: null,
+                scope: null,
+              }
+            : s,
+        );
+        await route.fulfill({ response: res, json: body });
+      });
+      await page.reload();
+      await page.getByRole('link', { name: 'Créer un plan' }).waitFor();
+    },
+  },
+  {
     // Bouton « Voir l'erreur » de l'accueil : la liste réduite au plan en échec, avec sa cause.
     name: 'plans-liste-en-echec',
     hash: '#/plans?etat=echec',
