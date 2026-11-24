@@ -90,49 +90,49 @@ export function redirectLegacyHash(hash: string): string | null {
   return hash === LEGACY_STATUS_HASH ? STATUS_HASH : null;
 }
 
-/** Entrée de navigation : un lien. */
-export type NavLink = { href: string; label: string; current: boolean };
-/** Rubrique de navigation : un lien, ou un libellé de groupe (sans lien) et ses liens. */
-export type NavEntry = NavLink | { label: string; children: NavLink[] };
+/** Entrée de navigation : un lien, avec une icône décorative. */
+export type NavEntry = { href: string; label: string; current: boolean; icon: string };
 
-/** Charte : 8 entrées au plus pour un administrateur (liens des groupes compris). */
-export const MAX_ADMIN_NAV_ENTRIES = 8;
+/** Charte : cinq entrées au plus (décision du PM du 2026-11-19). */
+export const MAX_ADMIN_NAV_ENTRIES = 5;
 
 /**
- * Entrées de la navigation principale : seules les entrées livrées apparaissent. « Restaurer »
- * est un libellé de groupe, pas un lien : il regroupe les trois parcours de restauration
- * (Messagerie, OneDrive, SharePoint). « Sources » et Administration (comptes) sont réservées
- * aux administrateurs, qui ont `MAX_ADMIN_NAV_ENTRIES` liens au plus.
+ * Entrées de la navigation principale : Accueil, Sources, Restaurer, Activités, Réglages. Les
+ * trois parcours de restauration (messagerie, OneDrive, SharePoint) restent sous « Restaurer »,
+ * fiche d'un mail comprise ; les plans et l'état des sources sont sous « Sources ». « Réglages »
+ * (comptes) est réservé aux administrateurs : un opérateur voit quatre entrées.
  */
 export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean): NavEntry[] {
   const entries: NavEntry[] = [
-    { href: '#/', label: 'Tableau de bord', current: screen === 'home' },
+    { href: '#/', label: 'Accueil', icon: '⌂', current: screen === 'home' },
     {
-      label: 'Restaurer',
-      children: [
-        {
-          href: '#/search',
-          label: 'Messagerie',
-          current: screen === 'search' || screen === 'mail',
-        },
-        { href: '#/onedrive', label: 'OneDrive', current: screen === 'onedrive' },
-        { href: '#/sharepoint', label: 'SharePoint', current: screen === 'sharepoint' },
-      ],
+      href: '#/plans',
+      label: 'Sources',
+      icon: '▤',
+      current: screen === 'plans' || screen === 'status',
     },
-    { href: '#/plans', label: 'Plans de protection', current: screen === 'plans' },
-    { href: '#/audit', label: 'Journal d’audit', current: screen === 'audit' },
+    {
+      href: '#/search',
+      label: 'Restaurer',
+      icon: '↺',
+      current:
+        screen === 'search' ||
+        screen === 'mail' ||
+        screen === 'onedrive' ||
+        screen === 'sharepoint',
+    },
+    { href: '#/audit', label: 'Activités', icon: '≡', current: screen === 'audit' },
   ];
   if (admin) {
-    entries.push({ href: STATUS_HASH, label: 'Sources', current: screen === 'status' });
     entries.push({
       href: '#/comptes',
-      label: 'Administration',
+      label: 'Réglages',
+      icon: '⚙',
       current: screen === 'accounts' || screen === 'forbidden',
     });
   }
-  const links = entries.flatMap((e) => ('children' in e ? e.children : [e])).length;
   // Invariant de la charte : un ajout qui la dépasse échoue aux tests, pas en silence chez l'utilisateur.
-  if (links > MAX_ADMIN_NAV_ENTRIES) {
+  if (entries.length > MAX_ADMIN_NAV_ENTRIES) {
     throw new Error(`La navigation dépasse ${MAX_ADMIN_NAV_ENTRIES} entrées.`);
   }
   return entries;
@@ -249,25 +249,13 @@ export function ConsoleView({
             <nav aria-label="Navigation principale">
               <ul className="nav-list">
                 {entries.map((e) => (
-                  <li key={e.label}>
-                    {'children' in e ? (
-                      <>
-                        <span className="nav-group">{e.label}</span>
-                        <ul className="nav-list nav-sublist">
-                          {e.children.map((c) => (
-                            <li key={c.href}>
-                              <a href={c.href} aria-current={c.current ? 'page' : undefined}>
-                                {c.label}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    ) : (
-                      <a href={e.href} aria-current={e.current ? 'page' : undefined}>
-                        {e.label}
-                      </a>
-                    )}
+                  <li key={e.href}>
+                    <a href={e.href} aria-current={e.current ? 'page' : undefined}>
+                      <span className="nav-icon" aria-hidden="true">
+                        {e.icon}
+                      </span>
+                      <span className="nav-label">{e.label}</span>
+                    </a>
                   </li>
                 ))}
               </ul>

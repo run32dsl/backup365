@@ -66,6 +66,7 @@ import {
   Steps,
   WizardActions,
   ResultList,
+  RestoreSourceNav,
 } from './ui/index.js';
 
 /** Ce qui a été choisi à l'étape 1. */
@@ -889,6 +890,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
   return (
     <main tabIndex={-1}>
       <h1>{T.title}</h1>
+      <RestoreSourceNav current="sharepoint" />
       {journey && !job && (
         <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />
       )}

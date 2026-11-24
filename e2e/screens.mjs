@@ -416,7 +416,7 @@ export const SCREENS = [
     prepare: async (page) => {
       const menu = page.getByRole('button', { name: 'Menu' });
       if (await menu.isVisible()) await menu.click();
-      await page.getByRole('link', { name: 'Messagerie' }).waitFor();
+      await page.getByRole('link', { name: 'Mails' }).waitFor();
     },
   },
   {

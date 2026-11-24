@@ -105,17 +105,27 @@ composant s'y ajoute avec ses tests de comportement.
 
 ## Navigation principale
 
-Huit entrées au plus pour un administrateur (liens des groupes compris, `MAX_ADMIN_NAV_ENTRIES`,
-appliquée par `navEntries`) : Tableau de bord, Restaurer (Messagerie, OneDrive, SharePoint), Plans
-de protection, Journal d'audit, Sources (`#/sources` ; l'ancienne `#/etat` y redirige),
-Administration (comptes). « Restaurer » est un libellé de groupe en `--muted`,
-ni lien ni bouton, avec une liste imbriquée dans le même `<nav>` : Messagerie (`#/search`,
-active aussi sur la fiche d'un mail), OneDrive et SharePoint. Ce sont des `<a href>` natifs,
-en retrait de `--space-3`, l'entrée active portant `aria-current="page"`. Le menu repliable
-sous 900 px a le même regroupement. Les titres des trois écrans suivent le même modèle :
-« Restaurer depuis la messagerie », « Restaurer depuis OneDrive », « Restaurer depuis
-SharePoint ». Seules les entrées livrées apparaissent, sans entrée grisée. Administration
-n'est visible que des administrateurs.
+Cinq entrées au plus (`MAX_ADMIN_NAV_ENTRIES`, appliquée par `navEntries`), décision du PM du
+2026-11-19 : Accueil (`#/`), Sources (`#/plans`), Restaurer (`#/search`), Activités (`#/audit`),
+Réglages (`#/comptes`, administrateurs seulement : un opérateur voit quatre entrées). Aucune
+entrée par service. Dès 900 px, c'est une barre verticale étroite de 6 rem : une icône
+décorative (`aria-hidden`) au-dessus d'un libellé court, qui passe à la ligne sans être tronqué.
+Dessous, le menu repliable garde les mêmes entrées en ligne. Ce sont des `<a href>` natifs, dont
+l'active porte `aria-current="page"`, un trait et un fond plein.
+
+Les vues d'une rubrique sont choisies par un sélecteur en tête de page (`SubNav`, `<nav>` de
+liens natifs, sans `role="tab"`, défilant horizontalement sous 900 px) :
+
+- **Restaurer** (`aria-label="Source à restaurer"`) : Mails (`#/search`, y compris la fiche d'un
+  mail), Fichiers OneDrive (`#/onedrive`), Sites SharePoint (`#/sharepoint`). L'entrée
+  « Restaurer » reste active sur ces quatre écrans.
+- **Sources** (`aria-label="Vue des sources"`, administrateurs) : Plans de protection (`#/plans`)
+  et État des sources (`#/sources` ; l'ancienne `#/etat` y redirige). Un opérateur n'a que les
+  plans.
+
+Les titres des écrans de restauration restent « Restaurer depuis la messagerie », « Restaurer
+depuis OneDrive », « Restaurer depuis SharePoint ». Seules les entrées livrées apparaissent, sans
+entrée grisée. Le compte, le lien « Mot de passe » et « Se déconnecter » sont en bas de la barre.
 
 ## Vocabulaire de référence
 

@@ -19,7 +19,7 @@ import {
   lastRestoreSummary,
   type RestoreJob,
 } from './restore.js';
-import { Alert, Button, Dialog, ResultList, StatusPill } from './ui/index.js';
+import { Alert, Button, Dialog, ResultList, RestoreSourceNav, StatusPill } from './ui/index.js';
 
 /** État de la fiche. */
 export type MailState = IndexedMail | 'loading' | 'error';
@@ -273,6 +273,7 @@ export function MailPage({ mailboxId, messageId }: { mailboxId: string; messageI
       <p>
         <a href="#/search">Retour à la recherche</a>
       </p>
+      <RestoreSourceNav current="mail" />
       <h1>{mailTitle(state)}</h1>
       <MailView state={state} />
       {typeof state === 'object' && <RestoreSection mail={state} />}

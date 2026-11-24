@@ -60,6 +60,7 @@ import {
   Steps,
   WizardActions,
   ResultList,
+  RestoreSourceNav,
 } from './ui/index.js';
 
 /** Élément choisi à l'étape 1 : un fichier ou un dossier, éventuellement une version précise. */
@@ -916,6 +917,7 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
   return (
     <main tabIndex={-1}>
       <h1>{T.title}</h1>
+      <RestoreSourceNav current="onedrive" />
       {journey && !job && (
         <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />
       )}
