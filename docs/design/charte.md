@@ -105,8 +105,10 @@ composant s'y ajoute avec ses tests de comportement.
 
 ## Navigation principale
 
-Cinq rubriques de premier niveau au plus : Tableau de bord, Restaurer, Plans de protection,
-Journal d'audit, Administration (comptes). « Restaurer » est un libellé de groupe en `--muted`,
+Huit entrées au plus pour un administrateur (liens des groupes compris, `MAX_ADMIN_NAV_ENTRIES`,
+appliquée par `navEntries`) : Tableau de bord, Restaurer (Messagerie, OneDrive, SharePoint), Plans
+de protection, Journal d'audit, Sources (`#/sources` ; l'ancienne `#/etat` y redirige),
+Administration (comptes). « Restaurer » est un libellé de groupe en `--muted`,
 ni lien ni bouton, avec une liste imbriquée dans le même `<nav>` : Messagerie (`#/search`,
 active aussi sur la fiche d'un mail), OneDrive et SharePoint. Ce sont des `<a href>` natifs,
 en retrait de `--space-3`, l'entrée active portant `aria-current="page"`. Le menu repliable

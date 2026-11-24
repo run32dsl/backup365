@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BackupCatalog } from './catalog.js';
 import { FakeBackupCatalog } from './fake-catalog.js';
+import { nextRunAt } from './protection-plan.js';
 import { backupState, buildServiceSummaries, buildStatusReport, type StatusRow } from './status.js';
 
 const now = new Date('2026-11-12T12:00:00Z');
@@ -120,6 +121,9 @@ describe('buildServiceSummaries', () => {
   });
   type Plan = Parameters<typeof buildServiceSummaries>[1][number];
   const plan = (over: Partial<Plan> = {}): Plan => ({
+    id: 'plan-1',
+    rpoHours: 24,
+    createdAt: '2026-11-01T08:00:00Z',
     dataTypes: ['mail'],
     scope: 'all',
     selection: [],
@@ -137,6 +141,7 @@ describe('buildServiceSummaries', () => {
         state: 'missing',
         retentionDays: null,
         scope: null,
+        awaitingFirstRun: false,
       })),
     );
   });
@@ -184,5 +189,33 @@ describe('buildServiceSummaries', () => {
       count: 3,
     });
     expect(buildServiceSummaries([], [a, plan()], 26, now)[0]?.scope).toEqual({ kind: 'all' });
+  });
+
+  describe('first run of a plan without any backup', () => {
+    const created = '2026-11-12T08:00:00Z';
+    const due = nextRunAt({ id: 'plan-1', rpoHours: 24 }, new Date(created));
+    const mailOf = (plans: Plan[], at: Date) => buildServiceSummaries([], plans, 26, at)[0];
+
+    it('awaits until the first scheduled run is due, then no longer', () => {
+      const before = new Date(due.getTime() - 1);
+      expect(mailOf([plan({ createdAt: created })], before)).toMatchObject({
+        awaitingFirstRun: true,
+        state: 'missing',
+      });
+      expect(mailOf([plan({ createdAt: created })], due)?.awaitingFirstRun).toBe(false);
+    });
+
+    it('does not await without a plan, with a backup, or while another plan is overdue', () => {
+      expect(buildServiceSummaries([], [], 26, now)[0]?.awaitingFirstRun).toBe(false);
+      const withBackup = buildServiceSummaries(
+        [row('mail', '2026-11-12T06:00:00Z')],
+        [plan({ createdAt: now.toISOString() })],
+        26,
+        now,
+      );
+      expect(withBackup[0]?.awaitingFirstRun).toBe(false);
+      const plans = [plan({ createdAt: now.toISOString() }), plan({ id: 'old' })];
+      expect(mailOf(plans, now)?.awaitingFirstRun).toBe(false);
+    });
   });
 });

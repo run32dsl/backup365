@@ -1,5 +1,9 @@
 import type { BackupCatalog, Workload } from './catalog.js';
-import type { PlanComplianceReport, ProtectionPlanInput } from './protection-plan.js';
+import {
+  nextRunAt,
+  type PlanComplianceReport,
+  type ProtectionPlanInput,
+} from './protection-plan.js';
 
 /** Seuil d'alerte par défaut : une sauvegarde nocturne doit avoir moins de 26 h. */
 export const DEFAULT_MAX_AGE_HOURS = 26;
@@ -133,9 +137,24 @@ export interface ServiceSummary {
   retentionDays: number | null;
   /** `all` si un plan couvre tout le service ; sinon nombre d'éléments distincts choisis. */
   scope: { kind: 'all' } | { kind: 'selection'; count: number } | null;
+  /**
+   * Un plan couvre le service, aucune sauvegarde n'existe encore et la première exécution prévue
+   * n'est pas échue : l'écran dit « En attente » au lieu de « En échec ».
+   */
+  awaitingFirstRun: boolean;
 }
 
-type PlanFacts = Pick<ProtectionPlanInput, 'dataTypes' | 'scope' | 'selection' | 'retentionDays'>;
+type PlanFacts = Pick<
+  ProtectionPlanInput,
+  'dataTypes' | 'scope' | 'selection' | 'retentionDays' | 'rpoHours'
+> & { id: string; createdAt: string };
+
+/** Vrai tant que la première exécution prévue après la création du plan n'est pas échue. */
+function firstRunPending(plan: PlanFacts, now: Date): boolean {
+  const created = new Date(plan.createdAt);
+  if (Number.isNaN(created.getTime())) return false;
+  return nextRunAt(plan, created).getTime() > now.getTime();
+}
 
 const WORST_FIRST: readonly BackupState[] = ['missing', 'stale', 'ok'];
 
@@ -168,6 +187,9 @@ export function buildServiceSummaries(
       state,
       retentionDays: covering.length > 0 ? Math.max(...covering.map((p) => p.retentionDays)) : null,
       scope,
+      // Plusieurs plans : l'attente cesse dès que la première exécution de l'un d'eux est échue.
+      awaitingFirstRun:
+        covering.length > 0 && last === null && covering.every((p) => firstRunPending(p, now)),
     };
   });
 }

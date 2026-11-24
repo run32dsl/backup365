@@ -89,6 +89,7 @@ describe('StatusView', () => {
         state: 'ok',
         retentionDays: 365,
         scope: { kind: 'all' },
+        awaitingFirstRun: false,
       },
       {
         service: 'onedrive',
@@ -98,10 +99,11 @@ describe('StatusView', () => {
         state: 'missing',
         retentionDays: null,
         scope: null,
+        awaitingFirstRun: false,
       },
     ];
     const html = renderToString(<StatusView state={{ ...report, services }} />);
-    expect(html).toContain('Sources');
+    expect(html).toContain('Services');
     expect(html).toContain('365 jours');
     expect(html).toContain('Toutes les boîtes');
     expect(html.match(/row-muted/g)).toHaveLength(1);
@@ -117,6 +119,7 @@ describe('StatusView', () => {
       state: 'ok',
       retentionDays: 365,
       scope: { kind: 'all' },
+      awaitingFirstRun: false,
       ...over,
     });
     const noPlan = entry({
@@ -127,20 +130,23 @@ describe('StatusView', () => {
       state: 'missing',
       retentionDays: null,
       scope: null,
+      awaitingFirstRun: false,
     });
     /** Ligne du tableau « Sources » qui porte ce service. */
     const line = (services: Entry[], label: string): string => {
       const html = renderToString(<StatusView state={{ ...report, services }} />);
       const table = html.slice(html.indexOf('services-title'), html.indexOf('backups-title'));
-      const found = table.split('<tr').find((tr) => tr.includes(`>${label}</td>`));
+      const found = table.split('<tr').find((tr) => tr.includes(`${label}</th>`));
       if (found === undefined) throw new Error(`ligne ${label} absente`);
       return found;
     };
 
-    it('says « Aucun plan » with a link to create one, and nothing to read in the journal', () => {
+    it('says « Non protégé » with a link to create one, and nothing to read in the journal', () => {
       const tr = line([noPlan], 'OneDrive');
       expect(tr).toContain('row-muted');
-      expect(tr).toContain('Aucun plan');
+      expect(tr).toContain('Non protégé');
+      expect(tr).not.toContain('Aucun plan');
+      expect(tr).not.toContain('opacity');
       expect(tr).toContain(
         '<a class="state-link" href="#/plans" aria-label="Créer un plan pour OneDrive">Créer un plan</a>',
       );
@@ -173,15 +179,37 @@ describe('StatusView', () => {
       }
     });
 
-    it('shows a service with a plan but no backup yet as failed, with the journal link', () => {
-      const tr = line(
-        [entry({ lastSnapshotAt: null, ageHours: null, state: 'missing' })],
-        'Messagerie',
-      );
+    const noBackup = { lastSnapshotAt: null, ageHours: null, state: 'missing' } as const;
+
+    it('shows a plan without backup as failed once its first run is due, with the journal link', () => {
+      const tr = line([entry({ ...noBackup, awaitingFirstRun: false })], 'Messagerie');
       expect(tr).toContain('Jamais');
       expect(tr).toContain('En échec');
       expect(tr).toContain('#/audit');
+      expect(tr).not.toContain('En attente');
       expect(tr).not.toContain('row-muted');
+    });
+
+    it('shows a plan without backup as « En attente » until its first run is due', () => {
+      const tr = line([entry({ ...noBackup, awaitingFirstRun: true })], 'Messagerie');
+      expect(tr).toMatch(/<span aria-hidden="true">◷<\/span> (<!-- -->)?En attente/u);
+      expect(tr).not.toContain('En échec');
+      expect(tr).not.toContain('#/audit');
+      expect(tr).not.toContain('row-muted');
+    });
+
+    it('puts a decorative icon beside the written service name, in a native table', () => {
+      const services = [entry(), noPlan, entry({ service: 'sharepoint' })];
+      const html = renderToString(<StatusView state={{ ...report, services }} />);
+      const table = html.slice(html.indexOf('services-title'), html.indexOf('backups-title'));
+      expect(table.match(/<span class="service-icon" aria-hidden="true">/g)).toHaveLength(3);
+      expect(table).toMatch(/aria-hidden="true">✉<\/span> (<!-- -->)?Messagerie<\/th>/u);
+      expect(table).toContain('<caption class="sr-only">État par service</caption>');
+      expect(table.match(/<th scope="col"/g)).toHaveLength(5);
+      expect(table.match(/<th scope="row"/g)).toHaveLength(3);
+      // Un seul tableau, un seul exemplaire de chaque nom : la carte mobile est faite par le CSS.
+      expect(table.match(/<table/g)).toHaveLength(1);
+      expect(table.match(/Messagerie<\/th>/g)).toHaveLength(1);
     });
 
     it('names the scope after the service: mailboxes, accounts, sites', () => {
@@ -199,7 +227,7 @@ describe('StatusView', () => {
   });
 
   it('shows no services section when the server sends none, an error when it is null', () => {
-    expect(renderToString(<StatusView state={report} />)).not.toContain('Sources');
+    expect(renderToString(<StatusView state={report} />)).not.toContain('services-title');
     expect(renderToString(<StatusView state={{ ...report, services: null }} />)).toContain(
       'Synthèse des services indisponible',
     );

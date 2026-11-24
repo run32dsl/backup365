@@ -18,7 +18,7 @@ import { StatusPage } from './StatusPage.js';
 import { parseMailHash, parseSearchHash } from './mail.js';
 import { PlansPage } from './PlansPage.js';
 import { parsePlansHash } from './plans.js';
-import { COMPONENTS_HASH, STATUS_HASH } from './routes.js';
+import { COMPONENTS_HASH, LEGACY_STATUS_HASH, STATUS_HASH } from './routes.js';
 import { AccessDenied } from './AccessDenied.js';
 import { Alert } from './ui/index.js';
 import {
@@ -85,16 +85,24 @@ export function screenFor(
   return (screen === 'accounts' || screen === 'status') && !admin ? 'forbidden' : screen;
 }
 
+/** Nouvelle ancre d'une ancienne adresse (`#/etat` → `#/sources`) ; `null` si rien à rediriger. */
+export function redirectLegacyHash(hash: string): string | null {
+  return hash === LEGACY_STATUS_HASH ? STATUS_HASH : null;
+}
+
 /** Entrée de navigation : un lien. */
 export type NavLink = { href: string; label: string; current: boolean };
 /** Rubrique de navigation : un lien, ou un libellé de groupe (sans lien) et ses liens. */
 export type NavEntry = NavLink | { label: string; children: NavLink[] };
 
+/** Charte : 8 entrées au plus pour un administrateur (liens des groupes compris). */
+export const MAX_ADMIN_NAV_ENTRIES = 8;
+
 /**
  * Entrées de la navigation principale : seules les entrées livrées apparaissent. « Restaurer »
  * est un libellé de groupe, pas un lien : il regroupe les trois parcours de restauration
- * (Messagerie, OneDrive, SharePoint). « État détaillé » et Administration (comptes) sont
- * réservées aux administrateurs.
+ * (Messagerie, OneDrive, SharePoint). « Sources » et Administration (comptes) sont réservées
+ * aux administrateurs, qui ont `MAX_ADMIN_NAV_ENTRIES` liens au plus.
  */
 export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean): NavEntry[] {
   const entries: NavEntry[] = [
@@ -115,12 +123,17 @@ export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean)
     { href: '#/audit', label: 'Journal d’audit', current: screen === 'audit' },
   ];
   if (admin) {
-    entries.push({ href: STATUS_HASH, label: 'État détaillé', current: screen === 'status' });
+    entries.push({ href: STATUS_HASH, label: 'Sources', current: screen === 'status' });
     entries.push({
       href: '#/comptes',
       label: 'Administration',
       current: screen === 'accounts' || screen === 'forbidden',
     });
+  }
+  const links = entries.flatMap((e) => ('children' in e ? e.children : [e])).length;
+  // Invariant de la charte : un ajout qui la dépasse échoue aux tests, pas en silence chez l'utilisateur.
+  if (links > MAX_ADMIN_NAV_ENTRIES) {
+    throw new Error(`La navigation dépasse ${MAX_ADMIN_NAV_ENTRIES} entrées.`);
   }
   return entries;
 }
@@ -295,11 +308,16 @@ export function Console({
   flash?: string;
 }) {
   const demo = demoOf(health);
-  const [hash, setHash] = useState(window.location.hash);
+  const [hash, setHash] = useState(
+    () => redirectLegacyHash(window.location.hash) ?? window.location.hash,
+  );
   useEffect(() => {
     const onChange = () => {
-      setHash(window.location.hash);
+      const legacy = redirectLegacyHash(window.location.hash);
+      if (legacy !== null) window.history.replaceState(null, '', legacy);
+      setHash(legacy ?? window.location.hash);
     };
+    onChange();
     window.addEventListener('hashchange', onChange);
     return () => {
       window.removeEventListener('hashchange', onChange);
