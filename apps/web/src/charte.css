@@ -604,6 +604,11 @@ select[aria-disabled='true'] {
   white-space: nowrap;
 }
 
+/* En carte (sous 900 px) l'adresse d'une colonne `nowrap` peut passer à la ligne ; le tableau la garde sur une ligne plus bas. */
+.data-table td.address.nowrap {
+  white-space: normal;
+}
+
 .table-caption {
   text-align: left;
   font-weight: 600;
