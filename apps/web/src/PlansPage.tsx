@@ -28,6 +28,7 @@ import {
   planSummary,
   runFlashText,
   retentionLabel,
+  hoursLabel,
   withCurrent,
   retentionHelp,
   rpoHelp,
@@ -287,7 +288,7 @@ export function PlanWizard({
             legend={OBJECTIVE_LABELS.rpo}
             name="rpo"
             value={form.rpoHours}
-            options={RPO_CHOICES.map((h) => ({ value: h, label: `${h} h` }))}
+            options={RPO_CHOICES.map((h) => ({ value: h, label: hoursLabel(h) }))}
             help={rpoHelp(form.rpoHours)}
             onChange={(rpoHours) => {
               patch({ rpoHours });
@@ -299,26 +300,38 @@ export function PlanWizard({
             value={form.rtoHours}
             options={withCurrent(RTO_CHOICES, form.rtoHours).map((h) => ({
               value: h,
-              label: `${h} h`,
+              label: hoursLabel(h),
             }))}
             help={rtoHelp(form.rtoHours)}
             onChange={(rtoHours) => {
               patch({ rtoHours });
             }}
           />
-          <ChoiceGroup<number>
-            legend={OBJECTIVE_LABELS.retention}
-            name="retention"
-            value={form.retentionDays}
-            options={withCurrent(RETENTION_CHOICES, form.retentionDays).map((d) => ({
-              value: d,
-              label: retentionLabel(d),
-            }))}
-            help={retentionHelp(form.retentionDays)}
-            onChange={(retentionDays) => {
-              patch({ retentionDays });
-            }}
-          />
+          <div className="field">
+            <label htmlFor="retention">{OBJECTIVE_LABELS.retention}</label>
+            <div className="field-control">
+              <select
+                id="retention"
+                name="retention"
+                value={form.retentionDays}
+                aria-describedby="retention-help"
+                onChange={(e) => {
+                  patch({ retentionDays: Number(e.currentTarget.value) });
+                }}
+              >
+                {withCurrent(RETENTION_CHOICES, form.retentionDays).map((d) => (
+                  <option key={d} value={d}>
+                    {retentionLabel(d)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field-meta">
+              <p id="retention-help" className="field-help">
+                {retentionHelp(form.retentionDays)}
+              </p>
+            </div>
+          </div>
           <FormField
             label={`${OBJECTIVE_LABELS.justification} (obligatoire)`}
             type="text"

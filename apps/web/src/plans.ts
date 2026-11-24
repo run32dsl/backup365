@@ -80,6 +80,11 @@ export function withCurrent(choices: readonly number[], current: number): number
   return all.sort((a, b) => a - b);
 }
 
+/** Durée en heures, en toutes lettres (« 1 heure », « 24 heures »). */
+export function hoursLabel(hours: number): string {
+  return `${hours}\u00a0heure${hours === 1 ? '' : 's'}`;
+}
+
 export function retentionLabel(days: number): string {
   if (days === 180) return '6\u00a0mois';
   if (days === 365) return '1\u00a0an';
@@ -234,10 +239,10 @@ export function recapRows(form: PlanForm): [string, string][] {
     ['Périmètre', scopeLabel(form)],
     [
       OBJECTIVE_LABELS.rpo,
-      `${form.rpoHours}\u00a0h (une sauvegarde toutes les ${form.rpoHours}\u00a0h)`,
+      `${hoursLabel(form.rpoHours)} au plus (une sauvegarde toutes les ${hoursLabel(form.rpoHours)})`,
     ],
-    [OBJECTIVE_LABELS.rto, `${form.rtoHours}\u00a0h`],
-    [OBJECTIVE_LABELS.retention, retentionLabel(form.retentionDays)],
+    [OBJECTIVE_LABELS.rto, `${hoursLabel(form.rtoHours)} au plus`],
+    [OBJECTIVE_LABELS.retention, `${retentionLabel(form.retentionDays)}, puis suppression`],
     [OBJECTIVE_LABELS.justification, form.justification],
   ];
 }
@@ -292,10 +297,10 @@ export function planSummary(
 }
 
 export const rpoHelp = (hours: number): string =>
-  `Si un incident survient, vous pouvez perdre au plus ${hours} h de données.`;
+  `Si un incident survient, vous pouvez perdre au plus ${hoursLabel(hours)} de données.`;
 
 export const rtoHelp = (hours: number): string =>
-  `Le service doit être rétabli en ${hours} h au plus.`;
+  `Le service doit être rétabli en ${hoursLabel(hours)} au plus.`;
 
 export const retentionHelp = (days: number): string =>
   `Les sauvegardes sont supprimées au bout de ${retentionLabel(days)}.`;

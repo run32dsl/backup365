@@ -466,7 +466,7 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await expect(page.getByText('Étape 2 sur 3 : Objectifs')).toBeFocused();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page.getByText('Indiquez pourquoi cette durée est nécessaire.')).toBeVisible();
-  await page.getByRole('group', { name: 'Durée de conservation' }).getByLabel('3 ans').check();
+  await page.getByLabel('Durée de conservation').selectOption('1095');
   await page.getByLabel('Justification de cette durée').fill('Besoin métier : archives');
   await page.getByRole('button', { name: 'Continuer' }).click();
 
