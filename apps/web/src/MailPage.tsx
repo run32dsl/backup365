@@ -2,18 +2,39 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { IndexedMail } from '@backup365/core';
 import { exportEml, fetchMail, isReasonValid, saveBlob } from './mail.js';
 import { dateTimeOrDash, folderLabel, sizeOf } from './format.js';
-import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
-import { AuditReminder, ReasonField } from './RestoreJourney.js';
+import { apiErrorFor, splitTitle } from './apiError.js';
+import { ConfigurationLink } from './ConfigurationBlock.js';
+import { useAdmin } from './role.js';
+import { RestoreAction, recallRows } from './RestoreAction.js';
+import {
+  AuditReminder,
+  REASON,
+  REASON_EXAMPLES,
+  RESTORE_BUTTONS as B,
+  ReasonField,
+} from './RestoreJourney.js';
 import {
   fetchLastRestore,
   fetchRestoreConfigured,
-  lastRestoreLabel,
+  lastRestoreSummary,
   type RestoreJob,
 } from './restore.js';
-import { Alert, Button } from './ui/index.js';
+import { Alert, Button, Dialog, ResultList, StatusPill } from './ui/index.js';
 
 /** État de la fiche. */
 export type MailState = IndexedMail | 'loading' | 'error';
+
+/** Restauration non configurée : cause courte en titre, conduite à tenir dans le corps. */
+export function RestoreUnavailable() {
+  const admin = useAdmin();
+  const { title, text } = splitTitle(apiErrorFor('restore_unavailable', admin) ?? '');
+  return (
+    <Alert tone="warning" {...(title ? { title } : {})}>
+      {text}
+      {admin ? <ConfigurationLink /> : null}
+    </Alert>
+  );
+}
 
 /** Titre de la fiche : l'objet du mail, un repli s'il est vide, un titre générique sinon. */
 export function mailTitle(state: MailState): string {
@@ -48,54 +69,118 @@ export function MailView({ state }: { state: MailState }) {
   );
 }
 
-/** Formulaire d'export : même bloc motif et même rappel d'audit que les restaurations. */
-export function ExportForm({
-  reason,
-  exporting,
-  onReason,
-  onSubmit,
-}: {
-  reason: string;
-  exporting: 'idle' | 'busy' | 'done' | 'error';
-  onReason: (value: string) => void;
-  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
-}) {
-  const valid = isReasonValid(reason);
-  const empty = reason.trim() === '';
+/** Issue d'une demande d'export : motif refusé, fichier remis, ou export refusé par le serveur. */
+export type ExportOutcome = 'invalid' | 'done' | 'error';
+
+/**
+ * Valide le motif, puis demande l'export. Sans motif valide, rien n'est envoyé : le serveur
+ * inscrit au journal d'audit chaque export qui lui parvient avec son motif.
+ */
+export async function runExport(
+  reason: string,
+  request: (reason: string) => Promise<Blob>,
+  save: (blob: Blob) => void,
+): Promise<ExportOutcome> {
+  if (!isReasonValid(reason)) return 'invalid';
+  try {
+    save(await request(reason));
+    return 'done';
+  } catch {
+    return 'error';
+  }
+}
+
+/** Export depuis la fiche : bouton, boîte de dialogue avec motif, et l'issue de l'export. */
+export function ExportSection({ mail }: { mail: IndexedMail }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [fieldError, setFieldError] = useState<string | undefined>();
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<'idle' | 'done'>('idle');
+  const [failed, setFailed] = useState(false);
+
+  function openPanel() {
+    setFieldError(undefined);
+    setFailed(false);
+    setReason('');
+    setResult('idle');
+    setOpen(true);
+  }
+
+  function closePanel() {
+    if (!sending) setOpen(false);
+  }
+
+  function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (sending) return;
+    setSending(true);
+    void runExport(
+      reason,
+      (r) => exportEml(mail.mailboxId, mail.messageId, r),
+      (blob) => {
+        saveBlob(blob, 'message.eml');
+      },
+    ).then((outcome) => {
+      setSending(false);
+      if (outcome === 'invalid') {
+        setFieldError(REASON.error);
+        return;
+      }
+      setFieldError(undefined);
+      if (outcome === 'error') {
+        setFailed(true);
+        return;
+      }
+      setResult('done');
+      setOpen(false);
+    });
+  }
+
+  const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
   return (
     <section aria-labelledby="export-title" className="mail-section">
-      <h2 id="export-title">Exporter en EML</h2>
-      <form onSubmit={onSubmit}>
-        <ReasonField of="de l’export" value={reason} onChange={onReason} />
-        <p className="field-help export-note">
-          Pour les anciennes sauvegardes, les pièces jointes ne sont pas incluses dans le fichier.
-        </p>
+      <h2 id="export-title">Exporter</h2>
+      <p>Télécharge une copie du mail au format .eml, lisible par Outlook.</p>
+      <Button variant="secondary" aria-label={`Exporter ${subject}`} onClick={openPanel}>
+        Exporter
+      </Button>
+      {result === 'done' && (
+        <div className="export-result">
+          <Alert tone="success">Export inscrit au journal d’audit.</Alert>
+        </div>
+      )}
+      <Dialog open={open} title="Exporter ce mail" onClose={closePanel}>
         <AuditReminder />
-        <Button
-          type="submit"
-          variant="secondary"
-          busy={exporting === 'busy'}
-          disabled={!valid}
-          aria-describedby={empty ? 'export-disabled-help' : undefined}
-        >
-          Exporter en EML
-        </Button>
-        {exporting === 'done' ? (
-          <div className="export-result">
-            <Alert tone="success">Export inscrit au journal d’audit.</Alert>
+        <form onSubmit={submit} noValidate>
+          <ResultList rows={recallRows(mail)} />
+          <ReasonField
+            of="de l’export"
+            placeholder={REASON_EXAMPLES.export}
+            value={reason}
+            error={fieldError}
+            onChange={setReason}
+          />
+          <h3>Ce qui va se passer</h3>
+          <ul>
+            <li>Le mail sera téléchargé sur votre poste, dans un fichier .eml.</li>
+            <li>
+              Pour les anciennes sauvegardes, les pièces jointes ne sont pas incluses dans le
+              fichier.
+            </li>
+            <li>L’export sera inscrit au journal d’audit, avec votre motif.</li>
+          </ul>
+          {failed && <Alert tone="error">Export refusé ou indisponible.</Alert>}
+          <div className="button-row dialog-actions">
+            <Button variant="secondary" data-safe onClick={closePanel}>
+              {B.cancel}
+            </Button>
+            <Button type="submit" busy={sending}>
+              Exporter
+            </Button>
           </div>
-        ) : exporting === 'error' ? (
-          <div className="export-result">
-            <Alert tone="error">Export refusé ou indisponible.</Alert>
-          </div>
-        ) : (
-          empty && (
-            <p id="export-disabled-help" className="field-help export-help">
-              Saisissez un motif pour exporter.
-            </p>
-          )
-        )}
-      </form>
+        </form>
+      </Dialog>
     </section>
   );
 }
@@ -131,32 +216,49 @@ export function RestoreSection({ mail }: { mail: IndexedMail }) {
       clearInterval(timer);
     };
   }, [running, mail.mailboxId, mail.messageId]);
-  const label = lastRestoreLabel(last);
+  return <RestoreSectionView mail={mail} configured={configured} last={last} onJob={setLast} />;
+}
+
+/** Section de restauration : le bouton, ou un avertissement quand la restauration est indisponible. */
+export function RestoreSectionView({
+  mail,
+  configured,
+  last,
+  onJob,
+}: {
+  mail: IndexedMail;
+  configured: boolean;
+  last: RestoreJob | null;
+  onJob?: (job: RestoreJob) => void;
+}) {
+  const summary = lastRestoreSummary(last);
   return (
     <section aria-labelledby="restore-title" className="mail-section">
       <h2 id="restore-title">Restaurer dans la boîte d’origine</h2>
       <p>Remet une copie du mail dans sa boîte d’origine, sans rien écraser.</p>
-      <RestoreAction
-        mail={mail}
-        configured={configured}
-        hintId="restore-not-configured"
-        onJob={setLast}
-      />
-      {!configured && <RestoreNotConfigured id="restore-not-configured" />}
-      {label && <p role="status">{label}</p>}
+      {configured ? (
+        <RestoreAction mail={mail} configured onJob={onJob} />
+      ) : (
+        <div className="restore-unavailable">
+          <RestoreUnavailable />
+        </div>
+      )}
+      {summary && (
+        <p role="status">
+          Dernière restauration : <StatusPill status={summary.status} label={summary.label} />
+          {summary.duration ? ` ${summary.duration}` : ''}
+        </p>
+      )}
     </section>
   );
 }
 
-/** Fiche d'un mail, restauration et export EML (le motif est exigé pour l'un et l'autre). */
+/** Fiche d'un mail, restauration et export (le motif est exigé pour l'un et l'autre). */
 export function MailPage({ mailboxId, messageId }: { mailboxId: string; messageId: string }) {
   const [state, setState] = useState<MailState>('loading');
-  const [reason, setReason] = useState('');
-  const [exporting, setExporting] = useState<'idle' | 'busy' | 'done' | 'error'>('idle');
   useEffect(() => {
     let current = true;
     setState('loading');
-    setExporting('idle');
     fetchMail(mailboxId, messageId).then(
       (m) => current && setState(m),
       () => current && setState('error'),
@@ -165,21 +267,6 @@ export function MailPage({ mailboxId, messageId }: { mailboxId: string; messageI
       current = false;
     };
   }, [mailboxId, messageId]);
-
-  function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!isReasonValid(reason)) return;
-    setExporting('busy');
-    exportEml(mailboxId, messageId, reason).then(
-      (blob) => {
-        saveBlob(blob, 'message.eml');
-        setExporting('done');
-      },
-      () => {
-        setExporting('error');
-      },
-    );
-  }
 
   return (
     <main tabIndex={-1}>
@@ -190,7 +277,7 @@ export function MailPage({ mailboxId, messageId }: { mailboxId: string; messageI
       <MailView state={state} />
       {typeof state === 'object' && <RestoreSection mail={state} />}
       {typeof state === 'object' && (
-        <ExportForm reason={reason} exporting={exporting} onReason={setReason} onSubmit={submit} />
+        <ExportSection key={`${state.mailboxId}/${state.messageId}`} mail={state} />
       )}
     </main>
   );

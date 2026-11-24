@@ -138,6 +138,24 @@ describe('plans et exécution réelle', () => {
     expect(backup).toHaveBeenCalledTimes(2); // mail puis OneDrive
   });
 
+  it('records a 120-character run reason as typed in the audit log', async () => {
+    const { api } = backupApi();
+    app = await start(env(m365), () => api);
+    const id = await createPlan(app);
+    const reason = 'Ticket INC-1 : ' + 'x'.repeat(105);
+    expect(reason).toHaveLength(120);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/plans/${id}/run`,
+      payload: { reason },
+    });
+    expect(res.statusCode).toBe(202);
+    const audit = await app.inject('/api/audit?action=plan.run');
+    expect(audit.json<{ items: { reason: string }[] }>().items.map((e) => e.reason)).toEqual([
+      reason,
+    ]);
+  });
+
   it('records a failure with its code only, and no credential leaks anywhere', async () => {
     const { api } = backupApi(true);
     app = await start(env(m365), () => api);

@@ -1,4 +1,9 @@
-import { parseProtectionPlanInput, planCompliance, type AuditLog } from '@backup365/core';
+import {
+  failureCauseOf,
+  parseProtectionPlanInput,
+  planCompliance,
+  type AuditLog,
+} from '@backup365/core';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { auditEvent, recordDenied } from './audit-events.js';
 import type { PlanScheduler } from './plan-scheduler.js';
@@ -104,7 +109,8 @@ export function registerPlanRoutes(
     const items = ctx.plans.list().map((plan) => {
       const runs = ctx.plans.listRuns(plan.id, RUNS_LIMIT);
       const last = runs[0];
-      // L'opérateur ne reçoit que ce que la liste affiche : ni sélection ni justification.
+      // L'opérateur ne reçoit que ce que la liste affiche : la sélection (la synthèse nomme les
+      // boîtes), mais ni délai de remise en service ni justification.
       const visible =
         req.session?.role === 'admin'
           ? plan
@@ -113,6 +119,7 @@ export function registerPlanRoutes(
               name: plan.name,
               scope: plan.scope,
               dataTypes: plan.dataTypes,
+              selection: plan.selection,
               rpoHours: plan.rpoHours,
               retentionDays: plan.retentionDays,
               createdAt: plan.createdAt,
@@ -127,12 +134,16 @@ export function registerPlanRoutes(
           lastRestorePointAt: ctx.plans.lastRestorePointAt(plan.id),
         },
         running: runs.some((r) => r.status === 'running'),
+        // Lancement manuel en file derrière la sauvegarde en cours : pas encore une exécution.
+        queued: scheduler?.isQueued(plan.id) ?? false,
         lastRun: last
           ? {
               status: last.status,
               startedAt: last.startedAt,
               finishedAt: last.finishedAt,
               noSnapshotReason: last.noSnapshotReason,
+              // Cause traduite (liste fermée), jamais le code ni le message brut.
+              ...(last.status === 'failed' && { failureCause: failureCauseOf(last.error) }),
             }
           : null,
       };
@@ -201,8 +212,17 @@ export function registerPlanRoutes(
     async (req, reply) => {
       const ctx = await guard(req, reply);
       if (!ctx) return reply;
+      const reason = parseReason(req.body);
+      if (reason === undefined) {
+        return refuse(req, reply, 'plan.delete', 400, {
+          error: 'reason_required',
+          message: `Le motif de la suppression est obligatoire (${REASON_MAX} caractères au plus).`,
+        });
+      }
       if (!ctx.plans.delete(req.params.id)) return notFound(req, reply, 'plan.delete');
-      await ctx.audit.record(auditEvent(req, 'plan.delete', 'plan', { target: req.params.id }));
+      await ctx.audit.record(
+        auditEvent(req, 'plan.delete', 'plan', { target: req.params.id, reason }),
+      );
       return reply.code(204).send();
     },
   );
@@ -249,6 +269,7 @@ export function registerPlanRoutes(
       } catch {
         return refuse(req, reply, 'plan.run', 503, { error: 'items_unavailable' });
       }
+      if (result.queued) return reply.code(202).send({ started: 0, skipped: 0, queued: true });
       if (result.started === 0) {
         if (!ctx.plans.get(plan.id)) return notFound(req, reply, 'plan.run');
         const busy = result.skipped > 0;
@@ -259,7 +280,9 @@ export function registerPlanRoutes(
             : 'Le plan ne couvre aucun élément.',
         });
       }
-      return reply.code(202).send({ started: result.started, skipped: result.skipped });
+      return reply
+        .code(202)
+        .send({ started: result.started, skipped: result.skipped, queued: false });
     },
   );
 }

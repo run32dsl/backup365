@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { FailureAlert } from './FailureAlert.js';
-import { Alert, Button, FormField } from './ui/index.js';
+import { Alert, Button, FormField, WizardActions } from './ui/index.js';
 import {
   AUDIT_NOTICE,
   RETRY_NOW,
@@ -23,6 +23,7 @@ import {
  */
 export function Field({
   label,
+  help,
   name,
   type = 'text',
   autoComplete,
@@ -30,6 +31,7 @@ export function Field({
   onValue,
 }: {
   label: string;
+  help?: string;
   name: string;
   type?: 'text' | 'password';
   autoComplete: string;
@@ -41,6 +43,7 @@ export function Field({
   return (
     <FormField
       label={label}
+      help={help}
       name={name}
       type={secret && !shown ? 'password' : 'text'}
       autoComplete={autoComplete}
@@ -108,8 +111,11 @@ export function CredentialsView({
   lockedStartSec,
   announcement = '',
   microsoft = false,
+  refusal,
   onSubmit,
 }: {
+  /** Refus de Microsoft au retour de la connexion : bandeau d'erreur « Accès refusé ». */
+  refusal?: string;
   /** Connexion Microsoft configurée : le bouton s'affiche sous le formulaire local. */
   microsoft?: boolean;
   mode: 'login' | 'setup';
@@ -130,70 +136,83 @@ export function CredentialsView({
   const locked = lockedSec > 0;
   const [typed, setTyped] = useState('');
   return (
-    <main tabIndex={-1}>
-      <h1>{setup ? 'Créer le compte administrateur' : 'Connexion à la console'}</h1>
-      {locked && (
-        <Alert tone="warning">
-          <span className="sr-only">{lockedMessage(lockedStartSec ?? lockedSec)}</span>
-          <span aria-hidden="true">
-            Connexion impossible pour le moment. Nouvel essai possible dans{' '}
-            <span className="countdown">{formatCountdown(lockedSec)}</span>.
-          </span>
-        </Alert>
-      )}
-      <p className="sr-only" role="status">
-        {announcement}
-      </p>
-      {setup && (
-        <p>
-          Aucun compte n’existe encore. Ce compte gère les comptes, les plans et les restaurations.
+    <>
+      <div className="login-brand">
+        <p className="login-brand-name">backup365</p>
+        <p className="login-brand-tagline">Console de sauvegarde Microsoft 365</p>
+      </div>
+      <main className="login-card" tabIndex={-1}>
+        <h1>{setup ? 'Créer le compte administrateur' : 'Connexion à la console'}</h1>
+        {refusal && !setup && (
+          <Alert tone="error" title="Accès refusé">
+            <span className="alert-detail">{refusal}</span>
+          </Alert>
+        )}
+        {locked && (
+          <Alert tone="warning" title="Connexion temporairement bloquée">
+            <span className="sr-only">{lockedMessage(lockedStartSec ?? lockedSec)}</span>
+            <span aria-hidden="true">
+              Nouvel essai possible dans{' '}
+              <span className="countdown">{formatCountdown(lockedSec)}</span>.
+            </span>
+          </Alert>
+        )}
+        <p className="sr-only" role="status">
+          {announcement}
         </p>
-      )}
-      {notice && <p role="status">{notice}</p>}
-      <form
-        onSubmit={(e: FormEvent<HTMLFormElement>) => {
-          e.preventDefault();
-          onSubmit?.(new FormData(e.currentTarget));
-        }}
-      >
-        <Field
-          label="Identifiant"
-          name="username"
-          autoComplete="username"
-          onValue={setup ? setTyped : undefined}
-        />
-        <Field
-          label="Mot de passe"
-          name="password"
-          type="password"
-          autoComplete={setup ? 'new-password' : 'current-password'}
-        />
         {setup && (
+          <p>
+            Aucun compte n’existe encore. Ce compte gère les comptes, les plans et les
+            restaurations.
+          </p>
+        )}
+        {notice && <p role="status">{notice}</p>}
+        <form
+          onSubmit={(e: FormEvent<HTMLFormElement>) => {
+            e.preventDefault();
+            onSubmit?.(new FormData(e.currentTarget));
+          }}
+        >
+          <Field
+            label="Identifiant"
+            name="username"
+            autoComplete="username"
+            onValue={setup ? setTyped : undefined}
+          />
+          <Field
+            label="Mot de passe"
+            name="password"
+            type="password"
+            autoComplete={setup ? 'new-password' : 'current-password'}
+          />
+          {setup && (
+            <>
+              <p>12 caractères minimum. Une phrase de passe convient.</p>
+              <Field
+                label="Confirmer le mot de passe"
+                name="confirm"
+                type="password"
+                autoComplete="new-password"
+              />
+              <p role="status">{setupRecap(typed.trim())}</p>
+            </>
+          )}
+          {error && !locked && <FailureAlert problem={{ message: error, requestId }} />}
+          <Button type="submit" busy={busy} disabled={locked}>
+            {setup ? 'Créer le compte administrateur' : 'Se connecter'}
+          </Button>
+        </form>
+        {microsoft && !setup && (
           <>
-            <p>12 caractères minimum. Une phrase de passe convient.</p>
-            <Field
-              label="Confirmer le mot de passe"
-              name="confirm"
-              type="password"
-              autoComplete="new-password"
-            />
-            <p role="status">{setupRecap(typed.trim())}</p>
+            <p className="login-or">ou</p>
+            <a className="btn btn-secondary" href={MICROSOFT_LOGIN_URL}>
+              {MICROSOFT_LABEL}
+            </a>
           </>
         )}
-        {error && !locked && <FailureAlert problem={{ message: error, requestId }} />}
-        <Button type="submit" busy={busy} disabled={locked}>
-          {setup ? 'Créer le compte administrateur' : 'Se connecter'}
-        </Button>
-      </form>
-      {microsoft && !setup && (
-        <p>
-          <a className="btn btn-secondary" href={MICROSOFT_LOGIN_URL}>
-            {MICROSOFT_LABEL}
-          </a>
-        </p>
-      )}
-      <p>{AUDIT_NOTICE}</p>
-    </main>
+        <p className="login-audit">{AUDIT_NOTICE}</p>
+      </main>
+    </>
   );
 }
 
@@ -206,10 +225,12 @@ const text = (form: FormData, name: string): string => {
 export function CredentialsPage({
   mode,
   notice,
+  refusal,
   onSession,
 }: {
   mode: 'login' | 'setup';
   notice?: string;
+  refusal?: string;
   onSession: (session: SessionInfo) => void;
 }) {
   const [error, setError] = useState<string>();
@@ -274,12 +295,13 @@ export function CredentialsPage({
     );
   };
   return (
-    <div ref={root}>
+    <div ref={root} className="login-page-body">
       <CredentialsView
         mode={mode}
         error={error}
         requestId={requestId}
         notice={notice}
+        refusal={refusal}
         busy={busy}
         lockedSec={lockedSec}
         lockedStartSec={startSec}
@@ -291,25 +313,33 @@ export function CredentialsPage({
   );
 }
 
-/** Changement de son mot de passe ; imposé après une réinitialisation par un administrateur. */
+/**
+ * Changement de son mot de passe ; imposé après une réinitialisation par un administrateur (titre
+ * propre à ce cas). `saved` affiche la confirmation sous le titre de la page volontaire.
+ */
 export function PasswordView({
   forced,
   error,
-  done = false,
+  saved = false,
   onSubmit,
   onCancel,
 }: {
   forced: boolean;
   error?: string;
-  done?: boolean;
+  saved?: boolean;
   onSubmit?: (form: FormData) => void;
   /** Retour sans changer (absent quand le changement est imposé). */
   onCancel?: () => void;
 }) {
   return (
     <main tabIndex={-1}>
-      <h1>Choisissez un nouveau mot de passe</h1>
-      {forced && <p>Votre mot de passe est temporaire. Choisissez-en un nouveau pour continuer.</p>}
+      <h1>{forced ? 'Choisissez un nouveau mot de passe' : 'Mot de passe'}</h1>
+      {forced ? (
+        <p>Votre mot de passe est temporaire. Choisissez-en un nouveau pour continuer.</p>
+      ) : (
+        <p>Changez le mot de passe de votre compte de la console.</p>
+      )}
+      {saved && <Alert tone="success">{PASSWORD_CHANGED}</Alert>}
       <form
         onSubmit={(e: FormEvent<HTMLFormElement>) => {
           e.preventDefault();
@@ -327,8 +357,9 @@ export function PasswordView({
           name="next"
           type="password"
           autoComplete="new-password"
+          help="12 caractères minimum. Une phrase de passe convient."
         />
-        <p>12 caractères minimum. Une phrase de passe convient.</p>
+
         <Field
           label="Confirmer le nouveau mot de passe"
           name="confirm"
@@ -336,20 +367,29 @@ export function PasswordView({
           autoComplete="new-password"
         />
         {error && <Alert tone="error">{error}</Alert>}
-        {done && <Alert tone="success">Mot de passe modifié.</Alert>}
-        <div className="button-row">
-          <Button type="submit">Enregistrer et continuer</Button>
-          {!forced && (
-            <Button variant="secondary" onClick={onCancel}>
-              Annuler
-            </Button>
-          )}
-        </div>
+        <WizardActions
+          back={
+            !forced && (
+              <Button variant="secondary" onClick={onCancel}>
+                Annuler
+              </Button>
+            )
+          }
+        >
+          <Button type="submit">{forced ? 'Enregistrer et continuer' : 'Enregistrer'}</Button>
+        </WizardActions>
       </form>
     </main>
   );
 }
 
+/** Texte de la notification affichée par la console après un changement réussi. */
+export const PASSWORD_CHANGED = 'Mot de passe modifié.';
+
+/**
+ * Change le mot de passe puis rend la main (`onDone`) : l'appelant redirige et affiche la
+ * confirmation. Le formulaire rempli n'est plus montré après le succès.
+ */
 export function PasswordPage({
   forced,
   onDone,
@@ -361,7 +401,10 @@ export function PasswordPage({
 }) {
   const [error, setError] = useState<string>();
   const [done, setDone] = useState(false);
+  const [saved, setSaved] = useState(0);
+  const [confirmed, setConfirmed] = useState(false);
   const submit = (form: FormData) => {
+    setConfirmed(false);
     if (text(form, 'next') !== text(form, 'confirm')) {
       setError('Les deux mots de passe ne correspondent pas.');
       return;
@@ -370,14 +413,34 @@ export function PasswordPage({
       (outcome) => {
         if (outcome.ok) {
           setError(undefined);
-          setDone(true);
+          // Imposé : l'appelant ouvre la console. Volontaire : on reste sur la page, formulaire
+          // vidé (remonté par sa clé), confirmation sous le titre.
+          if (forced) setDone(true);
+          else {
+            setSaved((n) => n + 1);
+            setConfirmed(true);
+          }
           onDone();
         } else setError(outcome.message);
       },
       () => setError(UNREACHABLE),
     );
   };
+  if (done) {
+    return (
+      <main tabIndex={-1}>
+        <p role="status">Ouverture de la console…</p>
+      </main>
+    );
+  }
   return (
-    <PasswordView forced={forced} error={error} done={done} onSubmit={submit} onCancel={onCancel} />
+    <PasswordView
+      key={saved}
+      forced={forced}
+      error={error}
+      saved={confirmed}
+      onSubmit={submit}
+      onCancel={onCancel}
+    />
   );
 }

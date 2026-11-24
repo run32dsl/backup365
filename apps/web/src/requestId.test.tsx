@@ -4,7 +4,7 @@ import { createAccount, fetchAccounts, resetPassword } from './accounts.js';
 import { requestIdOf } from './apiError.js';
 import { AccountsView, CreateAccountForm } from './AccountsPage.js';
 import { createPlan, emptyForm, fetchPlans } from './plans.js';
-import { PlansListView } from './PlansPage.js';
+import { PlanFailure, PlansListView, RunBlocked, RunFeedback, isRunBlocked } from './PlansPage.js';
 
 const failing = (): typeof fetch =>
   (() =>
@@ -45,13 +45,13 @@ describe('identifiant de requête des échecs', () => {
         state="error"
         admin
         configured
-        loadRequestId="req-5"
         onRetry={() => undefined}
         onRun={() => undefined}
         onDelete={() => undefined}
       />,
     );
-    expect(plans).toContain('<code>req-5</code>');
+    expect(plans).not.toContain('req-5');
+    expect(plans).not.toContain('Identifiant de requête');
     expect(renderToStaticMarkup(<AccountsView state="error" loadRequestId="req-6" />)).toContain(
       '<code>req-6</code>',
     );
@@ -63,5 +63,63 @@ describe('identifiant de requête des échecs', () => {
       <CreateAccountForm error={{ message: 'Échec', requestId: 'req-8' }} />,
     );
     expect(form).toContain('<code>req-8</code>');
+  });
+
+  it('is not shown by plan actions, which keep only the message', () => {
+    const html = renderToStaticMarkup(
+      <PlanFailure problem={{ message: 'Échec', code: 'internal_error', requestId: 'req-9' }} />,
+    );
+    expect(html).toContain('Échec');
+    expect(html).not.toContain('req-9');
+    expect(html).not.toContain('Identifiant de requête');
+  });
+
+  it('repeats a 120-character reason as typed in the summary', () => {
+    const reason = 'r'.repeat(120);
+    const html = renderToStaticMarkup(
+      <RunBlocked
+        problem={{ message: 'Sauvegarde indisponible', code: 'backup_not_configured' }}
+        planName="Messagerie Direction"
+        reason={reason}
+        onClose={() => undefined}
+      />,
+    );
+    expect(html).toContain(reason);
+  });
+
+  it('replaces the reason form with the result when the console is not linked', () => {
+    const html = renderToStaticMarkup(
+      <RunBlocked
+        problem={{ message: 'Sauvegarde indisponible', code: 'backup_not_configured' }}
+        planName="Messagerie Direction"
+        reason="Contrôle de conformité"
+        onClose={() => undefined}
+      />,
+    );
+    expect(html).toContain('alert-warning');
+    expect(html).toContain('Sauvegarde indisponible');
+    expect(html).toMatch(/Plan<[\s\S]*Messagerie Direction/);
+    expect(html).toMatch(/Motif<[\s\S]*Contrôle de conformité/);
+    expect(html).toContain('Aucune sauvegarde n’a été lancée.');
+    expect(html).toContain('Fermer');
+    expect(html).not.toContain('<select');
+    expect(html).not.toContain('<input');
+    expect(html).not.toContain('Lancer la sauvegarde');
+    expect(html).not.toContain('Annuler');
+    expect(isRunBlocked({ message: 'x', code: 'backup_not_configured' })).toBe(true);
+    expect(isRunBlocked({ message: 'x', code: 'internal_error' })).toBe(false);
+  });
+
+  it('keeps the form buttons for a failure that can be retried', () => {
+    const other = renderToStaticMarkup(
+      <RunFeedback
+        problem={{ message: 'x', code: 'internal_error' }}
+        busy={false}
+        onClose={() => undefined}
+      />,
+    );
+    expect(other).toContain('alert-error');
+    expect(other).toContain('Annuler');
+    expect(other).toContain('Lancer la sauvegarde');
   });
 });

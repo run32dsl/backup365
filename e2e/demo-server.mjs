@@ -27,9 +27,9 @@ export const DEMO_PLANS = [
     gdprJustification: 'Obligation légale',
   },
   {
-    name: 'Fichiers Services',
+    name: 'OneDrive et SharePoint Services',
     scope: 'all',
-    dataTypes: ['files', 'calendar'],
+    dataTypes: ['onedrive', 'sharepoint'],
     rpoHours: 24,
     rtoHours: 72,
     retentionDays: 1095,
@@ -69,9 +69,11 @@ async function waitFor(check, what, timeoutMs = 30_000) {
  * Rend quand les comptes existent, que les 100 mails fictifs sont indexés et que les plans fictifs
  * sont créés. Avec `settled`, attend aussi leur première exécution (jusqu'à une minute : le
  * planificateur passe toutes les 30 s), pour des captures où ils sont « Conformes ».
+ * `buildCommit` joue le commit court qu'une image reçoit au build (`BACKUP365_BUILD_COMMIT`) : le
+ * pied de page affiche alors « Version <paquet> · <commit> » au lieu de « Version dev ».
  * `stop()` arrête le serveur et efface le dossier.
  */
-export async function startDemoServer({ settled = false } = {}) {
+export async function startDemoServer({ settled = false, buildCommit } = {}) {
   const port = await freePort();
   const dataDir = mkdtempSync(join(tmpdir(), 'b365-demo-'));
   const child = spawn(process.execPath, [join(root, 'apps/server/dist/main.js')], {
@@ -86,6 +88,7 @@ export async function startDemoServer({ settled = false } = {}) {
       BACKUP365_DEMO: '1',
       BACKUP365_DATA_DIR: dataDir,
       BACKUP365_WEB_DIR: join(root, 'apps/web/dist'),
+      ...(buildCommit ? { BACKUP365_BUILD_COMMIT: buildCommit } : {}),
     },
   });
   let exited = false;
@@ -133,7 +136,8 @@ export async function startDemoServer({ settled = false } = {}) {
         async () => {
           const res = await fetch(`${baseURL}/api/plans`, { headers });
           const { items } = await res.json();
-          return items.every((p) => p.lastRun !== null);
+          // Un plan de nuit (RPO de 24 h ou plus) ne s'exécute pas de jour : on ne l'attend pas.
+          return items.filter((p) => p.rpoHours < 24).every((p) => p.lastRun !== null);
         },
         'première exécution des plans de démonstration',
         60_000,

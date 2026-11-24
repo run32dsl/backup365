@@ -4,7 +4,7 @@ import { Console, ForbiddenView, screenFor, screenOf } from './App.js';
 import { AccountsPage, AccountsView, CreateAccountForm, submitCreate } from './AccountsPage.js';
 import { AuditPage } from './AuditPage.js';
 import { CredentialsView, ErrorView, Field, PasswordView } from './LoginPage.js';
-import { createAccount, isLastAdmin, resetPassword } from './accounts.js';
+import { ROLE_OPTIONS, createAccount, isLastAdmin, resetPassword } from './accounts.js';
 import { Button, DataTable } from './ui/index.js';
 import {
   ADMIN_ONLY,
@@ -41,6 +41,29 @@ describe('CredentialsView', () => {
     expect(html).toContain('role="alert"');
     expect(html).not.toContain('value=');
     expect(html).not.toContain('name="confirm"');
+  });
+});
+
+describe('voluntary password page', () => {
+  it('titles the page, links the help to the new password field, confirms under the title', () => {
+    const html = renderToString(<PasswordView forced={false} saved />);
+    expect(html).toContain('<h1>Mot de passe</h1>');
+    expect(html).toContain('Changez le mot de passe de votre compte de la console.');
+    const help = /<p id="([^"]+-help)" class="field-help">12 caractères minimum/.exec(html);
+    expect(help).not.toBeNull();
+    expect(html).toContain(`aria-describedby="${help![1]}"`);
+    expect(html.indexOf('Mot de passe modifié.')).toBeGreaterThan(html.indexOf('</h1>'));
+    expect(html.indexOf('Mot de passe modifié.')).toBeLessThan(html.indexOf('<form'));
+    expect(html).toContain('class="wizard-actions"');
+    expect(renderToString(<PasswordView forced={false} />)).not.toContain('Mot de passe modifié.');
+  });
+
+  it('keeps the forced screen title and button, without confirmation', () => {
+    const html = renderToString(<PasswordView forced />);
+    expect(html).toContain('<h1>Choisissez un nouveau mot de passe</h1>');
+    expect(html).toContain('>Enregistrer et continuer</button>');
+    expect(html).not.toContain('Annuler');
+    expect(html).not.toContain('Mot de passe modifié.');
   });
 });
 
@@ -93,10 +116,9 @@ describe('AccountsView', () => {
       '<span aria-hidden="true">⚠</span> Mot de passe à changer',
     );
   });
-  it('uses the regular card layout, not the compact one kept for the audit log', () => {
+  it('uses the regular card layout', () => {
     const html = renderToString(<AccountsView state={accounts} actions={{}} />);
     expect(html).toContain('class="data-table"');
-    expect(html).not.toContain('data-table-compact');
   });
   it('offers the password reset only to local accounts', () => {
     const html = renderToString(
@@ -142,8 +164,8 @@ describe('Administration page structure', () => {
     expect(html).not.toContain('<form');
     expect(html).not.toContain('Réinitialiser un mot de passe');
     expect(html).not.toContain('<h2>Créer un compte</h2>');
-    // Un seul menu par ligne : le rôle.
-    expect(html.match(/<select/g)).toHaveLength(2);
+    // Le rôle est un texte : plus aucun menu dans le tableau.
+    expect(html).not.toContain('<select');
   });
 
   it('offers an outlined reset button on every row, naming the account', () => {
@@ -360,8 +382,8 @@ describe('maquette de l’issue #22', () => {
     expect(setup).toContain('>Créer le compte administrateur</button>');
     expect(setup).toContain('12 caractères minimum. Une phrase de passe convient.');
     const password = renderToString(<PasswordView forced={false} />);
-    expect(password).toContain('Choisissez un nouveau mot de passe');
-    expect(password).toContain('>Enregistrer et continuer</button>');
+    expect(password).toContain('<h1>Mot de passe</h1>');
+    expect(password).toContain('>Enregistrer</button>');
     const view = renderToString(<CreateAccountForm />);
     expect(view).toContain('>Créer le compte</button>');
     expect(view).toContain('>Annuler</button>');
@@ -408,6 +430,9 @@ describe('textes restants de la maquette de #22', () => {
     expect(html).toContain('href="#/"');
     expect(html).toContain('Retour au tableau de bord');
     expect(html).not.toContain('alert-error');
+    expect(html).toMatch(/<div class="alert alert-warning" role="alert">/u);
+    expect(html).toContain('<strong class="alert-title">Accès réservé</strong>');
+    expect(html).not.toContain('class="empty');
     expect(ADMIN_ONLY).toBe('Cette page est réservée aux administrateurs.');
   });
 
@@ -420,12 +445,28 @@ describe('textes restants de la maquette de #22', () => {
     expect(some).not.toContain('Aucun opérateur');
   });
 
+  it('titles the account card with the identifier and drops the role and state labels', () => {
+    const html = renderToString(
+      <AccountsView state={[account(1, 'admin'), account(2, 'operator')]} />,
+    );
+    const cls = (label: string) =>
+      (html.match(new RegExp(`<th[^>]*class="([^"]*)"[^>]*>${label}<`)) ?? [])[1]?.split(' ');
+    expect(cls('Identifiant')).toContain('card-title');
+    expect(cls('Rôle')).toContain('card-nolabel');
+    expect(cls('État')).toContain('card-nolabel');
+    // La raison précède les boutons qu'elle explique.
+    const cell = html.match(/<td[^>]*data-label="Actions"[^>]*>(.*?)<\/td>/)![1]!;
+    expect(cell.indexOf('Dernier administrateur')).toBeLessThan(cell.indexOf('<button'));
+  });
+
   it('flags the last active administrator and marks its actions aria-disabled', () => {
     const only = [account(1, 'admin'), account(2, 'operator')];
     expect(isLastAdmin(only, only[0]!)).toBe(true);
     expect(isLastAdmin(only, only[1]!)).toBe(false);
     const html = renderToString(<AccountsView state={only} />);
-    expect(html).toContain('Dernier administrateur : ce compte ne peut pas être désactivé.');
+    expect(html).toContain(
+      'Dernier administrateur : ce compte ne peut être ni désactivé ni rétrogradé.',
+    );
     expect(html.match(/aria-disabled="true"/g)).toHaveLength(2);
     expect(html.match(/aria-describedby="last-admin-1"/g)).toHaveLength(2);
     expect(html).toContain('id="last-admin-1"');
@@ -446,10 +487,26 @@ describe('textes restants de la maquette de #22', () => {
     expect(isLastAdmin(left, left[0]!)).toBe(true);
   });
 
-  it('describes each role in the create form', () => {
+  it('describes each role in the create form with radio buttons, as the role dialog does', () => {
     const html = renderToString(<CreateAccountForm />);
+    expect(html).not.toContain('<select');
+    expect(html).not.toContain('<ul');
+    expect(html.match(/type="radio"/g)).toHaveLength(2);
+    expect(html).toMatch(/<input[^>]*checked=""[^>]*value="operator"/);
+    for (const o of ROLE_OPTIONS) expect(html).toContain(o.label);
     expect(html).toContain('gère les comptes, les plans et les restaurations.');
     expect(html).toContain('consulte, exporte et restaure, avec un motif.');
+  });
+
+  it('gives the temporary password a help linked by aria-describedby', () => {
+    const html = renderToString(<CreateAccountForm />);
+    expect(html).toContain('>Mot de passe temporaire</label>');
+    const help =
+      /<p id="([^"]+-help)" class="field-help">12 caractères minimum\. Le compte devra le changer à sa première connexion\./.exec(
+        html,
+      );
+    expect(help).not.toBeNull();
+    expect(html).toContain(`aria-describedby="${help?.[1]}"`);
   });
 
   it('recaps the first start inside the form, before the validation', () => {
@@ -470,7 +527,7 @@ describe('textes restants de la maquette de #22', () => {
 
   it('says « Mot de passe temporaire » on the account forms, never « provisoire »', () => {
     const html = renderToString(<CreateAccountForm />);
-    expect(html).toContain('>Mot de passe temporaire (12 caractères au minimum)</label>');
+    expect(html).toContain('>Mot de passe temporaire</label>');
     expect(html).not.toContain('provisoire');
   });
 
@@ -533,6 +590,7 @@ describe('textes restants de la maquette de #22', () => {
           };
           for (const row of rows) for (const c of columns) find(c.cell(row), match, out);
         }
+        find(el.props?.back, match, out);
         find(el.props?.children, match, out);
         find(el.props?.['action'], match, out);
       }
@@ -543,8 +601,8 @@ describe('textes restants de la maquette de #22', () => {
     const only = [account(1, 'admin'), account(2, 'operator')];
     const tree = AccountsView({ state: only, actions: { onDisabled } });
     const disable = find(tree, (e) => isButton(e) && e.props?.['aria-disabled'] === true);
-    expect(disable).toHaveLength(1);
-    (disable[0]!.props!.onClick as () => void)();
+    expect(disable).toHaveLength(2);
+    (disable[1]!.props!.onClick as () => void)();
     expect(onDisabled).not.toHaveBeenCalled();
     const other = find(tree, (e) => isButton(e) && e.props?.children === 'Désactiver');
     (other.find((e) => e.props?.['aria-disabled'] === undefined)!.props!.onClick as () => void)();

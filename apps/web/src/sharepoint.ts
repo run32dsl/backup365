@@ -1,5 +1,6 @@
 import { API_ERRORS } from './apiError.js';
 import { REASON } from './RestoreJourney.js';
+import { RESTORE_LABELS } from './restoreLabels.js';
 import type { DriveSnapshot, SiteEntry, SiteScope, SiteScopeSummary } from '@backup365/core';
 import { dayOf, dateTimeOf, sizeOf, type Loaded } from './onedrive.js';
 import { UNREACHABLE } from './session.js';
@@ -41,14 +42,14 @@ export const SHAREPOINT_MESSAGES = {
   noPoints: 'Aucun point de restauration pour ce site.',
   emptyFolder: 'Ce dossier ne contient aucun élément à cette date.',
   readError: 'La sauvegarde n’a pas pu être lue.',
-  notConfigured: 'Aucun compte Microsoft 365 n’est connecté.',
-  adminOnly: 'Réservé aux administrateurs',
   forbidden: 'Vous n’avez pas le droit de restaurer ce site. Contactez un administrateur.',
   forbiddenSite: (name: string) =>
     `Vous n’avez pas le droit de restaurer le site « ${name} ». Demandez à un administrateur ou choisissez un autre site.`,
   chooseOther: 'Choisir un autre site',
   reasonError: REASON.error,
   nameError: 'Le nom saisi ne correspond pas au site.',
+  inactiveHint:
+    'Le bouton reste inactif tant que la case n’est pas cochée et que le nom du site n’est pas exact.',
   alreadyRunning: 'Une restauration de ce site est déjà en cours.',
   auditUnavailable: 'Journal d’audit indisponible : restauration refusée.',
   emptyScope: 'Rien à restaurer à cette date : le périmètre ne contient aucun élément.',
@@ -102,7 +103,8 @@ export function parseSharePointHash(hash: string): SharePointRoute | null {
     return {
       site,
       scope: found?.value ?? null,
-      path: path.length === 0 ? '/' : `/${path.join('/')}`,
+      // Sans granularité valide, l'ancre ne dit pas quoi ouvrir : la racine du site.
+      path: found && path.length > 0 ? `/${path.join('/')}` : '/',
     };
   } catch {
     return null;
@@ -173,20 +175,52 @@ export function pathLabel(path: string): string {
   return path.split('/').filter(Boolean).join(' > ');
 }
 
-/** Choix valide pour la granularité ? Mêmes règles que le serveur (`isPathOfScope`). */
-export function canContinue(scope: SiteScope, path: string, file: string | null): boolean {
-  const depth = path.split('/').filter(Boolean).length;
-  if (scope === 'site') return true;
-  if (scope === 'library') return depth === 1;
-  if (scope === 'folder') return depth >= 2;
-  return file !== null;
+/** Ce qui a été restauré, pour l'écran de résultat : `Fichier : Documents partagés > plan-a.pdf`. */
+export function restoredContentLabel(scope: SiteScope, path: string): string {
+  if (scope === 'site') return 'Site entier';
+  const kind = scope === 'item' ? 'Fichier' : scope === 'folder' ? 'Dossier' : 'Bibliothèque';
+  return `${kind} : ${pathLabel(path)}`;
+}
+
+/** Valeur de la ligne « Fichiers déjà présents » : la restauration ne remplace jamais. */
+export const EXISTING_FILES_KEPT = 'conservés, non remplacés';
+
+/**
+ * Destination réelle : les éléments reviennent à leur emplacement d'origine, dans la bibliothèque
+ * pour un élément, un dossier ou une bibliothèque ; à chaque emplacement pour le site entier.
+ */
+export function locationOf(scope: SiteScope, siteName: string, path: string): string {
+  if (scope === 'site') return 'Emplacement d’origine de chaque élément';
+  const library = path.split('/').filter(Boolean)[0];
+  return `${[siteName, library].filter(Boolean).join(' > ')} (emplacement d’origine)`;
+}
+
+/** Lignes « Emplacement » et « Fichiers déjà présents », communes au récapitulatif et aux résultats. */
+export function placementRows(
+  scope: SiteScope,
+  siteName: string,
+  path: string,
+): [string, string][] {
+  return [
+    [RESTORE_LABELS.location, locationOf(scope, siteName, path)],
+    [RESTORE_LABELS.existingFiles, EXISTING_FILES_KEPT],
+  ];
+}
+
+/** Granularité de restauration déduite de la ligne cochée. */
+export function scopeOfKind(kind: SiteEntry['kind']): SiteScope {
+  return kind === 'file' ? 'item' : kind;
+}
+
+/** Ligne « Sélection : … » sous le tableau : `Bibliothèque Documents partagés`. */
+export function selectionLabel(selected: { path: string; kind: SiteEntry['kind'] }): string {
+  const kind = { library: 'Bibliothèque', folder: 'Dossier', file: 'Fichier' }[selected.kind];
+  return `${kind} ${pathLabel(selected.path)}`;
 }
 
 /** Pourquoi « Continuer » est inactif, en une phrase. */
-export function continueHint(scope: SiteScope): string {
-  if (scope === 'library') return 'Ouvrez la bibliothèque à restaurer pour continuer.';
-  if (scope === 'folder') return 'Ouvrez le dossier à restaurer pour continuer.';
-  return 'Choisissez un élément pour continuer.';
+export function continueHint(): string {
+  return 'Cochez un fichier, un dossier ou une bibliothèque pour continuer.';
 }
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n > 1 ? many : one}`;
@@ -200,30 +234,40 @@ export function summaryCountOf(s: SiteScopeSummary): string {
   return `${plural(s.items, 'élément', 'éléments').replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}, ${size}`;
 }
 
-/** `à 02:00` de la date ISO (UTC). */
-function timeOf(iso: string): string {
-  return dateTimeOf(iso).slice(11);
-}
-
-/** Phrase de récapitulatif (élément, dossier, bibliothèque), en langage clair. */
-export function summaryOf(input: {
+/** Lignes du récapitulatif de confirmation, dans l'ordre des écrans de résultat. */
+export function confirmRowsOf(input: {
   scope: SiteScope;
   siteName: string;
   path: string;
   pointAt: string;
   summary: SiteScopeSummary | null;
-}): string {
-  const label = pathLabel(input.path);
-  const what =
-    input.scope === 'library'
-      ? `la bibliothèque « ${label} »`
-      : input.scope === 'folder'
-        ? `le dossier « ${label} »`
-        : input.scope === 'item'
-          ? `l’élément « ${label} »`
-          : 'le site entier';
-  const count = input.summary ? ` ${summaryCountOf(input.summary)}.` : '';
-  return `Vous allez restaurer ${what} du site « ${input.siteName} », tel qu’il était le ${dayOf(input.pointAt)} à ${timeOf(input.pointAt)}, à son emplacement d’origine. Les fichiers existants ne seront pas remplacés.${count}`;
+  reason: string;
+}): [string, string][] {
+  const rows: [string, string][] = [
+    ['Site', input.siteName],
+    [RESTORE_LABELS.item, restoredContentLabel(input.scope, input.path)],
+    [RESTORE_LABELS.backupAt, dateTimeOf(input.pointAt)],
+    ...placementRows(input.scope, input.siteName, input.path),
+  ];
+  if (input.summary) {
+    // Site entier : seul le nombre d'éléments est annoncé.
+    rows.push([
+      'Volume',
+      input.scope === 'site'
+        ? plural(input.summary.items, 'élément', 'éléments')
+        : summaryCountOf(input.summary),
+    ]);
+  }
+  rows.push(['Motif', input.reason]);
+  return rows;
+}
+
+/** Site entier : titre du bandeau d'avertissement. */
+export const SITE_WARNING_TITLE = 'Restauration du site entier';
+
+/** Site entier : conséquence, nommant le site. */
+export function siteWarningOf(siteName: string): string {
+  return `Les contenus manquants du site ${siteName} seront recréés. Les fichiers existants ne sont pas modifiés.`;
 }
 
 /** `3 min 12 s` : voir `formatDuration` de `restore.ts`. */
@@ -250,16 +294,29 @@ export function successSummary(
   return parts.join(' ');
 }
 
-/** Phrase de l'alerte d'échec (hors état incertain) : ce qui a été restauré, rien d'écrasé. */
-export function failureSummary(restored: number): string {
-  const done = restored > 0 ? elementsWhich(restored, 'restauré') : 'aucun élément restauré';
-  return `La restauration a échoué : ${done}. Rien n’a été écrasé.`;
-}
-
 export function failureCause(error: SiteJob['error']): string {
   if (error === 'restore_unreachable') return 'SharePoint injoignable pour le moment';
   if (error === 'restore_lost') return 'le suivi a été perdu (service redémarré)';
   return 'le service de restauration a signalé une erreur';
+}
+
+/** Conséquence d'un échec : état incertain, sinon éléments restaurés et en erreur, sinon « rien modifié ». */
+export function failureConsequence(job: Pick<SiteJob, 'error' | 'restored' | 'errors'>): string {
+  if (isOutcomeUncertain(job.error))
+    return 'L’état de SharePoint est incertain : vérifiez avant de réessayer';
+  if (job.restored < 1) return 'Rien n’a été modifié';
+  const parts = [
+    elementsWhich(job.restored, 'restauré'),
+    job.errors > 0 ? elementsInError(job.errors) : '',
+  ].filter(Boolean);
+  return parts.join(', ');
+}
+
+/** Ligne « En erreur » du récapitulatif : le fichier, ou le dossier où se trouvent les éléments. */
+export function errorItemLabel(job: Pick<SiteJob, 'scope' | 'path' | 'errors'>): string | null {
+  const path = pathLabel(job.path);
+  if (job.errors < 1 || job.scope === 'site' || path === '') return null;
+  return job.scope === 'item' ? path : `dans ${path}`;
 }
 
 /** Vrai si l'appel a pu aboutir malgré l'échec affiché. */

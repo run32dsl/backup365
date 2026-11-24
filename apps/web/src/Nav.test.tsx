@@ -44,6 +44,23 @@ const tree = (menuOpen: boolean, handlers?: Parameters<typeof view>[1]) =>
 
 const byClass = (els: El[], name: string) => els.find((e) => e.props.className === name)!;
 
+describe('confirmation after a password change', () => {
+  it('shows the flash as a status alert above the screen, and nothing without it', () => {
+    const html = renderToString(view(false, { flash: 'Mot de passe modifié.' }));
+    expect(html).toMatch(/role="status"[^>]*>.*Mot de passe modifié\./);
+    expect(html.indexOf('Mot de passe modifié.')).toBeLessThan(html.indexOf('Contenu'));
+    expect(renderToString(view(false))).toContain('<div role="status"></div>');
+  });
+});
+
+describe('password link', () => {
+  it('is current only on the password page', () => {
+    const on = renderToString(view(false, { passwordCurrent: true }));
+    expect(on).toContain('<a href="#/password" aria-current="page">Mot de passe</a>');
+    expect(renderToString(view(false))).not.toContain('href="#/password" aria-current');
+  });
+});
+
 describe('keyboard path of the console', () => {
   it('tabs through skip link, Menu, nav entries, account links, then the content', () => {
     const html = renderToString(view(true));
@@ -52,7 +69,7 @@ describe('keyboard path of the console', () => {
       'Aller au contenu',
       'Menu',
       'Tableau de bord',
-      'Rechercher et restaurer',
+      'Messagerie',
       'OneDrive',
       'SharePoint',
       'Plans de protection',
@@ -140,22 +157,48 @@ describe('keyboard path of the console', () => {
 });
 
 describe('navEntries', () => {
-  it('lists only delivered screens, with Administration for admins only', () => {
-    expect(navEntries('home', false).map((e) => e.label)).toEqual([
+  const top = (admin: boolean) => navEntries('home', admin).map((e) => e.label);
+  const links = (screen: Parameters<typeof navEntries>[0]) =>
+    navEntries(screen, true).flatMap((e) => ('children' in e ? e.children : [e]));
+
+  it('keeps five top-level entries at most, with the restore group and its three links', () => {
+    expect(top(false)).toEqual([
       'Tableau de bord',
-      'Rechercher et restaurer',
-      'OneDrive',
-      'SharePoint',
+      'Restaurer',
       'Plans de protection',
       'Journal d’audit',
     ]);
-    const admin = navEntries('home', true).map((e) => e.label);
-    expect(admin).toHaveLength(7);
-    expect(admin.at(-1)).toBe('Administration');
+    expect(top(true)).toEqual([...top(false), 'Administration']);
+    const group = navEntries('home', false)[1]!;
+    expect('children' in group && group.children.map((c) => c.label)).toEqual([
+      'Messagerie',
+      'OneDrive',
+      'SharePoint',
+    ]);
+    expect(group).not.toHaveProperty('href');
   });
 
-  it('marks exactly one entry as current, the search entry for a mail sheet', () => {
-    const current = navEntries('mail', true).filter((e) => e.current);
-    expect(current.map((e) => e.href)).toEqual(['#/search']);
+  it('marks exactly one entry as current, Messagerie for a mail sheet', () => {
+    expect(
+      links('mail')
+        .filter((e) => e.current)
+        .map((e) => e.href),
+    ).toEqual(['#/search']);
+    expect(
+      links('onedrive')
+        .filter((e) => e.current)
+        .map((e) => e.href),
+    ).toEqual(['#/onedrive']);
+  });
+
+  it('renders the group label as plain text, the nav holding only links', () => {
+    const html = renderToString(view(true, { entries: navEntries('mail', false) }));
+    expect(html).toContain('<span class="nav-group">Restaurer</span>');
+    expect(html).toContain('<a href="#/search" aria-current="page">Messagerie</a>');
+    const nav = html.slice(html.indexOf('<nav'), html.indexOf('</nav>'));
+    expect(nav).not.toMatch(/<button/);
+    expect([...nav.matchAll(/<a\b[^>]*>/g)].every((m) => m[0].includes('href="#/'))).toBe(true);
+    expect(html.match(/<button\b/g)).toHaveLength(2);
+    expect(html.match(/aria-current="page"/g)).toHaveLength(1);
   });
 });

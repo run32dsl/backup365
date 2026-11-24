@@ -1,5 +1,5 @@
 import { API_ERRORS } from './apiError.js';
-import { REASON } from './RestoreJourney.js';
+import { REASON, RESULT_TITLES } from './RestoreJourney.js';
 import { UNREACHABLE } from './session.js';
 
 export type RestoreStatus = 'running' | 'succeeded' | 'failed';
@@ -26,15 +26,13 @@ export const RESTORE_MESSAGES = {
   sending: 'Envoi de la demande…',
   running: 'Restauration en cours…',
   runningTitle: 'Restauration en cours',
-  keepsRunning: 'Vous pouvez fermer cette fenêtre : elle continue.',
-  succeededTitle: 'Restauration réussie',
+  succeededTitle: RESULT_TITLES.succeeded,
   failedTitle: 'Restauration échouée',
-  untouched: 'Rien n’a été modifié dans la boîte.',
+  untouched: 'Rien n’a été modifié.',
   uncertain:
     'L’état de la boîte est incertain : la restauration a peut-être abouti. Vérifiez le dossier daté avant de réessayer.',
   notAvailable: 'Ce mail n’est plus disponible dans la sauvegarde.',
   forbidden: 'Vous n’avez plus le droit de restaurer.',
-  notConfigured: 'La restauration nécessite un tenant relié.',
   alreadyRunning: 'Une restauration de ce mail est déjà en cours.',
   auditUnavailable: 'Journal d’audit indisponible : restauration refusée.',
   restrictedHelp: 'Réservé aux opérateurs et administrateurs.',
@@ -63,12 +61,6 @@ export function formatDuration(ms: number): string {
   return `${Math.floor(seconds / 60)} min ${pad(seconds % 60)} s`;
 }
 
-/** Compteur `mm:ss` de la restauration en cours. */
-export function formatClock(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  return `${pad(Math.floor(seconds / 60))}:${pad(seconds % 60)}`;
-}
-
 /** Annonce vocale : au début, puis une fois toutes les 15 s écoulées. */
 export function announcement(elapsedMs: number): string {
   const seconds = Math.floor(Math.max(0, elapsedMs) / 15_000) * 15;
@@ -90,19 +82,22 @@ export function isOutcomeUncertain(error: RestoreJob['error']): boolean {
   return error === 'restore_unreachable' || error === 'restore_lost';
 }
 
-/** Indication de la fiche : `Dernière restauration : réussie, 18 s`. */
-export function lastRestoreLabel(job: RestoreJob | null): string | null {
+/** État de la dernière restauration pour la fiche : statut du badge et durée (`18 s`) s'il y en a une. */
+export function lastRestoreSummary(
+  job: RestoreJob | null,
+): { status: 'running' | 'compliant' | 'failed'; label: string; duration: string | null } | null {
   if (!job) return null;
-  if (job.status === 'running') return 'Dernière restauration : en cours';
-  const duration = job.durationMs === null ? '' : `, ${formatDuration(job.durationMs)}`;
-  return `Dernière restauration : ${job.status === 'succeeded' ? 'réussie' : 'échouée'}${duration}`;
+  if (job.status === 'running') return { status: 'running', label: 'En cours', duration: null };
+  const duration = job.durationMs === null ? null : formatDuration(job.durationMs);
+  return job.status === 'succeeded'
+    ? { status: 'compliant', label: 'Réussie', duration }
+    : { status: 'failed', label: 'En échec', duration };
 }
 
 const SERVER_MESSAGES: Record<string, string> = {
   reason_required: RESTORE_MESSAGES.reasonError,
   mail_not_found: RESTORE_MESSAGES.notAvailable,
   forbidden: RESTORE_MESSAGES.forbidden,
-  restore_unavailable: RESTORE_MESSAGES.notConfigured,
   restore_in_progress: RESTORE_MESSAGES.alreadyRunning,
   audit_unavailable: RESTORE_MESSAGES.auditUnavailable,
 };
@@ -111,7 +106,7 @@ function restoreUrl(mailboxId: string, messageId: string): string {
   return `/api/mails/${encodeURIComponent(mailboxId)}/${encodeURIComponent(messageId)}/restore`;
 }
 
-/** La restauration est-elle configurée (un tenant relié) ? En cas d'erreur : oui, le serveur tranchera. */
+/** La restauration est-elle configurée (droit d'écriture accordé) ? En cas d'erreur : oui, le serveur tranchera. */
 export async function fetchRestoreConfigured(fetchFn: typeof fetch = fetch): Promise<boolean> {
   try {
     const res = await fetchFn('/api/restore');

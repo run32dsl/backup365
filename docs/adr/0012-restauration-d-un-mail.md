@@ -18,8 +18,8 @@ Graph et exige donc de vrais identifiants avec droit d'écriture.
   `outlook.restore` avec `messageRef` et sans `targetMailbox` (boîte d'origine). Aucune dépendance.
 - **Pas de câblage réel dans cette issue.** La console n'a pas d'identifiants Graph : en dehors du
   mode démo, `RestoreService` n'est pas créé, `GET /api/restore` répond `{ configured: false }`,
-  `POST …/restore` répond 503 `restore_unavailable` et l'interface désactive le bouton (« La
-  restauration nécessite un tenant relié. Voir Accueil. »). Relier un tenant (identifiants Graph
+  `POST …/restore` répond 503 `restore_unavailable` et la fiche d'un mail remplace le bouton par un avertissement (la liste de recherche garde le bouton désactivé) avec le message
+  `restore_unavailable` de `API_ERRORS`, sans renvoi vers l'Accueil (qui ne configure rien). Relier un tenant (identifiants Graph
   par variables d'environnement ou fichiers montés, mode lecture seule désactivé explicitement)
   relève de l'agent tenant ; l'essai réel se fait sur un tenant de TEST uniquement (voir
   « Non vérifié »). Le mode démo utilise un restaurateur factice (2 s, le mail n° 25 de chaque
@@ -51,7 +51,7 @@ Graph et exige donc de vrais identifiants avec droit d'écriture.
   applicatifs par un code, la restauration n'est pas annulée pour autant.
 - Interface : bouton « Restaurer » sur chaque résultat de recherche et sur la fiche ; panneau
   modal (`Dialog`) en trois états (formulaire, en cours, réussie ou échouée). La fiche affiche
-  « Dernière restauration : réussie, 18 s ». Le panneau peut être fermé : la restauration continue.
+  « Dernière restauration : ✔ Réussie 18 s » (badge d’état suivi de la durée). Le panneau peut être fermé : la restauration continue.
 
 ## Conséquences
 

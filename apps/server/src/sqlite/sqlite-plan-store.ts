@@ -229,6 +229,17 @@ export class SqlitePlanStore {
     );
   }
 
+  /** Vrai si une exécution réussie de l'élément a commencé à `since` ou après. */
+  hasSuccessSince(planId: string, itemId: string, since: string): boolean {
+    return (
+      this.db
+        .prepare(
+          "SELECT 1 FROM plan_runs WHERE plan_id = ? AND item_id = ? AND status = 'success' AND started_at >= ? LIMIT 1",
+        )
+        .get(planId, itemId, since) !== undefined
+    );
+  }
+
   /**
    * Fin de la dernière réussite qui a créé un point de restauration, sur tout l'historique (pas
    * seulement les dernières exécutions listées) ; `null` s'il n'y en a aucune.

@@ -1,14 +1,27 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { AUDIT_ACTIONS, type AuditAction } from '@backup365/core';
+import { AUDIT_ACTIONS } from '@backup365/core';
 import {
   AUDIT_PAGE_SIZE,
+  DATE_HELP,
+  FILTER_NOT_APPLIED,
+  hasDateError,
   fetchAudit,
   queryFromForm,
+  submitFilters,
+  type DateRange,
   type AuditItem,
   type AuditQuery,
   type AuditResponse,
 } from './audit.js';
-import { actorLabel, auditDate, detailLabel, reasonLabel, targetView } from './auditLabels.js';
+import {
+  ACTION_LABELS,
+  NO_TARGET,
+  actorLabel,
+  auditDate,
+  detailLabel,
+  reasonLabel,
+  targetView,
+} from './auditLabels.js';
 import { fetchPlans } from './plans.js';
 import {
   Address,
@@ -24,24 +37,6 @@ import {
 /** État de la consultation du journal. */
 export type AuditState = AuditResponse | 'loading' | 'error';
 
-const ACTION_LABELS: Record<AuditAction, string> = {
-  'list.view': 'Consultation d’une liste',
-  'item.open': 'Ouverture d’une fiche',
-  'item.export': 'Export',
-  'access.denied': 'Échec d’accès',
-  'auth.login': 'Connexion',
-  'auth.login_failed': 'Échec de connexion',
-  'auth.logout': 'Déconnexion',
-  'account.create': 'Création de compte',
-  'account.update': 'Modification de compte',
-  'plan.create': 'Création de plan',
-  'plan.update': 'Modification de plan',
-  'plan.delete': 'Suppression de plan',
-  'plan.run': 'Lancement manuel d’un plan',
-  'restore.request': 'Demande de restauration',
-  'restore.result': 'Résultat de restauration',
-};
-
 type Entry = AuditItem;
 
 /** Colonnes du tableau ; l'empreinte n'y figure pas (elle reste dans l'infobulle du numéro et dans l'API). */
@@ -54,13 +49,13 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
     },
     {
       header: 'Date (UTC)',
-      className: 'nowrap',
+      className: 'nowrap audit-date',
       cell: (e) => <span title={e.at}>{auditDate(e.at) || '—'}</span>,
     },
-    { header: 'Acteur', className: 'keep-words', cell: (e) => actorLabel(e.actor) },
+    { header: 'Acteur', className: 'keep-words audit-actor', cell: (e) => actorLabel(e.actor) },
     {
       header: 'Action',
-      className: 'keep-words',
+      className: 'keep-words card-title',
       cell: (e) => {
         const detail = detailLabel(e.reason);
         return (
@@ -73,9 +68,11 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
     },
     {
       header: 'Cible',
-      className: 'keep-words address',
+      className: 'keep-words address card-nolabel',
       cell: (e) => {
         const { name, secondary } = targetView(e, planNames);
+        // Sans cible : cellule vide, comme Éléments et Motif (la carte l'omet).
+        if (name === NO_TARGET) return null;
         return (
           <span>
             <Address value={name} />
@@ -102,26 +99,39 @@ export function AuditView({
   state,
   planNames = null,
   onPage,
+  filterRefused = false,
 }: {
   state: AuditState;
+  /** Un filtre de date refusé n'a pas été appliqué : la liste affichée n'est pas filtrée. */
+  filterRefused?: boolean;
   planNames?: ReadonlyMap<string, string> | null;
   onPage?: (offset: number) => void;
 }) {
   if (state === 'loading') return <p role="status">Chargement du journal…</p>;
   if (state === 'error') return <Alert tone="error">Journal d’audit indisponible</Alert>;
-  if (state.items.length === 0) return <EmptyState>Aucune entrée.</EmptyState>;
+  const notice = filterRefused && <Alert tone="info">{FILTER_NOT_APPLIED}</Alert>;
+  if (state.items.length === 0)
+    return (
+      <>
+        {notice}
+        <EmptyState>Aucune entrée.</EmptyState>
+      </>
+    );
   return (
     <>
+      {notice}
       <p role="status">
         {state.total === 1
           ? '1 entrée'
           : `Entrées ${state.offset + 1} à ${state.offset + state.items.length} sur ${state.total}`}
       </p>
+      <div className="pager-top">
+        <Pager offset={state.offset} limit={state.limit} total={state.total} onPage={onPage} />
+      </div>
       <DataTable
         caption="Entrées du journal d’audit"
         hideCaption
         columns={columns(planNames)}
-        compact
         rows={state.items}
         rowKey={(e) => e.seq}
       />
@@ -154,18 +164,40 @@ export function AuditPage() {
     );
   }, []);
 
+  const [errors, setErrors] = useState<DateRange>({ from: '', to: '' });
+
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setQuery(queryFromForm(new FormData(e.currentTarget)));
+    const form = new FormData(e.currentTarget);
+    const { errors, query } = submitFilters(form, 'from', 'to', queryFromForm);
+    setErrors(errors);
+    if (query) setQuery(query);
   }
 
   return (
     <main tabIndex={-1}>
       <h1>Journal d’audit</h1>
-      <p>La consultation de ce journal est elle-même inscrite au journal d’audit.</p>
+      <p>
+        La consultation de ce journal est elle-même inscrite au journal d’audit. Filtrez par action
+        pour retrouver un export ou une restauration.
+      </p>
       <form onSubmit={submit} className="filters">
-        <FormField label="Du" type="datetime-local" name="from" />
-        <FormField label="Au (exclu)" type="datetime-local" name="to" />
+        <FormField
+          label="Du"
+          type="text"
+          name="from"
+          maxLength={10}
+          help={DATE_HELP}
+          error={errors.fromError}
+        />
+        <FormField
+          label="Au"
+          type="text"
+          name="to"
+          maxLength={10}
+          help={DATE_HELP}
+          error={errors.toError}
+        />
         <FormField label="Acteur" type="text" name="actor" maxLength={256} />
         <div className="field">
           <label htmlFor="audit-action">Action</label>
@@ -183,6 +215,7 @@ export function AuditPage() {
       <AuditView
         state={state}
         planNames={planNames}
+        filterRefused={hasDateError(errors)}
         onPage={(offset) => setQuery({ ...query, offset })}
       />
     </main>

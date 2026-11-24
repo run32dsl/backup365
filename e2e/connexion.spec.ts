@@ -29,6 +29,79 @@ test('401 en cours de navigation : #/connexion avec message, puis retour à la p
   await expect(page.getByText(EXPIRED)).toHaveCount(0);
 });
 
+test('changement volontaire du mot de passe : la page reste affichée, formulaire vidé, confirmation qui disparaît au prochain envoi', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  // Réponse simulée : changer le vrai mot de passe casserait les autres tests.
+  await page.route('**/api/auth/password', (route) => route.fulfill({ status: 204 }));
+  await page.goto('/#/password');
+  const current = page.getByLabel('Mot de passe actuel', { exact: true });
+  const next = page.getByLabel('Nouveau mot de passe', { exact: true });
+  const confirm = page.getByLabel('Confirmer le nouveau mot de passe', { exact: true });
+  await current.fill('ancien mot de passe');
+  await next.fill('nouveau mot de passe');
+  await confirm.fill('nouveau mot de passe');
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+
+  await expect(page).toHaveURL(/#\/password$/);
+  await expect(page.getByRole('heading', { name: 'Mot de passe', exact: true })).toBeVisible();
+  const saved = page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' });
+  await expect(saved).toBeVisible();
+  await expect(current).toHaveValue('');
+  await expect(next).toHaveValue('');
+  await expect(confirm).toHaveValue('');
+
+  // Un second envoi avec une confirmation différente fait disparaître le message.
+  await current.fill('ancien mot de passe');
+  await next.fill('nouveau mot de passe');
+  await confirm.fill('autre mot de passe');
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(saved).toHaveCount(0);
+});
+
+test('changement imposé du mot de passe : même retour au tableau de bord, avec confirmation qui disparaît après 8 s', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  let changed = false;
+  // Session réelle, avec le drapeau « mot de passe à changer » tant que le changement n'a pas eu lieu.
+  await page.route('**/api/auth/me', async (route) => {
+    const response = await route.fetch();
+    const session = (await response.json()) as { user: Record<string, unknown> };
+    await route.fulfill({
+      response,
+      json: { ...session, user: { ...session.user, mustChangePassword: !changed } },
+    });
+  });
+  await page.route('**/api/auth/password', (route) => {
+    changed = true;
+    return route.fulfill({ status: 204 });
+  });
+  await page.clock.install();
+  await page.goto('/');
+  await page.getByLabel('Mot de passe actuel', { exact: true }).fill('ancien mot de passe');
+  await page.getByLabel('Nouveau mot de passe', { exact: true }).fill('nouveau mot de passe');
+  await page
+    .getByLabel('Confirmer le nouveau mot de passe', { exact: true })
+    .fill('nouveau mot de passe');
+  await page.getByRole('button', { name: 'Enregistrer et continuer' }).click();
+
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
+  const status = page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' }).first();
+  await expect(status).toBeVisible();
+  await expect(page.getByLabel('Mot de passe actuel', { exact: true })).toHaveCount(0);
+
+  // Le message disparaît après 8 s.
+  await page.clock.fastForward(8500);
+  await expect(page.getByText('Mot de passe modifié.')).toHaveCount(0);
+});
+
 test('connexion Microsoft (fournisseur simulé de la démo) : le bouton ouvre la console', async ({
   page,
 }) => {
@@ -57,7 +130,7 @@ test('connexion verrouillée : décompte, bouton inactif, puis le champ reprend 
 
   const alert = page.getByRole('alert');
   await expect(alert).toContainText(
-    /Connexion impossible pour le moment\. Nouvel essai possible dans 00:0\d\./,
+    /Connexion temporairement bloquée.*Nouvel essai possible dans 00:0\d\./s,
   );
   const submit = page.getByRole('button', { name: 'Se connecter' });
   await expect(submit).toBeDisabled();
@@ -95,7 +168,7 @@ test('réinitialisation : motif obligatoire, mot de passe affiché une seule foi
 
   const step2 = page.getByRole('dialog', { name: 'Réinitialiser le mot de passe' });
   await expect(step2).toContainText(DEMO_LOGINS.operator.username);
-  await expect(step2).toContainText('Le mot de passe n’y figure pas.');
+  await expect(step2).toContainText('Ce motif sera inscrit au journal d’audit.');
   await step2.getByRole('button', { name: 'Réinitialiser' }).click();
   await expect(step2.getByText('Indiquez un motif pour continuer.')).toBeVisible();
   expect(bodies).toHaveLength(0);
