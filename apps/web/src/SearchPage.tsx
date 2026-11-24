@@ -36,6 +36,7 @@ export type SearchState = SearchResponse | 'loading' | 'error';
 type Hit = SearchResponse['items'][number];
 
 const MAILBOX_COLUMN: Column<Hit> = {
+  key: 'mailbox',
   header: 'Boîte',
   className: 'keep-words address col-mailbox mail-meta',
   cell: (m) => <Address value={m.mailboxId} />,
@@ -147,7 +148,7 @@ export function SearchView({
         </EmptyState>
       </>
     );
-  const base = mailbox ? COLUMNS.filter((c) => c !== MAILBOX_COLUMN) : COLUMNS;
+  const base = mailbox ? COLUMNS.filter((c) => c.key !== MAILBOX_COLUMN.key) : COLUMNS;
   const columns: Column<Hit>[] =
     restoreConfigured === undefined
       ? base

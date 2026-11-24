@@ -68,6 +68,9 @@ describe('SearchView', () => {
     const state = { total: 25, limit: 25, offset: 0, items: [mail] };
     const filtered = renderToString(<SearchView state={state} mailbox="paul.moreau@exemple.fr" />);
     expect(filtered).not.toContain('>Boîte<');
+    // Indépendant du libellé : ni la classe ni la valeur de la colonne ne sont rendues.
+    expect(filtered).not.toContain('col-mailbox');
+    expect(filtered).not.toContain('mbx 1</');
     expect(filtered).toContain('25 résultats');
     expect(filtered).toContain('dans la boîte paul.moreau@exemple.fr');
     const unfiltered = renderToString(<SearchView state={state} />);
@@ -85,9 +88,11 @@ describe('SearchView', () => {
     expect(withRestore).toContain('>Action<');
     expect(withRestore).not.toContain('>Boîte<');
     const empty = { total: 0, limit: 25, offset: 0, items: [] };
-    expect(renderToString(<SearchView state={empty} mailbox="paul.moreau@exemple.fr" />)).toContain(
-      'Aucun mail ne correspond',
-    );
+    const none = renderToString(<SearchView state={empty} mailbox="paul.moreau@exemple.fr" />);
+    expect(none).toContain('class="empty"');
+    expect(none).toContain('Aucun mail ne correspond');
+    expect(none).not.toContain('<table');
+    expect(none).not.toContain('résultat,');
   });
 
   it('arrives with help, audit reminder, form then a start empty state, in that order', () => {
