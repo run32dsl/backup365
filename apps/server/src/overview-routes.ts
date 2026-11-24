@@ -31,6 +31,11 @@ export interface Overview {
   lastBackupAt: string | null;
   /** Nom du plan de cette exécution ; `null` si aucune. */
   lastBackupPlan: string | null;
+  /**
+   * Échec le plus récent parmi les plans dont la dernière exécution terminée a échoué : nom du plan
+   * et fin de l'exécution. `null` si aucun plan n'est dans ce cas.
+   */
+  lastFailure: { plan: string; at: string } | null;
 }
 
 /**
@@ -58,13 +63,23 @@ export function registerOverviewRoutes(
     let lastBackupMs = Number.NEGATIVE_INFINITY;
     let lastBackupAt: string | null = null;
     let lastBackupPlan: string | null = null;
+    let lastFailureMs = Number.NEGATIVE_INFINITY;
+    let lastFailure: Overview['lastFailure'] = null;
     for (const plan of all) {
       const runs = plans.listRuns(plan.id, RUNS_LIMIT);
       // Une exécution en cours n'est pas un résultat : on lit la dernière terminée.
       const latest = runs.find((r) => r.status !== 'running');
       if (latest) ran += 1;
 
-      if (latest?.status === 'failed') failed += 1;
+      if (latest?.status === 'failed') {
+        failed += 1;
+        const at = latest.finishedAt ?? latest.startedAt;
+        const ms = Date.parse(at);
+        if (!Number.isNaN(ms) && ms > lastFailureMs) {
+          lastFailureMs = ms;
+          lastFailure = { plan: plan.name, at };
+        }
+      }
       // « En échec » : conformité en échec ou dernière exécution (celle de la liste) en échec ;
       // la liste filtrée de « Voir l'erreur » applique la même règle.
       const compliance = planCompliance(plan.rpoHours, runs, now).state;
@@ -104,6 +119,7 @@ export function registerOverviewRoutes(
       },
       lastBackupAt,
       lastBackupPlan,
+      lastFailure,
     };
     return overview;
   });

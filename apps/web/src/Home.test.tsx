@@ -27,24 +27,28 @@ const operational: Overview = {
   plans: { total: 4, operational: 4, running: 0, queued: 0, failed: 0, late: 0 },
   lastBackupAt: '2026-11-18T14:02:00Z',
   lastBackupPlan: 'Boîtes mail, quotidien',
+  lastFailure: null,
 };
 const unconfigured: Overview = {
   state: 'unconfigured',
   plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
   lastBackupAt: null,
   lastBackupPlan: null,
+  lastFailure: null,
 };
 const pending: Overview = {
   state: 'pending',
   plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
   lastBackupAt: null,
   lastBackupPlan: null,
+  lastFailure: null,
 };
 const failed: Overview = {
   state: 'failed',
   plans: { total: 4, operational: 2, running: 0, queued: 0, failed: 1, late: 1 },
   lastBackupAt: '2026-11-16T02:00:00Z',
   lastBackupPlan: 'Boîtes mail, quotidien',
+  lastFailure: { plan: 'Boîte direction, quotidien', at: '2026-11-24T18:58:30Z' },
 };
 
 describe('Home', () => {
@@ -145,14 +149,17 @@ describe('OverviewView', () => {
   it('failed: Voir l’erreur and Voir les plans buttons, a plain message, last success date', () => {
     const html = render(failed, false);
     expect(html).toContain('En échec');
-    expect(html).toContain('La dernière exécution a échoué.');
+    expect(html).toContain('Échec de « Boîte direction, quotidien » le 24/11/2026 18:58 UTC.');
+    expect(html).not.toContain('La dernière exécution');
     expect(html.match(/<button/g)).toHaveLength(2);
     expect(html).toContain('Voir l’erreur');
     expect(html).toContain('2 plans à jour sur 4');
     expect(html).toContain('il y a 2 j');
     expect(html).not.toContain('(dernière réussie)');
-    expect(html).toContain('Dernière sauvegarde réussie ; un plan est en échec.');
+    expect(html).not.toContain('un plan est en échec');
     expect(render({ ...failed, lastBackupPlan: null })).not.toContain('Plan : ');
+    // Sans plan nommé (réponse d'un ancien serveur) : la phrase générique, jamais « dernière exécution ».
+    expect(render({ ...failed, lastFailure: null })).toContain('Un plan est en échec.');
     expect(html).toContain('Plan : Boîtes mail, quotidien');
     expect(html).toContain('02:00 UTC</time>');
     expect(html).not.toContain('Erreur inattendue');
@@ -169,7 +176,7 @@ describe('OverviewView', () => {
     );
     // Le dernier résultat reste dit : le décompte « à jour » et l'état de la carte « Sauvegarde ».
     expect(card).toContain('2 plans à jour sur 4');
-    expect(busy).toContain('La dernière exécution a échoué.');
+    expect(busy).toContain('Échec de « Boîte direction, quotidien »');
     const queuedOnly = render({ ...failed, plans: { ...failed.plans, queued: 1 } });
     expect(queuedOnly).toContain('En file d’attente');
     expect(queuedOnly).not.toContain('En cours');

@@ -44,7 +44,10 @@ function serviceSummaries(
   log: { warn(obj: object, msg: string): void },
 ) {
   try {
-    return buildServiceSummaries(rows, store.list(), maxAgeHours);
+    return buildServiceSummaries(rows, store.list(), maxAgeHours, new Date(), (id) => {
+      const ok = store.listRuns(id, COMPLIANCE_RUNS_LIMIT).find((r) => r.status === 'success');
+      return ok?.finishedAt ?? null;
+    });
   } catch (err) {
     log.warn({ code: (err as NodeJS.ErrnoException).code }, 'synthèse des services indisponible');
     return null;

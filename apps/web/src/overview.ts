@@ -15,6 +15,8 @@ export interface Overview {
   lastBackupAt: string | null;
   /** Nom du plan de cette exécution. */
   lastBackupPlan: string | null;
+  /** Plan dont la dernière exécution a échoué (le plus récent) et fin de cette exécution ; `null` sinon. */
+  lastFailure: { plan: string; at: string } | null;
 }
 
 /** Interroge `/api/overview` ; lève une erreur si la réponse n'est pas en 2xx. */

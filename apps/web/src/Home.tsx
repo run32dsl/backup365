@@ -17,8 +17,18 @@ const MESSAGES: Record<Overview['state'], string> = {
   operational: '',
   unconfigured: 'Aucune donnée Microsoft 365 n’est encore protégée.',
   pending: 'Aucune sauvegarde n’est encore terminée.',
-  failed: 'La dernière exécution a échoué.',
+  failed: 'Un plan est en échec.',
 };
+
+/** Phrase de la carte « Sauvegarde » ; en échec, elle nomme le plan et l'heure de l'échec (comme la page Plans). */
+export function backupMessage(state: Overview): string {
+  const failure = state.lastFailure;
+  if (state.state === 'failed' && failure) {
+    const at = dateTimeOf(failure.at);
+    return `Échec de « ${failure.plan} »${at && ` le ${at} UTC`}.`;
+  }
+  return MESSAGES[state.state];
+}
 
 /** `il y a 3 h`, `il y a 2 j` : le jour, jamais la semaine ni le mois. */
 export function agoLabel(iso: string, now: number): string {
@@ -148,7 +158,7 @@ export function OverviewView({
         <div role="status">
           <StatusPill status={state.state} />
         </div>
-        {MESSAGES[state.state] && <p>{MESSAGES[state.state]}</p>}
+        {backupMessage(state) && <p>{backupMessage(state)}</p>}
         {connection && <p className="overview-connection">{connection}</p>}
         <BackupAction state={state.state} admin={admin} />
       </Card>
@@ -176,7 +186,6 @@ export function OverviewView({
               <span className="overview-ago">· {agoLabel(last, now)}</span>
             </p>
             {state.lastBackupPlan && <p>Plan : {state.lastBackupPlan}</p>}
-            {state.state === 'failed' && <p>Dernière sauvegarde réussie ; un plan est en échec.</p>}
           </>
         )}
       </Card>
