@@ -197,3 +197,11 @@ describe('mail search cards on mobile', () => {
     expect(mail).toMatch(/td\.mail-date::after[^{]*\{\s*content: '\\00a0·'/);
   });
 });
+
+describe('charte.css lone actions', () => {
+  it('stretches the mail actions and the storage retry below 900 px', () => {
+    const rule =
+      /@media \(max-width: 56\.25rem\) \{\s*\.mail-section > \.btn,\s*\.storage-unavailable > \.btn \{([^}]*)\}/;
+    expect(rule.exec(css)?.[1]).toMatch(/width:\s*100%;/);
+  });
+});

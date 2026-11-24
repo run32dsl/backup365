@@ -57,3 +57,12 @@ describe.each(pages)('%s, storage unavailable', (_name, Problem) => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('StorageUnavailable layout hook', () => {
+  it('keeps « Réessayer » a direct child of .storage-unavailable (full width on mobile)', () => {
+    const html = renderToStaticMarkup(StorageUnavailable({ onRetry: () => undefined }));
+    expect(html).toMatch(
+      /^<div class="storage-unavailable">.*<button[^>]*>Réessayer<\/button><\/div>$/s,
+    );
+  });
+});

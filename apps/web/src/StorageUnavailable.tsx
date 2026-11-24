@@ -10,7 +10,7 @@ import { Alert, Button } from './ui/index.js';
 export function StorageUnavailable({ onRetry }: { onRetry: () => void }) {
   const admin = useAdmin();
   return (
-    <div>
+    <div className="storage-unavailable">
       <Alert tone="warning" title="Sauvegardes inaccessibles">
         Le stockage n’est pas configuré ou ne répond pas.{' '}
         {admin ? ADMIN_RETRY : 'Prévenez un administrateur.'}
