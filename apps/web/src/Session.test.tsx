@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Console, ForbiddenView, screenFor, screenOf } from './App.js';
 import { AccountsPage, AccountsView, CreateAccountForm, submitCreate } from './AccountsPage.js';
 import { AuditPage } from './AuditPage.js';
-import { CredentialsView, ErrorView, Field, PasswordView } from './LoginPage.js';
+import { CredentialsView, ErrorView, Field, PasswordPage, PasswordView } from './LoginPage.js';
 import { ROLE_OPTIONS, createAccount, isLastAdmin, resetPassword } from './accounts.js';
 import { Button, DataTable } from './ui/index.js';
 import {
@@ -64,6 +64,25 @@ describe('voluntary password page', () => {
     expect(html).toContain('>Enregistrer et continuer</button>');
     expect(html).not.toContain('Annuler');
     expect(html).not.toContain('Mot de passe modifié.');
+  });
+
+  it('forced: the submit button has no action bar around it, unlike the voluntary change', () => {
+    const forced = renderToString(<PasswordView forced />);
+    expect(forced).not.toContain('wizard-actions');
+    expect(forced).toMatch(
+      /<button[^>]*type="submit"[^>]*>Enregistrer et continuer<\/button><\/form>/,
+    );
+    expect(renderToString(<PasswordView forced={false} />)).toContain('wizard-actions');
+  });
+
+  it('forced page sits in the login body wrapper, the voluntary one does not', () => {
+    const noop = () => undefined;
+    expect(renderToString(<PasswordPage forced onDone={noop} />)).toContain(
+      'class="login-page-body"',
+    );
+    expect(renderToString(<PasswordPage forced={false} onDone={noop} />)).not.toContain(
+      'login-page-body',
+    );
   });
 });
 
