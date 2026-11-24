@@ -7,6 +7,8 @@ import {
   Tracking,
   dialogTitle,
   formRows,
+  copyBullet,
+  folderRows,
   recallRows,
 } from './RestoreAction.js';
 import { ResultList } from './ui/index.js';
@@ -213,8 +215,11 @@ describe('RestoreOutcome', () => {
     expect(html).toContain('<dl class="meta-list">');
     expect(html).toContain('<dt>Mail</dt><dd>Facture 1 · ');
     expect(html).toContain('<dt>Boîte</dt><dd>mbx 1</dd>');
-    expect(html).toContain('<dt>Dossier</dt><dd>Restauré par backup365 18/11/2026</dd>');
-    expect(html).not.toContain('Dossier :');
+    expect(html).toContain('<dt>Dossier d’origine</dt><dd>Boîte de réception</dd>');
+    expect(html).toContain(
+      '<dt>Restauré dans le dossier</dt><dd>Restauré par backup365 18/11/2026<span class="meta-note">nouveau dossier créé dans la boîte</span></dd>',
+    );
+    expect(html).not.toContain('<dt>Dossier</dt>');
     expect(html).toContain('2 s<!-- -->.</span>');
   });
 
@@ -306,12 +311,32 @@ describe('restore form recall', () => {
     error: null,
   };
 
-  it('lists Mail, Boîte and Dossier like the running dialog', () => {
+  it('lists Mail, Boîte, origin and destination folders like the running dialog', () => {
     const rows = formRows(mail, now);
-    expect(rows.map(([label]) => label)).toEqual(['Mail', 'Boîte', 'Dossier']);
-    expect(rows[2]?.[1]).toBe('Restauré par backup365 18/11/2026');
+    expect(rows.map(([label]) => label)).toEqual([
+      'Mail',
+      'Boîte',
+      'Dossier d’origine',
+      'Restauré dans le dossier',
+    ]);
     const html = renderToString(<Tracking job={job} mail={mail} now={now} onClose={vi.fn()} />);
+    expect(html).toContain('<dt>Dossier d’origine</dt>');
+    expect(html).toContain('<dt>Restauré dans le dossier</dt>');
+    expect(html).not.toContain('<dt>Dossier</dt>');
     expect(html).toContain(renderToString(<ResultList rows={rows} />));
+  });
+
+  it('names the destination folder in quotes in the bullet', () => {
+    expect(copyBullet('Restauré par backup365 18/11/2026')).toBe(
+      'Le mail sera copié dans le dossier « Restauré par backup365 18/11/2026 » de la boîte d’origine.',
+    );
+  });
+
+  it('shows an unknown origin folder as is', () => {
+    expect(folderRows({ ...mail, folder: 'Projets' }, 'X')[0]).toEqual([
+      'Dossier d’origine',
+      'Projets',
+    ]);
   });
 
   it('gives the time and the UTC zone on the Mail row', () => {
