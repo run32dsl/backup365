@@ -72,10 +72,20 @@ describe('mode démo', () => {
 
     const status = await app.inject({ url: '/api/status', headers });
     expect(status.json<{ plans: { counts: object } }>().plans.counts).toEqual({
-      compliant: 1,
+      compliant: 2,
       late: 0,
       failed: 1,
     });
+
+    // Les sauvegardes OneDrive et SharePoint viennent d'une réussite du plan qui les couvre
+    // (issue #457) : aucun plan listé en retard ne les contredit.
+    const plansReport = status.json<{
+      plans: { nonCompliant: { name: string }[]; pending: number };
+    }>().plans;
+    expect(plansReport.nonCompliant.map((p) => p.name)).not.toContain(
+      'OneDrive et SharePoint Services',
+    );
+    expect(plansReport.pending).toBe(0);
 
     // Même instant sur l'accueil et sur Sources pour la messagerie (issue #445).
     const overview = await app.inject({ url: '/api/overview', headers });

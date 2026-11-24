@@ -352,10 +352,20 @@ export function complianceView(
     : { status: 'late', label: 'En retard', ...(note && { note }) };
 }
 
-/** Ligne secondaire d'un plan en retard ou en échec : partagée par Plans et Sources. */
-export const lateNote = (state: string, lastSuccessAt: string | null): string | undefined =>
+/**
+ * Ligne secondaire d'un plan en retard ou en échec : partagée par Plans et Sources. `hasBackups` :
+ * des sauvegardes de son périmètre existent déjà (Sources les liste) ; le plan n'a alors jamais
+ * réussi, mais « aucune sauvegarde » serait faux.
+ */
+export const lateNote = (
+  state: string,
+  lastSuccessAt: string | null,
+  hasBackups = false,
+): string | undefined =>
   lastSuccessAt === null
-    ? 'Aucune sauvegarde réussie'
+    ? hasBackups
+      ? 'Aucune exécution du plan réussie, sauvegardes déjà présentes'
+      : 'Aucune sauvegarde réussie'
     : state === 'late'
       ? 'Dernière sauvegarde plus ancienne que prévu'
       : undefined;

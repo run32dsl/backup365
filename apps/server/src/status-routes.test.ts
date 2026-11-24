@@ -131,6 +131,7 @@ describe('GET /api/status', () => {
       const report = await get(SqlitePlanStore.open(':memory:'));
       expect(report.plans).toEqual({
         counts: { compliant: 0, late: 0, failed: 0 },
+        pending: 0,
         nonCompliant: [],
       });
     });
