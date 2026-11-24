@@ -162,7 +162,7 @@ describe('StatusView', () => {
     });
     /** Ligne du tableau « Sources » qui porte ce service. */
     const line = (services: Entry[], label: string): string => {
-      const html = renderToString(<StatusView state={{ ...report, services }} />);
+      const html = renderToString(<StatusView state={{ ...report, rows: [], services }} />);
       const table = html.slice(html.indexOf('services-title'), html.indexOf('backups-title'));
       const found = table.split('<tr').find((tr) => tr.includes(`${label}</th>`));
       if (found === undefined) throw new Error(`ligne ${label} absente`);
@@ -331,6 +331,104 @@ describe('StatusView', () => {
       expect(tr).not.toContain('En échec');
       expect(tr).not.toContain('#/audit');
       expect(tr).not.toContain('row-muted');
+    });
+
+    it('takes the latest date and the state from the catalogue rows listed below, never « Jamais » or « En attente »', () => {
+      const od = (id: string, at: string, ageHours: number, state: 'ok' | 'stale') => ({
+        kind: 'mailbox' as const,
+        sourceId: id,
+        displayName: id,
+        workload: 'onedrive' as const,
+        lastSnapshotAt: at,
+        ageHours,
+        state,
+      });
+      const rows = [
+        od('u1', '2026-11-10T08:00:00Z', 52, 'stale'),
+        od('u2', '2026-11-12T06:00:00Z', 6, 'ok'),
+        od('u3', '2026-11-11T06:00:00Z', 30, 'stale'),
+      ];
+      const html = renderToString(
+        <StatusView
+          state={{
+            ...report,
+            rows,
+            services: [
+              entry({
+                service: 'onedrive',
+                ...noBackup,
+                awaitingFirstRun: true,
+              }),
+            ],
+          }}
+        />,
+      );
+      const table = html.slice(html.indexOf('services-title'), html.indexOf('backups-title'));
+      expect(table).toContain('<time dateTime="2026-11-12T06:00:00Z">Il y a 6 h');
+      expect(table).toContain('12/11/2026 06:00 UTC');
+      expect(table).toContain('En retard');
+      expect(table).toContain('2 comptes sur 3 en retard');
+      expect(table).not.toContain('Jamais');
+      expect(table).not.toContain('En attente');
+    });
+
+    it('names the state of a listed plan that covers the service, without « Non protégé »', () => {
+      const plan = {
+        id: 'p',
+        name: 'OneDrive et SharePoint Services',
+        rpoHours: 24 as const,
+        dataTypes: ['onedrive', 'sharepoint'] as ('onedrive' | 'sharepoint')[],
+        state: 'late' as const,
+        lastSuccessAt: null,
+        lastRun: null,
+      };
+      const services = [
+        entry({ service: 'sharepoint', hasPlan: false, ...noBackup, retentionDays: null }),
+      ];
+      const html = renderToString(
+        <StatusView
+          state={{
+            ...report,
+            rows: [],
+            services,
+            plans: { counts: { compliant: 0, late: 1, failed: 0 }, nonCompliant: [plan] },
+          }}
+        />,
+      );
+      const table = html.slice(html.indexOf('services-title'), html.indexOf('Plans de protection'));
+      expect(table).not.toContain('Non protégé');
+      expect(table).not.toContain('Créer un plan');
+      expect(table).not.toContain('row-muted');
+      expect(table).toContain('En retard');
+      expect(table).toContain('Aucune sauvegarde réussie');
+      expect(html).not.toContain('sans plan');
+    });
+
+    it('prefers a failed listed plan to a late one, and never says « En attente » beside them', () => {
+      const base = {
+        rpoHours: 24 as const,
+        dataTypes: ['sharepoint'] as 'sharepoint'[],
+        lastSuccessAt: null,
+        lastRun: null,
+      };
+      const nonCompliant = [
+        { ...base, id: 'a', name: 'A', state: 'late' as const },
+        { ...base, id: 'b', name: 'B', state: 'failed' as const },
+      ];
+      const html = renderToString(
+        <StatusView
+          state={{
+            ...report,
+            rows: [],
+            services: [entry({ service: 'sharepoint', ...noBackup, awaitingFirstRun: true })],
+            plans: { counts: { compliant: 0, late: 1, failed: 1 }, nonCompliant },
+          }}
+        />,
+      );
+      const table = html.slice(html.indexOf('services-title'), html.indexOf('Plans de protection'));
+      expect(table).toContain('En échec');
+      expect(table).not.toContain('En attente');
+      expect(table).not.toContain('En retard');
     });
 
     it('puts a decorative icon beside the written service name, in a native table', () => {

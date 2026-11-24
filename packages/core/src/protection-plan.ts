@@ -314,6 +314,8 @@ export interface PlanComplianceEntry extends Compliance {
   id: string;
   name: string;
   rpoHours: RpoHours;
+  /** Types de données couverts : la page Sources en tire les services que ce plan protège. */
+  dataTypes?: readonly DataType[];
   /** Dernière exécution terminée du plan (la liste des plans la dit aussi) ; `null` si aucune. */
   lastRun:
     | (Pick<PlanRun, 'status' | 'startedAt' | 'finishedAt'> & {
@@ -330,7 +332,12 @@ export interface PlanComplianceReport {
 }
 
 export function buildPlanComplianceReport(
-  plans: readonly { id: string; name: string; rpoHours: RpoHours }[],
+  plans: readonly {
+    id: string;
+    name: string;
+    rpoHours: RpoHours;
+    dataTypes?: readonly DataType[];
+  }[],
   runsOf: (planId: string) => readonly PlanRun[],
   now: Date,
 ): PlanComplianceReport {
@@ -348,6 +355,7 @@ export function buildPlanComplianceReport(
         id: plan.id,
         name: plan.name,
         rpoHours: plan.rpoHours,
+        ...(plan.dataTypes && { dataTypes: plan.dataTypes }),
         ...compliance,
         lastRun: last
           ? {

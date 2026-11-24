@@ -609,6 +609,12 @@ export const SCREENS = [
       await page.route('**/api/status', async (route) => {
         const res = await route.fetch();
         const body = await res.json();
+        // Aucun plan listé ne couvre SharePoint : sinon la page dirait le contraire.
+        if (body.plans) {
+          body.plans.nonCompliant = body.plans.nonCompliant.filter(
+            (p) => !p.dataTypes?.includes('sharepoint'),
+          );
+        }
         body.services = body.services.map((s) =>
           s.service === 'sharepoint'
             ? {
@@ -638,6 +644,14 @@ export const SCREENS = [
       await page.route('**/api/status', async (route) => {
         const res = await route.fetch();
         const body = await res.json();
+        // Aucune sauvegarde OneDrive : sinon les lignes du catalogue disent le contraire.
+        body.rows = body.rows.filter((r) => r.workload !== 'onedrive');
+        // Et aucun plan listé en retard pour OneDrive : il ne serait plus « en attente ».
+        if (body.plans) {
+          body.plans.nonCompliant = body.plans.nonCompliant.filter(
+            (p) => !p.dataTypes?.includes('onedrive'),
+          );
+        }
         body.services = body.services.map((s) =>
           s.service === 'onedrive'
             ? {
