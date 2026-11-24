@@ -300,6 +300,25 @@ export function failureCause(error: SiteJob['error']): string {
   return 'le service de restauration a signalé une erreur';
 }
 
+/** Conséquence d'un échec : état incertain, sinon éléments restaurés et en erreur, sinon « rien modifié ». */
+export function failureConsequence(job: Pick<SiteJob, 'error' | 'restored' | 'errors'>): string {
+  if (isOutcomeUncertain(job.error))
+    return 'L’état de SharePoint est incertain : vérifiez avant de réessayer';
+  if (job.restored < 1) return 'Rien n’a été modifié';
+  const parts = [
+    elementsWhich(job.restored, 'restauré'),
+    job.errors > 0 ? elementsInError(job.errors) : '',
+  ].filter(Boolean);
+  return parts.join(', ');
+}
+
+/** Ligne « En erreur » du récapitulatif : le fichier, ou le dossier où se trouvent les éléments. */
+export function errorItemLabel(job: Pick<SiteJob, 'scope' | 'path' | 'errors'>): string | null {
+  const path = pathLabel(job.path);
+  if (job.errors < 1 || job.scope === 'site' || path === '') return null;
+  return job.scope === 'item' ? path : `dans ${path}`;
+}
+
 /** Vrai si l'appel a pu aboutir malgré l'échec affiché. */
 export function isOutcomeUncertain(error: SiteJob['error']): boolean {
   return error === 'restore_unreachable' || error === 'restore_lost';

@@ -4,6 +4,7 @@ import { apiErrorFor, type Problem } from './apiError.js';
 import { ConfigurationLink } from './ConfigurationBlock.js';
 import { useAdmin } from './role.js';
 import { FailureAlert } from './FailureAlert.js';
+import { RestoreFailureAlert, restoreFailureBanner } from './restoreFailure.js';
 import { isReasonValid } from './mail.js';
 import {
   AuditReminder,
@@ -124,10 +125,15 @@ export function RestoreOutcome({
   }
   return (
     <>
-      <Alert tone="error">
-        La restauration a échoué : {failureCause(job.error).replace(/\.$/, '')}.{' '}
-        {isOutcomeUncertain(job.error) ? T.uncertain : T.untouched}
-      </Alert>
+      <RestoreFailureAlert
+        banner={restoreFailureBanner({
+          item: mail.subject === '' ? '(sans objet)' : mail.subject,
+          at: job.finishedAt ?? job.startedAt,
+          cause: failureCause(job.error),
+          consequence: isOutcomeUncertain(job.error) ? T.uncertain : T.untouched,
+          uncertain: isOutcomeUncertain(job.error),
+        })}
+      />
       <ResultList rows={[...recall, ['Durée', formatDuration(job.durationMs ?? 0)]]} />
       <div className="button-row dialog-actions">
         <a className="btn btn-secondary" href="#/audit">
