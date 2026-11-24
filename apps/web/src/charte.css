@@ -658,11 +658,20 @@ select[aria-disabled='true'] {
   .data-table .col-mailbox {
     overflow-wrap: normal;
   }
-  /* À 1280 px et plus, il y a la place : une seule ligne. */
-  @media (min-width: 80rem) {
-    .data-table .col-mailbox {
-      white-space: nowrap;
-    }
+  /*
+   * La classe `address` impose une seule ligne ; les colonnes d’adresse (Boîte, Expéditeur) reprennent le retour à la ligne, mais
+   * la partie locale et le domaine restent entiers : le seul point de coupe est après le « @ ».
+   * Une adresse courte reste sur une ligne (« Objet » cède la place), une longue passe sur deux.
+   */
+  .data-table td.address {
+    white-space: normal;
+  }
+  .data-table .address .addr-local,
+  .data-table .address .addr-domain {
+    white-space: nowrap;
+  }
+  .data-table .address .addr-domain::before {
+    white-space: normal;
   }
 
   /*

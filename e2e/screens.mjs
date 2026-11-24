@@ -6,13 +6,14 @@
  * - `role` : `'admin'`, `'operator'` ou `null` (pas de session) ;
  * - `scheme` : `'dark'` pour le thème sombre (clair par défaut) ;
  * - `prepare(page)` : gestes éventuels avant la photo (saisie, clic), rendu attendu à la fin ;
+ * - `extraWidths` : largeurs photographiées en plus de `WIDTHS` (ex. `[1024]`) ;
  * - `buildCommit` : commit court d'une image construite ; l'écran est alors photographié sur un
  *   second serveur de démonstration, dont le pied de page affiche « Version <paquet> · <commit> »
  *   au lieu de « Version dev ».
  *
  * @typedef {{ name: string, hash: string, role: 'admin' | 'operator' | null, scheme?: 'light' | 'dark',
  *   prepare?: (page: import('@playwright/test').Page) => Promise<void>,
- *   buildCommit?: string }} Screen
+ *   buildCommit?: string, extraWidths?: number[] }} Screen
  */
 
 /** Commit court fictif des captures et des tests de la version d'une image. */
@@ -360,6 +361,8 @@ export const SCREENS = [
     name: 'recherche',
     hash: '#/search',
     role: 'admin',
+    // Entre 900 et 1280 px, l'adresse longue se coupe après le « @ » (voir demo.spec.ts).
+    extraWidths: [1024],
     prepare: async (page) => {
       await page.getByLabel('Recherche').fill('devis');
       await page.getByRole('button', { name: 'Rechercher' }).click();

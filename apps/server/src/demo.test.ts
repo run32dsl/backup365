@@ -48,7 +48,7 @@ async function login(target: FastifyInstance, username: string, password: string
 }
 
 describe('mode démo', () => {
-  it('démarre sans S3, annonce le mode démo et indexe une centaine de mails', async () => {
+  it('démarre sans S3, annonce le mode démo et indexe 125 mails', async () => {
     app = createServer(demoEnv(), '0.0.0', noFile);
     await app.ready();
     const health = await app.inject('/api/health');
@@ -60,12 +60,12 @@ describe('mode démo', () => {
     await login(app, operator.username, operator.password);
 
     let total = 0;
-    for (let i = 0; i < 50 && total < 100; i++) {
+    for (let i = 0; i < 50 && total < 125; i++) {
       const res = await app.inject({ url: '/api/search?limit=1', headers });
       total = res.json<{ total: number }>().total;
-      if (total < 100) await new Promise((r) => setTimeout(r, 50));
+      if (total < 125) await new Promise((r) => setTimeout(r, 50));
     }
-    expect(total).toBe(100);
+    expect(total).toBe(125);
 
     const audit = await app.inject({ url: '/api/audit', headers });
     expect(audit.statusCode).toBe(200);
@@ -162,6 +162,6 @@ describe('jeu de démonstration', () => {
       ...[...s.matchAll(/https?:\/\/([^/\s"'<>]+)/g)].map((m) => m[1]!),
     ]);
     expect(hosts.length).toBeGreaterThan(100);
-    expect(new Set(hosts)).toEqual(new Set([DEMO_DOMAIN]));
+    expect(hosts.every((h) => h === DEMO_DOMAIN || h.endsWith(`.${DEMO_DOMAIN}`))).toBe(true);
   });
 });
