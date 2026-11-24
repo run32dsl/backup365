@@ -205,7 +205,7 @@ describe('StatusView', () => {
       expect(table.match(/<span class="service-icon" aria-hidden="true">/g)).toHaveLength(3);
       expect(table).toMatch(/aria-hidden="true">✉<\/span> (<!-- -->)?Messagerie<\/th>/u);
       expect(table).toContain('<caption class="sr-only">État par service</caption>');
-      expect(table.match(/<th scope="col"/g)).toHaveLength(5);
+      expect(table.match(/<th scope="col"/g)).toHaveLength(6);
       expect(table.match(/<th scope="row"/g)).toHaveLength(3);
       // Un seul tableau, un seul exemplaire de chaque nom : la carte mobile est faite par le CSS.
       expect(table.match(/<table/g)).toHaveLength(1);
@@ -417,6 +417,7 @@ describe('StatusView mobile cards', () => {
           {
             service: 'mail',
             hasPlan: true,
+            awaitingFirstRun: false,
             lastSnapshotAt: '2026-11-12T06:00:00Z',
             ageHours: 6,
             state: 'ok',
@@ -436,7 +437,10 @@ describe('StatusView mobile cards', () => {
   const cls = (label: string, section: string): string[] => {
     expect(html.indexOf(section)).toBeGreaterThanOrEqual(0);
     const part = html.slice(html.indexOf(section));
-    const m = new RegExp(`<td[^>]*data-label="${label}"[^>]*class="([^"]*)"`).exec(part);
+    const m =
+      label === 'Service'
+        ? /<th scope="row"[^>]*class="([^"]*)"/.exec(part)
+        : new RegExp(`<td[^>]*data-label="${label}"[^>]*class="([^"]*)"`).exec(part);
     return (m?.[1] ?? '').split(' ');
   };
 
@@ -465,6 +469,7 @@ describe('StatusView mobile cards', () => {
             {
               service: 'sharepoint',
               hasPlan: true,
+              awaitingFirstRun: false,
               lastSnapshotAt: 'illisible',
               ageHours: null,
               state: 'stale',
@@ -474,6 +479,7 @@ describe('StatusView mobile cards', () => {
             {
               service: 'onedrive',
               hasPlan: false,
+              awaitingFirstRun: false,
               lastSnapshotAt: null,
               ageHours: null,
               state: 'missing',
