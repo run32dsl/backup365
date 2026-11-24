@@ -103,10 +103,11 @@ export const MESSAGES = {
   notConfigured: 'Sauvegarde non configurée',
   notConfiguredHelp: 'Connectez d’abord Microsoft 365 pour créer un plan.',
   notConfiguredOperator: 'Demandez à un administrateur de la configurer',
-  name: 'Indiquez un nom pour le plan.',
-  dataTypes: 'Choisissez au moins un type de données.',
-  selection: 'Choisissez au moins une boîte ou un compte.',
-  justification: 'Indiquez la justification de la durée de conservation.',
+  name: 'Saisissez un nom pour le plan.',
+  nameTaken: 'Ce nom est déjà utilisé. Choisissez-en un autre.',
+  dataTypes: 'Choisissez au moins un élément à protéger.',
+  selection: 'Choisissez au moins un élément à protéger.',
+  justification: 'Indiquez pourquoi cette durée est nécessaire.',
   runReason: 'Indiquez un motif pour continuer.',
   created: 'Plan créé.',
   updated: 'Plan modifié.',
@@ -185,10 +186,19 @@ export type FormErrors = Partial<
 >;
 
 /** Erreurs de l'étape (1 ou 2) ; vide si elle peut être quittée. */
-export function validateStep(form: PlanForm, step: 1 | 2): FormErrors {
+export function validateStep(
+  form: PlanForm,
+  step: 1 | 2,
+  /** Noms déjà pris par d'autres plans (casse et espaces ignorés, comme le serveur). */
+  takenNames: readonly string[] = [],
+): FormErrors {
   const errors: FormErrors = {};
   if (step === 1) {
-    if (form.name.trim() === '') errors.name = MESSAGES.name;
+    const name = form.name.trim().toLowerCase();
+    if (name === '') errors.name = MESSAGES.name;
+    else if (takenNames.some((n) => n.trim().toLowerCase() === name)) {
+      errors.name = MESSAGES.nameTaken;
+    }
     if (form.dataTypes.length === 0) errors.dataTypes = MESSAGES.dataTypes;
     if (form.scope === 'selection' && form.selection.length === 0) {
       errors.selection = MESSAGES.selection;
@@ -423,6 +433,10 @@ export function failureBanner(
   };
 }
 
+/** Bandeau au-dessus d'un formulaire en erreur : le nombre de points, sans les répéter. */
+export const errorSummary = (count: number): string =>
+  `${count} ${count === 1 ? 'point' : 'points'} à corriger avant de continuer`;
+
 /** Message de succès d'une création : l'heure du premier créneau planifié. */
 export function createdMessage(plan: { id: string; rpoHours: RpoHours }, now = new Date()): string {
   // Plan de nuit : le créneau suit le fuseau du serveur, que le navigateur ne connaît pas.
@@ -487,7 +501,7 @@ export async function fetchMailboxes(
 }
 
 const SERVER_MESSAGES: Record<string, string> = {
-  plan_name_taken: 'Ce nom de plan existe déjà.',
+  plan_name_taken: MESSAGES.nameTaken,
   plan_not_found: 'Ce plan n’existe plus.',
   run_in_progress: 'Une sauvegarde est déjà en cours pour ce plan.',
   no_items: 'Ce plan ne couvre aucune boîte : rien à sauvegarder.',

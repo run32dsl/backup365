@@ -592,6 +592,10 @@ select[aria-disabled='true'] {
   color: var(--err-fg);
   font-weight: 600;
 }
+/* Un champ en erreur ne doit pas finir sous une barre fixe lors du défilement. */
+.wizard [aria-invalid='true'] {
+  scroll-margin-top: 5rem;
+}
 .field input[aria-invalid='true'] {
   border-color: var(--err-fg);
   border-width: 2px;

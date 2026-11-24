@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 export type AlertTone = 'info' | 'success' | 'warning' | 'error';
 
@@ -20,6 +20,7 @@ export function Alert({
   action,
   id,
   role,
+  focusRef,
 }: {
   tone: AlertTone;
   /** Cause courte, en gras sur sa propre ligne ; le corps donne la conséquence et la conduite. */
@@ -31,10 +32,18 @@ export function Alert({
   id?: string;
   /** Rôle imposé : `status` pour un avertissement qui n'interrompt pas la lecture. */
   role?: 'alert' | 'status';
+  /** Rend l'alerte focalisable par programme (confirmation qui reçoit le focus). */
+  focusRef?: Ref<HTMLDivElement>;
 }) {
   const { icon, role: toneRole } = TONES[tone];
   return (
-    <div id={id} className={`alert alert-${tone}`} role={role ?? toneRole}>
+    <div
+      id={id}
+      className={`alert alert-${tone}`}
+      role={role ?? toneRole}
+      ref={focusRef}
+      tabIndex={focusRef ? -1 : undefined}
+    >
       <span aria-hidden="true">{icon}</span>
       <span className="alert-text">
         {title ? <strong className="alert-title">{title}</strong> : null}

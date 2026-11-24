@@ -16,6 +16,7 @@ import {
   failureBanner,
   createPlan,
   createdMessage,
+  errorSummary,
   deletePlan,
   editHash,
   emptyForm,
@@ -111,7 +112,10 @@ export function PlanWizard({
   mailboxes,
   onSubmit,
   initialStep = 1,
+  takenNames = [],
 }: {
+  /** Noms des autres plans, pour refuser un doublon dès l'étape 1. */
+  takenNames?: readonly string[];
   initial: PlanForm;
   editing: boolean;
   mailboxes: Mailbox[];
@@ -133,27 +137,47 @@ export function PlanWizard({
     else title.current?.focus();
   }, [step]);
 
+  const formRef = useRef<HTMLFormElement>(null);
+  // Chaque refus de validation relance la mise au point sur le premier champ en erreur.
+  const [refusals, setRefusals] = useState(0);
+  useEffect(() => {
+    if (refusals === 0) return;
+    const field = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+    if (!field) return;
+    field.focus({ preventScroll: true });
+    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    field.scrollIntoView({ block: 'center', behavior: calm ? 'auto' : 'smooth' });
+  }, [refusals]);
+
   const patch = (change: Partial<PlanForm>) => {
     setForm((f) => ({ ...f, ...change }));
   };
   const next = () => {
     if (step === 3) return;
-    const found = validateStep(form, step);
+    const found = validateStep(form, step, takenNames);
     setErrors(found);
     if (Object.keys(found).length === 0) setStep((step + 1) as 2 | 3);
+    else setRefusals((n) => n + 1);
   };
   const submit = async () => {
     setSaving(true);
     setFailure(undefined);
     const problem = await onSubmit(form);
     // En cas de succès la page quitte le parcours : seul l'échec rend la main, saisies conservées.
-    setFailure(problem);
+    if (problem?.code === 'plan_name_taken') {
+      // Un nom pris entre-temps : retour à l'étape 1, l'erreur sur le champ Nom.
+      setErrors({ name: MESSAGES.nameTaken });
+      setStep(1);
+      setRefusals((n) => n + 1);
+    } else setFailure(problem);
     setSaving(false);
   };
   const messages = Object.values(errors);
+  const invalid = (key: keyof FormErrors) => (errors[key] ? true : undefined);
 
   return (
     <form
+      ref={formRef}
       className="wizard"
       noValidate
       onSubmit={(e) => {
@@ -163,15 +187,7 @@ export function PlanWizard({
       }}
     >
       <Steps steps={STEP_NAMES} current={step} titleRef={title} />
-      {messages.length > 0 && (
-        <Alert tone="error">
-          <ul className="error-list">
-            {messages.map((m) => (
-              <li key={m}>{m}</li>
-            ))}
-          </ul>
-        </Alert>
-      )}
+      {messages.length > 0 && <Alert tone="error">{errorSummary(messages.length)}</Alert>}
       {failure && <PlanFailure problem={failure} />}
 
       {step === 1 && (
@@ -196,7 +212,15 @@ export function PlanWizard({
                 <label key={t} className="choice">
                   <input
                     type="checkbox"
-                    aria-describedby={t === 'mail' ? 'data-type-mail-help' : undefined}
+                    aria-invalid={invalid('dataTypes')}
+                    aria-describedby={
+                      [
+                        t === 'mail' ? 'data-type-mail-help' : '',
+                        errors.dataTypes ? 'data-types-error' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ') || undefined
+                    }
                     checked={form.dataTypes.includes(t)}
                     onChange={() => {
                       patch({
@@ -239,6 +263,8 @@ export function PlanWizard({
                   <label key={m.id} className="choice">
                     <input
                       type="checkbox"
+                      aria-invalid={invalid('selection')}
+                      aria-describedby={errors.selection ? 'selection-error' : undefined}
                       checked={form.selection.includes(m.id)}
                       onChange={() => {
                         patch({ selection: toggle(form.selection, m.id) });
@@ -859,6 +885,12 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     };
   }, [running, load]);
 
+  // La confirmation reçoit le focus à son apparition, comme le veut la maquette (#166).
+  const flashRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (flash && route.page === 'list') flashRef.current?.focus();
+  }, [flash, route.page]);
+
   const wizardOpen = route.page !== 'list';
   // Un message de succès ne survit pas à l'ouverture d'un parcours.
   useEffect(() => {
@@ -946,6 +978,9 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         initial={plan ? formFromPlan(plan) : emptyForm()}
         editing={editing !== undefined}
         mailboxes={boxes.mailboxes}
+        takenNames={
+          Array.isArray(state) ? state.filter((p) => p.id !== editing).map((p) => p.name) : []
+        }
         onSubmit={save}
       />
     );
@@ -987,7 +1022,11 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         )}
       </div>
       <div aria-live="polite">
-        {flash && !wizard && <Alert tone={flash.tone}>{flash.text}</Alert>}
+        {flash && !wizard && (
+          <Alert tone={flash.tone} focusRef={flashRef}>
+            {flash.text}
+          </Alert>
+        )}
       </div>
       {body}
       {!wizard && (
