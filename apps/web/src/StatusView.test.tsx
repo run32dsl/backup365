@@ -2,7 +2,7 @@ import type { StatusReport } from '@backup365/core';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { NoBackupError, fetchStatus } from './status.js';
-import { StatusView, scopeLabel, sortRows } from './StatusView.js';
+import { StatusView, lateCause, scopeLabel, sortRows } from './StatusView.js';
 import { ageLabel } from './format.js';
 import { complianceView, type PlanItem } from './plans.js';
 
@@ -155,14 +155,103 @@ describe('StatusView', () => {
       expect(tr).not.toContain('En échec');
     });
 
-    it('links a late or failed service to the audit journal, not an up-to-date one', () => {
+    it('links a service without any backup to the audit journal, not a late or up-to-date one', () => {
       const audit =
         '<a class="state-link" href="#/audit" aria-label="Voir dans le journal d’audit : Messagerie">Voir dans le journal d’audit</a>';
-      expect(line([entry({ state: 'stale' })], 'Messagerie')).toContain(audit);
       expect(line([entry({ state: 'missing' })], 'Messagerie')).toContain(audit);
+      expect(line([entry({ state: 'stale' })], 'Messagerie')).not.toContain('#/audit');
       const ok = line([entry()], 'Messagerie');
       expect(ok).not.toContain('#/audit');
       expect(ok).not.toContain('#/plans');
+    });
+
+    it('says why a service is late, on a secondary line, with no journal link', () => {
+      const rows = (states: ('ok' | 'stale')[]): StatusReport['rows'] =>
+        states.map((state, i) => ({
+          kind: 'mailbox',
+          sourceId: `u${i}`,
+          displayName: `Compte ${i}`,
+          workload: 'onedrive',
+          lastSnapshotAt: '2026-11-12T06:00:00Z',
+          ageHours: state === 'ok' ? 6 : 78,
+          state,
+        }));
+      expect(lateCause('onedrive', rows(['ok', 'ok', 'stale', 'ok', 'ok']))).toBe(
+        '1 compte sur 5 en retard',
+      );
+      expect(lateCause('onedrive', rows(['stale', 'stale', 'ok']))).toBe(
+        '2 comptes sur 3 en retard',
+      );
+      expect(lateCause('onedrive', rows(['ok']))).toBe('');
+      const html = renderToString(
+        <StatusView
+          state={{
+            ...report,
+            rows: rows(['ok', 'stale']),
+            services: [entry({ service: 'onedrive', state: 'stale' })],
+          }}
+        />,
+      );
+      const tr = html.split('<tr').find((t) => t.includes('OneDrive</th>')) ?? '';
+      expect(tr).toContain('En retard');
+      expect(tr).toContain('<small class="state-note">1 compte sur 2 en retard</small>');
+      expect(tr).not.toContain('#/audit');
+    });
+
+    describe('a service without a plan', () => {
+      const site = (i: number, state: 'ok' | 'stale') =>
+        ({
+          kind: 'site',
+          sourceId: `s${i}`,
+          displayName: `Site ${i}`,
+          workload: 'sharepoint',
+          lastSnapshotAt: '2026-11-12T06:00:00Z',
+          ageHours: 6,
+          state,
+        }) as const;
+      const view = (hasPlan: boolean, rows: StatusReport['rows']) =>
+        renderToString(
+          <StatusView
+            state={{
+              ...report,
+              rows,
+              plans: null,
+              services: [
+                entry({ service: 'sharepoint', hasPlan, scope: hasPlan ? { kind: 'all' } : null }),
+              ],
+            }}
+          />,
+        );
+
+      it('shows no « À jour » line for it in Sauvegardes, and names it in the banner', () => {
+        const html = view(false, [site(1, 'ok'), site(2, 'stale')]);
+        const backups = html.slice(html.indexOf('backups-title'));
+        expect(backups).not.toContain('Site 1');
+        expect(backups).toContain('Site 2');
+        expect(html).toContain('1 source sans plan (SharePoint)');
+        expect(html).not.toContain('Aucun plan');
+      });
+
+      it('keeps its lines, and has no banner entry, once a plan covers it', () => {
+        const html = view(true, [site(1, 'ok')]);
+        expect(html.slice(html.indexOf('backups-title'))).toContain('Site 1');
+        expect(html).not.toContain('sans plan');
+        expect(html).not.toContain('Non protégé');
+      });
+    });
+
+    it('shows the last success date of a plan, and a dash only without one', () => {
+      const plans = (lastSuccessAt: string | null): StatusReport['plans'] => ({
+        counts: { compliant: 0, late: 1, failed: 0 },
+        nonCompliant: [{ id: 'p', name: 'P', rpoHours: 4, state: 'late', lastSuccessAt }],
+      });
+      const withDate = renderToString(
+        <StatusView state={{ ...report, plans: plans('2026-11-24T05:30:00Z') }} />,
+      );
+      expect(withDate).toContain('24/11/2026 05:30');
+      const without = renderToString(<StatusView state={{ ...report, plans: plans(null) }} />);
+      expect(without).toContain('—');
+      expect(without).not.toContain('24/11/2026');
     });
 
     it('shows the relative time, then the exact date in a <time datetime>', () => {
