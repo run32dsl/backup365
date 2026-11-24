@@ -13,6 +13,8 @@ export interface Overview {
     late: number;
   };
   lastBackupAt: string | null;
+  /** Nom du plan de cette exécution. */
+  lastBackupPlan: string | null;
 }
 
 /** Interroge `/api/overview` ; lève une erreur si la réponse n'est pas en 2xx. */

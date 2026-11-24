@@ -36,6 +36,7 @@ describe('GET /api/overview', () => {
       state: 'unconfigured',
       plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
       lastBackupAt: null,
+      lastBackupPlan: null,
     });
   });
 
@@ -47,6 +48,7 @@ describe('GET /api/overview', () => {
       state: 'pending',
       plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 1 },
       lastBackupAt: null,
+      lastBackupPlan: null,
     });
   });
 
@@ -71,6 +73,7 @@ describe('GET /api/overview', () => {
     expect(body.state).toBe('operational');
     expect(body.plans).toMatchObject({ total: 2, operational: 2 });
     expect(Date.now() - Date.parse(body.lastBackupAt!)).toBeLessThan(3.5 * 3_600_000);
+    expect(body.lastBackupPlan).toBe('B');
   });
 
   it('is failed when a plan last run failed, and keeps the last success date', async () => {
@@ -85,6 +88,7 @@ describe('GET /api/overview', () => {
     const age = Date.now() - Date.parse(body.lastBackupAt!);
     expect(age).toBeGreaterThan(9.5 * 3_600_000);
     expect(age).toBeLessThan(10.5 * 3_600_000);
+    expect(body.lastBackupPlan).toBe('B');
   });
 
   it('ignores a running run: a relaunched failed plan stays failed, a first run is not a result', async () => {

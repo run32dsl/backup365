@@ -170,10 +170,14 @@ export function OverviewView({
             plan.
           </p>
         ) : (
-          <p>
-            {agoLabel(last, now)} · <time dateTime={last}>{lastDate}</time>
-            {state.state === 'failed' && ' (dernière réussie)'}
-          </p>
+          <>
+            <p>
+              <time dateTime={last}>{`${lastDate} UTC`}</time>{' '}
+              <span className="overview-ago">· {agoLabel(last, now)}</span>
+            </p>
+            {state.lastBackupPlan && <p>Plan : {state.lastBackupPlan}</p>}
+            {state.state === 'failed' && <p>Dernière sauvegarde réussie ; un plan est en échec.</p>}
+          </>
         )}
       </Card>
     </div>

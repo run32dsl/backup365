@@ -29,11 +29,13 @@ export interface Overview {
   };
   /** Fin de la dernière exécution réussie, tous plans confondus ; `null` si aucune. */
   lastBackupAt: string | null;
+  /** Nom du plan de cette exécution ; `null` si aucune. */
+  lastBackupPlan: string | null;
 }
 
 /**
- * `GET /api/overview` : les trois informations de l'accueil en une requête. Compteurs et dates
- * seulement, sans nom de plan ni détail d'erreur ; ouvert à l'opérateur (lecture seule). Simple
+ * `GET /api/overview` : les trois informations de l'accueil en une requête. Compteurs, dates et
+ * nom du plan de la dernière réussite, sans détail d'erreur ; ouvert à l'opérateur (lecture seule). Simple
  * lecture de métadonnées, hors journal d'audit (ADR 0002).
  */
 export function registerOverviewRoutes(
@@ -55,6 +57,7 @@ export function registerOverviewRoutes(
     let queued = 0;
     let lastBackupMs = Number.NEGATIVE_INFINITY;
     let lastBackupAt: string | null = null;
+    let lastBackupPlan: string | null = null;
     for (const plan of all) {
       const runs = plans.listRuns(plan.id, RUNS_LIMIT);
       // Une exécution en cours n'est pas un résultat : on lit la dernière terminée.
@@ -77,6 +80,7 @@ export function registerOverviewRoutes(
         if (!Number.isNaN(ms) && ms > lastBackupMs) {
           lastBackupMs = ms;
           lastBackupAt = run.finishedAt;
+          lastBackupPlan = plan.name;
         }
       }
     }
@@ -99,6 +103,7 @@ export function registerOverviewRoutes(
         late: latePlans,
       },
       lastBackupAt,
+      lastBackupPlan,
     };
     return overview;
   });
