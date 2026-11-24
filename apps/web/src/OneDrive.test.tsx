@@ -248,6 +248,18 @@ describe('OneDrive entries table', () => {
   });
 });
 
+describe('OneDrive : stockage non configuré', () => {
+  it('is reached only by catalog_unavailable, never by backup_not_configured', async () => {
+    // `backup_not_configured` est le code du dialogue « Lancer » (POST d'exécution d'un plan) :
+    // aucune route OneDrive ne l'émet, et s'il arrivait, la page n'afficherait pas cet état.
+    const fetchFn = vi.fn();
+    fetchFn.mockReturnValueOnce(json({ error: 'backup_not_configured' }, 503));
+    expect((await fetchSnapshots('a', fetchFn)).status).toBe('error');
+    fetchFn.mockReturnValueOnce(json({ error: 'catalog_unavailable' }, 503));
+    expect((await fetchSnapshots('a', fetchFn)).status).toBe('unconfigured');
+  });
+});
+
 describe('OneDrive replace confirmation', () => {
   it('keeps "Restaurer" inactive until the box is checked, in replace mode only', () => {
     expect(restoreBlocked('replace', false)).toBe(true);

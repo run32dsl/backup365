@@ -36,6 +36,7 @@ import {
   fetchSites,
   formatDuration,
   isOutcomeUncertain,
+  pathLabel,
   successSummary,
   breadcrumbLevels,
   breadcrumbLink,
