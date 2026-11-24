@@ -800,12 +800,16 @@ test('recherche à 1024 px : adresses entières ou coupées après le « @ », s
       };
     });
     return {
-      overflow: t.scrollWidth - t.clientWidth,
+      right: t.getBoundingClientRect().right,
+      scrollable: getComputedStyle(t).overflowX === 'auto',
       page: document.documentElement.scrollWidth - window.innerWidth,
       cells,
     };
   });
-  // Le débordement du tableau à 1024 px (`result.overflow`) attend une décision produit : voir .pr/273.md.
+  // Le tableau défile dans son conteneur : ni la page ni le conteneur ne dépassent la fenêtre.
+  expect(result.page).toBeLessThanOrEqual(0);
+  expect(result.right).toBeLessThanOrEqual(1024);
+  expect(result.scrollable).toBe(true);
   expect(result.cells.some((c) => c.text.length >= 60)).toBe(true);
   for (const c of result.cells) {
     expect(c.lines).toBeLessThanOrEqual(2);

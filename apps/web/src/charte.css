@@ -612,6 +612,13 @@ select[aria-disabled='true'] {
   overflow-wrap: anywhere;
 }
 
+/* Entre 900 et 1280 px le tableau de résultats peut dépasser la zone de contenu : il défile dans son conteneur, la page ne déborde pas. */
+@media (min-width: 56.26rem) and (max-width: 79.99rem) {
+  .table-scroll {
+    overflow-x: auto;
+  }
+}
+
 /* Adresse sur une seule ligne en tableau ; en carte (sous 900 px) elle peut passer à la ligne. */
 @media (min-width: 56.26rem) {
   .data-table .address {
