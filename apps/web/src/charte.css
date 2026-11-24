@@ -651,6 +651,12 @@ select[aria-disabled='true'] {
     display: none;
   }
 
+  /* « Objet » est la colonne élastique : elle cède de la place si la police est plus large. */
+  .data-table th.subject,
+  .data-table td.subject {
+    min-width: 4rem;
+  }
+
   /* La date et l'heure passent sur deux lignes plutôt que d'élargir le tableau. */
   .data-table td.mail-date .nowrap {
     white-space: normal;
