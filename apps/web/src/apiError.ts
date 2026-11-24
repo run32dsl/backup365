@@ -27,6 +27,54 @@ export const API_ERRORS: Record<string, string> = {
   internal_error: 'Erreur du serveur. Réessayez ; si elle persiste, prévenez un administrateur.',
 };
 
+/** Conduite à tenir d'un administrateur devant une panne : c'est lui qui peut la corriger. */
+export const ADMIN_RETRY = 'Réessayez ; si la panne persiste, prévenez l’exploitant du serveur.';
+
+/**
+ * Variante administrateur des codes dont le message dit « Prévenez un administrateur » : on ne
+ * renvoie pas l'administrateur vers lui-même. Les autres codes n'ont qu'un message.
+ */
+export const API_ERRORS_ADMIN: Record<string, string> = {
+  backup_not_configured:
+    'Sauvegarde indisponible : la console n’est pas encore reliée à Microsoft 365.',
+  catalog_unavailable: `Aucune sauvegarde accessible : le stockage n’est pas configuré ou ne répond pas. ${ADMIN_RETRY}`,
+  plans_unavailable: `Base des plans indisponible : les plans ne peuvent pas être lus ni modifiés. ${ADMIN_RETRY}`,
+  scheduler_unavailable: `Planificateur indisponible : aucune sauvegarde ne peut être lancée. ${ADMIN_RETRY}`,
+  restore_unavailable:
+    'Restauration indisponible : la console n’a pas encore le droit d’écrire dans Microsoft 365.',
+};
+
+/** Message d'un code d'erreur métier pour le rôle de l'utilisateur connecté. */
+export function apiErrorFor(code: string, admin: boolean): string | undefined {
+  return (admin ? API_ERRORS_ADMIN[code] : undefined) ?? API_ERRORS[code];
+}
+
+/**
+ * Message d'un échec pour le rôle : la variante administrateur remplace le message standard du
+ * code, jamais un texte plus précis propre à l'écran.
+ */
+export function problemMessage(
+  problem: { message: string; code?: string },
+  admin: boolean,
+): string {
+  const code = problem.code;
+  if (!admin || !code || problem.message !== API_ERRORS[code]) return problem.message;
+  return API_ERRORS_ADMIN[code] ?? problem.message;
+}
+
+/**
+ * Sépare « Titre : texte » d'un message d'API en cause courte et corps, pour `Alert title`.
+ * Sans titre court en tête, le message reste entier.
+ */
+export function splitTitle(message: string): { title?: string; text: string } {
+  const i = message.indexOf(' : ');
+  if (i <= 0 || i > 40) return { text: message };
+  return {
+    title: message.slice(0, i),
+    text: message.charAt(i + 3).toUpperCase() + message.slice(i + 4),
+  };
+}
+
 /** Échec à afficher : le message, et de quoi le retrouver dans les journaux. */
 export type Problem = { message: string; code?: string; requestId?: string };
 

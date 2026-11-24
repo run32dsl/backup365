@@ -76,7 +76,7 @@ describe('historique et lancement manuel', () => {
     const { app, plan, audit } = setup();
     const res = await run(app, plan.id, { reason: 'Contrôle avant audit' });
     expect(res.statusCode).toBe(202);
-    expect(res.json()).toEqual({ started: 2, skipped: 0 });
+    expect(res.json()).toEqual({ started: 2, skipped: 0, queued: false });
 
     await vi.waitFor(async () => {
       const items = (await runs(app, plan.id)).json<{ items: { status: string }[] }>().items;

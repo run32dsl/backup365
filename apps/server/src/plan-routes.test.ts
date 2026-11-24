@@ -47,9 +47,9 @@ describe('API des plans', () => {
     const { app, plans } = setup('operator');
     const plan = plans.create({
       name: 'Mails',
-      scope: 'all',
-      dataTypes: ['mail', 'contacts'],
-      selection: [],
+      scope: 'selection',
+      dataTypes: ['mail', 'sharepoint'],
+      selection: ['a', 'b'],
       rpoHours: 4,
       rtoHours: null,
       retentionDays: 30,
@@ -59,9 +59,9 @@ describe('API des plans', () => {
       items: Record<string, unknown>[];
     }>();
     expect(before.items[0]).not.toHaveProperty('gdprJustification');
-    expect(before.items[0]).not.toHaveProperty('selection');
     // Contrat lu par la console (`PlanItem` de apps/web) : ces champs et aucun autre. En changer
     // la liste demande d'adapter l'écran des plans de l'opérateur et son test de rendu.
+    expect(before.items[0]?.selection).toEqual(['a', 'b']);
     expect(Object.keys(before.items[0] ?? {}).sort()).toEqual([
       'compliance',
       'createdAt',
@@ -69,17 +69,19 @@ describe('API des plans', () => {
       'id',
       'lastRun',
       'name',
+      'queued',
       'retentionDays',
       'rpoHours',
       'running',
       'scope',
+      'selection',
     ]);
     expect((await send(app, 'GET', `/api/plans/${plan.id}/runs`)).statusCode).toBe(403);
     expect((await send(app, 'POST', `/api/plans/${plan.id}/run`, { reason: 'x' })).statusCode).toBe(
       403,
     );
     expect(before.items[0]).toMatchObject({
-      dataTypes: ['mail', 'contacts'],
+      dataTypes: ['mail', 'sharepoint'],
       compliance: { state: 'late', lastSuccessAt: null, lastRestorePointAt: null },
       running: false,
       lastRun: null,
@@ -197,7 +199,8 @@ describe('API des plans', () => {
       rtoHours: null,
     });
 
-    expect((await send(app, 'DELETE', `/api/plans/${plan.id}`)).statusCode).toBe(204);
+    const removed = await send(app, 'DELETE', `/api/plans/${plan.id}`, { reason: 'Plan remplacé' });
+    expect(removed.statusCode).toBe(204);
     expect((await send(app, 'GET', '/api/plans')).json<{ items: unknown[] }>().items).toEqual([]);
   });
 
@@ -225,16 +228,30 @@ describe('API des plans', () => {
     db.prepare(
       "INSERT INTO plan_runs (plan_id, item_id, started_at, status) VALUES (?, 'a', 'x', 'running')",
     ).run(id);
-    await send(app, 'DELETE', `/api/plans/${id}`);
+    await send(app, 'DELETE', `/api/plans/${id}`, { reason: 'Plan remplacé' });
     const count = (table: string) =>
       (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
     expect([count('plans'), count('plan_items'), count('plan_runs')]).toEqual([0, 0, 0]);
   });
 
+  it('refuses to delete a plan without a reason and keeps the plan', async () => {
+    const { app, plans, audit } = setup();
+    const { id } = (await send(app, 'POST', '/api/plans', valid)).json<{ id: string }>();
+    for (const payload of [undefined, {}, { reason: '   ' }, { reason: 'x'.repeat(201) }]) {
+      const res = await send(app, 'DELETE', `/api/plans/${id}`, payload);
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toMatchObject({ error: 'reason_required' });
+    }
+    expect(plans.list()).toHaveLength(1);
+    expect((await log(audit)).some((e) => e.action === 'plan.delete')).toBe(false);
+  });
+
   it('answers 404 for an unknown plan', async () => {
     const { app, audit } = setup();
     expect((await send(app, 'PUT', '/api/plans/inconnu', valid)).statusCode).toBe(404);
-    expect((await send(app, 'DELETE', '/api/plans/inconnu')).statusCode).toBe(404);
+    expect(
+      (await send(app, 'DELETE', '/api/plans/inconnu', { reason: 'Nettoyage' })).statusCode,
+    ).toBe(404);
     expect((await log(audit)).map((e) => e.reason)).toEqual(['plan_not_found', 'plan_not_found']);
   });
 
@@ -298,18 +315,21 @@ describe('API des plans', () => {
     const { app, audit } = setup();
     const created = await send(app, 'POST', '/api/plans', {
       ...valid,
-      dataTypes: ['mail', 'contacts'],
+      dataTypes: ['mail', 'sharepoint'],
     });
     expect(created.statusCode).toBe(201);
     const { id } = created.json<{ id: string }>();
-    expect(created.json<{ dataTypes: string[] }>().dataTypes).toEqual(['mail', 'contacts']);
+    expect(created.json<{ dataTypes: string[] }>().dataTypes).toEqual(['mail', 'sharepoint']);
 
-    const replaced = await send(app, 'PUT', `/api/plans/${id}`, { ...valid, dataTypes: ['files'] });
+    const replaced = await send(app, 'PUT', `/api/plans/${id}`, {
+      ...valid,
+      dataTypes: ['onedrive'],
+    });
     expect(replaced.statusCode).toBe(200);
-    expect(replaced.json<{ dataTypes: string[] }>().dataTypes).toEqual(['files']);
+    expect(replaced.json<{ dataTypes: string[] }>().dataTypes).toEqual(['onedrive']);
     const list = await send(app, 'GET', '/api/plans');
     expect(list.json<{ items: { dataTypes: string[] }[] }>().items[0]?.dataTypes).toEqual([
-      'files',
+      'onedrive',
     ]);
 
     const entries = await log(audit);
@@ -329,12 +349,12 @@ describe('API des plans', () => {
     const { app, audit } = setup();
     const { id } = (await send(app, 'POST', '/api/plans', valid)).json<{ id: string }>();
     await send(app, 'PUT', `/api/plans/${id}`, { ...valid, rpoHours: 12, retentionDays: 30 });
-    await send(app, 'DELETE', `/api/plans/${id}`);
+    await send(app, 'DELETE', `/api/plans/${id}`, { reason: 'Plan remplacé' });
     const entries = await log(audit);
     expect(entries.map((e) => [e.actor, e.action, e.resource, e.target, e.reason])).toEqual([
       ['root', 'plan.create', 'plan', id, 'scope:all,rpo:4'],
       ['root', 'plan.update', 'plan', id, 'changed:rpoHours,retentionDays'],
-      ['root', 'plan.delete', 'plan', id, undefined],
+      ['root', 'plan.delete', 'plan', id, 'Plan remplacé'],
     ]);
     expect(JSON.stringify(entries)).not.toContain('conservation des échanges');
   });

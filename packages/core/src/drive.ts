@@ -116,9 +116,9 @@ export function copyDate(at: Date): string {
   return `${pad(at.getUTCDate())}-${pad(at.getUTCMonth() + 1)}-${at.getUTCFullYear()}`;
 }
 
-/** `budget.xlsx` → `budget (restauré 14-11-2026).xlsx` ; un dossier n'a pas d'extension. */
+/** `budget.xlsx` → `budget (restauré le 14-11-2026).xlsx` ; un dossier n'a pas d'extension. */
 export function copyNameOf(name: string, kind: DriveItemKind, at: Date): string {
-  const suffix = ` (restauré ${copyDate(at)})`;
+  const suffix = ` (restauré le ${copyDate(at)})`;
   const dot = name.lastIndexOf('.');
   if (kind === 'folder' || dot <= 0) return `${name}${suffix}`;
   return `${name.slice(0, dot)}${suffix}${name.slice(dot)}`;

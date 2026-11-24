@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { DialogPanel } from './Dialog.js';
@@ -18,6 +19,15 @@ describe('DialogPanel', () => {
     expect(html).toContain('aria-labelledby="t"');
     expect(html).toContain('<h2 id="t">Exporter cette boîte ?</h2>');
     expect(html).toContain('aria-label="Fermer"');
+  });
+
+  it('offers no close button when it is not dismissible', () => {
+    const html = renderToStaticMarkup(
+      <DialogPanel titleId="t" title="T" onClose={() => undefined} dismissible={false}>
+        <p>Corps</p>
+      </DialogPanel>,
+    );
+    expect(html).not.toContain('aria-label="Fermer"');
   });
 });
 
@@ -68,6 +78,12 @@ describe('closeOnEscape', () => {
     expect(closeOnEscape({ key: 'Escape', stopPropagation: vi.fn() }, close)).toBe(true);
     expect(close).toHaveBeenCalledOnce();
   });
+
+  it('does nothing on Escape when the dialog is not dismissible', () => {
+    const close = vi.fn();
+    expect(closeOnEscape({ key: 'Escape', stopPropagation: vi.fn() }, close, false)).toBe(true);
+    expect(close).not.toHaveBeenCalled();
+  });
 });
 
 describe('initialFocus', () => {
@@ -91,5 +107,23 @@ describe('makeInert', () => {
     restore();
     expect(page.inert).toBe(false);
     expect(already.inert).toBe(true);
+  });
+});
+
+describe('mobile dialog rule', () => {
+  const css = readFileSync(new URL('../charte.css', import.meta.url), 'utf8');
+  const mobile = css.slice(css.indexOf('/* Feuille ancrée en bas'));
+  const block = mobile.slice(0, mobile.indexOf('/* Boutons empilés'));
+
+  it('no longer forces a full-height panel', () => {
+    expect(block).not.toMatch(/(^|[^-])height: 100%/m);
+    expect(block).toContain('height: auto');
+    expect(block).toContain('max-height: 100%');
+  });
+
+  it('anchors the sheet at the bottom with rounded top corners', () => {
+    expect(block).toContain('align-items: flex-end');
+    expect(block).toContain('border-radius: var(--radius) var(--radius) 0 0');
+    expect(block).toContain('overscroll-behavior: contain');
   });
 });

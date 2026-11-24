@@ -1,10 +1,17 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { screenOf } from './App.js';
-import { ExportForm, MailPage, MailView, RestoreSectionView, mailTitle } from './MailPage.js';
-import { AUDIT_REMINDER, REASON } from './RestoreJourney.js';
+import {
+  ExportSection,
+  MailPage,
+  MailView,
+  RestoreSectionView,
+  mailTitle,
+  runExport,
+} from './MailPage.js';
 import { submitFilters } from './audit.js';
-import { SearchPage, SearchView } from './SearchPage.js';
+import { SEARCH_HELP, SEARCH_START, SearchPage, SearchView, noResultText } from './SearchPage.js';
+import { AUDIT_REMINDER } from './RestoreJourney.js';
 import {
   exportEml,
   fetchMail,
@@ -16,6 +23,8 @@ import {
   searchHref,
   searchMails,
   searchQueryFromForm,
+  clearFilterFields,
+  withoutFilters,
 } from './mail.js';
 
 const mail = {
@@ -61,7 +70,15 @@ describe('SearchView', () => {
     expect(filtered).not.toContain('>Boîte<');
     expect(filtered).toContain('25 résultats');
     expect(filtered).toContain('dans la boîte paul.moreau@exemple.fr');
-    expect(renderToString(<SearchView state={state} />)).toContain('>Boîte<');
+    const unfiltered = renderToString(<SearchView state={state} />);
+    expect(unfiltered).toContain('>Boîte<');
+    // Carte mobile : objet en titre, expéditeur sans libellé, « date · dossier · boîte » en secondaire.
+    expect(unfiltered).toContain('class="subject card-title mail-subject"');
+    expect(unfiltered).toContain('class="keep-words address card-nolabel"');
+    expect(unfiltered).toContain('class="mail-meta mail-date"');
+    expect(unfiltered).toContain('class="nowrap mail-meta mail-folder"');
+    expect(unfiltered).toContain('keep-words address col-mailbox mail-meta');
+    expect(filtered).not.toContain('col-mailbox');
     const withRestore = renderToString(
       <SearchView state={state} mailbox="paul.moreau@exemple.fr" restoreConfigured />,
     );
@@ -69,13 +86,109 @@ describe('SearchView', () => {
     expect(withRestore).not.toContain('>Boîte<');
     const empty = { total: 0, limit: 25, offset: 0, items: [] };
     expect(renderToString(<SearchView state={empty} mailbox="paul.moreau@exemple.fr" />)).toContain(
-      'Aucun résultat',
+      'Aucun mail ne correspond',
     );
+  });
+
+  it('arrives with help, audit reminder, form then a start empty state, in that order', () => {
+    const html = renderToString(<SearchPage />);
+    const order = ['<h1>', SEARCH_HELP, AUDIT_REMINDER, '<form', SEARCH_START].map((t) =>
+      html.indexOf(t),
+    );
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+
+  it('echoes the criteria and suggests widening when nothing matches', () => {
+    const empty = { total: 0, limit: 25, offset: 0, items: [] };
+    const html = renderToString(
+      <SearchView state={empty} query={{ q: 'devis', after: '2026-01-01' }} />,
+    );
+    expect(html).toContain('Aucun mail ne correspond à « devis » dans cette période.');
+    expect(html).toContain('Élargissez la période.');
+    expect(html).not.toContain('boîte');
+  });
+
+  it('offers no filter advice and no button without mailbox nor period', () => {
+    const empty = { total: 0, limit: 25, offset: 0, items: [] };
+    const html = renderToString(
+      <SearchView state={empty} query={{ q: 'devis' }} onClearFilters={() => {}} />,
+    );
+    expect(html).toContain(
+      'Aucun mail ne correspond à « devis » dans les sauvegardes. Vérifiez l’orthographe ou cherchez par expéditeur.',
+    );
+    expect(html).not.toMatch(/filtre|période|<button/);
+    expect(noResultText()).not.toMatch(/filtre|période/);
+  });
+
+  it('cites the mailbox and offers to remove the filters', () => {
+    const empty = { total: 0, limit: 25, offset: 0, items: [] };
+    const html = renderToString(
+      <SearchView
+        state={empty}
+        query={{ q: 'devis', mailbox: 'alice@example.test' }}
+        onClearFilters={() => {}}
+      />,
+    );
+    expect(html).toContain('dans la boîte alice@example.test. Retirez le filtre de boîte.');
+    expect(html).not.toContain('période');
+    expect(html).toContain('btn-secondary');
+    expect(html).toContain('Retirer les filtres');
+  });
+
+  it('says period alone without mentioning the mailbox, with the same button', () => {
+    const empty = { total: 0, limit: 25, offset: 0, items: [] };
+    const html = renderToString(
+      <SearchView state={empty} query={{ before: '2026-01-01' }} onClearFilters={() => {}} />,
+    );
+    expect(html).toContain('dans cette période.');
+    expect(html).not.toContain('boîte');
+    expect(html).toContain('Retirer les filtres');
+  });
+
+  it('clearing the filters keeps the term and restarts on the first page', () => {
+    expect(
+      withoutFilters({
+        q: 'devis',
+        mailbox: 'a@b.fr',
+        after: '2026-01-01',
+        before: '2026-02-01',
+        limit: 25,
+        offset: 50,
+      }),
+    ).toEqual({ q: 'devis', limit: 25, offset: 0 });
+  });
+
+  it('clearing the filters empties Boîte, Du and Au, keeps Recherche and restarts the search', () => {
+    const fields: Record<string, { value: string }> = {
+      q: { value: ' contrat ' },
+      mailbox: { value: 'a@b.fr' },
+      after: { value: '2026-01-01' },
+      before: { value: '2026-02-01' },
+    };
+    const form = { namedItem: (name: string) => fields[name] ?? null };
+    const next = clearFilterFields(form, {
+      q: 'ancien',
+      mailbox: 'a@b.fr',
+      after: '2026-01-01',
+      limit: 25,
+      offset: 50,
+    });
+    expect(fields.mailbox?.value).toBe('');
+    expect(fields.after?.value).toBe('');
+    expect(fields.before?.value).toBe('');
+    expect(fields.q?.value).toBe(' contrat ');
+    expect(next).toEqual({ q: 'contrat', limit: 25, offset: 0 });
+    expect(clearFilterFields(form, null)).toBeNull();
+  });
+
+  it('shows no start empty state while a preset mailbox search loads', () => {
+    expect(renderToString(<SearchPage mailbox="a@b.fr" />)).not.toContain(SEARCH_START);
   });
 
   it('shows empty, loading and error states, and escapes content', () => {
     const empty = { total: 0, limit: 25, offset: 0, items: [] };
-    expect(renderToString(<SearchView state={empty} />)).toContain('Aucun résultat');
+    expect(renderToString(<SearchView state={empty} />)).toContain('Aucun mail ne correspond');
     expect(renderToString(<SearchView state="loading" />)).toContain('en cours');
     expect(renderToString(<SearchView state="error" />)).toContain('indisponible');
     const html = renderToString(
@@ -120,18 +233,7 @@ describe('MailPage', () => {
     const html = renderToString(<MailView state={{ ...mail, recipients: [] }} />);
     expect(html).not.toContain('Destinataires');
     expect(html).toContain('Expéditeur');
-    const form = renderToString(
-      <ExportForm
-        reason=""
-        exporting="idle"
-        onReason={() => undefined}
-        onSubmit={() => undefined}
-      />,
-    );
-    expect(form).toContain('<h2');
-    expect(form).toContain('Saisissez un motif pour exporter.');
-    expect(form).toContain('aria-describedby="export-disabled-help"');
-    expect(form).not.toContain('JSON');
+    expect(html).not.toContain('JSON');
   });
 
   it('titles the sheet with the subject, a fallback when blank, a generic title otherwise', () => {
@@ -141,44 +243,31 @@ describe('MailPage', () => {
     expect(mailTitle('error')).toBe('Fiche d’un mail');
   });
 
-  it('shows the empty-reason help only while the reason is empty', () => {
-    const render = (reason: string) =>
-      renderToString(
-        <ExportForm
-          reason={reason}
-          exporting="idle"
-          onReason={() => undefined}
-          onSubmit={() => undefined}
-        />,
-      );
-    expect(render('')).toContain('export-disabled-help');
-    expect(render('ab')).not.toContain('export-disabled-help');
+  it('shows no reason field nor disabled button on the sheet, only the closed export action', () => {
+    const html = renderToString(<ExportSection mail={mail} />);
+    expect(html).toContain('Télécharge une copie du mail au format .eml, lisible par Outlook.');
+    expect(html).toContain('>Exporter</h2>');
+    expect(html).not.toContain('EML');
+    expect(html).not.toContain('disabled');
+    expect(html).not.toContain('<input');
+    expect(html).not.toContain('Saisissez un motif');
   });
 
-  it('orders the export box: reason, attachments note, audit reminder, button, then result', () => {
-    const render = (exporting: 'idle' | 'done' | 'error') =>
-      renderToString(
-        <ExportForm
-          reason="ab"
-          exporting={exporting}
-          onReason={() => undefined}
-          onSubmit={() => undefined}
-        />,
-      );
-    const idle = render('idle');
-    const reason = idle.indexOf('<label');
-    expect(reason).toBeGreaterThan(-1);
-    expect(reason).toBeLessThan(idle.indexOf('pièces jointes'));
-    expect(idle.indexOf('pièces jointes')).toBeLessThan(idle.indexOf('alert-info'));
-    expect(idle.indexOf('alert-info')).toBeLessThan(idle.indexOf('<button'));
-    const done = render('done');
-    const afterButton = done.indexOf('</button>') + '</button>'.length;
-    expect(done.slice(afterButton)).toMatch(
-      /^<div class="export-result">.*Export inscrit au journal d’audit\./,
+  it('refuses an export without reason, and sends one with a reason (recorded by the route)', async () => {
+    const request = vi.fn<(reason: string) => Promise<Blob>>(() =>
+      Promise.resolve(new Blob(['x'])),
     );
-    expect(render('error').indexOf('export-result')).toBeGreaterThan(
-      render('error').indexOf('</button>'),
-    );
+    const save = vi.fn();
+    expect(await runExport('  ', request, save)).toBe('invalid');
+    expect(await runExport('ab', request, save)).toBe('invalid');
+    expect(request).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+    expect(await runExport('Ticket INC-1', request, save)).toBe('done');
+    expect(request).toHaveBeenCalledWith('Ticket INC-1');
+    expect(save).toHaveBeenCalledTimes(1);
+    const refused = () => Promise.reject(new Error('HTTP 503'));
+    expect(await runExport('Ticket INC-1', refused, save)).toBe('error');
+    expect(save).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the generic title while the sheet is loading', () => {
@@ -190,24 +279,7 @@ describe('MailPage', () => {
     expect(renderToString(<MailView state="error" />)).toContain('indisponible');
     const html = renderToString(<MailPage mailboxId="mbx-1" messageId="m1" />);
     expect(html).toContain('Chargement');
-    expect(html).not.toContain('Exporter en EML');
-  });
-});
-
-describe('ExportForm', () => {
-  it('shows the label, the ticket placeholder and the no-personal-data guidance', () => {
-    const html = renderToString(
-      <ExportForm
-        reason=""
-        exporting="idle"
-        onReason={() => undefined}
-        onSubmit={() => undefined}
-      />,
-    );
-    expect(html).toContain('Motif de l’export (obligatoire)');
-    expect(html).toContain('maxLength="120"');
-    expect(html).toContain(REASON.help);
-    expect(html).toContain(AUDIT_REMINDER);
+    expect(html).not.toContain('Exporter');
   });
 });
 

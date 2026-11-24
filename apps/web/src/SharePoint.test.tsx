@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   SHAREPOINT_MESSAGES,
-  canContinue,
   continueHint,
+  restoredContentLabel,
+  scopeOfKind,
+  selectionLabel,
   failureCause,
   fetchScope,
   breadcrumbLevels,
@@ -17,7 +19,8 @@ import {
   startSiteRestore,
   summaryCountOf,
   confirmRowsOf,
-  consequenceOf,
+  placementRows,
+  siteWarningOf,
 } from './sharepoint.js';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ConfirmStep, ContentTree, SiteDenied, SiteEntriesTable } from './SharePointPage.js';
@@ -34,6 +37,9 @@ describe('SharePoint right refusal', () => {
     expect(html).toContain('le site « Équipe commerciale »');
     expect(html).toContain('Choisir un autre site');
     expect(html).not.toContain('alert-error');
+    expect(html).toMatch(/<div class="alert alert-warning" role="alert">/u);
+    expect(html).toContain('<strong class="alert-title">Restauration non autorisée</strong>');
+    expect(html).not.toContain('class="empty');
     const href = /href="([^"]+)"/u.exec(html)?.[1];
     expect(href).toBe(sharePointHash('abc'));
     // Sans granularité : l'étape « Choisir » du site.
@@ -95,8 +101,11 @@ describe('SharePoint route', () => {
     });
   });
 
-  it('adds a SharePoint entry to the navigation', () => {
-    expect(navEntries('sharepoint', false).find((e) => e.label === 'SharePoint')).toMatchObject({
+  it('adds a SharePoint entry to the navigation, under Restaurer', () => {
+    const links = navEntries('sharepoint', false).flatMap((e) =>
+      'children' in e ? e.children : [],
+    );
+    expect(links.find((e) => e.label === 'SharePoint')).toMatchObject({
       href: '#/sharepoint',
       current: true,
     });
@@ -128,20 +137,19 @@ describe('SharePoint entries table', () => {
       sizeBytes: 1_000,
     },
   ];
-  const render = (scope: 'item' | 'folder', file: string | null) =>
+  const render = (selected: { path: string; kind: 'library' | 'folder' | 'file' } | null) =>
     renderToStaticMarkup(
       <SiteEntriesTable
         siteId="s"
-        scope={scope}
         rows={rows}
-        file={file}
+        selected={selected}
         onOpen={vi.fn()}
-        onFile={vi.fn()}
+        onSelect={vi.fn()}
       />,
     );
 
   it('is a table with the same columns as OneDrive, and no emoji', () => {
-    const html = render('item', null);
+    const html = render(null);
     for (const h of ['Nom', 'Version du (UTC)', 'Taille']) {
       expect(html).toContain(`scope="col"`);
       expect(html).toContain(`>${h}</th>`);
@@ -152,20 +160,24 @@ describe('SharePoint entries table', () => {
     expect(html).toContain('href="#/sharepoint/s/item/Plans"');
   });
 
-  it('names a radio button after each file and checks the chosen one only', () => {
-    const html = render('item', '/plan-b.pdf');
-    const radios = html.match(
-      /<label[^>]*><input[^>]*type="radio"[^>]*\/>[^<]*(?:<!-- -->)?[^<]*<\/label>/gu,
-    );
-    expect(radios).toHaveLength(2);
-    expect(radios?.[0]).toMatch(/plan-a\.pdf/u);
-    expect(radios?.[0]).not.toContain('checked');
-    expect(radios?.[1]).toContain('checked');
-    expect(radios?.[1]).toMatch(/plan-b\.pdf/u);
+  it('gives every row a named radio button, library and folder included, and checks one only', () => {
+    const html = render({ path: '/plan-b.pdf', kind: 'file' });
+    const radios = html.match(/<input[^>]*type="radio"[^>]*\/>/gu) ?? [];
+    expect(radios).toHaveLength(4);
+    expect(radios.map((r) => /aria-label="([^"]+)"/u.exec(r)?.[1])).toEqual([
+      'Documents',
+      'Plans',
+      'plan-a.pdf',
+      'plan-b.pdf',
+    ]);
+    expect(radios.filter((r) => r.includes('checked'))).toHaveLength(1);
+    expect(radios[3]).toContain('checked');
   });
 
-  it('offers no radio button for a file when the granularity is not « item »', () => {
-    expect(render('folder', null)).not.toContain('type="radio"');
+  it('checks a library or a folder without opening it, and keeps its name as a link', () => {
+    const html = render({ path: '/Documents', kind: 'library' });
+    expect(/<input[^>]*aria-label="Documents"[^>]*>/u.exec(html)?.[0]).toContain('checked');
+    expect(html).toContain('href="#/sharepoint/s/item/Documents"');
   });
 });
 
@@ -191,11 +203,10 @@ describe('SharePoint breadcrumb', () => {
         siteId="a,b"
         siteName="Commerce"
         snapshotId="s1"
-        scope="item"
         path="/Documents/Plans 2024"
-        file={null}
+        selected={null}
         onPath={vi.fn()}
-        onFile={vi.fn()}
+        onSelect={vi.fn()}
       />,
     );
     expect(html).toContain('href="#/sharepoint/a%2Cb/item"');
@@ -249,16 +260,21 @@ describe('SharePoint breadcrumb', () => {
 });
 
 describe('SharePoint wording', () => {
-  it('only lets a choice through when it fits the granularity', () => {
-    expect(canContinue('site', '/', null)).toBe(true);
-    expect(canContinue('library', '/', null)).toBe(false);
-    expect(canContinue('library', '/Documents', null)).toBe(true);
-    expect(canContinue('library', '/Documents/Plans', null)).toBe(false);
-    expect(canContinue('folder', '/Documents', null)).toBe(false);
-    expect(canContinue('folder', '/Documents/Plans', null)).toBe(true);
-    expect(canContinue('item', '/Documents/Plans', null)).toBe(false);
-    expect(canContinue('item', '/Documents/Plans', '/Documents/Plans/a.pdf')).toBe(true);
-    expect(continueHint('item')).toMatch(/Choisissez un élément/);
+  it('deduces the restored kind from the checked row', () => {
+    expect(scopeOfKind('library')).toBe('library');
+    expect(scopeOfKind('folder')).toBe('folder');
+    expect(scopeOfKind('file')).toBe('item');
+    expect(selectionLabel({ path: '/Documents partagés', kind: 'library' })).toBe(
+      'Bibliothèque Documents partagés',
+    );
+    expect(selectionLabel({ path: '/Docs/Plans', kind: 'folder' })).toBe('Dossier Docs > Plans');
+    expect(selectionLabel({ path: '/Docs/a.pdf', kind: 'file' })).toBe('Fichier Docs > a.pdf');
+    expect(restoredContentLabel('library', '/Documents partagés')).toBe(
+      'Bibliothèque : Documents partagés',
+    );
+    expect(continueHint()).toBe(
+      'Cochez un fichier, un dossier ou une bibliothèque pour continuer.',
+    );
   });
 
   it('formats counts and sizes in French', () => {
@@ -280,15 +296,29 @@ describe('SharePoint wording', () => {
     };
     expect(confirmRowsOf(input)).toEqual([
       ['Site', 'Site Urbanisme (exemple)'],
-      ['Contenu', 'Bibliothèque : Documents partagés'],
-      ['État au', '12/11/2026 02:00'],
+      ['Élément', 'Bibliothèque : Documents partagés'],
+      ['Sauvegarde du', '12/11/2026 02:00'],
+      ['Emplacement', 'Site Urbanisme (exemple) > Documents partagés (emplacement d’origine)'],
+      ['Fichiers déjà présents', 'conservés, non remplacés'],
       ['Volume', '1 240 éléments, 3,2 Go'],
       ['Motif', 'Reprise après incident'],
     ]);
     const item = confirmRowsOf({ ...input, scope: 'item', summary: null, path: '/A/b.pdf' });
-    expect(item).toContainEqual(['Contenu', 'Fichier : A > b.pdf']);
+    expect(item).toContainEqual(['Élément', 'Fichier : A > b.pdf']);
     expect(item.map(([label]) => label)).not.toContain('Volume');
-    expect(consequenceOf('library')).toBe('Les fichiers existants ne seront pas remplacés.');
+    expect(item).toContainEqual([
+      'Emplacement',
+      'Site Urbanisme (exemple) > A (emplacement d’origine)',
+    ]);
+    const folder = confirmRowsOf({ ...input, scope: 'folder', path: '/Documents partagés/Plans' });
+    expect(folder).toContainEqual([
+      'Emplacement',
+      'Site Urbanisme (exemple) > Documents partagés (emplacement d’origine)',
+    ]);
+    expect(placementRows('item', 'S', '/L/x')[1]).toEqual([
+      'Fichiers déjà présents',
+      'conservés, non remplacés',
+    ]);
   });
 
   it('lists the whole-site summary with the item count only', () => {
@@ -300,9 +330,13 @@ describe('SharePoint wording', () => {
       summary: { items: 6, sizeBytes: 1_600_000 },
       reason: 'Reprise',
     });
-    expect(rows).toContainEqual(['Contenu', 'Site entier']);
+    expect(rows).toContainEqual(['Élément', 'Site entier']);
     expect(rows).toContainEqual(['Volume', '6 éléments']);
-    expect(consequenceOf('site')).toBe('Les contenus manquants seront recréés.');
+    expect(rows).toContainEqual(['Emplacement', 'Emplacement d’origine de chaque élément']);
+    expect(rows).toContainEqual(['Fichiers déjà présents', 'conservés, non remplacés']);
+    expect(siteWarningOf('Équipe commerciale')).toBe(
+      'Les contenus manquants du site Équipe commerciale seront recréés. Les fichiers existants ne sont pas modifiés.',
+    );
   });
 
   it('orders the whole-site confirmation and ties the hint to the name field', () => {
@@ -320,8 +354,8 @@ describe('SharePoint wording', () => {
     const order = [
       '<h2>Récapitulatif</h2>',
       '<dt>Motif</dt><dd>Reprise après incident</dd>',
-      'Les contenus manquants seront recréés.',
-      'action de grande ampleur',
+      'Restauration du site entier',
+      'du site Équipe commerciale seront recréés.',
       'Je comprends',
       'Tapez le nom du site',
       'Le bouton reste inactif',

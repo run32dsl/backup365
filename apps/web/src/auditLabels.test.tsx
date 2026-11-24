@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AuditView } from './AuditPage.js';
@@ -80,6 +82,76 @@ describe('audit labels', () => {
     expect(targetView({ resource: 'account', target: 'operateur' }, null)).toEqual({
       name: 'operateur',
     });
+  });
+
+  it('names the source and scope of a list view, never the search terms', () => {
+    expect(targetView({ resource: 'mail.search', target: 'paul@x.test' }, null)).toEqual({
+      name: 'Messagerie',
+      secondary: 'paul@x.test',
+    });
+    expect(targetView({ resource: 'mail.search', target: '*' }, null)).toEqual({
+      name: 'Messagerie',
+      secondary: 'toutes les boîtes',
+    });
+    expect(targetView({ resource: 'mail.search' }, null)).toEqual({ name: 'Messagerie' });
+    expect(
+      targetView({ resource: 'onedrive.items', target: 'claire@x.test/Documents/Budget' }, null),
+    ).toEqual({ name: 'OneDrive', secondary: 'claire@x.test' });
+    expect(
+      targetView(
+        { resource: 'sharepoint.items', target: 'site-1/Docs', targetName: 'Équipe commerciale' },
+        null,
+      ),
+    ).toEqual({ name: 'SharePoint', secondary: 'Équipe commerciale' });
+    expect(targetView({ resource: 'sharepoint.scope', target: 'gone/Docs' }, null)).toEqual({
+      name: 'SharePoint',
+    });
+  });
+
+  it('names the audit log and its filters when it is itself consulted', () => {
+    expect(targetView({ resource: 'audit' }, null)).toEqual({
+      name: 'Journal d’audit',
+      secondary: 'sans filtre',
+    });
+    expect(
+      targetView(
+        {
+          resource: 'audit',
+          target:
+            'from=2026-11-18T00:00:00.000Z;to=2026-11-21T00:00:00.000Z;action=restore.request',
+        },
+        null,
+      ),
+    ).toEqual({
+      name: 'Journal d’audit',
+      secondary: 'du 18/11/2026 au 20/11/2026, action : Demande de restauration',
+    });
+    expect(
+      targetView({ resource: 'audit', target: 'from=2026-11-18T00:00:00.000Z' }, null).secondary,
+    ).toBe('depuis le 18/11/2026');
+    expect(
+      targetView({ resource: 'audit', target: 'to=2026-11-20T00:00:00.000Z' }, null).secondary,
+    ).toBe('jusqu’au 19/11/2026');
+    expect(targetView({ resource: 'audit', target: 'action=plan.delete' }, null).secondary).toBe(
+      'action : Suppression de plan',
+    );
+  });
+
+  it('gives every resource the server records with list.view a non-empty target', () => {
+    const dir = join(import.meta.dirname, '../../server/src');
+    const resources = new Set<string>();
+    for (const file of readdirSync(dir).filter((f) => /\.ts$/.test(f) && !/\.test\./.test(f))) {
+      const source = readFileSync(join(dir, file), 'utf8');
+      for (const m of source.matchAll(/auditEvent\(\s*req,\s*'list\.view',\s*'([^']+)'/g)) {
+        resources.add(m[1]!);
+      }
+    }
+    expect([...resources].sort()).toEqual(
+      expect.arrayContaining(['audit', 'mail.search', 'onedrive.items', 'sharepoint.items']),
+    );
+    for (const resource of resources) {
+      expect(targetView({ resource }, null).name, resource).not.toBe('—');
+    }
   });
 
   it('writes the unidentified actor in French and the date with its year', () => {

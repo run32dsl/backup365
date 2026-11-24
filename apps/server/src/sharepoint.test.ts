@@ -122,7 +122,7 @@ describe('AtlasSdkSiteRestorer', () => {
       req({
         scope: 'item',
         path: '/Documents/Plans/a.pdf',
-        copyName: 'a (restauré 14-11-2026).pdf',
+        copyName: 'a (restauré le 14-11-2026).pdf',
       }),
     );
     await restorer.restore(req({ scope: 'site', path: '/' }));
@@ -138,7 +138,7 @@ describe('AtlasSdkSiteRestorer', () => {
         fileFilter: ['/Documents/Plans/a.pdf'],
         conflictBehavior: 'rename',
         inPlace: true,
-        renameTo: 'a (restauré 14-11-2026).pdf',
+        renameTo: 'a (restauré le 14-11-2026).pdf',
       },
       { snapshotId: 'snap-1', conflictBehavior: 'rename', inPlace: true },
     ]);
@@ -185,7 +185,10 @@ describe('SiteRestoreService', () => {
     let now = Date.parse('2026-11-14T10:00:00Z');
     const service = new SiteRestoreService({ restorer: c.restorer, audit, now: () => now });
     const job = await service.start('alice', target, 'Ticket #1');
-    expect(job).toMatchObject({ status: 'running', copyName: 'plan-a (restauré 14-11-2026).pdf' });
+    expect(job).toMatchObject({
+      status: 'running',
+      copyName: 'plan-a (restauré le 14-11-2026).pdf',
+    });
     now += 192_000;
     c.release({ restored: 1, skipped: 0, errors: 0 });
     await service.idle();
@@ -373,7 +376,7 @@ describe('SharePoint routes', () => {
       path: '/Documents/Plans/plan-a.pdf',
     });
     expect(res.statusCode).toBe(202);
-    expect(c.calls[0]?.copyName).toMatch(/^plan-a \(restauré \d\d-\d\d-\d{4}\)\.pdf$/);
+    expect(c.calls[0]?.copyName).toMatch(/^plan-a \(restauré le \d\d-\d\d-\d{4}\)\.pdf$/);
   });
 
   it('reserves the whole site to administrators who retype its name', async () => {

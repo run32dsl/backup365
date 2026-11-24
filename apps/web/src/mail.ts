@@ -58,6 +58,42 @@ export function searchQueryFromForm(form: FormData): SearchQuery {
   };
 }
 
+/** Même recherche sans boîte ni période, de retour à la première page. */
+export function withoutFilters(query: SearchQuery): SearchQuery {
+  const { q, limit } = query;
+  return { q, limit, offset: 0 };
+}
+
+/** Champs d'un formulaire, lus par nom (`form.elements`). */
+export interface FieldLookup {
+  namedItem(name: string): unknown;
+}
+
+function textField(form: FieldLookup | null | undefined, name: string): { value: string } | null {
+  const field = form?.namedItem(name);
+  if (typeof field !== 'object' || field === null) return null;
+  return typeof (field as { value?: unknown }).value === 'string'
+    ? (field as { value: string })
+    : null;
+}
+
+/**
+ * Vide Boîte, Du et Au dans le formulaire et renvoie la recherche à relancer : le terme est lu
+ * dans le champ Recherche (laissé intact), sans filtre. `null` s'il n'y a pas de recherche en cours.
+ */
+export function clearFilterFields(
+  form: FieldLookup | null | undefined,
+  query: SearchQuery | null,
+): SearchQuery | null {
+  for (const name of ['mailbox', 'after', 'before']) {
+    const field = textField(form, name);
+    if (field) field.value = '';
+  }
+  if (!query) return null;
+  const q = textField(form, 'q');
+  return withoutFilters({ ...query, q: q ? q.value.trim() : query.q });
+}
+
 /** Requête lancée à l'ouverture de l'écran : première page de la boîte demandée, sinon aucune. */
 export function initialSearchQuery(mailbox?: string): SearchQuery | null {
   return mailbox ? { limit: SEARCH_PAGE_SIZE, offset: 0, mailbox } : null;

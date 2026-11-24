@@ -16,7 +16,8 @@ import {
   sizeOf,
   startDriveRestore,
   confirmRowsOf,
-  consequenceOf,
+  COPY_CONSEQUENCE,
+  replaceWarningOf,
 } from './onedrive.js';
 import { screenOf } from './App.js';
 
@@ -63,7 +64,7 @@ describe('OneDrive wording', () => {
 
   it('names the copy without slashes, as the server does', () => {
     expect(copyNameOf('budget.xlsx', 'file', new Date('2026-11-14T10:00:00Z'))).toBe(
-      'budget (restauré 14-11-2026).xlsx',
+      'budget (restauré le 14-11-2026).xlsx',
     );
   });
 
@@ -71,17 +72,19 @@ describe('OneDrive wording', () => {
     const base = {
       account: 'compte@exemple.test',
       name: 'budget.xlsx',
+      backupAt: '2026-11-14T09:00:00.000Z',
       versionAt: '2026-11-10T18:30:00.000Z',
       folderLabel: 'Documents > Budget',
-      copyName: 'budget (restauré 14-11-2026).xlsx',
+      copyName: 'budget (restauré le 14-11-2026).xlsx',
       reason: 'Reprise après incident',
     };
     expect(confirmRowsOf({ ...base, mode: 'copy' })).toEqual([
       ['Compte', 'compte@exemple.test'],
       ['Élément', 'budget.xlsx'],
+      ['Sauvegarde du', '14/11/2026 09:00'],
       ['Version du', '10/11/2026 18:30'],
       ['Emplacement', 'Documents > Budget'],
-      ['Restauré sous le nom', 'budget (restauré 14-11-2026).xlsx'],
+      ['Restauré sous le nom', 'budget (restauré le 14-11-2026).xlsx'],
       ['Motif', 'Reprise après incident'],
     ]);
     const replace = confirmRowsOf({ ...base, mode: 'replace' });
@@ -90,9 +93,9 @@ describe('OneDrive wording', () => {
     expect(confirmRowsOf({ ...base, versionAt: null, mode: 'copy' }).map(([l]) => l)).not.toContain(
       'Version du',
     );
-    expect(consequenceOf('copy')).toBe('Aucun fichier existant ne sera modifié.');
-    expect(consequenceOf('replace')).toBe(
-      'Le fichier actuel sera remplacé ; il reste dans l’historique OneDrive.',
+    expect(COPY_CONSEQUENCE).toBe('Aucun fichier existant ne sera modifié.');
+    expect(replaceWarningOf('budget.xlsx', '2026-11-18T16:59:00Z')).toBe(
+      'budget.xlsx sera remplacé par la version du 18/11/2026 16:59. L’actuel reste dans l’historique OneDrive.',
     );
     expect(confirmRowsOf({ ...base, copyName: '', mode: 'copy' })).toContainEqual([
       'Restauré sous le nom',
@@ -195,11 +198,44 @@ describe('OneDrive entries table', () => {
     expect(html).toContain('dossier</span>');
   });
 
-  it('shows « — » for absent values, never an empty cell', () => {
+  it('shows « — » for absent values in the table; the mobile card shows none', () => {
     const folderRow = html.split('<tr').find((r) => r.includes('2025')) ?? '';
-    expect(folderRow).not.toMatch(/<td[^>]*><\/td>/u);
     expect(folderRow.match(/—/gu)).toHaveLength(3);
+    // Les « — » et la colonne « Détail » vide sont masqués dans la carte (CSS `table-only`, `:empty`).
+    expect(folderRow).toContain('class="table-only">—');
+    expect(folderRow).toMatch(/data-label="Détail" class="card-only"><\/td>/u);
+    const fileRow = html.split('<tr').find((r) => r.includes('budget.xlsx')) ?? '';
+    expect(fileRow).toContain('Version du 13/11/2026 22:04 UTC · 84 Ko');
     expect(html).not.toContain('>-<');
+  });
+
+  it('shows the version picked in the dialog on the checked row only', () => {
+    const picked = renderToString(
+      <EntriesTable
+        account="a"
+        rows={rows}
+        selected="/budget.xlsx"
+        pickedVersion={{
+          snapshotId: 's0',
+          versionId: 'v0',
+          at: '2026-11-16T23:17:00.000Z',
+          sizeBytes: 81_000,
+          current: false,
+        }}
+        emptyMessage="vide"
+        onSelect={() => undefined}
+        onVersions={() => undefined}
+      />,
+    );
+    const fileRow = picked.split('<tr').find((r) => r.includes('budget.xlsx')) ?? '';
+    expect(fileRow).toContain('16/11/2026 23:17');
+    expect(fileRow).toMatch(/checked/u);
+    expect(fileRow).not.toContain('13/11/2026 22:04</td>');
+    expect(fileRow).toContain('81 Ko');
+    expect(fileRow).not.toContain('84 Ko');
+    expect(fileRow).toContain('Version du 16/11/2026 23:17 UTC · 81 Ko');
+    const folderRow = picked.split('<tr').find((r) => r.includes('2025')) ?? '';
+    expect(folderRow).not.toContain('81 Ko');
   });
 
   it('names each radio button after the item', () => {
@@ -209,6 +245,18 @@ describe('OneDrive entries table', () => {
     expect(html).toMatch(
       /<label[^>]*><input[^>]*type="radio"[^>]*\/>(?: |<!-- -->)*budget\.xlsx<\/label>/u,
     );
+  });
+});
+
+describe('OneDrive : stockage non configuré', () => {
+  it('is reached only by catalog_unavailable, never by backup_not_configured', async () => {
+    // `backup_not_configured` est le code du dialogue « Lancer » (POST d'exécution d'un plan) :
+    // aucune route OneDrive ne l'émet, et s'il arrivait, la page n'afficherait pas cet état.
+    const fetchFn = vi.fn();
+    fetchFn.mockReturnValueOnce(json({ error: 'backup_not_configured' }, 503));
+    expect((await fetchSnapshots('a', fetchFn)).status).toBe('error');
+    fetchFn.mockReturnValueOnce(json({ error: 'catalog_unavailable' }, 503));
+    expect((await fetchSnapshots('a', fetchFn)).status).toBe('unconfigured');
   });
 });
 
@@ -230,6 +278,7 @@ describe('OneDrive replace confirmation', () => {
       <ConfirmStep
         account="a@exemple.fr"
         choice={{ entry: entry as never, snapshotId: 's1' }}
+        backupAt="2026-11-14T09:00:00.000Z"
         reason="Ticket #1 : essai"
         onBack={() => undefined}
         onStarted={() => undefined}
@@ -265,7 +314,7 @@ describe('OneDrive result list', () => {
     startedAt: '2026-11-14T10:00:00.000Z',
     finishedAt: null,
     durationMs: null,
-    copyName: 'budget (restauré).xlsx',
+    copyName: 'budget (restauré le 14-11-2026).xlsx',
     error: null,
   };
   it.each([
@@ -277,6 +326,7 @@ describe('OneDrive result list', () => {
       <TrackStep
         account="a@exemple.fr"
         choice={{ entry: entry as never, snapshotId: 's1' }}
+        backupAt="2026-11-14T09:00:00.000Z"
         job={{ ...job, status, error }}
         onJob={() => undefined}
         onAgain={() => undefined}
@@ -285,11 +335,20 @@ describe('OneDrive result list', () => {
     );
     expect(out).toContain('<dt>Compte</dt><dd>a@exemple.fr</dd>');
     expect(out).toContain('<dt>Version du</dt><dd>10/11/2026 18:30</dd>');
-    const at = ['Compte', 'Élément restauré', 'Version du', 'Emplacement'].map((l) =>
+    const label = status === 'succeeded' ? 'Élément restauré' : 'Élément';
+    const at = ['Compte', label, 'Sauvegarde du', 'Version du', 'Emplacement'].map((l) =>
       out.indexOf(`<dt>${l}</dt>`),
     );
     expect(at.every((i, n) => i >= 0 && (n === 0 || i > at[n - 1]!))).toBe(true);
-    expect(out).toContain('<dt>Élément restauré</dt><dd>budget.xlsx → budget (restauré).xlsx</dd>');
+    if (status === 'succeeded') {
+      expect(out).toContain(
+        '<dt>Élément restauré</dt><dd>budget.xlsx → budget (restauré le 14-11-2026).xlsx</dd>',
+      );
+    } else {
+      expect(out).toContain('<dt>Élément</dt><dd>budget.xlsx</dd>');
+      expect(out).not.toContain('Élément restauré');
+      expect(out).not.toContain('→');
+    }
     expect(out).toContain('<dt>Emplacement</dt><dd>Documents &gt; Budget</dd>');
   });
 
@@ -298,6 +357,7 @@ describe('OneDrive result list', () => {
       <TrackStep
         account="a@exemple.fr"
         choice={choice as never}
+        backupAt="2026-11-14T09:00:00.000Z"
         job={{ ...job, status: 'succeeded' }}
         onJob={() => undefined}
         onAgain={() => undefined}

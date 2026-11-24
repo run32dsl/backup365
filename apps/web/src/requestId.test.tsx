@@ -74,6 +74,19 @@ describe('identifiant de requête des échecs', () => {
     expect(html).not.toContain('Identifiant de requête');
   });
 
+  it('repeats a 120-character reason as typed in the summary', () => {
+    const reason = 'r'.repeat(120);
+    const html = renderToStaticMarkup(
+      <RunBlocked
+        problem={{ message: 'Sauvegarde indisponible', code: 'backup_not_configured' }}
+        planName="Messagerie Direction"
+        reason={reason}
+        onClose={() => undefined}
+      />,
+    );
+    expect(html).toContain(reason);
+  });
+
   it('replaces the reason form with the result when the console is not linked', () => {
     const html = renderToStaticMarkup(
       <RunBlocked

@@ -27,9 +27,9 @@ export const DEMO_PLANS = [
     gdprJustification: 'Obligation légale',
   },
   {
-    name: 'Fichiers Services',
+    name: 'OneDrive et SharePoint Services',
     scope: 'all',
-    dataTypes: ['files', 'calendar'],
+    dataTypes: ['onedrive', 'sharepoint'],
     rpoHours: 24,
     rtoHours: 72,
     retentionDays: 1095,
@@ -136,7 +136,8 @@ export async function startDemoServer({ settled = false, buildCommit } = {}) {
         async () => {
           const res = await fetch(`${baseURL}/api/plans`, { headers });
           const { items } = await res.json();
-          return items.every((p) => p.lastRun !== null);
+          // Un plan de nuit (RPO de 24 h ou plus) ne s'exécute pas de jour : on ne l'attend pas.
+          return items.filter((p) => p.rpoHours < 24).every((p) => p.lastRun !== null);
         },
         'première exécution des plans de démonstration',
         60_000,
