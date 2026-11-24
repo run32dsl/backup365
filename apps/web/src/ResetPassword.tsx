@@ -59,6 +59,7 @@ export function ResetReasonForm({
 
 /** Étape 3 : le mot de passe temporaire, « Copier », et la case qui autorise la fermeture. */
 export function TemporaryPasswordView({
+  username,
   password,
   copied = false,
   copyFailed = false,
@@ -68,6 +69,7 @@ export function TemporaryPasswordView({
   onHanded,
   onDone,
 }: {
+  username: string;
   password: string;
   copied?: boolean;
   copyFailed?: boolean;
@@ -79,6 +81,9 @@ export function TemporaryPasswordView({
 }) {
   return (
     <div>
+      <p>
+        Compte : <strong>{username}</strong>
+      </p>
       <p>{RESET_TEXTS.once}</p>
       <div className="button-row temp-password-row">
         <code
@@ -116,11 +121,7 @@ export function TemporaryPasswordView({
         </label>
       </div>
       <div className="button-row dialog-actions">
-        <Button
-          type="button"
-          aria-disabled={!handed || undefined}
-          onClick={handed ? onDone : undefined}
-        >
+        <Button type="button" disabled={!handed} onClick={onDone}>
           Terminer
         </Button>
       </div>
@@ -184,9 +185,14 @@ export function ResetPasswordDialog({
   return (
     <Dialog
       open={username !== null}
-      title={password === undefined ? RESET_TEXTS.title : RESET_TEXTS.resultTitle}
-      // Échap et « Fermer » restent sans effet tant que la case n'est pas cochée.
-      onClose={password === undefined || handed ? onClose : () => undefined}
+      title={
+        password === undefined
+          ? RESET_TEXTS.title
+          : `${RESET_TEXTS.resultTitle} de ${username ?? ''}`
+      }
+      // Ni « ✕ » ni Échap tant que la case n'est pas cochée.
+      dismissible={password === undefined || handed}
+      onClose={onClose}
     >
       {password === undefined ? (
         <ResetReasonForm
@@ -213,6 +219,7 @@ export function ResetPasswordDialog({
         />
       ) : (
         <TemporaryPasswordView
+          username={username ?? ''}
           password={password}
           copied={copied}
           copyFailed={copyFailed}
