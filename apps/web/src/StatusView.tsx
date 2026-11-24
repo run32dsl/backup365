@@ -103,7 +103,11 @@ function LastBackup({ at, ageHours }: { at: string | null; ageHours: number | nu
 
 type Late = { plan: PlanComplianceReport['nonCompliant'][number] };
 
-/** Ce que les lignes du catalogue disent d'un service : la plus récente sauvegarde et le pire état. */
+/**
+ * Ce que les lignes du catalogue disent d'un service : la plus récente sauvegarde et le pire état.
+ * `last` est nul tant qu'aucune source n'a de sauvegarde datée : le catalogue rend une ligne par
+ * compte dès qu'il existe, même jamais sauvegardé, et ces lignes ne contredisent pas la synthèse.
+ */
 function fromRows(service: ServiceEntry['service'], rows: readonly Row[]) {
   const own = rows.filter((r) => serviceOf(r) === service);
   let last: Row | null = null;
@@ -118,10 +122,15 @@ function fromRows(service: ServiceEntry['service'], rows: readonly Row[]) {
     : own.some((r) => r.state === 'stale')
       ? 'stale'
       : 'ok';
-  return { count: own.length, last, state };
+  return { last, state };
 }
 
-/** Un service de la synthèse, remis d'accord avec les lignes du catalogue et les plans listés. */
+/**
+ * Un service de la synthèse, remis d'accord avec ce que la page liste plus bas. Deux faits
+ * seulement priment sur la synthèse : une sauvegarde datée dans « Sauvegardes » (la ligne en
+ * reprend la date et l'état) et un plan listé qui couvre le service (il n'est pas « Non
+ * protégé »). Sans sauvegarde datée, « Jamais » et « En attente » restent ceux du serveur.
+ */
 function reconcile(
   s: ServiceEntry,
   rows: readonly Row[],
@@ -131,15 +140,13 @@ function reconcile(
   // Plusieurs plans listés : le pire état l'emporte (un échec n'est pas masqué par un retard).
   const covering = (plans?.nonCompliant ?? []).filter((p) => p.dataTypes?.includes(s.service));
   const plan = covering.find((p) => p.state === 'failed') ?? covering[0];
-  const covered = s.hasPlan || plan !== undefined;
-  // Un plan listé en retard ou en échec n'est plus « en attente » de sa première exécution.
-  if (own.count === 0)
-    return { ...s, hasPlan: covered, ...(plan && { plan, awaitingFirstRun: false }) };
+  const hasPlan = s.hasPlan || plan !== undefined;
+  if (own.last === null) return { ...s, hasPlan, ...(plan && { plan }) };
   return {
     ...s,
-    hasPlan: covered,
-    lastSnapshotAt: own.last?.lastSnapshotAt ?? null,
-    ageHours: own.last?.ageHours ?? null,
+    hasPlan,
+    lastSnapshotAt: own.last.lastSnapshotAt,
+    ageHours: own.last.ageHours,
     state: own.state,
     awaitingFirstRun: false,
   };
@@ -195,7 +202,8 @@ function ServiceState({
         <StatusPill status="pending" />
       </div>
     );
-  // Un plan listé couvre le service sans qu'aucune source soit sauvegardée : l'état est celui du plan.
+  // Un plan listé couvre le service sans qu'aucune source soit sauvegardée, première échéance
+  // passée : l'état est celui du plan, dit comme dans le tableau des plans.
   if (service.plan && service.lastSnapshotAt === null) {
     const note = lateNote(service.plan.state, service.plan.lastSuccessAt);
     return (

@@ -159,6 +159,15 @@ async function overviewAs(page, overview) {
   await page.getByRole('heading', { name: 'Sauvegarde', level: 2, exact: true }).waitFor();
 }
 
+/** Retire de `/api/status` les plans listés qui couvrent ce service, décomptes compris. */
+function dropListedPlans(body, service) {
+  if (!body.plans) return;
+  for (const p of body.plans.nonCompliant) {
+    if (p.dataTypes?.includes(service)) body.plans.counts[p.state] -= 1;
+  }
+  body.plans.nonCompliant = body.plans.nonCompliant.filter((p) => !p.dataTypes?.includes(service));
+}
+
 /** @type {Screen[]} */
 export const SCREENS = [
   { name: 'connexion', hash: '', role: null },
@@ -609,12 +618,10 @@ export const SCREENS = [
       await page.route('**/api/status', async (route) => {
         const res = await route.fetch();
         const body = await res.json();
-        // Aucun plan listé ne couvre SharePoint : sinon la page dirait le contraire.
-        if (body.plans) {
-          body.plans.nonCompliant = body.plans.nonCompliant.filter(
-            (p) => !p.dataTypes?.includes('sharepoint'),
-          );
-        }
+        // SharePoint jamais protégé : aucune sauvegarde de site, sinon la ligne en reprend la date.
+        body.rows = body.rows.filter((r) => r.kind !== 'site');
+        // Et aucun plan listé ne le couvre : sinon la page dirait le contraire.
+        dropListedPlans(body, 'sharepoint');
         body.services = body.services.map((s) =>
           s.service === 'sharepoint'
             ? {
@@ -647,11 +654,7 @@ export const SCREENS = [
         // Aucune sauvegarde OneDrive : sinon les lignes du catalogue disent le contraire.
         body.rows = body.rows.filter((r) => r.workload !== 'onedrive');
         // Et aucun plan listé en retard pour OneDrive : il ne serait plus « en attente ».
-        if (body.plans) {
-          body.plans.nonCompliant = body.plans.nonCompliant.filter(
-            (p) => !p.dataTypes?.includes('onedrive'),
-          );
-        }
+        dropListedPlans(body, 'onedrive');
         body.services = body.services.map((s) =>
           s.service === 'onedrive'
             ? {

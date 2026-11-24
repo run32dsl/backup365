@@ -404,31 +404,80 @@ describe('StatusView', () => {
       expect(html).not.toContain('sans plan');
     });
 
-    it('prefers a failed listed plan to a late one, and never says « En attente » beside them', () => {
-      const base = {
-        rpoHours: 24 as const,
-        dataTypes: ['sharepoint'] as 'sharepoint'[],
-        lastSuccessAt: null,
-        lastRun: null,
-      };
-      const nonCompliant = [
-        { ...base, id: 'a', name: 'A', state: 'late' as const },
-        { ...base, id: 'b', name: 'B', state: 'failed' as const },
-      ];
+    /** Lignes que le catalogue rend pour des sites connus mais jamais sauvegardés. */
+    const neverBackedUp = (n: number): StatusReport['rows'] =>
+      Array.from({ length: n }, (_, i) => ({
+        kind: 'site' as const,
+        sourceId: `s,${i}`,
+        displayName: `Site ${i}`,
+        workload: 'sharepoint' as const,
+        lastSnapshotAt: null,
+        ageHours: null,
+        state: 'missing' as const,
+      }));
+    const listed = (id: string, state: 'late' | 'failed') => ({
+      id,
+      name: id,
+      rpoHours: 24 as const,
+      dataTypes: ['sharepoint'] as 'sharepoint'[],
+      state,
+      lastSuccessAt: null,
+      lastRun: null,
+    });
+    /** Tableau « Sources » d'un SharePoint sans sauvegarde, avec ces lignes et ces plans listés. */
+    const sharepoint = (
+      over: Partial<Entry>,
+      rows: StatusReport['rows'],
+      nonCompliant: ReturnType<typeof listed>[],
+    ): string => {
       const html = renderToString(
         <StatusView
           state={{
             ...report,
-            rows: [],
-            services: [entry({ service: 'sharepoint', ...noBackup, awaitingFirstRun: true })],
-            plans: { counts: { compliant: 0, late: 1, failed: 1 }, nonCompliant },
+            rows,
+            services: [entry({ service: 'sharepoint', ...noBackup, ...over })],
+            plans: { counts: { compliant: 0, late: 0, failed: 0 }, nonCompliant },
           }}
         />,
       );
-      const table = html.slice(html.indexOf('services-title'), html.indexOf('Plans de protection'));
+      const end = html.indexOf('Plans de protection');
+      if (end === -1) throw new Error('section des plans absente');
+      return html.slice(html.indexOf('services-title'), end);
+    };
+
+    it('prefers a failed listed plan to a late one', () => {
+      const table = sharepoint({}, [], [listed('a', 'late'), listed('b', 'failed')]);
       expect(table).toContain('En échec');
-      expect(table).not.toContain('En attente');
+      expect(table).toContain('Aucune sauvegarde réussie');
       expect(table).not.toContain('En retard');
+    });
+
+    // Ce que le serveur rend pour un plan tout juste créé : une ligne par source, sans aucune
+    // sauvegarde. Ces lignes ne prouvent rien contre « Jamais · En attente ».
+    it('keeps « Jamais » and « En attente » when the catalogue rows carry no backup at all', () => {
+      const table = sharepoint({ awaitingFirstRun: true }, neverBackedUp(3), []);
+      expect(table).toContain('Jamais');
+      expect(table).toMatch(/◷<\/span> (<!-- -->)?En attente/u);
+      expect(table).not.toContain('En échec');
+      expect(table).not.toContain('#/audit');
+    });
+
+    // Règle documentée (docs/installation.md). Le plan listé « En retard » avant sa première
+    // échéance est une question posée au PO dans la PR, pas un choix de cet écran.
+    it('keeps « En attente » until the first run is due, even when the plan is already listed', () => {
+      const table = sharepoint({ awaitingFirstRun: true }, neverBackedUp(2), [listed('a', 'late')]);
+      expect(table).toMatch(/◷<\/span> (<!-- -->)?En attente/u);
+      expect(table).not.toContain('Non protégé');
+      expect(table).not.toContain('En retard');
+    });
+
+    it('names the listed plan state once the first run is due, with rows that carry no backup', () => {
+      const table = sharepoint({}, neverBackedUp(2), [listed('a', 'late')]);
+      expect(table).toContain('Jamais');
+      expect(table).toContain('En retard');
+      expect(table).toContain('Aucune sauvegarde réussie');
+      expect(table).not.toContain('En attente');
+      expect(table).not.toContain('#/audit');
     });
 
     it('puts a decorative icon beside the written service name, in a native table', () => {
