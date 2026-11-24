@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 import { buildTestApp, testAuth } from './test-support.js';
+import { SqliteAuditLog } from './sqlite/sqlite-audit-log.js';
 import type { Overview } from './overview-routes.js';
 import type { PlanScheduler } from './plan-scheduler.js';
 
@@ -37,6 +38,7 @@ describe('GET /api/overview', () => {
       plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
       lastBackupAt: null,
       lastBackupPlan: null,
+      lastFailure: null,
     });
   });
 
@@ -49,6 +51,7 @@ describe('GET /api/overview', () => {
       plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 1 },
       lastBackupAt: null,
       lastBackupPlan: null,
+      lastFailure: null,
     });
   });
 
@@ -89,6 +92,22 @@ describe('GET /api/overview', () => {
     expect(age).toBeGreaterThan(9.5 * 3_600_000);
     expect(age).toBeLessThan(10.5 * 3_600_000);
     expect(body.lastBackupPlan).toBe('B');
+  });
+
+  it('names the failed plan and shows the same success time as the plans list', async () => {
+    const plans = SqlitePlanStore.open(':memory:');
+    run(plans, plans.create(input('Réussi')).id, 'success', 3);
+    run(plans, plans.create(input('Raté')).id, 'failed', 5);
+    const body = (await get(plans)).json<Overview>();
+    expect(body.lastFailure?.plan).toBe('Raté');
+    expect(Math.abs(Date.parse(body.lastFailure!.at) - Date.parse(hoursAgo(5)))).toBeLessThan(5000);
+    const audit = SqliteAuditLog.open(':memory:');
+    const list = await buildTestApp({ version: '1', role: 'admin', plans, audit }).inject({
+      method: 'GET',
+      url: '/api/plans',
+    });
+    const items = list.json<{ items: { name: string; lastRun: { finishedAt: string } }[] }>().items;
+    expect(body.lastBackupAt).toBe(items.find((p) => p.name === 'Réussi')?.lastRun.finishedAt);
   });
 
   it('ignores a running run: a relaunched failed plan stays failed, a first run is not a result', async () => {
@@ -139,12 +158,12 @@ describe('GET /api/overview', () => {
     expect((await get(plans)).json<Overview>().plans).toMatchObject({ running: 1, queued: 0 });
   });
 
-  it('is open to the operator and carries no plan name', async () => {
+  it('is open to the operator and carries no plan detail beyond the name', async () => {
     const plans = SqlitePlanStore.open(':memory:');
-    run(plans, plans.create(input('Nom secret')).id, 'failed', 1);
+    run(plans, plans.create(input('Nom visible')).id, 'failed', 1);
     const res = await get(plans, 'operator');
     expect(res.statusCode).toBe(200);
-    expect(res.body).not.toContain('Nom secret');
+    expect(res.body).not.toContain('Obligation de conservation');
   });
 
   it('answers 503 without plan store and 401 without session', async () => {
