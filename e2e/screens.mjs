@@ -757,7 +757,7 @@ export const SCREENS = [
     hash: '#/plans/nouveau',
     role: 'admin',
     prepare: async (page) => {
-      await page.getByLabel('Nom du plan').fill('Messagerie Direction');
+      await page.getByLabel('Nom du plan').fill('Plan de démonstration');
     },
   },
   {
@@ -765,7 +765,7 @@ export const SCREENS = [
     hash: '#/plans/nouveau',
     role: 'admin',
     prepare: async (page) => {
-      await page.getByLabel('Nom du plan').fill('Messagerie Direction');
+      await page.getByLabel('Nom du plan').fill('Plan de démonstration');
       await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByText('Étape 2 sur 3 : Objectifs').waitFor();
     },
@@ -775,7 +775,7 @@ export const SCREENS = [
     hash: '#/plans/nouveau',
     role: 'admin',
     prepare: async (page) => {
-      await page.getByLabel('Nom du plan').fill('Messagerie Direction');
+      await page.getByLabel('Nom du plan').fill('Plan de démonstration');
       await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByLabel('Justification de cette durée (obligatoire)').fill('Obligation légale');
       await page.getByRole('button', { name: 'Continuer' }).click();
