@@ -67,14 +67,14 @@ describe('SearchView', () => {
   it('drops the mailbox column and names the mailbox in the counter when filtered', () => {
     const state = { total: 25, limit: 25, offset: 0, items: [mail] };
     const filtered = renderToString(<SearchView state={state} mailbox="paul.moreau@exemple.fr" />);
-    expect(filtered).not.toContain('>Boîte<');
     // Indépendant du libellé : ni la classe ni la valeur de la colonne ne sont rendues.
     expect(filtered).not.toContain('col-mailbox');
     expect(filtered).not.toContain('mbx 1</');
     expect(filtered).toContain('25 résultats');
     expect(filtered).toContain('dans la boîte paul.moreau@exemple.fr');
     const unfiltered = renderToString(<SearchView state={state} />);
-    expect(unfiltered).toContain('>Boîte<');
+    expect(unfiltered).toContain('col-mailbox');
+    expect(unfiltered).toContain('mbx 1</');
     // Carte mobile : objet en titre, expéditeur sans libellé, « date · dossier · boîte » en secondaire.
     expect(unfiltered).toContain('class="subject card-title mail-subject"');
     expect(unfiltered).toContain('class="keep-words address card-nolabel"');
@@ -86,7 +86,7 @@ describe('SearchView', () => {
       <SearchView state={state} mailbox="paul.moreau@exemple.fr" restoreConfigured />,
     );
     expect(withRestore).toContain('>Action<');
-    expect(withRestore).not.toContain('>Boîte<');
+    expect(withRestore).not.toContain('col-mailbox');
     const empty = { total: 0, limit: 25, offset: 0, items: [] };
     const none = renderToString(<SearchView state={empty} mailbox="paul.moreau@exemple.fr" />);
     expect(none).toContain('class="empty"');
