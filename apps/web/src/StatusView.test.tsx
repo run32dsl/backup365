@@ -444,12 +444,54 @@ describe('StatusView mobile cards', () => {
     return (m?.[1] ?? '').split(' ');
   };
 
-  it('titles each card with its service, plan or source, and the state pill under it', () => {
+  it('titles each card with its service, plan or source, and an unlabelled state pill', () => {
     expect(cls('Service', 'services-title')).toContain('card-title');
     expect(cls('Plan', 'Plans de protection')).toContain('card-title');
     expect(cls('Source', 'backups-title')).toContain('card-title');
     expect(cls('État', 'services-title')).toContain('card-nolabel');
     expect(cls('État', 'backups-title')).toContain('card-nolabel');
+  });
+
+  it('marks the state of the three tables so the pill sits on the title line', () => {
+    expect(cls('État', 'services-title')).toContain('status-state');
+    expect(cls('État', 'Plans de protection')).toContain('status-state');
+    expect(cls('État', 'backups-title')).toContain('status-state');
+  });
+
+  it('writes the last success of a plan, and "Jamais" for an unreadable date with an age', () => {
+    const dated = renderToString(
+      <StatusView
+        state={{
+          ...report,
+          services: [
+            {
+              service: 'mail',
+              hasPlan: true,
+              awaitingFirstRun: false,
+              lastSnapshotAt: 'illisible',
+              ageHours: 6,
+              state: 'ok',
+              retentionDays: 30,
+              scope: { kind: 'all' },
+            },
+          ],
+          plans: {
+            counts: { compliant: 0, late: 1, failed: 0 },
+            nonCompliant: [
+              {
+                id: 'p',
+                name: 'Plan A',
+                rpoHours: 4,
+                state: 'late',
+                lastSuccessAt: '2026-11-10T06:00:00Z',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(dated).toContain('class="card-only">Dernière réussite : 10/11/2026 06:00 UTC</td>');
+    expect(dated).toContain('class="card-only">Jamais</td>');
   });
 
   it('groups the other values in one unlabelled secondary line', () => {

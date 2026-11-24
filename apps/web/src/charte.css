@@ -976,6 +976,37 @@ select[aria-disabled='true'] {
     /* Aligné sur le nom, sous le bouton radio (1,5 rem + espace). */
     padding-top: 0;
   }
+  /* Sources : la pastille sur la ligne du nom (dessous si le nom est trop long), puis le lien
+     éventuel et la ligne secondaire en pleine largeur. La cellule d'état s'efface (`contents`)
+     pour que la pastille et le lien se placent dans la carte. */
+  .data-table tr:has(> td.status-state) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--space-2);
+    padding-inline: var(--space-2);
+  }
+  .data-table tr:has(> td.status-state) > td,
+  .data-table tr:has(> td.status-state) > th {
+    flex: 1 1 100%;
+    padding-inline: 0;
+  }
+  .data-table tr:has(> td.status-state) > .card-title {
+    flex: 0 1 auto;
+    border-bottom: 0;
+  }
+  .data-table tr:has(> td.status-state) > td.status-state,
+  .data-table td.status-state > div {
+    display: contents;
+  }
+  .data-table td.status-state .badge {
+    flex: 0 0 auto;
+  }
+  .data-table td.status-state .state-link {
+    flex: 1 1 100%;
+    margin-top: 0;
+    padding-bottom: var(--space-1);
+  }
 }
 .data-table tr.row-clickable {
   cursor: pointer;

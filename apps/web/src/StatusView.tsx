@@ -46,7 +46,11 @@ const COLUMNS: Column<Row>[] = [
     cell: (r) => dateTimeOrDash(r.lastSnapshotAt),
   },
   { header: 'Ancienneté', className: 'card-hidden', cell: (r) => ageLabel(r.ageHours) },
-  { header: 'État', className: 'card-nolabel', cell: (r) => <StateBadge state={r.state} /> },
+  {
+    header: 'État',
+    className: 'card-nolabel status-state',
+    cell: (r) => <StateBadge state={r.state} />,
+  },
   {
     header: 'Détail',
     className: 'card-only',
@@ -185,7 +189,11 @@ const SERVICE_COLUMNS: Column<ServiceEntry>[] = [
     className: 'card-hidden',
     cell: (s) => <LastBackup at={s.lastSnapshotAt} ageHours={s.ageHours} />,
   },
-  { header: 'État', className: 'card-nolabel', cell: (s) => <ServiceState service={s} /> },
+  {
+    header: 'État',
+    className: 'card-nolabel status-state',
+    cell: (s) => <ServiceState service={s} />,
+  },
   {
     header: 'Conservation',
     className: 'card-hidden',
@@ -235,7 +243,7 @@ const PLAN_COLUMNS: Column<PlanEntry>[] = [
   },
   {
     header: 'État',
-    className: 'card-nolabel',
+    className: 'card-nolabel status-state',
     cell: (p) => <StatusPill status={p.state === 'failed' ? 'failed' : 'late'} />,
   },
   {

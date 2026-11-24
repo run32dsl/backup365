@@ -891,3 +891,57 @@ test.describe('recherche à 1280 px', () => {
     );
   });
 });
+
+// Critères mesurables de l'écran « Sources » à 390 px (issue #427) : mesurés ici, au lieu d'être
+// lus sur la capture `sources-390.png`.
+test('sources à 390 px : pastille sur la ligne du nom, cartes et page compactes', async ({
+  browser,
+  baseURL,
+}) => {
+  const context = await browser.newContext({
+    baseURL: baseURL!,
+    viewport: { width: 390, height: 800 },
+    locale: 'fr-FR',
+    timezoneId: 'UTC',
+  });
+  try {
+    await signInAs(context, baseURL!, 'admin');
+    const page = await context.newPage();
+    await page.goto('/#/sources');
+    await page.getByRole('heading', { name: 'Sauvegardes' }).waitFor();
+    const services = page.getByRole('table', { name: 'État par service' }).locator('tbody tr');
+    await expect(services).toHaveCount(3);
+    // Carte de service : 120 px au plus, y compris avec le lien vers le journal d'audit.
+    for (const card of await services.all()) {
+      expect((await card.boundingBox())!.height).toBeLessThanOrEqual(120);
+    }
+    let sameLineCards = 0;
+    for (const card of await page.locator('tbody tr:has(> td.status-state):visible').all()) {
+      const inside = (await card.boundingBox())!;
+      const title = (await card.locator('.card-title').boundingBox())!;
+      const pill = (await card.locator('.badge').first().boundingBox())!;
+      // Rien ne déborde de la carte.
+      expect(pill.x + pill.width).toBeLessThanOrEqual(inside.x + inside.width);
+      expect(title.x + title.width).toBeLessThanOrEqual(inside.x + inside.width);
+      // La pastille suit le nom sur sa ligne ; seul un nom trop long la renvoie dessous.
+      const sameLine = pill.y < title.y + title.height && pill.y + pill.height > title.y;
+      if (sameLine) {
+        sameLineCards++;
+        expect(pill.x).toBeGreaterThanOrEqual(title.x + title.width);
+      } else {
+        expect(title.width + pill.width).toBeGreaterThan(inside.width - 40);
+      }
+    }
+    expect(sameLineCards).toBeGreaterThanOrEqual(4);
+    // Page entière : au moins 30 % de moins que les 2 200 px d'avant l'issue.
+    const height = await page.evaluate(() => document.documentElement.scrollHeight);
+    expect(height).toBeLessThanOrEqual(1540);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    ).toBeLessThanOrEqual(0);
+  } finally {
+    await context.close();
+  }
+});
