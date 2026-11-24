@@ -60,9 +60,11 @@ test('restauration : motif obligatoire, suivi, résultat et journal', async ({
   const reason = dialog.getByLabel(RESTORE_REASON_LABEL);
   await expect(reason).toBeFocused();
   await expect(dialog.getByText('Ce motif sera inscrit au journal d’audit.')).toBeVisible();
-  await expect(dialog.getByText(/^Restauré par backup365 \d\d\/\d\d\/\d{4}$/)).toBeVisible();
+  await expect(dialog.getByText('Restauré dans le dossier')).toBeVisible();
   await expect(
-    dialog.getByText('Le mail sera copié dans ce dossier de la boîte d’origine.'),
+    dialog.getByText(
+      /^Le mail sera copié dans le dossier « Restauré par backup365 \d\d\/\d\d\/\d{4} » de la boîte d’origine\.$/,
+    ),
   ).toBeVisible();
 
   // Le motif est obligatoire ; la saisie est bornée à 120 caractères.

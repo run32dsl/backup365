@@ -24,7 +24,9 @@ Graph et exige donc de vrais identifiants avec droit d'écriture.
   relève de l'agent tenant ; l'essai réel se fait sur un tenant de TEST uniquement (voir
   « Non vérifié »). Le mode démo utilise un restaurateur factice (2 s, le mail n° 25 de chaque
   boîte échoue).
-- Dossier : `Restauré par backup365 jj/mm/aaaa`, date UTC du lancement.
+- Dossier d’origine : le dossier du mail sauvegardé (par exemple « Boîte de réception »).
+- Restauré dans le dossier : `Restauré par backup365 jj/mm/aaaa`, date UTC du lancement, nouveau
+  dossier créé dans la boîte.
 - `RestoreService` (`apps/server`) : une restauration à la fois par mail (409
   `restore_in_progress`), exécutée en arrière-plan, durée mesurée du lancement à la fin. Dernière
   restauration de chaque mail gardée **en mémoire** (1000 au plus, perdues au redémarrage) ; la

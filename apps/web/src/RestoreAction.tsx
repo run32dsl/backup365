@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import type { IndexedMail } from '@backup365/core';
 import { apiErrorFor, type Problem } from './apiError.js';
 import { ConfigurationLink } from './ConfigurationBlock.js';
@@ -25,10 +25,13 @@ import {
   startRestore,
   type RestoreJob,
 } from './restore.js';
-import { dateTimeOf } from './format.js';
+import { dateTimeOf, folderLabel } from './format.js';
 import { Alert, Button, Dialog, ResultList } from './ui/index.js';
 
-export type RestorableMail = Pick<IndexedMail, 'mailboxId' | 'messageId' | 'subject' | 'date'>;
+export type RestorableMail = Pick<
+  IndexedMail,
+  'mailboxId' | 'messageId' | 'subject' | 'date' | 'folder'
+>;
 
 /**
  * Message affiché sous le bouton quand la restauration n'est pas configurée : c'est le cas où
@@ -61,9 +64,27 @@ export function recallRows(mail: RestorableMail): [string, string][] {
   ];
 }
 
+/** Dossier d'origine du mail et dossier de destination, nouveau dans la boîte. */
+export function folderRows(mail: RestorableMail, folder: string): [string, ReactNode][] {
+  return [
+    ['Dossier d’origine', folderLabel(mail.folder)],
+    [
+      'Restauré dans le dossier',
+      <>
+        {folder}
+        <span className="meta-note">nouveau dossier créé dans la boîte</span>
+      </>,
+    ],
+  ];
+}
+
+/** Puce « Ce qui va se passer » : nomme le dossier de destination entre guillemets. */
+export const copyBullet = (folder: string): string =>
+  `Le mail sera copié dans le dossier « ${folder} » de la boîte d’origine.`;
+
 /** Rappel du formulaire : les lignes des résultats, avec le dossier que la restauration créera. */
-export function formRows(mail: RestorableMail, now: number): [string, string][] {
-  return [...recallRows(mail), ['Dossier', restoreFolderName(new Date(now))]];
+export function formRows(mail: RestorableMail, now: number): [string, ReactNode][] {
+  return [...recallRows(mail), ...folderRows(mail, restoreFolderName(new Date(now)))];
 }
 
 /** Restauration en cours : même modèle que les résultats (alerte, liste libellée, « Fermer »). */
@@ -85,7 +106,7 @@ export function Tracking({
       <p className="sr-only" role="status" aria-live="polite">
         {announcement(elapsed)}
       </p>
-      <ResultList rows={[...recallRows(mail), ['Dossier', job.folder]]} />
+      <ResultList rows={[...recallRows(mail), ...folderRows(mail, job.folder)]} />
       <div className="button-row dialog-actions">
         <a className="btn btn-secondary" href="#/audit">
           {B.audit}
@@ -113,7 +134,7 @@ export function RestoreOutcome({
     return (
       <>
         <Alert tone="success">Mail restauré en {formatDuration(job.durationMs ?? 0)}.</Alert>
-        <ResultList rows={[...recall, ['Dossier', job.folder]]} />
+        <ResultList rows={[...recall, ...folderRows(mail, job.folder)]} />
         <div className="button-row dialog-actions">
           <a className="btn btn-secondary" href="#/audit">
             {B.audit}
@@ -279,7 +300,7 @@ export function RestoreAction({
             />
             <h3>Ce qui va se passer</h3>
             <ul>
-              <li>Le mail sera copié dans ce dossier de la boîte d’origine.</li>
+              <li>{copyBullet(restoreFolderName(new Date(now)))}</li>
               <li>Aucun mail existant ne sera modifié ni écrasé.</li>
               <li>Le contenu du mail n’est jamais inscrit au journal d’audit.</li>
             </ul>
