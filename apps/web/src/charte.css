@@ -1472,7 +1472,54 @@ a.btn-secondary {
   }
 }
 
-/* Connexion : carte centrée sous le nom du produit ; le pied (version) reste sous la carte. */
+/* Écrans d'accès : bloc centré (connexion, premier administrateur, nouveau mot de passe). */
+main.auth {
+  box-sizing: border-box;
+  max-width: 28rem;
+  margin: var(--space-4) auto;
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+.auth-brand {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.125rem;
+}
+.auth-tagline {
+  margin: 0 0 var(--space-3);
+  color: var(--muted);
+}
+.auth form > button[type='submit'],
+.auth .button-row > button[type='submit'],
+.auth-microsoft {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+  color: var(--muted);
+}
+.auth-or::before,
+.auth-or::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--border);
+}
+.auth-audit {
+  margin: var(--space-3) 0 0;
+}
+.auth a.btn {
+  text-decoration: none;
+}
+/* Pied de page (version) sous le bloc de connexion. */
 .login-page {
   min-height: 100vh;
   display: flex;
@@ -1485,57 +1532,23 @@ a.btn-secondary {
   max-width: 28rem;
   margin-top: 8vh;
 }
-.login-brand {
-  text-align: center;
-  margin-bottom: var(--space-3);
-}
-.login-brand p {
-  margin: 0;
-}
-.login-brand-name {
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-.login-brand-tagline {
-  color: var(--muted);
-}
-.login-card {
-  padding: var(--space-4);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-.login-card form > .btn,
-.login-card > .btn {
-  width: 100%;
-}
-.login-card a.btn {
-  text-align: center;
-  text-decoration: none;
-}
-.login-or {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: var(--space-3) 0;
-  color: var(--muted);
-}
-.login-or::before,
-.login-or::after {
-  content: '';
-  flex: 1;
-  border-top: 1px solid var(--border-soft);
-}
-.login-audit {
-  color: var(--muted);
-}
 .login-page .console-footer {
   border-top: none;
   justify-content: center;
   margin-top: auto;
 }
 @media (max-width: 56.25rem) {
+  .login-page {
+    padding-inline: 0;
+  }
   .login-page-body {
     margin-top: var(--space-3);
+  }
+  main.auth {
+    margin: 0 auto;
+    padding: var(--space-3);
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
   }
 }

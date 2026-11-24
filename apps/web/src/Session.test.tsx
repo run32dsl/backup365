@@ -72,6 +72,15 @@ describe('PasswordView', () => {
     expect(renderToString(<PasswordView forced />)).toContain('temporaire');
     expect(renderToString(<PasswordView forced={false} />)).not.toContain('temporaire');
   });
+
+  it('puts the forced change in the auth block and keeps the voluntary one plain', () => {
+    const forced = renderToString(<PasswordView forced />);
+    expect(forced).toContain('class="auth"');
+    expect(forced).toContain('auth-brand');
+    const voluntary = renderToString(<PasswordView forced={false} />);
+    expect(voluntary).not.toContain('class="auth"');
+    expect(voluntary).not.toContain('auth-brand');
+  });
 });
 
 describe('AccountsView', () => {
@@ -343,8 +352,22 @@ describe('maquette de l’issue #22', () => {
     );
     expect(lossMessage('invalid')).toBe('Votre session n’est plus valide. Reconnectez-vous.');
     const html = renderToString(<CredentialsView mode="login" notice={lossMessage('expired')} />);
-    expect(html).toContain(`<p role="status">${lossMessage('expired')}</p>`);
+    expect(html).toContain('class="alert alert-info"');
+    expect(html).toContain('role="status"');
+    expect(html).toContain(lossMessage('expired'));
     expect(renderToString(<CredentialsView mode="login" />)).not.toContain('expiré');
+  });
+
+  it('shows a Microsoft refusal as an error alert, not a plain paragraph', () => {
+    const html = renderToString(<CredentialsView mode="login" refusal="Accès refusé." microsoft />);
+    expect(html).toContain('class="alert alert-error" role="alert"');
+    expect(html).toContain('✖');
+    expect(html).not.toContain('<p role="status">Accès refusé.');
+    expect(html).toContain('>ou<');
+    expect(html).toContain('class="auth-brand"');
+    expect(renderToString(<CredentialsView mode="login" />)).not.toContain('auth-or');
+    expect(renderToString(<CredentialsView mode="setup" microsoft />)).not.toContain('auth-or');
+    expect(renderToString(<CredentialsView mode="setup" />)).toContain('class="auth"');
   });
 
   it('remembers the requested page, never the login anchor itself', () => {

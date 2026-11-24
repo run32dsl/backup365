@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { FailureAlert } from './FailureAlert.js';
 import { Alert, Button, FormField, WizardActions } from './ui/index.js';
 import {
@@ -97,6 +97,19 @@ export function ErrorView({
   );
 }
 
+/** Bloc centré commun aux écrans d'accès : nom du produit, puis le contenu de l'écran. */
+function AuthBlock({ children, plain = false }: { children: ReactNode; plain?: boolean }) {
+  // Dans la console (changement volontaire), la barre latérale porte déjà le nom du produit.
+  if (plain) return <main tabIndex={-1}>{children}</main>;
+  return (
+    <main tabIndex={-1} className="auth">
+      <p className="auth-brand">backup365</p>
+      <p className="auth-tagline">Console de sauvegarde Microsoft 365</p>
+      {children}
+    </main>
+  );
+}
+
 /**
  * Formulaire de connexion ou de création du premier administrateur. `notice` annonce une session
  * perdue (expirée ou refusée).
@@ -136,83 +149,78 @@ export function CredentialsView({
   const locked = lockedSec > 0;
   const [typed, setTyped] = useState('');
   return (
-    <>
-      <div className="login-brand">
-        <p className="login-brand-name">backup365</p>
-        <p className="login-brand-tagline">Console de sauvegarde Microsoft 365</p>
-      </div>
-      <main className="login-card" tabIndex={-1}>
-        <h1>{setup ? 'Créer le compte administrateur' : 'Connexion à la console'}</h1>
-        {refusal && !setup && (
-          <Alert tone="error" title="Accès refusé">
-            <span className="alert-detail">{refusal}</span>
-          </Alert>
-        )}
-        {locked && (
-          <Alert tone="warning" title="Connexion temporairement bloquée">
-            <span className="sr-only">{lockedMessage(lockedStartSec ?? lockedSec)}</span>
-            <span aria-hidden="true">
-              Nouvel essai possible dans{' '}
-              <span className="countdown">{formatCountdown(lockedSec)}</span>.
-            </span>
-          </Alert>
-        )}
-        <p className="sr-only" role="status">
-          {announcement}
+    <AuthBlock>
+      <h1>{setup ? 'Créer le compte administrateur' : 'Connexion à la console'}</h1>
+      {refusal && !setup && (
+        <Alert tone="error" title="Accès refusé">
+          <span className="alert-detail">{refusal}</span>
+        </Alert>
+      )}
+      {locked && (
+        <Alert tone="warning" title="Connexion temporairement bloquée">
+          <span className="sr-only">{lockedMessage(lockedStartSec ?? lockedSec)}</span>
+          <span aria-hidden="true">
+            Nouvel essai possible dans{' '}
+            <span className="countdown">{formatCountdown(lockedSec)}</span>.
+          </span>
+        </Alert>
+      )}
+      <p className="sr-only" role="status">
+        {announcement}
+      </p>
+      {setup && (
+        <p>
+          Aucun compte n’existe encore. Ce compte gère les comptes, les plans et les restaurations.
         </p>
+      )}
+      {notice && <Alert tone="info">{notice}</Alert>}
+      <form
+        onSubmit={(e: FormEvent<HTMLFormElement>) => {
+          e.preventDefault();
+          onSubmit?.(new FormData(e.currentTarget));
+        }}
+      >
+        <Field
+          label="Identifiant"
+          name="username"
+          autoComplete="username"
+          onValue={setup ? setTyped : undefined}
+        />
+        <Field
+          label="Mot de passe"
+          name="password"
+          type="password"
+          autoComplete={setup ? 'new-password' : 'current-password'}
+        />
         {setup && (
-          <p>
-            Aucun compte n’existe encore. Ce compte gère les comptes, les plans et les
-            restaurations.
-          </p>
-        )}
-        {notice && <p role="status">{notice}</p>}
-        <form
-          onSubmit={(e: FormEvent<HTMLFormElement>) => {
-            e.preventDefault();
-            onSubmit?.(new FormData(e.currentTarget));
-          }}
-        >
-          <Field
-            label="Identifiant"
-            name="username"
-            autoComplete="username"
-            onValue={setup ? setTyped : undefined}
-          />
-          <Field
-            label="Mot de passe"
-            name="password"
-            type="password"
-            autoComplete={setup ? 'new-password' : 'current-password'}
-          />
-          {setup && (
-            <>
-              <p>12 caractères minimum. Une phrase de passe convient.</p>
-              <Field
-                label="Confirmer le mot de passe"
-                name="confirm"
-                type="password"
-                autoComplete="new-password"
-              />
-              <p role="status">{setupRecap(typed.trim())}</p>
-            </>
-          )}
-          {error && !locked && <FailureAlert problem={{ message: error, requestId }} />}
-          <Button type="submit" busy={busy} disabled={locked}>
-            {setup ? 'Créer le compte administrateur' : 'Se connecter'}
-          </Button>
-        </form>
-        {microsoft && !setup && (
           <>
-            <p className="login-or">ou</p>
-            <a className="btn btn-secondary" href={MICROSOFT_LOGIN_URL}>
-              {MICROSOFT_LABEL}
-            </a>
+            <p>12 caractères minimum. Une phrase de passe convient.</p>
+            <Field
+              label="Confirmer le mot de passe"
+              name="confirm"
+              type="password"
+              autoComplete="new-password"
+            />
+            <p role="status">{setupRecap(typed.trim())}</p>
           </>
         )}
-        <p className="login-audit">{AUDIT_NOTICE}</p>
-      </main>
-    </>
+        {error && !locked && <FailureAlert problem={{ message: error, requestId }} />}
+        <Button type="submit" busy={busy} disabled={locked}>
+          {setup ? 'Créer le compte administrateur' : 'Se connecter'}
+        </Button>
+      </form>
+      {microsoft && !setup && (
+        <>
+          <p className="auth-or" aria-hidden="true">
+            ou
+          </p>
+          <a className="btn btn-secondary auth-microsoft" href={MICROSOFT_LOGIN_URL}>
+            {MICROSOFT_LABEL}
+          </a>
+        </>
+      )}
+      <p className="auth-audit">{AUDIT_NOTICE}</p>
+    </AuthBlock>
   );
 }
 
@@ -332,7 +340,7 @@ export function PasswordView({
   onCancel?: () => void;
 }) {
   return (
-    <main tabIndex={-1}>
+    <AuthBlock plain={!forced}>
       <h1>{forced ? 'Choisissez un nouveau mot de passe' : 'Mot de passe'}</h1>
       {forced ? (
         <p>Votre mot de passe est temporaire. Choisissez-en un nouveau pour continuer.</p>
@@ -379,7 +387,7 @@ export function PasswordView({
           <Button type="submit">{forced ? 'Enregistrer et continuer' : 'Enregistrer'}</Button>
         </WizardActions>
       </form>
-    </main>
+    </AuthBlock>
   );
 }
 

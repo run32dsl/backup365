@@ -29,9 +29,9 @@ describe('connexion avec un compte Microsoft', () => {
     const html = renderToString(<CredentialsView mode="login" microsoft />);
     expect(html).toContain('backup365');
     expect(html).toContain('Console de sauvegarde Microsoft 365');
-    expect(html).toContain('class="login-or">ou<');
-    expect(html.indexOf('Se connecter<')).toBeLessThan(html.indexOf('login-or'));
-    expect(html.indexOf('login-or')).toBeLessThan(html.indexOf(MICROSOFT_LABEL));
+    expect(html).toContain('class="auth-or" aria-hidden="true">ou<');
+    expect(html.indexOf('Se connecter<')).toBeLessThan(html.indexOf('auth-or'));
+    expect(html.indexOf('auth-or')).toBeLessThan(html.indexOf(MICROSOFT_LABEL));
   });
 
   it('reads the refusal code from the address, in French', () => {

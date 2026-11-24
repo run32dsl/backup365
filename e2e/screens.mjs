@@ -201,6 +201,39 @@ export const SCREENS = [
       await page.getByRole('alert').filter({ hasText: 'aucun groupe autorisé' }).waitFor();
     },
   },
+  {
+    // Réponses simulées : aucun administrateur n'existe encore (la démo en a un).
+    name: 'premier-administrateur',
+    hash: '',
+    role: null,
+    prepare: async (page) => {
+      await page.route('**/api/auth/me', (route) => route.fulfill({ status: 401, json: {} }));
+      await page.route('**/api/auth/setup-status', (route) =>
+        route.fulfill({ status: 200, json: { needsSetup: true } }),
+      );
+      await page.goto('/');
+      await page.getByRole('heading', { name: 'Créer le compte administrateur' }).waitFor();
+    },
+  },
+  {
+    // Session simulée avec un mot de passe temporaire : la console impose le changement.
+    name: 'mot-de-passe-impose',
+    hash: '',
+    role: null,
+    prepare: async (page) => {
+      await page.route('**/api/auth/me', (route) =>
+        route.fulfill({
+          status: 200,
+          json: {
+            csrfToken: 'demo',
+            user: { username: 'operateur-demo', role: 'operator', mustChangePassword: true },
+          },
+        }),
+      );
+      await page.goto('/');
+      await page.getByRole('heading', { name: 'Choisissez un nouveau mot de passe' }).waitFor();
+    },
+  },
   // Pied de page (version) : thème sombre, puis version d'une image construite, avant et après
   // connexion. Le clair avec « Version dev » figure sur `connexion` et `accueil-en-echec`.
   { name: 'connexion-sombre', hash: '', role: null, scheme: 'dark' },

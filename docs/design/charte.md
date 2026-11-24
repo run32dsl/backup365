@@ -85,6 +85,10 @@ composant s'y ajoute avec ses tests de comportement.
   qui ne touche pas à un élément sauvegardé (réinitialisation de mot de passe, création ou
   lancement d'un plan), il n'y a pas de bandeau : seule l'aide du champ motif (« Ce motif sera
   inscrit au journal d’audit… ») reste. `#/composants` montre ce placement.
+- **Écran d'accès** (`.auth`) : bloc centré (28 rem au plus) avec « backup365 », le titre, les
+  bandeaux (refus Microsoft en `Alert` d'erreur « Accès refusé ») et des boutons pleine largeur ;
+  connexion, premier administrateur et mot de passe imposé l'utilisent, avec la version de la
+  console sous le bloc. Le changement volontaire, dans la console, ne l'utilise pas.
 - **Bandeau d'alerte** : `role="alert"` pour une erreur, `role="status"` pour une information ;
   sans détail technique.
 - **Échec d'une restauration** (messagerie, OneDrive, SharePoint) : un seul `Alert` d'erreur
