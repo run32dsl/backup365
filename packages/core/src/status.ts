@@ -158,6 +158,32 @@ function firstRunPending(plan: PlanFacts, now: Date): boolean {
 
 const WORST_FIRST: readonly BackupState[] = ['missing', 'stale', 'ok'];
 
+/**
+ * Un plan sans exécution réussie enregistrée reprend la date du dernier instantané des services
+ * qu'il couvre : l'écran ne dit pas « — » à côté de sauvegardes réussies. La conformité ne change
+ * pas ; seule la date affichée est complétée.
+ */
+export function fillPlanLastSuccess(
+  report: PlanComplianceReport,
+  plans: readonly Pick<PlanFacts, 'id' | 'dataTypes'>[],
+  rows: readonly StatusRow[],
+): PlanComplianceReport {
+  return {
+    ...report,
+    nonCompliant: report.nonCompliant.map((entry) => {
+      if (entry.lastSuccessAt !== null) return entry;
+      const dataTypes = plans.find((p) => p.id === entry.id)?.dataTypes ?? [];
+      const dates = rows.flatMap((r) =>
+        r.lastSnapshotAt !== null && dataTypes.some((d) => d === r.workload)
+          ? [{ createdAt: r.lastSnapshotAt }]
+          : [],
+      );
+      const last = latest(dates);
+      return last === null ? entry : { ...entry, lastSuccessAt: last };
+    }),
+  };
+}
+
 /** Une ligne par service : dernier instantané, pire état, conservation et périmètre des plans. */
 export function buildServiceSummaries(
   rows: readonly StatusRow[],

@@ -1,6 +1,7 @@
 import {
   buildPlanComplianceReport,
   buildServiceSummaries,
+  fillPlanLastSuccess,
   type StatusRow,
   buildStatusReport,
   type BackupCatalog,
@@ -22,13 +23,19 @@ export interface StatusOptions {
 }
 
 /** Conformité de tous les plans ; `null` si leur base ne répond pas (le tableau reste servi). */
-function planCompliance(store: SqlitePlanStore, log: { warn(obj: object, msg: string): void }) {
+function planCompliance(
+  store: SqlitePlanStore,
+  rows: readonly StatusRow[],
+  log: { warn(obj: object, msg: string): void },
+) {
   try {
-    return buildPlanComplianceReport(
-      store.list(),
+    const plans = store.list();
+    const report = buildPlanComplianceReport(
+      plans,
       (id) => store.listRuns(id, COMPLIANCE_RUNS_LIMIT),
       new Date(),
     );
+    return fillPlanLastSuccess(report, plans, rows);
   } catch (err) {
     // Code technique seul : jamais de message ni de nom de plan.
     log.warn({ code: (err as NodeJS.ErrnoException).code }, 'conformité des plans indisponible');
@@ -75,7 +82,7 @@ export function registerStatusRoutes(
     const base = store
       ? {
           ...catalogReport,
-          plans: planCompliance(store, req.log),
+          plans: planCompliance(store, catalogReport.rows, req.log),
           services: serviceSummaries(store, catalogReport.rows, options.maxAgeHours, req.log),
         }
       : catalogReport;

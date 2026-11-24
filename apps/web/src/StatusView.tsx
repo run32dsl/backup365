@@ -29,7 +29,7 @@ const COLUMNS: Column<Row>[] = [
         r.displayName
       ),
   },
-  { header: 'Contenu', cell: contentLabel },
+  { header: 'Contenu', cell: contentLabel, className: 'nowrap' },
   { header: 'Dernière sauvegarde (UTC)', cell: (r) => dateTimeOrDash(r.lastSnapshotAt) },
   { header: 'Ancienneté', cell: (r) => ageLabel(r.ageHours) },
   { header: 'État', cell: (r) => <StateBadge state={r.state} /> },
@@ -101,12 +101,33 @@ function LastBackup({ at, ageHours }: { at: string | null; ageHours: number | nu
   );
 }
 
+/** Le service d'une ligne du catalogue : un site est toujours SharePoint. */
+function serviceOf(r: Row): ServiceEntry['service'] {
+  if (r.kind === 'site') return 'sharepoint';
+  return r.workload === 'onedrive' ? 'onedrive' : 'mail';
+}
+
+const UNIT_NAMES: Record<ServiceEntry['service'], string> = {
+  mail: 'boîte',
+  onedrive: 'compte',
+  sharepoint: 'site',
+};
+
+/** `1 compte sur 5 en retard` ; chaîne vide si aucune source du service n'est en retard. */
+export function lateCause(service: ServiceEntry['service'], rows: readonly Row[]): string {
+  const own = rows.filter((r) => serviceOf(r) === service);
+  const late = own.filter((r) => r.state !== 'ok').length;
+  if (late === 0) return '';
+  return `${plural(late, UNIT_NAMES[service])} sur ${own.length} en retard`;
+}
+
 /**
- * Pastille, puis l'action utile : créer un plan s'il n'y en a pas, lire le journal si l'état n'est
- * pas bon. Le nom accessible du lien nomme le service : le même libellé revient sur plusieurs
- * lignes. Un seul élément dans la cellule : en carte, le lien reste sous la pastille.
+ * Pastille, puis l'action utile : créer un plan s'il n'y en a pas ; pour un retard, sa cause sur
+ * une ligne secondaire ; sans aucune sauvegarde, le journal. Le nom accessible du lien nomme le
+ * service : le même libellé revient sur plusieurs lignes. Un seul élément dans la cellule : en
+ * carte, le lien reste sous la pastille.
  */
-function ServiceState({ service }: { service: ServiceEntry }) {
+function ServiceState({ service, rows }: { service: ServiceEntry; rows: readonly Row[] }) {
   const name = workloadLabel(service.service);
   if (!service.hasPlan)
     return (
@@ -124,10 +145,12 @@ function ServiceState({ service }: { service: ServiceEntry }) {
         <StatusPill status="pending" />
       </div>
     );
+  const cause = lateCause(service.service, rows);
   return (
     <div>
       <StateBadge state={service.state} />
-      {service.state !== 'ok' && (
+      {service.state === 'stale' && cause !== '' && <small className="state-note">{cause}</small>}
+      {service.state === 'missing' && (
         <a
           className="state-link"
           href={AUDIT_HASH}
@@ -147,7 +170,7 @@ const SERVICE_ICONS: Record<ServiceEntry['service'], string> = {
   sharepoint: '▤',
 };
 
-const SERVICE_COLUMNS: Column<ServiceEntry>[] = [
+const serviceColumns = (rows: readonly Row[]): Column<ServiceEntry>[] => [
   {
     header: 'Service',
     rowHeader: true,
@@ -164,7 +187,7 @@ const SERVICE_COLUMNS: Column<ServiceEntry>[] = [
     header: 'Dernière sauvegarde',
     cell: (s) => <LastBackup at={s.lastSnapshotAt} ageHours={s.ageHours} />,
   },
-  { header: 'État', cell: (s) => <ServiceState service={s} /> },
+  { header: 'État', cell: (s) => <ServiceState service={s} rows={rows} /> },
   {
     header: 'Conservation',
     cell: (s) => (s.retentionDays === null ? '' : plural(s.retentionDays, 'jour')),
@@ -173,7 +196,13 @@ const SERVICE_COLUMNS: Column<ServiceEntry>[] = [
 ];
 
 /** Une ligne par service ; un service sans plan est grisé (`--muted`, sans `opacity`). */
-function Services({ services }: { services: StatusReport['services'] }) {
+function Services({
+  services,
+  rows,
+}: {
+  services: StatusReport['services'];
+  rows: readonly Row[];
+}) {
   if (services === undefined) return null;
   if (services === null) return <Alert tone="error">Synthèse des services indisponible</Alert>;
   return (
@@ -182,7 +211,7 @@ function Services({ services }: { services: StatusReport['services'] }) {
       <DataTable
         caption="État par service"
         hideCaption
-        columns={SERVICE_COLUMNS}
+        columns={serviceColumns(rows)}
         rows={services}
         rowKey={(s) => s.service}
         rowClassName={(s) => (s.hasPlan ? undefined : 'row-muted')}
@@ -241,6 +270,11 @@ function PlansCompliance({ plans }: { plans: PlanComplianceReport | null | undef
   );
 }
 
+/** Services sans aucun plan ; vide tant que la synthèse des services est absente ou en erreur. */
+function unprotectedServices(report: StatusReport): ServiceEntry['service'][] {
+  return (report.services ?? []).filter((s) => !s.hasPlan).map((s) => s.service);
+}
+
 /** Bandeau de synthèse : « mes sauvegardes vont-elles bien ? » */
 function Summary({ report }: { report: StatusReport }) {
   const count = (state: BackupState) => report.rows.filter((r) => r.state === state).length;
@@ -251,15 +285,23 @@ function Summary({ report }: { report: StatusReport }) {
     [plans?.counts.late ?? 0, 'plan', 'en retard'],
     [plans?.counts.failed ?? 0, 'plan', 'en échec'],
   ];
+  const unprotected = unprotectedServices(report);
+  const noPlan =
+    unprotected.length === 0
+      ? []
+      : [
+          `${plural(unprotected.length, 'source')} sans plan (${unprotected.map(workloadLabel).join(', ')})`,
+        ];
   const shown = parts.filter(([n]) => n > 0);
+  const nothing = shown.length === 0 && noPlan.length === 0;
   // Pas de « tout est à jour » sans rien à constater, ni quand l'état des plans est inconnu.
-  if (shown.length === 0 && (report.rows.length === 0 || report.plans === null)) return null;
-  if (shown.length === 0) return <Alert tone="success">Toutes les sauvegardes sont à jour</Alert>;
+  if (nothing && (report.rows.length === 0 || report.plans === null)) return null;
+  if (nothing) return <Alert tone="success">Toutes les sauvegardes sont à jour</Alert>;
   const planIssues = (plans?.counts.late ?? 0) + (plans?.counts.failed ?? 0);
   const severe = count('missing') > 0 || (plans?.counts.failed ?? 0) > 0;
   return (
     <Alert tone={severe ? 'error' : 'warning'}>
-      {shown.map(([n, noun, what]) => `${plural(n, noun)} ${what}`).join(', ')}
+      {[...shown.map(([n, noun, what]) => `${plural(n, noun)} ${what}`), ...noPlan].join(', ')}
       {planIssues > 0 && (
         <>
           {' '}
@@ -273,7 +315,11 @@ function Summary({ report }: { report: StatusReport }) {
 /** Sauvegardes : décompte par état, puis le tableau trié ; sous 900 px, les lignes à jour sont repliées. */
 function Backups({ report }: { report: StatusReport }) {
   const [showOk, setShowOk] = useState(false);
-  const rows = sortRows(report.rows);
+  // Une source sans plan n'a pas de ligne « À jour » : rien ne garantit qu'elle le reste.
+  const unprotected = unprotectedServices(report);
+  const rows = sortRows(
+    report.rows.filter((r) => r.state !== 'ok' || !unprotected.includes(serviceOf(r))),
+  );
   const okCount = rows.filter((r) => r.state === 'ok').length;
   const counts: Record<ComplianceState, number> = { compliant: okCount, late: 0, failed: 0 };
   for (const r of rows) if (r.state !== 'ok') counts[STATE_COMPLIANCE[r.state]]++;
@@ -290,7 +336,12 @@ function Backups({ report }: { report: StatusReport }) {
           rows={rows}
           rowKey={(r) => `${r.kind}/${r.sourceId}/${r.workload}`}
           rowClassName={(r) => (r.state === 'ok' ? 'row-ok' : undefined)}
-          empty={{ message: 'Aucune boîte ni site sauvegardé.' }}
+          empty={{
+            message:
+              report.rows.length > 0
+                ? 'Aucune sauvegarde à afficher : les sources sans plan ne sont pas listées comme à jour.'
+                : 'Aucune boîte ni site sauvegardé.',
+          }}
         />
         {okCount > 0 && (
           <Button
@@ -323,7 +374,7 @@ export function StatusView({ state }: { state: StatusState }) {
   return (
     <>
       <Summary report={state} />
-      <Services services={state.services} />
+      <Services services={state.services} rows={state.rows} />
       <PlansCompliance plans={state.plans} />
       <Backups report={state} />
     </>
