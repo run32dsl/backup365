@@ -421,11 +421,10 @@ describe('StatusView mobile cards', () => {
   });
 
   it('groups the other values in one unlabelled secondary line', () => {
-    expect(html).toContain(
-      'Il y a 6 h · 12/11/2026 06:00 UTC · conservés 365 jours · toutes les boîtes',
-    );
-    expect(html).toContain('Dernière réussite : —');
-    expect(html).toContain('OneDrive · 09/11/2026 06:00 UTC · il y a 3 jours');
+    expect(html).toContain('Il y a 6 h · 12/11/2026 06:00 UTC</td>');
+    expect(html).not.toContain('Dernière réussite :');
+    expect(html).toContain('data-label="Détail" class="card-only"></td>');
+    expect(html).toContain('OneDrive · 09/11/2026 06:00 UTC');
     expect(cls('Conservation', 'services-title')).toContain('card-hidden');
   });
 
@@ -457,7 +456,6 @@ describe('StatusView mobile cards', () => {
         }}
       />,
     );
-    expect(bare).toContain('Jamais · tous les sites</td>');
     expect(bare).toContain('>Jamais</td>');
   });
 });

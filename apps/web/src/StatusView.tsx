@@ -50,7 +50,7 @@ const COLUMNS: Column<Row>[] = [
   {
     header: 'Détail',
     className: 'card-only',
-    cell: (r) => joinParts([contentLabel(r), utcOf(r.lastSnapshotAt), ageLabel(r.ageHours)]),
+    cell: (r) => joinParts([contentLabel(r), utcOf(r.lastSnapshotAt)]),
   },
 ];
 
@@ -172,16 +172,9 @@ const SERVICE_COLUMNS: Column<ServiceEntry>[] = [
     cell: (s) => {
       const exact = utcOf(s.lastSnapshotAt);
       const age = s.ageHours === null ? '' : ageLabel(s.ageHours);
-      const last =
-        exact === '' || age === ''
-          ? 'Jamais'
-          : `${age.charAt(0).toUpperCase()}${age.slice(1)} · ${exact}`;
-      const scope = scopeLabel(s);
-      return joinParts([
-        last,
-        s.retentionDays === null ? '' : `conservés ${plural(s.retentionDays, 'jour')}`,
-        `${scope.charAt(0).toLowerCase()}${scope.slice(1)}`,
-      ]);
+      return exact === '' || age === ''
+        ? 'Jamais'
+        : `${age.charAt(0).toUpperCase()}${age.slice(1)} · ${exact}`;
     },
   },
 ];
@@ -222,7 +215,8 @@ const PLAN_COLUMNS: Column<PlanEntry>[] = [
   {
     header: 'Détail',
     className: 'card-only',
-    cell: (p) => `Dernière réussite : ${utcOf(p.lastSuccessAt) || '—'}`,
+    cell: (p) =>
+      utcOf(p.lastSuccessAt) === '' ? '' : `Dernière réussite : ${utcOf(p.lastSuccessAt)}`,
   },
 ];
 
