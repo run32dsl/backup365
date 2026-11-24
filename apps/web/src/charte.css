@@ -353,8 +353,12 @@ th {
   width: 100%;
   min-height: 2.75rem;
 }
-.overview-card .overview-connection {
+.overview-card .overview-connection,
+.overview-card .overview-ago {
   color: var(--muted);
+}
+.overview-card .overview-ago {
+  white-space: nowrap;
 }
 @media (min-width: 900px) {
   .overview {

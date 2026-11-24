@@ -145,6 +145,7 @@ describe('plans card of the dashboard', () => {
     state: 'failed',
     plans,
     lastBackupAt: null,
+    lastBackupPlan: null,
   });
   const render = (plans: Overview['plans'], admin: boolean) =>
     renderToStaticMarkup(<OverviewView state={overview(plans)} admin={admin} onRetry={noop} />);

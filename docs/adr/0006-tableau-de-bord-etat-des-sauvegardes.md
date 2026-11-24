@@ -36,8 +36,8 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
 
 - L'accueil ne montre plus le tableau ci-dessus (accessible par `GET /api/status`, sans page pour
   l'instant) mais trois cartes alimentées par **une seule requête**, `GET /api/overview` :
-  `{ state, plans: { total, operational }, lastBackupAt }`. Compteurs et dates seulement, sans nom
-  de plan ; ouvert à l'opérateur (lecture seule), hors journal d'audit.
+  `{ state, plans: { total, operational }, lastBackupAt, lastBackupPlan }`. Compteurs, dates et nom
+  du plan de la dernière réussite, sans détail d'erreur ; ouvert à l'opérateur (lecture seule), hors journal d'audit.
 - Un plan est « opérationnel » (affiché « à jour ») si sa dernière exécution a réussi. Le modèle n'a pas de plan
   suspendu : tous les plans sont actifs, donc le critère « actif » est sans effet.
 - `state` : `unconfigured` seulement quand il n'y a aucun plan (maquette de l'issue). Dès qu'un
@@ -46,7 +46,9 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   n'a de résultat (jamais lancé, ou première exécution en cours), `state` vaut `pending` : l'accueil
   n'affiche alors aucune pastille, seulement la phrase « Aucune sauvegarde n'est encore terminée. »,
   sans bouton. La maquette ne nomme pas ce cas : libellé provisoire, question posée au PO.
-- `lastBackupAt` : fin de la dernière exécution réussie, tous plans confondus.
+- `lastBackupAt` : fin de la dernière exécution réussie, tous plans confondus. Issue #419 :
+  `lastBackupPlan` donne le nom du plan de cette exécution (donnée de configuration, ni détail
+  d'erreur ni donnée sauvegardée).
 - Issue #307 : `plans` porte aussi `running` et `queued`, le nombre de plans en cours et de plans
   en file, lus aux mêmes sources que `GET /api/plans`, avec la priorité de la pastille de la liste
   (un plan en cours n'est pas compté en file). La

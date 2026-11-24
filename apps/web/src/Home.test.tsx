@@ -26,21 +26,25 @@ const operational: Overview = {
   state: 'operational',
   plans: { total: 4, operational: 4, running: 0, queued: 0, failed: 0, late: 0 },
   lastBackupAt: '2026-11-18T14:02:00Z',
+  lastBackupPlan: 'Boîtes mail, quotidien',
 };
 const unconfigured: Overview = {
   state: 'unconfigured',
   plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
   lastBackupAt: null,
+  lastBackupPlan: null,
 };
 const pending: Overview = {
   state: 'pending',
   plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
   lastBackupAt: null,
+  lastBackupPlan: null,
 };
 const failed: Overview = {
   state: 'failed',
   plans: { total: 4, operational: 2, running: 0, queued: 0, failed: 1, late: 1 },
   lastBackupAt: '2026-11-16T02:00:00Z',
+  lastBackupPlan: 'Boîtes mail, quotidien',
 };
 
 describe('Home', () => {
@@ -63,7 +67,9 @@ describe('OverviewView', () => {
     expect(html.match(/<button/g)).toHaveLength(1);
     expect(html).toMatch(/<button[^>]*btn-secondary[^>]*>Voir les plans<\/button>/);
     expect(html).toContain('il y a 3 h');
-    expect(html).toContain('<time dateTime="2026-11-18T14:02:00Z">18/11/2026 14:02</time>');
+    expect(html).toContain('<time dateTime="2026-11-18T14:02:00Z">18/11/2026 14:02 UTC</time>');
+    expect(html).toContain('Plan : Boîtes mail, quotidien');
+    expect(html).not.toContain('Dernière sauvegarde réussie ;');
     expect(html).not.toContain('Erreur inattendue');
   });
 
@@ -144,7 +150,11 @@ describe('OverviewView', () => {
     expect(html).toContain('Voir l’erreur');
     expect(html).toContain('2 plans à jour sur 4');
     expect(html).toContain('il y a 2 j');
-    expect(html).toContain('(dernière réussie)');
+    expect(html).not.toContain('(dernière réussie)');
+    expect(html).toContain('Dernière sauvegarde réussie ; un plan est en échec.');
+    expect(render({ ...failed, lastBackupPlan: null })).not.toContain('Plan : ');
+    expect(html).toContain('Plan : Boîtes mail, quotidien');
+    expect(html).toContain('02:00 UTC</time>');
     expect(html).not.toContain('Erreur inattendue');
   });
 

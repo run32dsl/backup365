@@ -259,6 +259,7 @@ export const SCREENS = [
         state: 'operational',
         plans: { total: 2, operational: 2, running: 0, queued: 0, failed: 0, late: 0 },
         lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+        lastBackupPlan: 'Boîtes mail, quotidien',
       });
       await page.getByText('Microsoft 365 connecté').waitFor();
     },
@@ -273,6 +274,7 @@ export const SCREENS = [
         state: 'operational',
         plans: { total: 3, operational: 3, running: 1, queued: 1, failed: 0, late: 0 },
         lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+        lastBackupPlan: 'Boîtes mail, quotidien',
       });
       await page.getByText('En file d’attente').waitFor();
     },
@@ -286,6 +288,7 @@ export const SCREENS = [
         state: 'unconfigured',
         plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
         lastBackupAt: null,
+        lastBackupPlan: null,
       }),
   },
   {
@@ -297,6 +300,7 @@ export const SCREENS = [
         state: 'pending',
         plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
         lastBackupAt: null,
+        lastBackupPlan: null,
       }),
   },
   {
@@ -308,6 +312,7 @@ export const SCREENS = [
         state: 'unconfigured',
         plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
         lastBackupAt: null,
+        lastBackupPlan: null,
       }),
   },
   {
