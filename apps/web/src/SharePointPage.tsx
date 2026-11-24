@@ -48,7 +48,6 @@ import {
   placementRows,
   SITE_WARNING_TITLE,
   siteWarningOf,
-  pathLabel,
   type Site,
   type SiteEntry,
   type SiteJob,
