@@ -647,10 +647,22 @@ select[aria-disabled='true'] {
     padding-inline-start: var(--space-3);
   }
 
-  /* Boîte : une ligne en tableau (classe `address`) ; en carte, l'adresse passe à la ligne (après le « @ », sinon n'importe où). */
+  /*
+   * Boîte : pas de largeur imposée, la colonne prend la largeur de son adresse (une ligne). Si la
+   * place manque, elle se réduit au plus long mot entier et l'adresse passe à la ligne après le
+   * « @ » seulement (point de coupure de `.addr-domain`), jamais au milieu d'un mot. La largeur se
+   * prend sur « Objet », la colonne élastique.
+   * Le nowrap des adresses en tableau (classe `address`) vient de develop ; en carte, l'adresse
+   * passe à la ligne (après le « @ », sinon n'importe où).
+   */
   .data-table .col-mailbox {
-    width: 11rem;
-    overflow-wrap: anywhere;
+    overflow-wrap: normal;
+  }
+  /* À 1280 px et plus, il y a la place : une seule ligne. */
+  @media (min-width: 80rem) {
+    .data-table .col-mailbox {
+      white-space: nowrap;
+    }
   }
 
   /*

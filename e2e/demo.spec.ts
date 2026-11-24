@@ -793,6 +793,27 @@ test.describe('recherche à 1280 px', () => {
     expect(button).not.toBeNull();
     expect(action).not.toBeNull();
     expect(action!.x + action!.width).toBeLessThanOrEqual(button!.x + button!.width + 1);
+    // Anti-régression de #261 : chaque cellule Boîte tient sur au plus deux lignes (jamais
+    // d'adresse coupée au milieu d'un mot sur cinq lignes) et le conteneur ne déborde pas.
+    const cells = await page.evaluate(() => {
+      const col = [...document.querySelectorAll('th')].findIndex((h) => h.textContent === 'Boîte');
+      return [...document.querySelectorAll('tbody tr')].map((tr) => {
+        const td = tr.children[col] as HTMLElement;
+        return {
+          height: td.clientHeight,
+          line: parseFloat(getComputedStyle(td).lineHeight),
+          pad: parseFloat(getComputedStyle(td).paddingTop) * 2,
+        };
+      });
+    });
+    expect(cells.length).toBeGreaterThan(0);
+    for (const c of cells) expect(c.height - c.pad).toBeLessThanOrEqual(c.line * 2 + 1);
+    expect(
+      await page.evaluate(() => {
+        const t = document.querySelector('table')!.parentElement!;
+        return t.scrollWidth - t.clientWidth;
+      }),
+    ).toBeLessThanOrEqual(0);
     // L'adresse de la colonne Boîte tient sur une ligne : les lignes gardent leur hauteur normale.
     const rows = await page.getByRole('row').all();
     for (const row of rows.slice(1)) {
