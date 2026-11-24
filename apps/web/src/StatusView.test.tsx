@@ -380,6 +380,88 @@ describe('StatusView', () => {
   });
 });
 
+describe('StatusView mobile cards', () => {
+  const html = renderToString(
+    <StatusView
+      state={{
+        ...report,
+        services: [
+          {
+            service: 'mail',
+            hasPlan: true,
+            lastSnapshotAt: '2026-11-12T06:00:00Z',
+            ageHours: 6,
+            state: 'ok',
+            retentionDays: 365,
+            scope: { kind: 'all' },
+          },
+        ],
+        plans: {
+          counts: { compliant: 0, late: 1, failed: 0 },
+          nonCompliant: [
+            { id: 'p', name: 'Plan A', rpoHours: 4, state: 'late', lastSuccessAt: null },
+          ],
+        },
+      }}
+    />,
+  );
+  const cls = (label: string, section: string): string[] => {
+    expect(html.indexOf(section)).toBeGreaterThanOrEqual(0);
+    const part = html.slice(html.indexOf(section));
+    const m = new RegExp(`<td[^>]*data-label="${label}"[^>]*class="([^"]*)"`).exec(part);
+    return (m?.[1] ?? '').split(' ');
+  };
+
+  it('titles each card with its service, plan or source, and the state pill under it', () => {
+    expect(cls('Service', 'services-title')).toContain('card-title');
+    expect(cls('Plan', 'Plans de protection')).toContain('card-title');
+    expect(cls('Source', 'backups-title')).toContain('card-title');
+    expect(cls('État', 'services-title')).toContain('card-nolabel');
+    expect(cls('État', 'backups-title')).toContain('card-nolabel');
+  });
+
+  it('groups the other values in one unlabelled secondary line', () => {
+    expect(html).toContain(
+      'Il y a 6 h · 12/11/2026 06:00 UTC · conservés 365 jours · toutes les boîtes',
+    );
+    expect(html).toContain('Dernière réussite : —');
+    expect(html).toContain('OneDrive · 09/11/2026 06:00 UTC · il y a 3 jours');
+    expect(cls('Conservation', 'services-title')).toContain('card-hidden');
+  });
+
+  it('keeps the secondary line free of empty parts for a service without plan or date', () => {
+    const bare = renderToString(
+      <StatusView
+        state={{
+          ...report,
+          services: [
+            {
+              service: 'sharepoint',
+              hasPlan: true,
+              lastSnapshotAt: 'illisible',
+              ageHours: null,
+              state: 'stale',
+              retentionDays: null,
+              scope: { kind: 'all' },
+            },
+            {
+              service: 'onedrive',
+              hasPlan: false,
+              lastSnapshotAt: null,
+              ageHours: null,
+              state: 'missing',
+              retentionDays: null,
+              scope: null,
+            },
+          ],
+        }}
+      />,
+    );
+    expect(bare).toContain('Jamais · tous les sites</td>');
+    expect(bare).toContain('>Jamais</td>');
+  });
+});
+
 describe('fetchStatus', () => {
   it('parses the response and rejects on non-2xx', async () => {
     const ok = (() => Promise.resolve(Response.json(report))) as typeof fetch;

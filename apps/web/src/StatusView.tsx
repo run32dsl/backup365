@@ -19,9 +19,19 @@ function contentLabel(r: Row): string {
   return r.kind === 'site' ? 'Site SharePoint' : workloadLabel(r.workload);
 }
 
+/** Ligne secondaire d'une carte : les valeurs non vides, séparées par « · ». */
+const joinParts = (parts: string[]): string => parts.filter((p) => p !== '').join(' · ');
+
+/** « 21/11/2026 11:46 UTC », ou chaîne vide sans date lisible. */
+const utcOf = (iso: string | null): string => {
+  const at = dateTimeOf(iso);
+  return at === '' ? '' : `${at} UTC`;
+};
+
 const COLUMNS: Column<Row>[] = [
   {
     header: 'Source',
+    className: 'card-title',
     cell: (r) =>
       r.state !== 'ok' && r.kind === 'mailbox' && r.workload === 'mail' ? (
         <a href={searchHref(r.sourceId)}>{r.displayName}</a>
@@ -29,10 +39,19 @@ const COLUMNS: Column<Row>[] = [
         r.displayName
       ),
   },
-  { header: 'Contenu', cell: contentLabel },
-  { header: 'Dernière sauvegarde (UTC)', cell: (r) => dateTimeOrDash(r.lastSnapshotAt) },
-  { header: 'Ancienneté', cell: (r) => ageLabel(r.ageHours) },
-  { header: 'État', cell: (r) => <StateBadge state={r.state} /> },
+  { header: 'Contenu', className: 'card-hidden', cell: contentLabel },
+  {
+    header: 'Dernière sauvegarde (UTC)',
+    className: 'card-hidden',
+    cell: (r) => dateTimeOrDash(r.lastSnapshotAt),
+  },
+  { header: 'Ancienneté', className: 'card-hidden', cell: (r) => ageLabel(r.ageHours) },
+  { header: 'État', className: 'card-nolabel', cell: (r) => <StateBadge state={r.state} /> },
+  {
+    header: 'Détail',
+    className: 'card-only',
+    cell: (r) => joinParts([contentLabel(r), utcOf(r.lastSnapshotAt), ageLabel(r.ageHours)]),
+  },
 ];
 
 /** État du chargement du tableau de bord. */
@@ -134,17 +153,37 @@ function ServiceState({ service }: { service: ServiceEntry }) {
 }
 
 const SERVICE_COLUMNS: Column<ServiceEntry>[] = [
-  { header: 'Service', cell: (s) => workloadLabel(s.service) },
+  { header: 'Service', className: 'card-title', cell: (s) => workloadLabel(s.service) },
   {
     header: 'Dernière sauvegarde',
+    className: 'card-hidden',
     cell: (s) => <LastBackup at={s.lastSnapshotAt} ageHours={s.ageHours} />,
   },
-  { header: 'État', cell: (s) => <ServiceState service={s} /> },
+  { header: 'État', className: 'card-nolabel', cell: (s) => <ServiceState service={s} /> },
   {
     header: 'Conservation',
+    className: 'card-hidden',
     cell: (s) => (s.retentionDays === null ? '' : plural(s.retentionDays, 'jour')),
   },
-  { header: 'Périmètre', cell: scopeLabel },
+  { header: 'Périmètre', className: 'card-hidden', cell: scopeLabel },
+  {
+    header: 'Détail',
+    className: 'card-only',
+    cell: (s) => {
+      const exact = utcOf(s.lastSnapshotAt);
+      const age = s.ageHours === null ? '' : ageLabel(s.ageHours);
+      const last =
+        exact === '' || age === ''
+          ? 'Jamais'
+          : `${age.charAt(0).toUpperCase()}${age.slice(1)} · ${exact}`;
+      const scope = scopeLabel(s);
+      return joinParts([
+        last,
+        s.retentionDays === null ? '' : `conservés ${plural(s.retentionDays, 'jour')}`,
+        `${scope.charAt(0).toLowerCase()}${scope.slice(1)}`,
+      ]);
+    },
+  },
 ];
 
 /** Page « Sources » : une ligne par service ; un service sans plan est grisé. */
@@ -169,9 +208,22 @@ function Services({ services }: { services: StatusReport['services'] }) {
 type PlanEntry = PlanComplianceReport['nonCompliant'][number];
 
 const PLAN_COLUMNS: Column<PlanEntry>[] = [
-  { header: 'Plan', cell: (p) => <a href={PLANS_HASH}>{p.name}</a> },
-  { header: 'Dernière réussite (UTC)', cell: (p) => dateTimeOrDash(p.lastSuccessAt) },
-  { header: 'État', cell: (p) => <StatusPill status={p.state === 'failed' ? 'failed' : 'late'} /> },
+  { header: 'Plan', className: 'card-title', cell: (p) => <a href={PLANS_HASH}>{p.name}</a> },
+  {
+    header: 'Dernière réussite (UTC)',
+    className: 'card-hidden',
+    cell: (p) => dateTimeOrDash(p.lastSuccessAt),
+  },
+  {
+    header: 'État',
+    className: 'card-nolabel',
+    cell: (p) => <StatusPill status={p.state === 'failed' ? 'failed' : 'late'} />,
+  },
+  {
+    header: 'Détail',
+    className: 'card-only',
+    cell: (p) => `Dernière réussite : ${utcOf(p.lastSuccessAt) || '—'}`,
+  },
 ];
 
 const COMPLIANCE_ORDER: ComplianceState[] = ['compliant', 'late', 'failed'];
