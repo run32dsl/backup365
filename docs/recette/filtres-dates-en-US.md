@@ -24,16 +24,16 @@ La commande s'est terminée en succès, build des trois paquets compris.
 
 ## Constat par capture
 
-Chaque image a été regardée avec l'outil de lecture d'images. Pour toutes : libellés « Du » et
-« Au », aide « Date au format jj/mm/aaaa, en UTC comme le tableau », dates du tableau en
+Chaque image a été regardée avec l'outil de lecture d'images. Pour toutes : libellés « Du (UTC) » et
+« Au (UTC) », aide « jj/mm/aaaa », dates du tableau en
 jj/mm/aaaa hh:mm (24 h). Aucun « mm/dd/yyyy », « yyyy », « --:-- » ni AM/PM.
 
-| Capture                       | 1280 px | 390 px | Constat                                                                         |
-| ----------------------------- | ------- | ------ | ------------------------------------------------------------------------------- |
-| `recherche`                   | vue     | vue    | conforme                                                                        |
-| `recherche-date-invalide`     | vue     | vue    | conforme ; erreur « Date attendue au format jj/mm/aaaa », champ « Du » en rouge |
-| `journal-audit`               | vue     | vue    | conforme                                                                        |
-| `journal-audit-date-invalide` | vue     | vue    | conforme ; même message d'erreur                                                |
+| Capture                       | 1280 px | 390 px | Constat                                                                               |
+| ----------------------------- | ------- | ------ | ------------------------------------------------------------------------------------- |
+| `recherche`                   | vue     | vue    | conforme                                                                              |
+| `recherche-date-invalide`     | vue     | vue    | conforme ; erreur « Date attendue au format jj/mm/aaaa », champ « Du (UTC) » en rouge |
+| `journal-audit`               | vue     | vue    | conforme                                                                              |
+| `journal-audit-date-invalide` | vue     | vue    | conforme ; même message d'erreur                                                      |
 
 ## Conclusion
 

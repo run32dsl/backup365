@@ -183,7 +183,7 @@ export function AuditPage() {
       </p>
       <form onSubmit={submit} className="filters">
         <FormField
-          label="Du"
+          label="Du (UTC)"
           type="text"
           name="from"
           maxLength={10}
@@ -191,7 +191,7 @@ export function AuditPage() {
           error={errors.fromError}
         />
         <FormField
-          label="Au"
+          label="Au (UTC)"
           type="text"
           name="to"
           maxLength={10}

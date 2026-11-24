@@ -250,7 +250,7 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
           defaultValue={mailbox}
         />
         <FormField
-          label="Du"
+          label="Du (UTC)"
           type="text"
           name="after"
           maxLength={10}
@@ -258,7 +258,7 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
           error={errors.fromError}
         />
         <FormField
-          label="Au"
+          label="Au (UTC)"
           type="text"
           name="before"
           maxLength={10}

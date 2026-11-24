@@ -49,8 +49,8 @@ export const FILTER_NOT_APPLIED =
 /** Message sous « Au » quand « Du » est postérieur. */
 export const RANGE_ERROR = 'La date « Au » doit être égale ou postérieure à « Du »';
 
-/** Aide des champs « Du » et « Au ». */
-export const DATE_HELP = 'Date au format jj/mm/aaaa, en UTC comme le tableau';
+/** Exemple de format sous « Du (UTC) » et « Au (UTC) » ; le fuseau est dans le libellé. */
+export const DATE_HELP = 'jj/mm/aaaa';
 
 /** Début du jour UTC (ms) d'une date « jj/mm/aaaa » existante, ou le message du refus. */
 function parseDay(text: string): { ms: number } | { error: string } {

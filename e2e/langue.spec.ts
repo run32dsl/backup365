@@ -84,7 +84,7 @@ test.describe('filtres de date identiques en français et en anglais', () => {
         language: await page.evaluate(() => navigator.language),
         text: await form.innerText(),
         types: await form
-          .getByLabel(/^(Du|Au)$/u)
+          .getByLabel(/^(Du|Au) \(UTC\)$/u)
           .evaluateAll((els) => els.map((el) => el.getAttribute('type'))),
         native: await form.locator(NATIVE_DATE_INPUTS).count(),
         image: await page.screenshot({ fullPage: true, clip, animations: 'disabled' }),
@@ -186,8 +186,8 @@ test.describe('filtres de date identiques en français et en anglais', () => {
         for (const shot of [fr, en]) {
           expect(shot.native).toBe(0);
           expect(shot.types).toEqual(['text', 'text']);
-          expect(shot.text).toContain('Du');
-          expect(shot.text).toContain('Au');
+          expect(shot.text).toContain('Du (UTC)');
+          expect(shot.text).toContain('Au (UTC)');
           expect(shot.text).not.toMatch(NATIVE_HINTS);
         }
         expect(en.text).toBe(fr.text);
