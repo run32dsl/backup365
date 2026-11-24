@@ -120,9 +120,11 @@ développement :
   sur `develop` pour la semaine écoulée (lues dans l'interface Actions), et la plus longue durée de
   `captures` relevée dans les résumés de run et les fichiers `verifs` de la semaine ;
 - seuils d'alerte, tous deux sous le timeout de 15 min : 10 min pour le job `ci`, 5 min pour
-  `captures`. Au-delà, le Product Owner ouvre une issue pendant le bilan (mise en place suivie
-  dans #250) : rien dans le dépôt ne l'ouvre à sa place. Cas limite accepté : un dépassement du
-  job `ci` en milieu de semaine n'est vu qu'au bilan suivant.
+  `captures`. Au-delà, le Product Owner ouvre une issue pendant le bilan (modèle du bilan :
+  `docs/bilan-hebdomadaire.md`) : rien dans le dépôt ne l'ouvre à sa place. Cas limite accepté : un dépassement du
+  job `ci` en milieu de semaine n'est vu qu'au bilan suivant. Un dépassement répété deux semaines
+  de suite fait proposer au PM, dans une issue « [PM] », l'ouverture automatique d'une issue par un
+  workflow (permission `issues: write`).
 
 ## Version affichée
 
