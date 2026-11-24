@@ -77,7 +77,7 @@ describe('SearchView', () => {
     expect(unfiltered).toContain('mbx 1</');
     // Carte mobile : objet en titre, expéditeur sans libellé, « date · dossier · boîte » en secondaire.
     expect(unfiltered).toContain('class="subject card-title mail-subject"');
-    expect(unfiltered).toContain('class="keep-words address card-nolabel"');
+    expect(unfiltered).toContain('class="keep-words address nowrap card-nolabel"');
     expect(unfiltered).toContain('class="mail-meta mail-date"');
     expect(unfiltered).toContain('class="nowrap mail-meta mail-folder"');
     expect(unfiltered).toContain('keep-words address col-mailbox mail-meta');

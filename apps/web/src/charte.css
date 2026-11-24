@@ -722,6 +722,20 @@ select[aria-disabled='true'] {
   .data-table td.address {
     white-space: normal;
   }
+  /* Colonne `nowrap` : une adresse de 40 caractères au plus tient sur une ligne ; une plus longue (`addr-long`) garde la coupe après le « @ ». */
+  .data-table td.address.nowrap:not(:has(.addr-long)) {
+    white-space: nowrap;
+  }
+  .data-table td.address.nowrap:not(:has(.addr-long)) .addr-domain::before {
+    content: none;
+  }
+  /* Comptes : l'identifiant reste entier, « (Microsoft) » passe dessous si la place manque. */
+  .data-table td.acct-id span:has(> .addr-local) {
+    white-space: nowrap;
+  }
+  .data-table td.acct-id .addr-domain::before {
+    content: none;
+  }
   .data-table .address .addr-local,
   .data-table .address .addr-domain {
     white-space: nowrap;

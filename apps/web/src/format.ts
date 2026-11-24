@@ -71,12 +71,13 @@ const WORKLOADS: Record<string, string> = {
 /** Nom d'une charge sauvegardée ; une charge inconnue est rendue telle quelle. */
 export const workloadLabel = (workload: string): string => WORKLOADS[workload] ?? workload;
 
-/** Ancienneté en clair : `il y a 3 h`, `il y a 3 jours` ; `jamais` sans sauvegarde. */
+/** Ancienneté en clair : `il y a 3 h`, `il y a 3 jours` (espaces insécables) ; `jamais` sans sauvegarde. */
 export function ageLabel(hours: number | null): string {
   if (hours === null) return 'jamais';
-  if (hours < 1) return 'il y a moins d’1 h';
-  if (hours < 24) return `il y a ${Math.floor(hours)} h`;
-  return `il y a ${plural(Math.floor(hours / 24), 'jour')}`;
+  const nbsp = (s: string): string => s.replaceAll(' ', ' ');
+  if (hours < 1) return nbsp('il y a moins d’1 h');
+  if (hours < 24) return nbsp(`il y a ${Math.floor(hours)} h`);
+  return nbsp(`il y a ${plural(Math.floor(hours / 24), 'jour')}`);
 }
 
 /** `1 résultat`, `10 résultats` (0 et 1 au singulier). */

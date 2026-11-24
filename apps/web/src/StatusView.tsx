@@ -31,7 +31,7 @@ const COLUMNS: Column<Row>[] = [
   },
   { header: 'Contenu', cell: contentLabel, className: 'nowrap' },
   { header: 'Dernière sauvegarde (UTC)', cell: (r) => dateTimeOrDash(r.lastSnapshotAt) },
-  { header: 'Ancienneté', cell: (r) => ageLabel(r.ageHours) },
+  { header: 'Ancienneté', cell: (r) => ageLabel(r.ageHours), className: 'nowrap' },
   { header: 'État', cell: (r) => <StateBadge state={r.state} /> },
 ];
 
@@ -95,7 +95,7 @@ function LastBackup({ at, ageHours }: { at: string | null; ageHours: number | nu
   const age = ageLabel(ageHours);
   return (
     <time dateTime={at}>
-      {age.charAt(0).toUpperCase() + age.slice(1)}
+      {age}
       <small className="state-note">{`${exact} UTC`}</small>
     </time>
   );

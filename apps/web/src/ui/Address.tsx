@@ -7,7 +7,7 @@ export function Address({ value }: { value: string }) {
   if (at < 0) return <>{value}</>;
   // Un seul élément : la cellule est une grille en carte, le texte ne doit pas s'y scinder.
   return (
-    <span>
+    <span className={value.length > 40 ? 'addr-long' : undefined}>
       <span className="addr-local">{value.slice(0, at + 1)}</span>
       <span className="addr-domain">{value.slice(at + 1)}</span>
     </span>

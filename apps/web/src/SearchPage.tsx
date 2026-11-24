@@ -50,7 +50,7 @@ const COLUMNS: Column<Hit>[] = [
   },
   {
     header: 'Expéditeur',
-    className: 'keep-words address card-nolabel',
+    className: 'keep-words address nowrap card-nolabel',
     cell: (m) => <Address value={m.sender} />,
   },
   {
