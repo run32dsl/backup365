@@ -656,12 +656,15 @@ export const SCREENS = [
       await page.route('**/api/status', async (route) => {
         const res = await route.fetch();
         const body = await res.json();
-        // Aucune sauvegarde OneDrive : sinon les lignes du catalogue disent le contraire.
-        body.rows = body.rows.filter((r) => r.workload !== 'onedrive');
-        // Et aucun plan listé en retard pour OneDrive : il ne serait plus « en attente ».
+        // Le plan des fichiers n'a jamais tourné : aucune sauvegarde OneDrive ni SharePoint, sinon
+        // les lignes du catalogue disent le contraire (même plan, mêmes états).
+        const files = ['onedrive', 'sharepoint'];
+        body.rows = body.rows.filter((r) => !files.includes(r.workload));
         dropListedPlans(body, 'onedrive');
+        // Ce plan, sans exécution, est compté « En attente » à part : la somme égale les plans.
+        body.plans.pending = 1;
         body.services = body.services.map((s) =>
-          s.service === 'onedrive'
+          files.includes(s.service)
             ? {
                 ...s,
                 lastSnapshotAt: null,

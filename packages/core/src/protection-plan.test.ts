@@ -191,6 +191,23 @@ describe('buildPlanComplianceReport', () => {
     ]);
   });
 
+  it('sets apart « à jour » plans whose successes created no restore point', () => {
+    const empty: Record<string, PlanRun[]> = {
+      a: [
+        {
+          startedAt: '2026-11-16T11:00:00Z',
+          finishedAt: '2026-11-16T11:05:00Z',
+          status: 'success',
+          noSnapshotReason: 'no_content',
+        },
+      ],
+      b: runs['a']!,
+    };
+    const report = buildPlanComplianceReport(plans.slice(0, 2), (id) => empty[id] ?? [], now);
+    expect(report.counts.compliant).toBe(2);
+    expect(report.pending).toBe(1);
+  });
+
   it('carries the data types of each listed plan, and none when the plan gives none', () => {
     const typed = [{ ...plans[3]!, dataTypes: ['onedrive', 'sharepoint'] as const }, plans[2]!];
     const report = buildPlanComplianceReport(typed, (id) => runs[id] ?? [], now);
@@ -223,6 +240,7 @@ describe('buildPlanComplianceReport', () => {
   it('reports nothing without plans', () => {
     expect(buildPlanComplianceReport([], () => [], now)).toEqual({
       counts: { compliant: 0, late: 0, failed: 0 },
+      pending: 0,
       nonCompliant: [],
     });
   });

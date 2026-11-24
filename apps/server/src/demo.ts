@@ -95,6 +95,8 @@ export function assertNoRealStorage(env: Record<string, string | undefined>): vo
 }
 
 const HOUR = 3_600_000;
+/** Âge de la dernière sauvegarde OneDrive fictive : la réussite du plan des fichiers a la même heure. */
+const ONEDRIVE_SNAPSHOT_AGE_HOURS = 4;
 
 interface DemoMailbox {
   id: string;
@@ -326,7 +328,7 @@ export function createDemoHandle(now: number = Date.now()): AtlasHandle {
         const i = DEMO_MAILBOXES.findIndex((m) => m.id === ownerId);
         if (i < 0) return Promise.resolve([]);
         // La dernière boîte n'a pas été sauvegardée depuis trois jours.
-        const age = i === DEMO_MAILBOXES.length - 1 ? 75 : 4;
+        const age = i === DEMO_MAILBOXES.length - 1 ? 75 : ONEDRIVE_SNAPSHOT_AGE_HOURS;
         return Promise.resolve(
           [age, age + 30].map((hours, k) => ({
             snapshotId: `snap-od-${i + 1}-${k + 1}`,
@@ -343,7 +345,7 @@ export function createDemoHandle(now: number = Date.now()): AtlasHandle {
         const i = DEMO_MAILBOXES.findIndex((m) => m.id === ownerId);
         const file = DEMO_DRIVE.find((f) => `${f.parent}/${f.name}` === fileRef);
         if (i < 0 || !file) return Promise.resolve([]);
-        const age = i === DEMO_MAILBOXES.length - 1 ? 75 : 4;
+        const age = i === DEMO_MAILBOXES.length - 1 ? 75 : ONEDRIVE_SNAPSHOT_AGE_HOURS;
         // Une version par instantané, plus une version antérieure propre à Microsoft 365.
         return Promise.resolve(
           file.versionHours.map((hours, k) => ({
@@ -602,4 +604,21 @@ function seedDemoPlans(plans: SqlitePlanStore, now: number): void {
   if (ok !== undefined) plans.finishRun(ok, 'success', at);
   const ko = plans.startRun(failing.id, second!.id, at);
   if (ko !== undefined) plans.finishRun(ko, 'failed', at, 'backup_errors');
+  // Le plan des fichiers a produit les sauvegardes OneDrive et SharePoint du faux SDK : sa
+  // réussite est datée de la plus récente (OneDrive), pour que la page Sources et les plans
+  // en tirent le même constat.
+  const files = plans.create({
+    ...base,
+    dataTypes: ['onedrive', 'sharepoint'],
+    name: 'OneDrive et SharePoint Services',
+    scope: 'all',
+    selection: [],
+    rpoHours: 24,
+    rtoHours: 72,
+    retentionDays: 1095,
+    gdprJustification: 'Besoin métier : archives de projets',
+  });
+  const done = new Date(now - ONEDRIVE_SNAPSHOT_AGE_HOURS * HOUR).toISOString();
+  const filesRun = plans.startRun(files.id, first!.id, done);
+  if (filesRun !== undefined) plans.finishRun(filesRun, 'success', done);
 }

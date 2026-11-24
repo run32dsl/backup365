@@ -327,6 +327,11 @@ export interface PlanComplianceEntry extends Compliance {
 /** Conformité des plans pour le tableau de bord : décompte par état et plans non conformes. */
 export interface PlanComplianceReport {
   counts: Record<ComplianceState, number>;
+  /**
+   * Plans « à jour » (compris dans `counts.compliant`) dont aucune réussite n'a créé de point de
+   * restauration : l'écran les dit « En attente », comme la liste des plans.
+   */
+  pending?: number;
   /** Plans « en retard » ou « en échec », dans l'ordre reçu. */
   nonCompliant: PlanComplianceEntry[];
 }
@@ -343,10 +348,17 @@ export function buildPlanComplianceReport(
 ): PlanComplianceReport {
   const counts: Record<ComplianceState, number> = { compliant: 0, late: 0, failed: 0 };
   const nonCompliant: PlanComplianceEntry[] = [];
+  let pending = 0;
   for (const plan of plans) {
     const runs = runsOf(plan.id);
     const compliance = planCompliance(plan.rpoHours, runs, now);
     counts[compliance.state] += 1;
+    if (
+      compliance.state === 'compliant' &&
+      !runs.some((r) => r.status === 'success' && (r.noSnapshotReason ?? null) === null)
+    ) {
+      pending += 1;
+    }
     if (compliance.state !== 'compliant') {
       // Exécutions de la plus récente à la plus ancienne ; une exécution en cours n'est pas
       // encore un résultat.
@@ -368,5 +380,5 @@ export function buildPlanComplianceReport(
       });
     }
   }
-  return { counts, nonCompliant };
+  return { counts, pending, nonCompliant };
 }

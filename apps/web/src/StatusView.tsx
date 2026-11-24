@@ -287,7 +287,12 @@ function Services({ report }: { report: StatusReport }) {
 
 type PlanEntry = PlanComplianceReport['nonCompliant'][number];
 
-const PLAN_COLUMNS: Column<PlanEntry>[] = [
+/** Une sauvegarde datée existe pour un des services que couvre le plan. */
+const hasBackupsOf = (p: PlanEntry, rows: readonly Row[]): boolean =>
+  p.lastRun === null &&
+  rows.some((r) => r.lastSnapshotAt !== null && (p.dataTypes ?? []).includes(serviceOf(r)));
+
+const planColumns = (rows: readonly Row[]): Column<PlanEntry>[] => [
   { header: 'Plan', cell: (p) => <a href={PLANS_HASH}>{p.name}</a> },
   // Même texte que la liste des plans (hors « Rien copié » sans point de restauration, que ce
   // rapport ne porte pas) : la dernière exécution du plan, jamais une date de service.
@@ -295,7 +300,7 @@ const PLAN_COLUMNS: Column<PlanEntry>[] = [
   {
     header: 'État',
     cell: (p) => {
-      const note = lateNote(p.state, p.lastSuccessAt);
+      const note = lateNote(p.state, p.lastSuccessAt, hasBackupsOf(p, rows));
       return (
         <div>
           <StatusPill status={p.state === 'failed' ? 'failed' : 'late'} />
@@ -308,20 +313,41 @@ const PLAN_COLUMNS: Column<PlanEntry>[] = [
 
 const COMPLIANCE_ORDER: ComplianceState[] = ['compliant', 'late', 'failed'];
 
-function Counts({ counts }: { counts: Record<ComplianceState, number> }) {
+/** `pending` : plans « à jour » sans point de restauration, comptés à part pour que la somme tienne. */
+function Counts({
+  counts,
+  pending = 0,
+}: {
+  counts: Record<ComplianceState, number>;
+  pending?: number;
+}) {
   return (
     <ul className="plan-counts">
       {COMPLIANCE_ORDER.map((state) => (
         <li key={state}>
-          <StatusPill status={state} label={STATE_LABELS[state]} /> <strong>{counts[state]}</strong>
+          <StatusPill status={state} label={STATE_LABELS[state]} />{' '}
+          <strong>
+            {state === 'compliant' ? Math.max(0, counts[state] - pending) : counts[state]}
+          </strong>
         </li>
       ))}
+      {pending > 0 && (
+        <li>
+          <StatusPill status="pending" /> <strong>{pending}</strong>
+        </li>
+      )}
     </ul>
   );
 }
 
 /** Conformité des plans de protection : décompte par état, puis les plans non conformes. */
-function PlansCompliance({ plans }: { plans: PlanComplianceReport | null | undefined }) {
+function PlansCompliance({
+  plans,
+  rows,
+}: {
+  plans: PlanComplianceReport | null | undefined;
+  rows: readonly Row[];
+}) {
   if (plans === undefined) return null;
   if (plans === null) return <Alert tone="error">Conformité des plans indisponible</Alert>;
   const total = COMPLIANCE_ORDER.reduce((sum, state) => sum + plans.counts[state], 0);
@@ -332,11 +358,11 @@ function PlansCompliance({ plans }: { plans: PlanComplianceReport | null | undef
         <EmptyState>Aucun plan de protection.</EmptyState>
       ) : (
         <>
-          <Counts counts={plans.counts} />
+          <Counts counts={plans.counts} pending={plans.pending ?? 0} />
           {plans.nonCompliant.length > 0 && (
             <DataTable
               caption="Plans en retard ou en échec"
-              columns={PLAN_COLUMNS}
+              columns={planColumns(rows)}
               rows={plans.nonCompliant}
               rowKey={(p) => p.id}
               empty={{ message: 'Aucun plan en retard ou en échec.' }}
@@ -456,7 +482,7 @@ export function StatusView({ state }: { state: StatusState }) {
     <>
       <Summary report={state} />
       <Services report={state} />
-      <PlansCompliance plans={state.plans} />
+      <PlansCompliance plans={state.plans} rows={state.rows} />
       <Backups report={state} />
     </>
   );

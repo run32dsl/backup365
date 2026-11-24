@@ -26,15 +26,6 @@ export const DEMO_PLANS = [
     retentionDays: 365,
     gdprJustification: 'Obligation légale',
   },
-  {
-    name: 'OneDrive et SharePoint Services',
-    scope: 'all',
-    dataTypes: ['onedrive', 'sharepoint'],
-    rpoHours: 24,
-    rtoHours: 72,
-    retentionDays: 1095,
-    gdprJustification: 'Besoin métier : archives de projets',
-  },
 ];
 
 /** Port TCP libre sur la boucle locale. */
@@ -122,7 +113,7 @@ export async function startDemoServer({ settled = false, buildCommit } = {}) {
       const res = await fetch(`${baseURL}/api/search?limit=1`, { headers });
       return (await res.json()).total >= DEMO_MAIL_COUNT;
     }, 'indexation des mails de démonstration');
-    // Deux plans fictifs : l'écran des plans n'est pas vide, et le planificateur simulé les exécute.
+    // Plan fictif : l’écran des plans n'est pas vide, et le planificateur simulé les exécute.
     for (const plan of DEMO_PLANS) {
       const res = await fetch(`${baseURL}/api/plans`, {
         method: 'POST',

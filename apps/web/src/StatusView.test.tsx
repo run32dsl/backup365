@@ -421,6 +421,55 @@ describe('StatusView', () => {
       expect(html).not.toContain('sans plan');
     });
 
+    it('does not claim « Aucune sauvegarde réussie » for a plan whose scope has backups', () => {
+      const plan = {
+        id: 'p',
+        name: 'OneDrive et SharePoint Services',
+        rpoHours: 24 as const,
+        dataTypes: ['onedrive', 'sharepoint'] as ('onedrive' | 'sharepoint')[],
+        state: 'late' as const,
+        lastSuccessAt: null,
+        lastRun: null,
+      };
+      const html = renderToString(
+        <StatusView
+          state={{
+            ...report,
+            rows: [
+              {
+                kind: 'mailbox',
+                sourceId: 'u',
+                displayName: 'Compte',
+                workload: 'onedrive',
+                lastSnapshotAt: '2026-11-12T06:00:00Z',
+                ageHours: 6,
+                state: 'ok',
+              },
+            ],
+            plans: { counts: { compliant: 0, late: 1, failed: 0 }, nonCompliant: [plan] },
+          }}
+        />,
+      );
+      const plans = html.slice(html.indexOf('Plans de protection'));
+      expect(plans).not.toContain('Aucune sauvegarde réussie');
+      expect(plans).toContain('sauvegardes déjà présentes');
+    });
+
+    it('counts a pending plan so that the plan counters add up to the number of plans', () => {
+      const html = renderToString(
+        <StatusView
+          state={{
+            ...report,
+            rows: [],
+            plans: { counts: { compliant: 3, late: 0, failed: 1 }, pending: 1, nonCompliant: [] },
+          }}
+        />,
+      );
+      const counts = html.slice(html.indexOf('plan-counts'));
+      expect(counts).toContain('En attente');
+      expect(counts).toMatch(/À jour[\s\S]*?<strong>2<\/strong>/);
+    });
+
     /** Lignes que le catalogue rend pour des sites connus mais jamais sauvegardés. */
     const neverBackedUp = (n: number): StatusReport['rows'] =>
       Array.from({ length: n }, (_, i) => ({
