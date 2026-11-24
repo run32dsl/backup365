@@ -46,14 +46,6 @@ export function restoreFolderName(at: Date): string {
   return `Restauré par backup365 ${pad(at.getUTCDate())}/${pad(at.getUTCMonth() + 1)}/${at.getUTCFullYear()}`;
 }
 
-/** `jj/mm/aaaa` d'une date ISO, en UTC. */
-export function shortUtcDate(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? ''
-    : `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
-}
-
 /** Durée en phrase : `18 s`, `1 min 05 s`. Jamais moins d'une seconde. */
 export function formatDuration(ms: number): string {
   const seconds = Math.max(1, Math.round(ms / 1000));

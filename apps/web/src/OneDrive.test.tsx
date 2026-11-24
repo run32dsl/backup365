@@ -81,8 +81,8 @@ describe('OneDrive wording', () => {
     expect(confirmRowsOf({ ...base, mode: 'copy' })).toEqual([
       ['Compte', 'compte@exemple.test'],
       ['Élément', 'budget.xlsx'],
-      ['Sauvegarde du', '14/11/2026 09:00'],
-      ['Version du', '10/11/2026 18:30'],
+      ['Sauvegarde du (UTC)', '14/11/2026 09:00'],
+      ['Version du (UTC)', '10/11/2026 18:30'],
       ['Emplacement', 'Documents > Budget'],
       ['Restauré sous le nom', 'budget (restauré le 14-11-2026).xlsx'],
       ['Motif', 'Reprise après incident'],
@@ -91,11 +91,11 @@ describe('OneDrive wording', () => {
     expect(replace).toContainEqual(['Fichier remplacé', 'budget.xlsx']);
     expect(replace.map(([label]) => label)).not.toContain('Restauré sous le nom');
     expect(confirmRowsOf({ ...base, versionAt: null, mode: 'copy' }).map(([l]) => l)).not.toContain(
-      'Version du',
+      'Version du (UTC)',
     );
     expect(COPY_CONSEQUENCE).toBe('Aucun fichier existant ne sera modifié.');
     expect(replaceWarningOf('budget.xlsx', '2026-11-18T16:59:00Z')).toBe(
-      'budget.xlsx sera remplacé par la version du 18/11/2026 16:59. L’actuel reste dans l’historique OneDrive.',
+      'budget.xlsx sera remplacé par la version du 18/11/2026 16:59 UTC. L’actuel reste dans l’historique OneDrive.',
     );
     expect(confirmRowsOf({ ...base, copyName: '', mode: 'copy' })).toContainEqual([
       'Restauré sous le nom',
@@ -334,10 +334,10 @@ describe('OneDrive result list', () => {
       />,
     );
     expect(out).toContain('<dt>Compte</dt><dd>a@exemple.fr</dd>');
-    expect(out).toContain('<dt>Version du</dt><dd>10/11/2026 18:30</dd>');
+    expect(out).toContain('<dt>Version du (UTC)</dt><dd>10/11/2026 18:30</dd>');
     const label = status === 'succeeded' ? 'Élément restauré' : 'Élément';
-    const at = ['Compte', label, 'Sauvegarde du', 'Version du', 'Emplacement'].map((l) =>
-      out.indexOf(`<dt>${l}</dt>`),
+    const at = ['Compte', label, 'Sauvegarde du (UTC)', 'Version du (UTC)', 'Emplacement'].map(
+      (l) => out.indexOf(`<dt>${l}</dt>`),
     );
     expect(at.every((i, n) => i >= 0 && (n === 0 || i > at[n - 1]!))).toBe(true);
     if (status === 'succeeded') {
@@ -372,12 +372,12 @@ describe('OneDrive result list', () => {
       snapshotId: 's1',
       version: { versionId: 'v1', at: '2026-10-01T08:00:00.000Z' },
     });
-    expect(out).toContain('<dt>Version du</dt><dd>01/10/2026 08:00</dd>');
+    expect(out).toContain('<dt>Version du (UTC)</dt><dd>01/10/2026 08:00</dd>');
   });
 
   it('omits the version row when no version date is known', () => {
     const out = render({ entry: { ...entry, versionAt: null }, snapshotId: 's1' });
-    expect(out).not.toContain('<dt>Version du</dt>');
+    expect(out).not.toContain('<dt>Version du (UTC)</dt>');
     expect(out).toContain('<dt>Compte</dt>');
     expect(out).toContain('<dt>Emplacement</dt>');
   });

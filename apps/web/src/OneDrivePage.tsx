@@ -157,7 +157,7 @@ function VersionsDialog({
                   setPicked(i);
                 }}
               />{' '}
-              {dateTimeOf(v.at)} · {sizeOf(v.sizeBytes)}
+              {dateTimeOf(v.at)} UTC · {sizeOf(v.sizeBytes)}
               {v.current ? ' (la plus récente)' : ''}
             </label>
           ))}
@@ -420,7 +420,7 @@ function BrowseStep({
 
       <p aria-live="polite">
         {chosen
-          ? `Sélection : ${chosen.name}${pickedVersion ? `, version du ${dateTimeOf(pickedVersion.at)}` : ''}`
+          ? `Sélection : ${chosen.name}${pickedVersion ? `, version du ${dateTimeOf(pickedVersion.at)} UTC` : ''}`
           : null}
       </p>
       <WizardActions>
@@ -696,7 +696,9 @@ export function TrackStep({
           ? [RESTORE_LABELS.itemRestored, `${choice.entry.name} → ${target}`]
           : [RESTORE_LABELS.item, choice.entry.name],
         [RESTORE_LABELS.backupAt, dateTimeOf(backupAt)],
-        ...(versionAt ? [['Version du', dateTimeOf(versionAt)] as [string, string]] : []),
+        ...(versionAt
+          ? [[RESTORE_LABELS.versionAt, dateTimeOf(versionAt)] as [string, string]]
+          : []),
         ['Emplacement', where],
       ]}
     />

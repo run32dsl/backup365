@@ -22,10 +22,10 @@ import {
   fetchLastRestore,
   formatDuration,
   restoreFolderName,
-  shortUtcDate,
   startRestore,
   type RestoreJob,
 } from './restore.js';
+import { dateTimeOf } from './format.js';
 import { Alert, Button, Dialog, ResultList } from './ui/index.js';
 
 export type RestorableMail = Pick<IndexedMail, 'mailboxId' | 'messageId' | 'subject' | 'date'>;
@@ -53,10 +53,10 @@ export function dialogTitle(job: RestoreJob | null): string {
 
 /** Rappel du mail et de la boîte, commun aux états en cours, réussi et échoué. */
 export function recallRows(mail: RestorableMail): [string, string][] {
-  const date = shortUtcDate(mail.date);
+  const date = dateTimeOf(mail.date);
   const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
   return [
-    ['Mail', date ? `${subject} · ${date}` : subject],
+    ['Mail', date ? `${subject} · ${date} UTC` : subject],
     ['Boîte', mail.mailboxId],
   ];
 }

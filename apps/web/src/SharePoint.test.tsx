@@ -297,7 +297,7 @@ describe('SharePoint wording', () => {
     expect(confirmRowsOf(input)).toEqual([
       ['Site', 'Site Urbanisme (exemple)'],
       ['Élément', 'Bibliothèque : Documents partagés'],
-      ['Sauvegarde du', '12/11/2026 02:00'],
+      ['Sauvegarde du (UTC)', '12/11/2026 02:00'],
       ['Emplacement', 'Site Urbanisme (exemple) > Documents partagés (emplacement d’origine)'],
       ['Fichiers déjà présents', 'conservés, non remplacés'],
       ['Volume', '1 240 éléments, 3,2 Go'],
