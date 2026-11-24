@@ -375,17 +375,19 @@ export function PasswordView({
           autoComplete="new-password"
         />
         {error && <Alert tone="error">{error}</Alert>}
-        <WizardActions
-          back={
-            !forced && (
+        {forced ? (
+          <Button type="submit">Enregistrer et continuer</Button>
+        ) : (
+          <WizardActions
+            back={
               <Button variant="secondary" onClick={onCancel}>
                 Annuler
               </Button>
-            )
-          }
-        >
-          <Button type="submit">{forced ? 'Enregistrer et continuer' : 'Enregistrer'}</Button>
-        </WizardActions>
+            }
+          >
+            <Button type="submit">Enregistrer</Button>
+          </WizardActions>
+        )}
       </form>
     </AuthBlock>
   );
@@ -436,12 +438,14 @@ export function PasswordPage({
   };
   if (done) {
     return (
-      <main tabIndex={-1}>
-        <p role="status">Ouverture de la console…</p>
-      </main>
+      <div className="login-page-body">
+        <main tabIndex={-1}>
+          <p role="status">Ouverture de la console…</p>
+        </main>
+      </div>
     );
   }
-  return (
+  const view = (
     <PasswordView
       key={saved}
       forced={forced}
@@ -451,4 +455,6 @@ export function PasswordPage({
       onCancel={onCancel}
     />
   );
+  // Imposé : même mise en page que la connexion (bloc à la même hauteur, version dessous).
+  return forced ? <div className="login-page-body">{view}</div> : view;
 }

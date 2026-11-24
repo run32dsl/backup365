@@ -498,14 +498,20 @@ function AppGate({ health }: { health: HealthState }) {
       );
     case 'ready':
       return gate.session.user.mustChangePassword ? (
-        <PasswordPage
-          forced
-          onDone={() => {
-            passwordChanged();
-            window.location.hash = '#/';
-            refresh();
-          }}
-        />
+        <div className="login-page">
+          <PasswordPage
+            forced
+            onDone={() => {
+              passwordChanged();
+              window.location.hash = '#/';
+              refresh();
+            }}
+          />
+          <ConsoleFooter
+            version={typeof health === 'object' ? health?.version : undefined}
+            demo={false}
+          />
+        </div>
       ) : (
         <Console user={gate.session.user} onLogout={leave} health={health} flash={flash} />
       );
