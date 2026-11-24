@@ -19,6 +19,17 @@ export function dateTimeOf(iso: string | null): string {
     : `${dayOf(iso)} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 
+/** Seconde ligne d'une carte de fichier : « Version du 18/11/2026 09:52 UTC · 84 Ko » ; absente sans valeur. */
+export function cardSummary(versionAt: string | null, sizeBytes: number | null): string | null {
+  const parts = [
+    versionAt !== null && dateTimeOf(versionAt) !== ''
+      ? `Version du ${dateTimeOf(versionAt)} UTC`
+      : '',
+    sizeBytes === null ? '' : sizeOf(sizeBytes),
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 /** `dateTimeOf`, avec un tiret pour une date absente (cellule de tableau). */
 export const dateTimeOrDash = (iso: string | null | undefined): string =>
   dateTimeOf(iso ?? null) || '—';
@@ -71,3 +82,13 @@ export function ageLabel(hours: number | null): string {
 /** `1 résultat`, `10 résultats` (0 et 1 au singulier). */
 export const plural = (n: number, one: string, many = `${one}s`): string =>
   `${n} ${n < 2 ? one : many}`;
+
+/** `3 éléments`, `1 élément` : le nom est donné avec son accord, jamais un nombre nu. */
+export const elements = (n: number): string => plural(n, 'élément');
+
+/** `1 élément conservé`, `2 éléments conservés` : le participe s'accorde avec le nombre. */
+export const elementsWhich = (n: number, participle: string): string =>
+  `${elements(n)} ${participle}${n < 2 ? '' : 's'}`;
+
+/** `1 élément en erreur`, `2 éléments en erreur`. */
+export const elementsInError = (n: number): string => `${elements(n)} en erreur`;

@@ -37,29 +37,65 @@ Texte sur fond : au moins 4,5:1 ; contour des contrôles : au moins 3:1.
 ## Typographie et espacements
 
 - Police système (`system-ui`), corps 1 rem, titre de page (`h1`, un seul par écran) 1,5 rem.
+- Échelle de titres, définie une fois dans `charte.css` : `h1` 1,5 rem, `h2` 1,25 rem (parties
+  d'un écran, cartes d'accueil, résultats de parcours, titre des boîtes de dialogue), `h3`
+  1,125 rem. Un composant ne redéfinit jamais une taille de titre ; le `h1` reste le plus grand.
+  La page `#/composants` montre l'échelle.
 - Unités `rem`. Échelle d'espacement : 4, 8, 16 et 24 px (`--space-1` à `--space-4`).
 - Cibles tactiles d'au moins 44 px (2,75 rem). Lisible à 200 % de zoom.
 
 ## Composants de base
 
-Les composants communs sont dans `apps/web/src/ui/` (`Button`, `FormField`, `DataTable`,
+Les composants communs sont dans `apps/web/src/ui/` (`Button`, `FormField`, `ChoiceGroup`, `DataTable`,
 `Dialog`, `EmptyState`, `Alert`, `Steps`, `StatusPill`) : un écran les utilise au lieu de
 refaire ses boutons, tableaux et formulaires. La page `#/composants`, visible en mode démo
 seulement (lien « Composants » en pied de page), les montre dans tous leurs états. Un nouveau
 composant s'y ajoute avec ses tests de comportement.
 
 - **Bouton** : plein pour l'action principale, contour pour les actions secondaires et la
-  barre latérale ; grisé quand il est désactivé.
+  barre latérale ; grisé quand il est désactivé. Action irréversible ou retrait d'accès =
+  variante danger (`Button variant="danger"`), au déclenchement comme à la confirmation
+  (« Supprimer » / « Supprimer le plan », « Désactiver » / « Désactiver ») ; « Annuler » reste
+  secondaire, comme « Réactiver ». Exemple sur `#/composants`.
 - **Champ** : un `<label>` visible au-dessus, contour 3:1, aide reliée par `aria-describedby`.
+  L'exemple grisé d'un champ « Motif » décrit une raison plausible pour l'action concernée
+  (« Ticket INC-12345 : plan remplacé » pour supprimer un plan, « : demande d’accès » pour
+  un export) : jamais le même texte d'un écran à l'autre. Il tient en 40 caractères au plus,
+  sans donnée personnelle, pour s'afficher en entier à 390 px. Exemples sur `#/composants`.
 - **Tableau** : `<th scope="col">`, légende (masquée visuellement si le titre la remplace),
   texte qui passe à la ligne plutôt que de déborder.
 - **Badge d'état** (`.badge`) : « À jour » (`✔`), « En cours », « En retard » (`⚠`),
-  « En échec » (`✖`) ; mêmes libellés pour les plans et les sauvegardes.
+  « En échec » (`✖`) ; mêmes libellés pour les plans et les sauvegardes. L'accueil ajoute
+  « Opérationnelle » (`✔`, `--ok`), « Non configurée » (`⚠`, `--warn`, seulement sans plan) et
+  « En attente » (`◷`, neutre : `--border-soft` et `--text`, des plans sans aucun résultat,
+  sans bouton, avec la phrase « Aucune sauvegarde n’est encore terminée. »).
+- **Carte d'accueil** (`.overview-card`) : `<section aria-labelledby>` avec un `h2` ; trois cartes
+  en grille, deux colonnes dès 900 px, une seule dessous (bouton pleine largeur).
+- **Connexion Microsoft 365 sur l'accueil** (administrateur) : les trois cartes restent les seuls
+  blocs de la page. Connexion configurée, une ligne secondaire (`--muted`) dans la carte
+  « Sauvegarde » : « Microsoft 365 connecté · Messagerie, OneDrive, SharePoint ». Connexion à
+  configurer, un `Alert` d'avertissement (`role="status"`) sous le `h1`, titré « Connexion
+  Microsoft 365 à configurer », avec les trois étapes numérotées ; commandes et chemins en
+  `<code>`. Le libellé « Non configurée » reste réservé à la sauvegarde sans plan.
+- **Rappel d'audit** (`AuditReminder`, `Alert` d'information) : une règle unique.
+  Dans un parcours ou une boîte qui consulte, exporte ou restaure un élément sauvegardé, le
+  rappel est le premier `Alert` d'information, sous le titre de l'étape de saisie. Dans une
+  boîte de résultat (en cours, réussie, échouée), le bandeau de résultat vient en premier et le
+  rappel est retiré : le bouton « Voir dans le journal d’audit » en tient lieu. Pour une action
+  qui ne touche pas à un élément sauvegardé (réinitialisation de mot de passe, création ou
+  lancement d'un plan), il n'y a pas de bandeau : seule l'aide du champ motif (« Ce motif sera
+  inscrit au journal d’audit… ») reste. `#/composants` montre ce placement.
 - **Écran d'accès** (`.auth`) : bloc centré (28 rem au plus) avec « backup365 », le titre, les
-  bandeaux et des boutons pleine largeur ; connexion, premier administrateur et mot de passe
-  imposé l'utilisent. Le changement volontaire, dans la console, ne l'utilise pas.
+  bandeaux (refus Microsoft en `Alert` d'erreur « Accès refusé ») et des boutons pleine largeur ;
+  connexion, premier administrateur et mot de passe imposé l'utilisent, avec la version de la
+  console sous le bloc. Le changement volontaire, dans la console, ne l'utilise pas.
 - **Bandeau d'alerte** : `role="alert"` pour une erreur, `role="status"` pour une information ;
   sans détail technique.
+- **Échec d'une restauration** (messagerie, OneDrive, SharePoint) : un seul `Alert` d'erreur
+  (`RestoreFailureAlert`), construit comme celui d'un plan. Première ligne en gras « Échec de la
+  restauration de « élément » le jj/mm/aaaa hh:mm UTC », puis la cause, la conséquence et la
+  conduite à tenir (réessayer, puis prévenir l'exploitant du serveur avec l'heure). Si le
+  résultat est inconnu, la conduite à tenir demande de vérifier l'état avant de réessayer.
 - **État vide** (`.empty`) : phrase claire et, au plus, un bouton d'action.
 - **Navigation** : `<nav aria-label="Navigation principale">`, entrée active en
   `aria-current="page"`, lien d'évitement « Aller au contenu ». Sous 900 px, la barre latérale
@@ -69,10 +105,15 @@ composant s'y ajoute avec ses tests de comportement.
 
 ## Navigation principale
 
-Cinq entrées au plus : Tableau de bord, Plans de protection, Rechercher et restaurer, Journal
-d'audit, Administration (comptes). Seules les entrées livrées apparaissent, sans entrée
-grisée. Aujourd'hui : Tableau de bord, Rechercher et restaurer, Journal d'audit, et
-Administration pour les administrateurs.
+Cinq rubriques de premier niveau au plus : Tableau de bord, Restaurer, Plans de protection,
+Journal d'audit, Administration (comptes). « Restaurer » est un libellé de groupe en `--muted`,
+ni lien ni bouton, avec une liste imbriquée dans le même `<nav>` : Messagerie (`#/search`,
+active aussi sur la fiche d'un mail), OneDrive et SharePoint. Ce sont des `<a href>` natifs,
+en retrait de `--space-3`, l'entrée active portant `aria-current="page"`. Le menu repliable
+sous 900 px a le même regroupement. Les titres des trois écrans suivent le même modèle :
+« Restaurer depuis la messagerie », « Restaurer depuis OneDrive », « Restaurer depuis
+SharePoint ». Seules les entrées livrées apparaissent, sans entrée grisée. Administration
+n'est visible que des administrateurs.
 
 ## Vocabulaire de référence
 

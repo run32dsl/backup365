@@ -64,14 +64,19 @@ describe('historique et lancement manuel', () => {
     }
     expect((await run(app, plan.id, { reason: 'x'.repeat(201) })).statusCode).toBe(400);
     expect(plans.listRuns(plan.id, 10)).toEqual([]);
-    expect((await audit.list({ limit: 10, offset: 0 })).items).toHaveLength(0);
+    // Le refus est tracé (échec, code en motif) ; aucun lancement n'est inscrit.
+    const items = (await audit.list({ limit: 10, offset: 0 })).items;
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.every((e) => e.action === 'access.denied' && e.reason === 'reason_required')).toBe(
+      true,
+    );
   });
 
   it('runs the plan at once, audits the reason and lists the history', async () => {
     const { app, plan, audit } = setup();
     const res = await run(app, plan.id, { reason: 'Contrôle avant audit' });
     expect(res.statusCode).toBe(202);
-    expect(res.json()).toEqual({ started: 2, skipped: 0 });
+    expect(res.json()).toEqual({ started: 2, skipped: 0, queued: false });
 
     await vi.waitFor(async () => {
       const items = (await runs(app, plan.id)).json<{ items: { status: string }[] }>().items;
@@ -101,8 +106,8 @@ describe('historique et lancement manuel', () => {
     expect(res.statusCode).toBe(409);
     expect(res.json()).toMatchObject({ error: 'run_in_progress' });
     const entries = (await audit.list({ limit: 10, offset: 0 })).items;
-    expect(entries).toHaveLength(1);
-    expect(entries[0]).toMatchObject({ action: 'plan.run', target: plan.id, reason: 'Relance' });
+    expect(entries).toHaveLength(2);
+    expect(entries[1]).toMatchObject({ action: 'plan.run', target: plan.id, reason: 'Relance' });
   });
 
   it('lists runs from the most recent to the oldest', async () => {
@@ -157,8 +162,8 @@ describe('historique et lancement manuel', () => {
     expect(res.statusCode).toBe(503);
     // L'audit est consigné avant le lancement, donc avant l'échec.
     const entries = (await audit.list({ limit: 10, offset: 0 })).items;
-    expect(entries).toHaveLength(1);
-    expect(entries[0]).toMatchObject({ action: 'plan.run', target: plan.id, reason: 'Contrôle' });
+    expect(entries).toHaveLength(2);
+    expect(entries[1]).toMatchObject({ action: 'plan.run', target: plan.id, reason: 'Contrôle' });
   });
 
   it('answers 404 for an unknown plan and 503 without scheduler', async () => {

@@ -1,16 +1,24 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { RestoreAction, dialogTitle } from './RestoreAction.js';
+import { API_ERRORS } from './apiError.js';
+import {
+  RestoreAction,
+  RestoreOutcome,
+  Tracking,
+  dialogTitle,
+  formRows,
+  recallRows,
+} from './RestoreAction.js';
+import { ResultList } from './ui/index.js';
 import { SearchView } from './SearchPage.js';
 import {
   announcement,
   failureCause,
   fetchLastRestore,
   fetchRestoreConfigured,
-  formatClock,
   formatDuration,
   isOutcomeUncertain,
-  lastRestoreLabel,
+  lastRestoreSummary,
   RESTORE_MESSAGES,
   restoreFolderName,
   startRestore,
@@ -57,8 +65,6 @@ describe('restore helpers', () => {
     expect(formatDuration(18_000)).toBe('18 s');
     expect(formatDuration(200)).toBe('1 s');
     expect(formatDuration(65_000)).toBe('1 min 05 s');
-    expect(formatClock(12_400)).toBe('00:12');
-    expect(formatClock(-5)).toBe('00:00');
   });
 
   it('announces the running state once, then every 15 seconds', () => {
@@ -69,18 +75,48 @@ describe('restore helpers', () => {
   });
 
   it('describes the last restoration on the sheet', () => {
-    expect(lastRestoreLabel(null)).toBeNull();
-    expect(lastRestoreLabel(job())).toBe('Dernière restauration : réussie, 18 s');
-    expect(lastRestoreLabel(job({ status: 'failed', durationMs: 45_000 }))).toBe(
-      'Dernière restauration : échouée, 45 s',
+    expect(lastRestoreSummary(null)).toBeNull();
+    expect(lastRestoreSummary(job())).toEqual({
+      status: 'compliant',
+      label: 'Réussie',
+      duration: '18 s',
+    });
+    expect(lastRestoreSummary(job({ status: 'failed', durationMs: 45_000 }))).toMatchObject({
+      status: 'failed',
+      label: 'En échec',
+      duration: '45 s',
+    });
+    expect(lastRestoreSummary(job({ status: 'running', durationMs: null }))).toMatchObject({
+      status: 'running',
+      duration: null,
+    });
+  });
+
+  it('recalls the mail, the mailbox and the folder while running, without a clock', () => {
+    const html = renderToString(
+      <Tracking
+        job={job({ status: 'running', durationMs: null })}
+        mail={mail}
+        now={Date.parse('2026-11-14T10:00:00.000Z')}
+        onClose={vi.fn()}
+      />,
     );
-    expect(lastRestoreLabel(job({ status: 'running', durationMs: null }))).toContain('en cours');
+    expect(html).toContain('alert-info');
+    expect(html).toContain('Vous pouvez quitter cette page, la restauration continue.');
+    expect(html).toContain('role="progressbar"');
+    expect(html).toContain('href="#/audit"');
+    expect(html.indexOf('Voir dans le journal d’audit')).toBeLessThan(html.indexOf('Fermer'));
+    expect(html).toContain('Facture 1');
+    expect(html).toContain('mbx 1');
+    expect(html).toContain('Restauré par backup365 14/11/2026');
+    expect(html).not.toContain('00:00');
+    expect(html.match(/<button/g)).toHaveLength(1);
   });
 
   it('titles the panel after the state and explains the cause of a failure', () => {
     expect(dialogTitle(null)).toBe('Restaurer ce mail');
     expect(dialogTitle(job({ status: 'running' }))).toBe('Restauration en cours');
-    expect(dialogTitle(job())).toBe('Restauration réussie');
+    expect(dialogTitle(job())).toBe('Restauration terminée');
     expect(dialogTitle(job({ status: 'failed' }))).toBe('Restauration échouée');
     expect(failureCause('restore_unreachable')).toBe('boîte injoignable pour le moment.');
     expect(failureCause('restore_lost')).toContain('perdu');
@@ -112,6 +148,10 @@ describe('restore requests', () => {
       ok: false,
       message: 'Vous n’avez plus le droit de restaurer.',
     });
+    expect(await refuse(503, 'restore_unavailable')).toMatchObject({
+      ok: false,
+      message: API_ERRORS['restore_unavailable'],
+    });
     expect(await refuse(404, 'mail_not_found')).toEqual({
       ok: false,
       message: 'Ce mail n’est plus disponible dans la sauvegarde.',
@@ -124,6 +164,20 @@ describe('restore requests', () => {
     expect(down.ok).toBe(false);
   });
 
+  it('carries the request id of a refused restoration', async () => {
+    const res = () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ error: 'forbidden' }), {
+          status: 403,
+          headers: { 'x-request-id': 'req-7' },
+        }),
+      );
+    expect(await startRestore('a', 'b', 'motif', res)).toMatchObject({
+      ok: false,
+      requestId: 'req-7',
+    });
+  });
+
   it('reads the last restoration and whether restoration is configured', async () => {
     expect(
       await fetchLastRestore('a', 'b', () => json({ last: job() }) as Promise<Response>),
@@ -134,6 +188,139 @@ describe('restore requests', () => {
     expect(
       await fetchRestoreConfigured(() => json({ configured: false }) as Promise<Response>),
     ).toBe(false);
+  });
+});
+
+describe('RestoreOutcome', () => {
+  const job: RestoreJob = {
+    id: 'j',
+    mailboxId: 'mbx 1',
+    messageId: 'm/1=',
+    status: 'succeeded',
+    startedAt: '2026-11-18T10:00:00.000Z',
+    finishedAt: '2026-11-18T10:00:02.000Z',
+    durationMs: 2000,
+    folder: 'Restauré par backup365 18/11/2026',
+    error: null,
+  };
+  const render = (j: Partial<RestoreJob>) =>
+    renderToString(
+      <RestoreOutcome job={{ ...job, ...j }} mail={mail} onClose={vi.fn()} onRetry={vi.fn()} />,
+    );
+
+  it('lists the mail, the mailbox and the folder on success', () => {
+    const html = render({});
+    expect(html).toContain('<dl class="meta-list">');
+    expect(html).toContain('<dt>Mail</dt><dd>Facture 1 · ');
+    expect(html).toContain('<dt>Boîte</dt><dd>mbx 1</dd>');
+    expect(html).toContain('<dt>Dossier</dt><dd>Restauré par backup365 18/11/2026</dd>');
+    expect(html).not.toContain('Dossier :');
+    expect(html).toContain('2 s<!-- -->.</span>');
+  });
+
+  it('puts the result first and leaves out the audit reminder', () => {
+    const cases: Partial<RestoreJob>[] = [{}, { status: 'failed', error: 'restore_error' }];
+    for (const j of cases) {
+      const html = render(j);
+      expect(html.match(/class="alert alert-(\w+)"/)?.[1]).toBe(
+        j.status === 'failed' ? 'error' : 'success',
+      );
+      expect(html).not.toContain('alert-info');
+      expect(html).not.toContain('Chaque consultation');
+    }
+  });
+
+  it('falls back on "(sans objet)" and omits a missing date', () => {
+    const html = renderToString(
+      <RestoreOutcome
+        job={job}
+        mail={{ ...mail, subject: '', date: '' }}
+        onClose={vi.fn()}
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(html).toContain('<dt>Mail</dt><dd>(sans objet)</dd>');
+  });
+
+  it('recalls the mail and the mailbox on failure', () => {
+    const html = render({ status: 'failed', error: 'restore_error' });
+    expect(html).toContain('<dt>Mail</dt><dd>Facture 1 · ');
+    expect(html).toContain('<dt>Boîte</dt><dd>mbx 1</dd>');
+    expect(html).not.toContain('<dt>Dossier</dt>');
+    expect(html).toContain('<strong>Échec de la restauration de « Facture 1 » le ');
+    expect(html).toContain('Le service de restauration a signalé une erreur.');
+    expect(html).toContain('Rien n’a été modifié.');
+    expect(html).not.toContain('Cause :');
+    expect(html).toContain('<dt>Durée</dt><dd>2 s</dd>');
+  });
+
+  it('says the mailbox state is uncertain when the outcome is unknown', () => {
+    const html = render({ status: 'failed', error: 'restore_lost' });
+    expect(html).toContain('L’état de la boîte est incertain');
+    expect(html).not.toContain('Rien n’a été modifié.');
+  });
+
+  /** Boutons du `.dialog-actions` rendu, dans l'ordre du DOM. */
+  const actionsOf = (html: string) => {
+    const block = /<div class="button-row dialog-actions">(.*?)<\/div>/s.exec(html)?.[1] ?? '';
+    return [
+      ...block.matchAll(/<(?:a|button)[^>]*class="btn([^"]*)"[^>]*>(.*?)<\/(?:a|button)>/gs),
+    ].map((m) => ({ secondary: m[1]?.includes('btn-secondary') ?? false, label: m[2] ?? '' }));
+  };
+
+  it('puts the primary action last on success: audit outline, then Fermer filled', () => {
+    const actions = actionsOf(render({}));
+    expect(actions.map((a) => a.label)).toEqual(['Voir dans le journal d’audit', 'Fermer']);
+    expect(actions.map((a) => a.secondary)).toEqual([true, false]);
+  });
+
+  it('puts the primary action last on failure: audit and Fermer outline, then Réessayer filled', () => {
+    const actions = actionsOf(render({ status: 'failed', error: 'restore_error' }));
+    expect(actions.map((a) => a.label)).toEqual([
+      'Voir dans le journal d’audit',
+      'Fermer',
+      'Réessayer',
+    ]);
+    expect(actions.map((a) => a.secondary)).toEqual([true, true, false]);
+  });
+
+  it('links to the same audit journal from the success and the failure dialogs', () => {
+    const href = (html: string) =>
+      /<div class="button-row dialog-actions">.*?<a[^>]*href="([^"]*)"/s.exec(html)?.[1];
+    expect(href(render({ status: 'failed', error: 'restore_error' }))).toBe(href(render({})));
+    expect(href(render({}))).toBe('#/audit');
+  });
+});
+
+describe('restore form recall', () => {
+  const now = Date.parse('2026-11-18T10:00:00.000Z');
+  const job: RestoreJob = {
+    id: 'j',
+    mailboxId: 'mbx 1',
+    messageId: 'm/1=',
+    status: 'running',
+    startedAt: '2026-11-18T10:00:00.000Z',
+    finishedAt: null,
+    durationMs: null,
+    folder: restoreFolderName(new Date(now)),
+    error: null,
+  };
+
+  it('lists Mail, Boîte and Dossier like the running dialog', () => {
+    const rows = formRows(mail, now);
+    expect(rows.map(([label]) => label)).toEqual(['Mail', 'Boîte', 'Dossier']);
+    expect(rows[2]?.[1]).toBe('Restauré par backup365 18/11/2026');
+    const html = renderToString(<Tracking job={job} mail={mail} now={now} onClose={vi.fn()} />);
+    expect(html).toContain(renderToString(<ResultList rows={rows} />));
+  });
+
+  it('gives the same Mail and Boîte rows as the outcome dialog', () => {
+    const done = { ...job, status: 'succeeded' as const, durationMs: 2000 };
+    const html = renderToString(
+      <RestoreOutcome job={done} mail={mail} onClose={vi.fn()} onRetry={vi.fn()} />,
+    );
+    expect(html).toContain(renderToString(<ResultList rows={formRows(mail, now)} />));
+    expect(formRows(mail, now).slice(0, 2)).toEqual(recallRows(mail));
   });
 });
 
@@ -162,9 +349,13 @@ describe('RestoreAction', () => {
     expect(row).toContain('card-action');
     expect(row.match(/<td[^>]*keep-words[^>]*>/g)).toHaveLength(2);
     expect(row).toMatch(/<td[^>]*subject[^>]*><a [^>]*title="/);
-    expect(row).toContain('alice@<span class="addr-domain">example.test</span>');
+    expect(row).toContain(
+      '<span class="addr-local">alice@</span><span class="addr-domain">example.test</span>',
+    );
     const off = renderToString(<SearchView state={state} restoreConfigured={false} />);
-    expect(off).toContain('La restauration nécessite un tenant relié.');
-    expect(off).toContain('href="#/"');
+    // Même état que le 503 `restore_unavailable` du serveur (voir `restore.test.ts`).
+    expect(off).toContain(API_ERRORS['restore_unavailable'] ?? 'absent');
+    expect(off).not.toContain('Voir Accueil');
+    expect(off).not.toContain('href="#/"');
   });
 });

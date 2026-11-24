@@ -68,9 +68,39 @@ describe('charte.css contrast (WCAG AA)', () => {
   }
 });
 
+describe('charte.css footer', () => {
+  it('colors the footer text with --muted, measured on --bg in both themes above', () => {
+    expect(/\.console-footer\s*\{[^}]*color:\s*var\(--muted\);/.test(css)).toBe(true);
+    expect(/\.console-footer\s*\{[^}]*background/.test(css)).toBe(false);
+  });
+
+  it('never cuts the version or the link, which keeps a 44 px target', () => {
+    expect(/\.console-footer-item\s*\{\s*white-space:\s*nowrap;/.test(css)).toBe(true);
+    expect(/\.console-footer-link a\s*\{[^}]*min-height:\s*2\.75rem;/.test(css)).toBe(true);
+  });
+});
+
+describe('charte.css filters', () => {
+  it('reserves no minimum height on a filter field', () => {
+    expect(/\.filters \.field\s*\{[^}]*min-height/.test(css)).toBe(false);
+  });
+
+  it('keeps the submit button 16 px under the fields and 24 px above the results on desktop', () => {
+    expect(/\.filters > \.btn\s*\{[^}]*margin-top:\s*var\(--space-2\);/.test(css)).toBe(true);
+    expect(/\n\s+\.filters\s*\{\s*margin-bottom:\s*var\(--space-4\);/.test(css)).toBe(true);
+  });
+});
+
 describe('charte.css data tables', () => {
   it('hides the label of action cells in cards', () => {
     expect(/\.data-table td\.card-action::before\s*\{\s*display:\s*none;/.test(css)).toBe(true);
+  });
+
+  it('separates card actions from the data and keeps badges at their natural width', () => {
+    expect(/\.data-table td\.card-action\s*\{[^}]*padding-top:\s*var\(--space-2\);/.test(css)).toBe(
+      true,
+    );
+    expect(/\.data-table td > \.badge\s*\{\s*justify-self:\s*start;/.test(css)).toBe(true);
   });
 
   it('keeps addresses and subjects on one line on desktop', () => {
@@ -80,6 +110,37 @@ describe('charte.css data tables', () => {
 
   it('keeps words whole in keep-words cells', () => {
     expect(/\.data-table \.keep-words\s*\{\s*overflow-wrap:\s*break-word;/.test(css)).toBe(true);
+  });
+});
+
+describe('charte.css wizard actions', () => {
+  it('keeps the primary action on the right on desktop, even alone', () => {
+    expect(/\.wizard-actions > :last-child\s*\{\s*margin-left:\s*auto;/.test(css)).toBe(true);
+    expect(css).not.toMatch(/\.wizard-actions > :only-child/);
+  });
+
+  it('aligns the help under the primary action only where the buttons are not full width', () => {
+    expect(
+      /@media \(min-width: 40\.01rem\)\s*\{\s*\.wizard-actions \+ \.field-help\s*\{\s*text-align:\s*right;/.test(
+        css,
+      ),
+    ).toBe(true);
+    expect(
+      /@media \(max-width: 40rem\)\s*\{[\s\S]*?\.wizard-actions\s*\{\s*flex-direction:\s*column-reverse;/.test(
+        css,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('charte.css steps indicator', () => {
+  it('never hides the list of steps, whatever the width or the journey', () => {
+    const rules = [...css.matchAll(/([^{}]*)\{([^{}]*)\}/g)];
+    const stepsRules = rules.filter((m) => /\.steps\b/.test(m[1]!));
+    expect(stepsRules.length).toBeGreaterThan(0);
+    for (const m of stepsRules) {
+      expect(m[2]).not.toMatch(/display:\s*none/);
+    }
   });
 });
 
@@ -96,5 +157,43 @@ describe('charte.css collapsible menu (keyboard access)', () => {
     expect(/\.sidebar-collapsible\[data-open='true'\]\s*\{\s*display:\s*flex;/.test(narrow)).toBe(
       true,
     );
+  });
+});
+
+describe('charte.css heading scale', () => {
+  const rules = [...css.matchAll(/([^{}]*)\{([^{}]*)\}/g)].map((m) => ({
+    selector: m[1]!.trim().replace(/\/\*[\s\S]*?\*\/\s*/g, ''),
+    size: /font-size:\s*([0-9.]+)rem/.exec(m[2]!)?.[1],
+  }));
+  const sizeOf = (selector: string) => Number(rules.find((r) => r.selector === selector)?.size);
+
+  it('gives h2 and h3 a rem size strictly below the h1, in decreasing order', () => {
+    expect(sizeOf('h1')).toBe(1.5);
+    expect(sizeOf('h2')).toBeLessThan(sizeOf('h1'));
+    expect(sizeOf('h3')).toBeLessThan(sizeOf('h2'));
+  });
+
+  it('sets heading sizes only on the bare h1, h2 and h3 rules (no component redefines them)', () => {
+    for (const r of rules) {
+      if (/\bh[1-6]\b/.test(r.selector) && r.size !== undefined) {
+        expect(['h1', 'h2', 'h3'], r.selector).toContain(r.selector);
+      }
+    }
+  });
+});
+
+describe('mail search cards on mobile', () => {
+  const start = css.indexOf('/* Recherche : objet');
+  const mail = css.slice(start, css.indexOf('.data-table td.card-only {', start));
+
+  it('keeps the touch target and the card spacing of the other cards', () => {
+    expect(mail).not.toMatch(/min-height:\s*0/);
+    expect(mail).not.toMatch(/margin-bottom:\s*0\.25rem/);
+    expect(mail).toMatch(/td\.card-action \.btn \{\s*width: 100%;/);
+  });
+
+  it('glues the separator to the previous item instead of starting a line', () => {
+    expect(mail).not.toMatch(/::before\s*\{\s*content:\s*'\\00a0·/);
+    expect(mail).toMatch(/td\.mail-date::after[^{]*\{\s*content: '\\00a0·'/);
   });
 });

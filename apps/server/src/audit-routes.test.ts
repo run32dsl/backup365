@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { FakeBackupCatalog, type AuditEntry, type SearchIndex } from '@backup365/core';
 import { buildTestApp } from './test-support.js';
 import { main as auditVerifyMain, runAuditVerify } from './audit-verify.js';
 import { tryOpenAuditLog } from './sqlite/open-audit-log.js';
@@ -58,13 +59,98 @@ describe('GET /api/audit', () => {
     expect(page.items.map((i) => i.seq)).toEqual([1]);
   });
 
-  it.each(['action=nope', 'from=hier', 'limit=0', 'limit=101', 'offset=-1', 'actor='])(
-    'rejects invalid parameters (%s)',
-    async (qs) => {
-      const { app } = await seeded();
-      expect((await app.inject({ method: 'GET', url: `/api/audit?${qs}` })).statusCode).toBe(400);
-    },
-  );
+  it.each([
+    'action=nope',
+    'from=hier',
+    'from=2026-11-18',
+    'to=31/02/2026',
+    'limit=0',
+    'limit=101',
+    'offset=-1',
+    'actor=',
+  ])('rejects invalid parameters (%s)', async (qs) => {
+    const { app } = await seeded();
+    expect((await app.inject({ method: 'GET', url: `/api/audit?${qs}` })).statusCode).toBe(400);
+  });
+
+  it('adds the subject and mailbox of the mail an entry targets, without touching the chain', async () => {
+    const audit = SqliteAuditLog.open(':memory:');
+    const at = '2026-01-01T10:00:00.000Z';
+    const base = { at, actor: 'alice', resource: 'mail' } as const;
+    await audit.record({ ...base, action: 'item.open', target: 'a@example.test/m1' });
+    await audit.record({ ...base, action: 'item.open', target: 'a@example.test/gone' });
+    const index = {
+      getMail: (mailbox: string, id: string) =>
+        Promise.resolve(
+          id === 'm1' ? { mailboxId: mailbox, messageId: id, subject: 'Devis' } : null,
+        ),
+    } as unknown as SearchIndex;
+    const app = buildTestApp({ version: '1', audit, searchIndex: index });
+    const res = await app.inject({ method: 'GET', url: '/api/audit' });
+    const [gone, found] = res.json<{ items: Record<string, unknown>[] }>().items;
+    expect(found).toMatchObject({ targetName: 'Devis', targetMailbox: 'a@example.test' });
+    expect(gone).not.toHaveProperty('targetName');
+    expect((await audit.verify()).ok).toBe(true);
+  });
+
+  it('records the period and action filters of an audit view, never the actor', async () => {
+    const audit = SqliteAuditLog.open(':memory:');
+    const app = buildTestApp({ version: '1', audit });
+    await app.inject({ method: 'GET', url: '/api/audit' });
+    await app.inject({
+      method: 'GET',
+      url: '/api/audit?from=2026-11-18T00:00:00.000Z&to=2026-11-20T00:00:00.000Z&action=restore.request&actor=secret',
+    });
+    const { items } = (await audit.list({ limit: 10, offset: 0 })) as { items: AuditEntry[] };
+    const views = items.filter((e) => e.resource === 'audit').reverse();
+    expect(views[0]?.target).toBeUndefined();
+    expect(views[1]?.target).toBe(
+      'from=2026-11-18T00:00:00.000Z;to=2026-11-20T00:00:00.000Z;action=restore.request',
+    );
+    expect(views[1]?.target).not.toContain('secret');
+  });
+
+  it('adds the name of the SharePoint site a list view targets', async () => {
+    const audit = SqliteAuditLog.open(':memory:');
+    const base = { at: '2026-01-01T10:00:00.000Z', actor: 'alice', action: 'list.view' } as const;
+    await audit.record({ ...base, resource: 'sharepoint.items', target: 'site-1/Documents' });
+    await audit.record({ ...base, resource: 'sharepoint.items', target: 'inconnu/Documents' });
+    const catalog = new FakeBackupCatalog({
+      mailboxes: [],
+      sites: [{ id: 'site-1', displayName: 'Équipe commerciale' }],
+      snapshots: {},
+    });
+    const app = buildTestApp({ version: '1', audit, catalog });
+    const res = await app.inject({ method: 'GET', url: '/api/audit' });
+    const [unknown, known] = res.json<{ items: Record<string, unknown>[] }>().items;
+    expect(known).toMatchObject({ targetName: 'Équipe commerciale' });
+    expect(unknown).not.toHaveProperty('targetName');
+  });
+
+  it('still answers when the search index fails, and names restore targets too', async () => {
+    const audit = SqliteAuditLog.open(':memory:');
+    const at = '2026-01-01T10:00:00.000Z';
+    await audit.record({
+      at,
+      actor: 'alice',
+      resource: 'mail.restore',
+      action: 'restore.request',
+      target: 'a@example.test/m1',
+    });
+    const failing = {
+      getMail: () => Promise.reject(new Error('index')),
+    } as unknown as SearchIndex;
+    let app = buildTestApp({ version: '1', audit, searchIndex: failing });
+    let res = await app.inject({ method: 'GET', url: '/api/audit' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json<{ items: object[] }>().items[0]).not.toHaveProperty('targetName');
+    const ok = {
+      getMail: () => Promise.resolve({ subject: 'Devis' }),
+    } as unknown as SearchIndex;
+    app = buildTestApp({ version: '1', audit, searchIndex: ok });
+    res = await app.inject({ method: 'GET', url: '/api/audit' });
+    expect(res.json<{ items: object[] }>().items.at(-1)).toMatchObject({ targetName: 'Devis' });
+  });
 
   it('answers 400 on a date Ajv accepts but JavaScript rejects', async () => {
     const { app } = await seeded();

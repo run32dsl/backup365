@@ -1,30 +1,33 @@
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type FormEvent,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { type Problem as FailureProblem } from './apiError.js';
+import { FailureAlert } from './FailureAlert.js';
+import { AccessDenied } from './AccessDenied.js';
+import { StorageUnavailable } from './StorageUnavailable.js';
+import { cardSummary, dateTimeOrDash } from './format.js';
+import { RestoreFailureAlert, restoreFailureBanner } from './restoreFailure.js';
+import { RESTORE_LABELS } from './restoreLabels.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
 import {
   AuditReminder,
   REASON,
+  REASON_EXAMPLES,
   RESTORE_BUTTONS as B,
   RESTORE_STEPS,
   ReasonField,
+  RestoreResult,
   RunningProgress,
   stepOf,
 } from './RestoreJourney.js';
 import { isReasonValid } from './mail.js';
 import {
-  SCOPE_OPTIONS,
   SHAREPOINT_MESSAGES as T,
-  canContinue,
   continueHint,
+  scopeOfKind,
+  selectionLabel,
   dateTimeOf,
+  errorItemLabel,
   failureCause,
+  failureConsequence,
   fetchLastSiteJob,
   fetchScope,
   fetchSiteEntries,
@@ -33,11 +36,18 @@ import {
   fetchSites,
   formatDuration,
   isOutcomeUncertain,
-  pathLabel,
+  successSummary,
+  breadcrumbLevels,
+  breadcrumbLink,
   sharePointHash,
   sizeOf,
   startSiteRestore,
-  summaryOf,
+  restoredContentLabel,
+  confirmRowsOf,
+  placementRows,
+  SITE_WARNING_TITLE,
+  siteWarningOf,
+  pathLabel,
   type Site,
   type SiteEntry,
   type SiteJob,
@@ -47,7 +57,16 @@ import {
 } from './sharepoint.js';
 import type { Loaded } from './onedrive.js';
 import type { DriveSnapshot } from '@backup365/core';
-import { Alert, Button, EmptyState, FormField, Steps, WizardActions } from './ui/index.js';
+import {
+  Alert,
+  Button,
+  DataTable,
+  EmptyState,
+  FormField,
+  Steps,
+  WizardActions,
+  ResultList,
+} from './ui/index.js';
 
 /** Ce qui a été choisi à l'étape 1. */
 interface Choice {
@@ -58,7 +77,7 @@ interface Choice {
   pointAt: string;
 }
 
-function Problem({
+export function Problem({
   status,
   onRetry,
 }: {
@@ -66,9 +85,7 @@ function Problem({
   onRetry: () => void;
 }) {
   if (status === 'unconfigured') {
-    return (
-      <EmptyState action={<a href="#/">Configurer la connexion</a>}>{T.notConfigured}</EmptyState>
-    );
+    return <StorageUnavailable onRetry={onRetry} />;
   }
   if (status === 'no_backup') {
     return (
@@ -85,39 +102,118 @@ function Problem({
   );
 }
 
+/** Granularité portée par les ancres des liens : elle n'a plus d'effet sur l'écran. */
+const LINK_SCOPE: SiteScope = 'item';
+
+/** Ce que la ligne cochée désigne : une bibliothèque, un dossier ou un fichier. */
+export interface Selected {
+  path: string;
+  kind: SiteEntry['kind'];
+}
+
+/** Liste d'un niveau du site : même présentation que celle d'OneDrive (`EntriesTable`). */
+export function SiteEntriesTable({
+  siteId,
+  rows,
+  selected,
+  onOpen,
+  onSelect,
+}: {
+  siteId: string;
+  rows: SiteEntry[];
+  selected: Selected | null;
+  onOpen: (path: string) => void;
+  onSelect: (selected: Selected) => void;
+}) {
+  return (
+    <div className="drive-list">
+      <DataTable
+        caption="Contenu du site sauvegardé"
+        hideCaption
+        rows={rows}
+        rowKey={(e) => e.path}
+        onRowClick={(e) => {
+          onSelect({ path: e.path, kind: e.kind });
+        }}
+        columns={[
+          {
+            header: 'Nom',
+            className: 'card-title',
+            cell: (e) => (
+              <span className="choice">
+                <input
+                  type="radio"
+                  name="selection"
+                  aria-label={e.name}
+                  checked={selected?.path === e.path}
+                  onChange={() => {
+                    onSelect({ path: e.path, kind: e.kind });
+                  }}
+                />
+                {e.kind === 'file' ? (
+                  e.name
+                ) : (
+                  <>
+                    <a {...breadcrumbLink({ path: e.path }, siteId, LINK_SCOPE, onOpen)}>
+                      {e.name}
+                    </a>
+                    <span className="cell-secondary-inline">
+                      {e.kind === 'library' ? 'bibliothèque' : 'dossier'}
+                    </span>
+                  </>
+                )}
+              </span>
+            ),
+          },
+          {
+            header: 'Version du (UTC)',
+            className: 'card-hidden',
+            cell: (e) => dateTimeOrDash(e.versionAt),
+          },
+          {
+            header: 'Taille',
+            className: 'card-hidden',
+            cell: (e) => (e.kind === 'file' ? sizeOf(e.sizeBytes) : '—'),
+          },
+          {
+            header: 'Détail',
+            className: 'card-only',
+            cell: (e) => (e.kind === 'file' ? cardSummary(e.versionAt, e.sizeBytes) : null),
+          },
+        ]}
+      />
+    </div>
+  );
+}
+
 /**
- * Arborescence du site à une date : une bibliothèque, un dossier ou un fichier à la fois
- * (`role="tree"`), flèches haut et bas pour se déplacer, Entrée pour ouvrir un dossier ou choisir un
- * fichier. Le chemin ouvert est le fil d'Ariane.
+ * Contenu du site à une date, un niveau à la fois : chaque ligne (bibliothèque, dossier ou
+ * fichier) se choisit par son bouton radio ; le nom d'une bibliothèque ou d'un dossier est un lien
+ * qui l'ouvre. Le chemin ouvert est le fil d'Ariane.
  */
-function ContentTree({
+export function ContentTree({
   siteId,
   siteName,
   snapshotId,
-  scope,
   path,
-  file,
+  selected,
   onPath,
-  onFile,
+  onSelect,
 }: {
   siteId: string;
   siteName: string;
   snapshotId: string;
-  scope: SiteScope;
   path: string;
-  file: string | null;
+  selected: Selected | null;
   onPath: (path: string) => void;
-  onFile: (path: string | null) => void;
+  onSelect: (selected: Selected | null) => void;
 }) {
   const [entries, setEntries] = useState<Loaded<SiteEntry[]> | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [active, setActive] = useState(0);
-  const refs = useRef<(HTMLLIElement | null)[]>([]);
 
   useEffect(() => {
     let current = true;
     setEntries(null);
-    setActive(0);
     void fetchSiteEntries(siteId, snapshotId, path).then((result) => {
       if (current) setEntries(result);
     });
@@ -127,72 +223,28 @@ function ContentTree({
   }, [siteId, snapshotId, path, attempt]);
 
   const rows = entries?.status === 'ok' ? entries.data : [];
-  // Ouvrir un dossier remplace la liste : le focus passe au premier élément de la nouvelle.
-  const moved = useRef(false);
-  useEffect(() => {
-    if (moved.current && entries?.status === 'ok' && entries.data.length > 0) {
-      moved.current = false;
-      refs.current[0]?.focus();
-    }
-  }, [entries]);
   const go = (to: string) => {
-    moved.current = true;
-    onFile(null);
+    onSelect(null);
     onPath(to);
   };
-  const crumbs = [{ label: siteName, path: '/' }];
-  let acc = '';
-  for (const segment of path.split('/').filter(Boolean)) {
-    acc += `/${segment}`;
-    crumbs.push({ label: segment, path: acc });
-  }
-
-  function open(e: SiteEntry) {
-    if (e.kind === 'file') {
-      if (scope === 'item') onFile(e.path);
-    } else {
-      go(e.path);
-    }
-  }
-
-  function onKey(ev: KeyboardEvent<HTMLUListElement>) {
-    const move = (to: number) => {
-      const next = Math.max(0, Math.min(rows.length - 1, to));
-      setActive(next);
-      refs.current[next]?.focus();
-      ev.preventDefault();
-    };
-    if (ev.key === 'ArrowDown') move(active + 1);
-    else if (ev.key === 'ArrowUp') move(active - 1);
-    else if (ev.key === 'Home') move(0);
-    else if (ev.key === 'End') move(rows.length - 1);
-    else if (ev.key === 'Enter' || ev.key === ' ') {
-      const row = rows[active];
-      if (row) open(row);
-      ev.preventDefault();
-    } else if (ev.key === 'ArrowLeft' && crumbs.length > 1) {
-      go(crumbs[crumbs.length - 2]?.path ?? '/');
-      ev.preventDefault();
-    }
-  }
+  const crumbs = breadcrumbLevels(siteName, path);
 
   return (
     <>
-      <nav aria-label="Chemin">
+      <nav aria-label="Fil d'Ariane">
         <ol className="breadcrumb">
           {crumbs.map((c, i) => (
             <li key={c.path}>
-              {i === crumbs.length - 1 ? (
-                <span aria-current="page">{c.label}</span>
+              {i === crumbs.length - 1 && i > 0 ? (
+                <span aria-current="location">{c.label}</span>
               ) : (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    go(c.path);
-                  }}
+                // La racine reste un lien, même ouverte (demande de l'issue #355).
+                <a
+                  {...breadcrumbLink(c, siteId, LINK_SCOPE, go)}
+                  aria-current={i === crumbs.length - 1 ? 'location' : undefined}
                 >
                   {c.label}
-                </Button>
+                </a>
               )}
             </li>
           ))}
@@ -210,52 +262,13 @@ function ContentTree({
         )}
         {entries?.status === 'ok' && rows.length === 0 && <EmptyState>{T.emptyFolder}</EmptyState>}
         {rows.length > 0 && (
-          <ul
-            role="tree"
-            aria-label="Contenu du site sauvegardé"
-            className="site-tree"
-            onKeyDown={onKey}
-          >
-            {rows.map((e, i) => {
-              const selectable = e.kind !== 'file' || scope === 'item';
-              return (
-                <li
-                  key={e.path}
-                  role="treeitem"
-                  ref={(el) => {
-                    refs.current[i] = el;
-                  }}
-                  tabIndex={i === active ? 0 : -1}
-                  aria-selected={e.kind === 'file' ? file === e.path : undefined}
-                  aria-disabled={!selectable || undefined}
-                  className={`site-node${file === e.path ? ' is-selected' : ''}`}
-                  onClick={() => {
-                    setActive(i);
-                    open(e);
-                  }}
-                  onFocus={() => {
-                    setActive(i);
-                  }}
-                >
-                  <span aria-hidden="true">
-                    {e.kind === 'library' ? '🗂' : e.kind === 'folder' ? '📁' : '📄'}
-                  </span>{' '}
-                  {e.name}
-                  <span className="sr-only">
-                    {e.kind === 'library'
-                      ? ' (bibliothèque)'
-                      : e.kind === 'folder'
-                        ? ' (dossier)'
-                        : ' (fichier)'}
-                  </span>
-                  <span className="site-node-meta">
-                    {dateTimeOf(e.versionAt)}
-                    {e.kind === 'file' ? ` · ${sizeOf(e.sizeBytes)}` : ''}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+          <SiteEntriesTable
+            siteId={siteId}
+            rows={rows}
+            selected={selected}
+            onOpen={go}
+            onSelect={onSelect}
+          />
         )}
       </div>
     </>
@@ -263,12 +276,13 @@ function ContentTree({
 }
 
 /** Étape 1 : site, granularité, contenu et point de restauration. */
-function ChooseStep({
+export function ChooseStep({
   sites,
   site,
   snapshots,
   snapshotId,
   initialScope,
+  initialPath,
   admin,
   configured,
   onSnapshot,
@@ -279,18 +293,20 @@ function ChooseStep({
   snapshots: DriveSnapshot[];
   snapshotId: string;
   initialScope: SiteScope;
+  /** Dossier ouvert à l'arrivée : celui de l'ancre (lien du fil d'Ariane ouvert dans un onglet). */
+  initialPath: string;
   admin: boolean;
   configured: boolean;
   onSnapshot: (id: string) => void;
   onContinue: (choice: Choice) => void;
 }) {
-  const [scope, setScope] = useState<SiteScope>(initialScope);
-  const [path, setPath] = useState('/');
-  const [file, setFile] = useState<string | null>(null);
+  const [whole, setWhole] = useState(initialScope === 'site' && admin);
+  const [path, setPath] = useState(initialPath);
+  const [selected, setSelected] = useState<Selected | null>(null);
   const hintId = useId();
   const notConfiguredId = useId();
-  const ok = canContinue(scope, path, file);
-  const target = scope === 'item' ? (file ?? path) : path;
+  const ok = whole || selected !== null;
+  const scope: SiteScope = whole ? 'site' : scopeOfKind(selected?.kind ?? 'file');
   const point = snapshots.find((s) => s.id === snapshotId);
   const blocked = !ok || !configured;
 
@@ -303,7 +319,7 @@ function ChooseStep({
             id="sp-site"
             value={site.id}
             onChange={(e) => {
-              window.location.hash = sharePointHash(e.currentTarget.value, scope);
+              window.location.hash = sharePointHash(e.currentTarget.value);
             }}
           >
             {sites.map((s) => (
@@ -314,14 +330,14 @@ function ChooseStep({
           </select>
         </div>
         <div className="field">
-          <label htmlFor="sp-point">Point de restauration</label>
+          <label htmlFor="sp-point">{RESTORE_LABELS.backupDate}</label>
           <select
             id="sp-point"
             value={snapshotId}
             onChange={(e) => {
               onSnapshot(e.currentTarget.value);
               setPath('/');
-              setFile(null);
+              setSelected(null);
             }}
           >
             {snapshots.map((s) => (
@@ -333,60 +349,48 @@ function ChooseStep({
         </div>
       </div>
 
-      <fieldset className="choices">
-        <legend>Restaurer</legend>
-        {SCOPE_OPTIONS.map((o) => {
-          const locked = o.value === 'site' && !admin;
-          return (
-            <label key={o.value} className="choice">
-              <input
-                type="radio"
-                name="scope"
-                value={o.value}
-                checked={scope === o.value}
-                disabled={locked}
-                aria-describedby={locked ? `${hintId}-admin` : undefined}
-                onChange={() => {
-                  setScope(o.value);
-                  setPath('/');
-                  setFile(null);
-                }}
-              />{' '}
-              {o.label}
-              {locked && (
-                <span id={`${hintId}-admin`} className="field-help">
-                  {' '}
-                  ({T.adminOnly})
-                </span>
-              )}
-            </label>
-          );
-        })}
-      </fieldset>
+      {admin && (
+        <div className="choice-item">
+          <label className="choice">
+            <input
+              type="checkbox"
+              checked={whole}
+              onChange={(e) => {
+                setWhole(e.currentTarget.checked);
+              }}
+            />
+            Restaurer le site entier
+          </label>
+        </div>
+      )}
 
-      {scope === 'site' ? (
+      {whole ? (
         <p>Tout le contenu de « {site.displayName} » sera concerné.</p>
       ) : (
         <ContentTree
-          key={`${snapshotId}-${scope}`}
+          key={snapshotId}
           siteId={site.id}
           siteName={site.displayName}
           snapshotId={snapshotId}
-          scope={scope}
           path={path}
-          file={file}
+          selected={selected}
           onPath={setPath}
-          onFile={setFile}
+          onSelect={setSelected}
         />
       )}
 
       <p aria-live="polite">
-        {scope === 'site'
+        {whole
           ? 'Sélection : le site entier'
-          : ok
-            ? `Sélection : ${pathLabel(target)}`
-            : 'Aucune sélection'}
+          : selected
+            ? `Sélection : ${selectionLabel(selected)}`
+            : null}
       </p>
+      {!ok && (
+        <p id={hintId} className="field-help">
+          {continueHint()}
+        </p>
+      )}
       <WizardActions>
         <Button
           aria-disabled={blocked || undefined}
@@ -396,7 +400,7 @@ function ChooseStep({
             if (!blocked && point) {
               onContinue({
                 scope,
-                path: scope === 'item' ? (file ?? '/') : path,
+                path: whole ? '/' : (selected?.path ?? '/'),
                 snapshotId,
                 pointAt: point.createdAt,
               });
@@ -406,11 +410,6 @@ function ChooseStep({
           {B.next}
         </Button>
       </WizardActions>
-      {!ok && (
-        <p id={hintId} className="field-help">
-          {continueHint(scope)}
-        </p>
-      )}
       {!configured && <RestoreNotConfigured id={notConfiguredId} />}
     </>
   );
@@ -440,7 +439,12 @@ function ReasonStep({
 
   return (
     <form onSubmit={submit} noValidate>
-      <ReasonField value={reason} error={error} onChange={setReason} />
+      <ReasonField
+        placeholder={REASON_EXAMPLES.restore}
+        value={reason}
+        error={error}
+        onChange={setReason}
+      />
       <WizardActions
         back={
           <Button variant="secondary" data-safe onClick={onBack}>
@@ -455,7 +459,7 @@ function ReasonStep({
 }
 
 /** Étape 3 : récapitulatif ; site entier : double confirmation (case, puis nom du site). */
-function ConfirmStep({
+export function ConfirmStep({
   site,
   choice,
   reason,
@@ -472,9 +476,8 @@ function ConfirmStep({
   const [understood, setUnderstood] = useState(false);
   const [typed, setTyped] = useState('');
   const [nameError, setNameError] = useState(false);
-  const [failure, setFailure] = useState<string | undefined>();
+  const [failure, setFailure] = useState<FailureProblem | undefined>();
   const [sending, setSending] = useState(false);
-  const hintId = useId();
   const whole = choice.scope === 'site';
   const nameOk = typed === site.displayName;
   const ready = !whole || (understood && nameOk);
@@ -510,37 +513,48 @@ function ConfirmStep({
     }).then((result) => {
       setSending(false);
       if (result.ok) onStarted(result.job);
-      else setFailure(result.message);
+      else setFailure({ message: result.message, requestId: result.requestId });
     });
   }
 
   return (
     <form onSubmit={submit} noValidate>
-      {whole ? (
+      <h2>Récapitulatif</h2>
+      <ResultList
+        rows={confirmRowsOf({
+          scope: choice.scope,
+          siteName: site.displayName,
+          path: choice.path,
+          pointAt: choice.pointAt,
+          summary: counts,
+          reason,
+        })}
+      />
+      {summary === null && <p role="status">{T.loading}</p>}
+      {whole && (
         <>
-          <Alert tone="warning">
-            <strong>Restauration du site entier : action de grande ampleur</strong>
+          <Alert tone="warning" title={SITE_WARNING_TITLE}>
+            {siteWarningOf(site.displayName)}
           </Alert>
-          <p>
-            {site.displayName} · point du {dateTimeOf(choice.pointAt)}
-            {counts ? ` · ${counts.items} éléments` : ''}
-          </p>
-          <label className="choice">
-            <input
-              type="checkbox"
-              checked={understood}
-              onChange={(e) => {
-                setUnderstood(e.currentTarget.checked);
-              }}
-            />{' '}
-            Je comprends que tous les contenus manquants seront recréés
-          </label>
+          <div className="field">
+            <label className="choice">
+              <input
+                type="checkbox"
+                checked={understood}
+                onChange={(e) => {
+                  setUnderstood(e.currentTarget.checked);
+                }}
+              />{' '}
+              Je comprends que cette restauration est de grande ampleur.
+            </label>
+          </div>
           <FormField
             label="Tapez le nom du site pour confirmer"
             type="text"
             name="site-name"
             autoComplete="off"
             value={typed}
+            help={ready ? undefined : T.inactiveHint}
             error={nameError ? T.nameError : undefined}
             onChange={(e) => {
               setTyped(e.currentTarget.value);
@@ -548,20 +562,8 @@ function ConfirmStep({
             }}
           />
         </>
-      ) : (
-        <p>
-          {summaryOf({
-            scope: choice.scope,
-            siteName: site.displayName,
-            path: choice.path,
-            pointAt: choice.pointAt,
-            summary: counts,
-          })}
-        </p>
       )}
-      {summary === null && <p role="status">{T.loading}</p>}
-      <p>Motif : {reason}</p>
-      {failure && <Alert tone="error">{failure}</Alert>}
+      {failure && <FailureAlert problem={failure} />}
       <WizardActions
         back={
           <Button variant="secondary" data-safe onClick={onBack}>
@@ -575,29 +577,26 @@ function ConfirmStep({
           busy={sending}
           aria-disabled={!ready || undefined}
           className={ready ? undefined : 'is-inactive'}
-          aria-describedby={!ready ? hintId : undefined}
         >
           {B.confirm}
         </Button>
       </WizardActions>
-      {!ready && (
-        <p id={hintId} className="field-help">
-          Le bouton reste inactif tant que la case n’est pas cochée et que le nom du site n’est pas
-          exact.
-        </p>
-      )}
     </form>
   );
 }
 
 /** Étape 4 : progression, puis résultat. La restauration continue si l'on quitte la page. */
-function TrackStep({
+export function TrackStep({
   job,
+  pointAt,
+  siteName,
   onJob,
   onAgain,
   onRetry,
 }: {
   job: SiteJob;
+  pointAt?: string | undefined;
+  siteName: string;
   onJob: (job: SiteJob) => void;
   onAgain: () => void;
   onRetry: () => void;
@@ -633,8 +632,28 @@ function TrackStep({
     // `job` ne change que par `onJob` ; `onJob` est stable (état du parent).
   }, [running, job.id, job.siteId]);
 
-  const treated = job.restored + job.skipped;
-  const untreated = Math.max(0, job.total - treated - job.errors);
+  const untreated = Math.max(0, job.total - job.restored - job.skipped - job.errors);
+  const failedNormally = job.status === 'failed' && !isOutcomeUncertain(job.error);
+  const countRows: [string, ReactNode][] = [
+    ['Site', siteName],
+    [
+      job.status === 'succeeded' ? RESTORE_LABELS.itemRestored : RESTORE_LABELS.item,
+      restoredContentLabel(job.scope, job.path),
+    ],
+  ];
+  if (pointAt) countRows.push([RESTORE_LABELS.backupAt, dateTimeOf(pointAt)]);
+  countRows.push(...placementRows(job.scope, siteName, job.path));
+  if (job.status === 'failed' && job.restored > 0) {
+    countRows.push(['Éléments restaurés', job.restored]);
+  }
+  if (job.status === 'succeeded' && job.copyName) countRows.push(['Restauré sous', job.copyName]);
+  if (failedNormally && untreated > 0) countRows.push(['Éléments non traités', untreated]);
+  if (job.status !== 'running' && job.errors > 0) {
+    countRows.push(['Éléments en erreur', job.errors]);
+    const named = errorItemLabel(job);
+    if (named) countRows.push(['En erreur', named]);
+  }
+  const counts = <ResultList rows={countRows} />;
   let body: ReactNode;
   if (running) {
     body = (
@@ -642,7 +661,14 @@ function TrackStep({
         <RunningProgress
           detail={`${job.total} ${job.total > 1 ? 'éléments' : 'élément'} à traiter`}
         />
-        <p>Vous pouvez quitter cette page, la restauration continue.</p>
+        {counts}
+        <WizardActions
+          back={
+            <a className="btn btn-secondary" href="#/audit">
+              {B.audit}
+            </a>
+          }
+        />
       </>
     );
   } else if (job.status === 'succeeded') {
@@ -650,11 +676,16 @@ function TrackStep({
       <>
         <div aria-live="polite">
           <Alert tone="success">
-            Restauration terminée en {formatDuration(job.durationMs ?? 0)} : {job.restored}{' '}
-            restaurés, {job.skipped} conservés, {job.errors} erreurs.
+            {successSummary(
+              job.restored,
+              job.skipped,
+              job.errors,
+              formatDuration(job.durationMs ?? 0),
+            )}
           </Alert>
         </div>
-        <p>Les éléments déjà présents ont été conservés ; aucun n’a été écrasé.</p>
+        {counts}
+        {job.skipped === 0 && <p>Aucun élément déjà présent n’a été écrasé.</p>}
         <WizardActions
           back={
             <a className="btn btn-secondary" href="#/audit">
@@ -669,16 +700,17 @@ function TrackStep({
   } else {
     body = (
       <>
-        <Alert tone="error">
-          {isOutcomeUncertain(job.error)
-            ? `La restauration a échoué : ${failureCause(job.error)}. L’état de SharePoint est incertain : vérifiez avant de réessayer.`
-            : `La restauration a échoué après ${treated} éléments. Rien n’a été écrasé.`}
-        </Alert>
-        {!isOutcomeUncertain(job.error) && (
-          <p>
-            {job.restored} restaurés, {untreated} non traités, {job.errors} erreurs.
-          </p>
-        )}
+        <RestoreFailureAlert
+          banner={restoreFailureBanner({
+            item:
+              job.scope === 'site' || pathLabel(job.path) === '' ? siteName : pathLabel(job.path),
+            uncertain: isOutcomeUncertain(job.error),
+            at: job.finishedAt ?? job.startedAt,
+            cause: failureCause(job.error),
+            consequence: failureConsequence(job),
+          })}
+        />
+        {counts}
         <WizardActions
           back={
             <a className="btn btn-secondary" href="#/audit">
@@ -691,10 +723,26 @@ function TrackStep({
       </>
     );
   }
-  return <>{body}</>;
+  return <RestoreResult status={job.status}>{body}</RestoreResult>;
 }
 
-/** Restaurer SharePoint : choisir, motif, confirmation, suivi (`#/sharepoint/<site>/<granularité>`). */
+/** Refus de droit sur un site : situation normale, expliquée, avec une seule issue (étape « Choisir »). */
+export function SiteDenied({ site }: { site: Site }) {
+  return (
+    <AccessDenied
+      title="Restauration non autorisée"
+      href={sharePointHash(site.id)}
+      exit={T.chooseOther}
+    >
+      {T.forbiddenSite(site.displayName)}
+    </AccessDenied>
+  );
+}
+
+/**
+ * Restaurer SharePoint : choisir, motif, confirmation, suivi
+ * (`#/sharepoint/<site>/<granularité>/<dossier>...`).
+ */
 export function SharePointPage({ route, admin }: { route: SharePointRoute; admin: boolean }) {
   const [sites, setSites] = useState<Loaded<Site[]> | null>(null);
   const [snapshots, setSnapshots] = useState<Loaded<DriveSnapshot[]> | null>(null);
@@ -766,14 +814,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
   } else if (!site) {
     content = <Problem status="no_backup" onRetry={retry} />;
   } else if (direct) {
-    content = (
-      <>
-        <Alert tone="error">{T.forbidden}</Alert>
-        <a className="btn btn-secondary" href={sharePointHash(site.id)}>
-          {B.back}
-        </a>
-      </>
-    );
+    content = <SiteDenied site={site} />;
   } else if (
     snapshots === null ||
     (snapshots.status === 'ok' && snapshotId === null && snapshots.data.length > 0)
@@ -792,6 +833,8 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
       <TrackStep
         key={job.id}
         job={job}
+        pointAt={choice?.pointAt}
+        siteName={site.displayName}
         onJob={setJob}
         onAgain={reset}
         onRetry={() => {
@@ -833,6 +876,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
         snapshots={snapshots.data}
         snapshotId={snapshotId}
         initialScope={route.scope ?? 'item'}
+        initialPath={route.path}
         admin={admin}
         configured={configured}
         onSnapshot={setSnapshotId}
@@ -841,12 +885,14 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
     );
   }
 
-  const journey = snapshotId !== null && !!site && !direct;
+  const journey = !!site && (direct || snapshotId !== null);
   return (
     <main tabIndex={-1}>
       <h1>{T.title}</h1>
-      {journey && <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />}
-      {journey && <AuditReminder />}
+      {journey && !job && (
+        <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />
+      )}
+      {journey && !direct && !job && <AuditReminder />}
       {content}
     </main>
   );

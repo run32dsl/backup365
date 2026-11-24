@@ -1,4 +1,5 @@
-import { errorMessage, type Outcome, type Role } from './session.js';
+import { requestError } from './apiError.js';
+import { failureOf, type Outcome, type Role } from './session.js';
 
 export interface AccountInfo {
   id: number;
@@ -22,9 +23,17 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   operator: 'consulte, exporte et restaure, avec un motif.',
 };
 
+/** Options du choix du rôle, communes à « Créer un compte » et « Modifier le rôle ». */
+export const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as Role[]).map((role) => ({
+  value: role,
+  label: `${ROLE_LABELS[role]} : ${ROLE_DESCRIPTIONS[role]}`,
+}));
+
 /** Textes d'état de l'écran des comptes. */
 export const NO_OPERATOR = 'Aucun opérateur pour l’instant.';
-export const LAST_ADMIN_NOTICE = 'Dernier administrateur : ce compte ne peut pas être désactivé.';
+export const OIDC_PASSWORD_NOTICE = 'Mot de passe géré par Microsoft';
+export const LAST_ADMIN_NOTICE =
+  'Dernier administrateur : ce compte ne peut être ni désactivé ni rétrogradé.';
 
 /** Vrai pour l'unique administrateur actif : ni désactivation ni changement de rôle possibles. */
 export function isLastAdmin(accounts: AccountInfo[], account: AccountInfo): boolean {
@@ -38,7 +47,7 @@ export function isLastAdmin(accounts: AccountInfo[], account: AccountInfo): bool
 /** Liste des comptes (administrateur seulement). Lève une erreur si la réponse n'est pas en 2xx. */
 export async function fetchAccounts(fetchFn: typeof fetch = fetch): Promise<AccountInfo[]> {
   const res = await fetchFn('/api/accounts');
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw requestError(res);
   return ((await res.json()) as { items: AccountInfo[] }).items;
 }
 
@@ -53,7 +62,7 @@ async function send(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return res.ok ? { ok: true, value: null } : { ok: false, message: await errorMessage(res) };
+  return res.ok ? { ok: true, value: null } : { ok: false, ...(await failureOf(res)) };
 }
 
 export const createAccount = (
@@ -65,7 +74,7 @@ export const createAccount = (
 
 export const updateAccount = (
   id: number,
-  patch: { role?: Role; disabled?: boolean },
+  patch: { role?: Role; disabled?: boolean; reason?: string },
   fetchFn: typeof fetch = fetch,
 ) => send(fetchFn, 'PATCH', `/api/accounts/${id}`, patch);
 
@@ -83,16 +92,13 @@ export async function resetPassword(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ reason }),
   });
-  if (!res.ok) return { ok: false, message: await errorMessage(res) };
+  if (!res.ok) return { ok: false, ...(await failureOf(res)) };
   return { ok: true, value: ((await res.json()) as { password: string }).password };
 }
 
 /** Textes de la réinitialisation (maquette de #56). */
 export const RESET_TEXTS = {
   title: 'Réinitialiser le mot de passe',
-  reasonLabel: 'Motif (obligatoire)',
-  reasonMissing: 'Indiquez un motif.',
-  audit: 'Cette action sera journalisée (sans le mot de passe).',
   resultTitle: 'Mot de passe temporaire',
   once: 'Affiché une seule fois. Il ne pourra plus être consulté.',
   copyFailed: 'Copie impossible. Sélectionnez le mot de passe et copiez-le manuellement.',

@@ -39,6 +39,7 @@ jobs:
           for t in "${tags[@]}"; do args+=(-t "$IMAGE:$t"); done
           printf '%s\n' "${tags[@]}" > "$RUNNER_TEMP/tags"
           docker build --platform linux/amd64 -f Containerfile \
+            --build-arg "BUILD_COMMIT=${GITHUB_SHA::7}" \
             --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             "${args[@]}" .

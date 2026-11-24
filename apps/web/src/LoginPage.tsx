@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Alert, Button, FormField } from './ui/index.js';
+import { FailureAlert } from './FailureAlert.js';
+import { Alert, Button, FormField, WizardActions } from './ui/index.js';
 import {
   AUDIT_NOTICE,
   RETRY_NOW,
@@ -22,6 +23,7 @@ import {
  */
 export function Field({
   label,
+  help,
   name,
   type = 'text',
   autoComplete,
@@ -29,6 +31,7 @@ export function Field({
   onValue,
 }: {
   label: string;
+  help?: string;
   name: string;
   type?: 'text' | 'password';
   autoComplete: string;
@@ -40,6 +43,7 @@ export function Field({
   return (
     <FormField
       label={label}
+      help={help}
       name={name}
       type={secret && !shown ? 'password' : 'text'}
       autoComplete={autoComplete}
@@ -65,7 +69,15 @@ export function Field({
 }
 
 /** Erreur réseau ou serveur, avec le bouton « Réessayer ». */
-export function ErrorView({ message, onRetry }: { message: string; onRetry?: () => void }) {
+export function ErrorView({
+  message,
+  requestId,
+  onRetry,
+}: {
+  message: string;
+  requestId?: string | undefined;
+  onRetry?: () => void;
+}) {
   return (
     <Alert
       tone="error"
@@ -76,6 +88,11 @@ export function ErrorView({ message, onRetry }: { message: string; onRetry?: () 
       }
     >
       {message}
+      {requestId ? (
+        <small className="alert-detail request-id">
+          Identifiant de requête : <code>{requestId}</code>
+        </small>
+      ) : null}
     </Alert>
   );
 }
@@ -100,22 +117,25 @@ function AuthBlock({ children, plain = false }: { children: ReactNode; plain?: b
 export function CredentialsView({
   mode,
   error,
+  requestId,
   notice,
-  noticeTone = 'info',
   busy = false,
   lockedSec = 0,
   lockedStartSec,
   announcement = '',
   microsoft = false,
+  refusal,
   onSubmit,
 }: {
+  /** Refus de Microsoft au retour de la connexion : bandeau d'erreur « Accès refusé ». */
+  refusal?: string;
   /** Connexion Microsoft configurée : le bouton s'affiche sous le formulaire local. */
   microsoft?: boolean;
   mode: 'login' | 'setup';
   error?: string;
+  /** Identifiant de la requête refusée, à donner au support. */
+  requestId?: string;
   notice?: string;
-  /** Tonalité du message : `error` pour un refus Microsoft, `info` pour une session perdue. */
-  noticeTone?: 'info' | 'error';
   busy?: boolean;
   /** Secondes restantes de verrouillage (0 : pas verrouillé). */
   lockedSec?: number;
@@ -131,11 +151,16 @@ export function CredentialsView({
   return (
     <AuthBlock>
       <h1>{setup ? 'Créer le compte administrateur' : 'Connexion à la console'}</h1>
+      {refusal && !setup && (
+        <Alert tone="error" title="Accès refusé">
+          <span className="alert-detail">{refusal}</span>
+        </Alert>
+      )}
       {locked && (
-        <Alert tone="warning">
+        <Alert tone="warning" title="Connexion temporairement bloquée">
           <span className="sr-only">{lockedMessage(lockedStartSec ?? lockedSec)}</span>
           <span aria-hidden="true">
-            Connexion impossible pour le moment. Nouvel essai possible dans{' '}
+            Nouvel essai possible dans{' '}
             <span className="countdown">{formatCountdown(lockedSec)}</span>.
           </span>
         </Alert>
@@ -148,7 +173,7 @@ export function CredentialsView({
           Aucun compte n’existe encore. Ce compte gère les comptes, les plans et les restaurations.
         </p>
       )}
-      {notice && <Alert tone={noticeTone}>{notice}</Alert>}
+      {notice && <Alert tone="info">{notice}</Alert>}
       <form
         onSubmit={(e: FormEvent<HTMLFormElement>) => {
           e.preventDefault();
@@ -179,7 +204,7 @@ export function CredentialsView({
             <p role="status">{setupRecap(typed.trim())}</p>
           </>
         )}
-        {error && !locked && <Alert tone="error">{error}</Alert>}
+        {error && !locked && <FailureAlert problem={{ message: error, requestId }} />}
         <Button type="submit" busy={busy} disabled={locked}>
           {setup ? 'Créer le compte administrateur' : 'Se connecter'}
         </Button>
@@ -208,15 +233,16 @@ const text = (form: FormData, name: string): string => {
 export function CredentialsPage({
   mode,
   notice,
-  noticeTone,
+  refusal,
   onSession,
 }: {
   mode: 'login' | 'setup';
   notice?: string;
-  noticeTone?: 'info' | 'error';
+  refusal?: string;
   onSession: (session: SessionInfo) => void;
 }) {
   const [error, setError] = useState<string>();
+  const [requestId, setRequestId] = useState<string>();
   const [busy, setBusy] = useState(false);
   // Fin du verrouillage (horloge murale) et secondes restantes, recalculées chaque seconde.
   const [until, setUntil] = useState<number>();
@@ -255,6 +281,7 @@ export function CredentialsPage({
     }
     setBusy(true);
     setError(undefined);
+    setRequestId(undefined);
     setAnnouncement('');
     authenticate(mode, text(form, 'username').trim(), text(form, 'password')).then(
       (outcome: Outcome<SessionInfo>) => {
@@ -264,7 +291,10 @@ export function CredentialsPage({
           setUntil(Date.now() + outcome.retryAfterSec * 1000);
           setLockedSec(outcome.retryAfterSec);
           setStartSec(outcome.retryAfterSec);
-        } else setError(outcome.message);
+        } else {
+          setError(outcome.message);
+          setRequestId(outcome.requestId);
+        }
       },
       () => {
         setBusy(false);
@@ -273,12 +303,13 @@ export function CredentialsPage({
     );
   };
   return (
-    <div ref={root}>
+    <div ref={root} className="login-page-body">
       <CredentialsView
         mode={mode}
         error={error}
+        requestId={requestId}
         notice={notice}
-        noticeTone={noticeTone}
+        refusal={refusal}
         busy={busy}
         lockedSec={lockedSec}
         lockedStartSec={startSec}
@@ -290,25 +321,33 @@ export function CredentialsPage({
   );
 }
 
-/** Changement de son mot de passe ; imposé après une réinitialisation par un administrateur. */
+/**
+ * Changement de son mot de passe ; imposé après une réinitialisation par un administrateur (titre
+ * propre à ce cas). `saved` affiche la confirmation sous le titre de la page volontaire.
+ */
 export function PasswordView({
   forced,
   error,
-  done = false,
+  saved = false,
   onSubmit,
   onCancel,
 }: {
   forced: boolean;
   error?: string;
-  done?: boolean;
+  saved?: boolean;
   onSubmit?: (form: FormData) => void;
   /** Retour sans changer (absent quand le changement est imposé). */
   onCancel?: () => void;
 }) {
   return (
     <AuthBlock plain={!forced}>
-      <h1>Choisissez un nouveau mot de passe</h1>
-      {forced && <p>Votre mot de passe est temporaire. Choisissez-en un nouveau pour continuer.</p>}
+      <h1>{forced ? 'Choisissez un nouveau mot de passe' : 'Mot de passe'}</h1>
+      {forced ? (
+        <p>Votre mot de passe est temporaire. Choisissez-en un nouveau pour continuer.</p>
+      ) : (
+        <p>Changez le mot de passe de votre compte de la console.</p>
+      )}
+      {saved && <Alert tone="success">{PASSWORD_CHANGED}</Alert>}
       <form
         onSubmit={(e: FormEvent<HTMLFormElement>) => {
           e.preventDefault();
@@ -326,8 +365,9 @@ export function PasswordView({
           name="next"
           type="password"
           autoComplete="new-password"
+          help="12 caractères minimum. Une phrase de passe convient."
         />
-        <p>12 caractères minimum. Une phrase de passe convient.</p>
+
         <Field
           label="Confirmer le nouveau mot de passe"
           name="confirm"
@@ -335,20 +375,29 @@ export function PasswordView({
           autoComplete="new-password"
         />
         {error && <Alert tone="error">{error}</Alert>}
-        {done && <Alert tone="success">Mot de passe modifié.</Alert>}
-        <div className="button-row">
-          <Button type="submit">Enregistrer et continuer</Button>
-          {!forced && (
-            <Button variant="secondary" onClick={onCancel}>
-              Annuler
-            </Button>
-          )}
-        </div>
+        <WizardActions
+          back={
+            !forced && (
+              <Button variant="secondary" onClick={onCancel}>
+                Annuler
+              </Button>
+            )
+          }
+        >
+          <Button type="submit">{forced ? 'Enregistrer et continuer' : 'Enregistrer'}</Button>
+        </WizardActions>
       </form>
     </AuthBlock>
   );
 }
 
+/** Texte de la notification affichée par la console après un changement réussi. */
+export const PASSWORD_CHANGED = 'Mot de passe modifié.';
+
+/**
+ * Change le mot de passe puis rend la main (`onDone`) : l'appelant redirige et affiche la
+ * confirmation. Le formulaire rempli n'est plus montré après le succès.
+ */
 export function PasswordPage({
   forced,
   onDone,
@@ -360,7 +409,10 @@ export function PasswordPage({
 }) {
   const [error, setError] = useState<string>();
   const [done, setDone] = useState(false);
+  const [saved, setSaved] = useState(0);
+  const [confirmed, setConfirmed] = useState(false);
   const submit = (form: FormData) => {
+    setConfirmed(false);
     if (text(form, 'next') !== text(form, 'confirm')) {
       setError('Les deux mots de passe ne correspondent pas.');
       return;
@@ -369,14 +421,34 @@ export function PasswordPage({
       (outcome) => {
         if (outcome.ok) {
           setError(undefined);
-          setDone(true);
+          // Imposé : l'appelant ouvre la console. Volontaire : on reste sur la page, formulaire
+          // vidé (remonté par sa clé), confirmation sous le titre.
+          if (forced) setDone(true);
+          else {
+            setSaved((n) => n + 1);
+            setConfirmed(true);
+          }
           onDone();
         } else setError(outcome.message);
       },
       () => setError(UNREACHABLE),
     );
   };
+  if (done) {
+    return (
+      <main tabIndex={-1}>
+        <p role="status">Ouverture de la console…</p>
+      </main>
+    );
+  }
   return (
-    <PasswordView forced={forced} error={error} done={done} onSubmit={submit} onCancel={onCancel} />
+    <PasswordView
+      key={saved}
+      forced={forced}
+      error={error}
+      saved={confirmed}
+      onSubmit={submit}
+      onCancel={onCancel}
+    />
   );
 }

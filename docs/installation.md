@@ -103,13 +103,13 @@ doit exister, car Compose refuse de démarrer sans lui : la commande `: >` de la
 « Lancement » le crée vide, et un secret vide vaut « non défini ». Pour activer la sauvegarde,
 mettre l'identifiant dans `.env`, écrire le secret dans ce fichier (comme les autres secrets),
 puis `docker compose up -d`. Donner l'identifiant sans le secret (ou l'inverse) arrête le démarrage, avec le nom de la variable manquante. Avec un identifiant et un fichier vides, la console démarre et
-répond `backup_not_configured`.
+répond `backup_not_configured`. Les administrateurs voient l'état de cette connexion, en lecture seule, sur la page d'accueil : une ligne dans la carte « Sauvegarde » quand elle est établie, un bandeau « Connexion Microsoft 365 à configurer » avec les étapes sinon (aucun secret ni identifiant n'y figure) ; les messages « Sauvegarde indisponible » y renvoient.
 
 ## Premier accès
 
 Ouvrir <http://127.0.0.1:3000>. `GET /api/health` doit répondre `ok`. Tant qu'aucune
 sauvegarde n'a créé le bucket, le catalogue répond 503 avec le code `no_backup_found`, et
-l'interface affiche « Aucune sauvegarde trouvée : lancez une première sauvegarde Atlas » ;
+l'interface affiche « Aucune sauvegarde pour l’instant » ;
 `/api/health` reste 200.
 
 ### Premier démarrage : créer l'administrateur
@@ -128,19 +128,21 @@ Ensuite, toute l'API sauf `/api/health` exige une session. Deux rôles : **admin
 (comptes et plans de protection) et **opérateur** (consultation, export, restauration avec
 motif ; il lit la liste des plans sans la modifier). Les deux peuvent restaurer un mail dans sa
 boîte d'origine (« Restaurer » depuis la recherche ou la fiche, motif obligatoire, demande et
-résultat inscrits au journal d'audit). Cette restauration passe par Graph : tant qu'aucun tenant
-n'est relié avec des identifiants en écriture (ADR 0012), le bouton est désactivé. L'écran
+résultat inscrits au journal d'audit). Cette restauration passe par Graph : tant qu'aucun accès
+en écriture n'est configuré (ADR 0012), la fiche d'un mail affiche un avertissement à la place du bouton. L'écran
 « OneDrive » (`#/onedrive/<compte>/<chemin>`) fait de même pour un fichier, un dossier ou une
 version antérieure : on parcourt la sauvegarde (lecture seule, journalisée), puis la
-restauration se fait par défaut en copie `nom (restauré jj-mm-aaaa).ext`, le remplacement d'un
+restauration se fait par défaut en copie `nom (restauré le jj-mm-aaaa).ext`, le remplacement d'un
 fichier exigeant une confirmation (ADR 0013, même réserve sur le tenant). L'écran « SharePoint »
-(`#/sharepoint`) restaure un élément, un dossier, une bibliothèque ou le site entier, toujours à
-son emplacement d'origine et sans rien écraser ; le site entier est réservé à l'administrateur, qui
-coche une case puis retape le nom du site (ADR 0014, même réserve sur le tenant). Les
+(`#/sharepoint`) restaure un élément, un dossier, une bibliothèque (chaque ligne se coche, son nom
+ouvre le niveau) ou le site entier, toujours à son emplacement d'origine et sans rien écraser ; le
+site entier est réservé à l'administrateur, qui coche une case puis retape le nom du site (ADR 0014, même réserve sur le tenant). Les
 plans se créent en trois étapes dans « Plans de protection » (`#/plans`) : quoi protéger,
-objectifs (RPO, RTO, conservation et justification RGPD), récapitulatif ; « Lancer maintenant »
+objectifs (perte de données acceptable, remise en service, conservation et justification RGPD), récapitulatif ; « Lancer maintenant »
 demande un motif, inscrit au journal d'audit. L'administrateur crée, désactive et change le rôle des comptes dans l'écran « Comptes »
-(`#/comptes`) ; il ne peut pas désactiver ni rétrograder le dernier administrateur actif. Un mot
+(`#/comptes`) ; « Modifier le rôle » et « Désactiver » ouvrent une boîte qui nomme le compte et
+demande un motif obligatoire, inscrit au journal d'audit. Il ne peut pas désactiver ni rétrograder
+le dernier administrateur actif (boutons grisés). Un mot
 de passe provisoire (création ou réinitialisation) est à changer à la connexion suivante.
 
 Pour réinitialiser un mot de passe, l'administrateur choisit le compte, saisit un motif
@@ -165,6 +167,15 @@ la première non fiable de la chaîne : un client ne peut pas choisir la sienne.
 de sauts sont refusés. **Sans cette variable derrière un proxy**, tous les clients partagent
 l'adresse du proxy : cinq échecs de n'importe qui temporisent alors tout le monde (le verrou par
 compte reste exact).
+
+**Requêtes d'une autre origine.** En plus du cookie `SameSite=Strict` et du jeton CSRF, la console
+refuse (403, `cross_origin`) toute requête POST, PUT, PATCH ou DELETE sur `/api/` dont
+`Sec-Fetch-Site` vaut `cross-site`, ou dont l'en-tête `Origin` ne correspond pas à l'hôte de la
+requête. Le refus est journalisé et inscrit au journal d'audit (accès refusé, motif `cross_origin`).
+Derrière un proxy, l'hôte comparé est `X-Forwarded-Host`, cru seulement si `BACKUP365_TRUST_PROXY`
+désigne ce proxy : **le proxy doit donc transmettre l'hôte demandé par le navigateur**
+(`X-Forwarded-Host`), sinon les connexions depuis le navigateur sont refusées. Les clients sans ces
+en-têtes (`curl`, scripts) ne sont pas concernés ; le rappel de connexion Microsoft (GET) non plus.
 
 Limite connue : le verrou par compte permet à qui atteint le port de bloquer un compte
 (15 minutes au plus) en multipliant les échecs. C'est le prix d'une protection sans liste d'adresses ;
@@ -280,3 +291,14 @@ moins qu'elle ne le laisse croire. Sans `BACKUP365_AUDIT_ANCHOR_DIR`, ou s'il es
 `BACKUP365_DATA_DIR` ou contenu dedans, le démarrage journalise un avertissement et
 `GET /api/status` indique « ancrage du journal : non configuré ». `audit-verify` contrôle alors
 aussi les ancres (code 1 en cas d'écart).
+
+## Dépannage : erreurs de l'API
+
+Toute réponse d'erreur de l'API (4xx, 5xx) est journalisée en JSON (`warn` ou `error`) avec la
+route, le code d'erreur métier, l'identifiant de requête et le compte, jamais le contenu d'un
+mail ni un secret. L'identifiant est aussi dans l'en-tête `x-request-id` et affiché en petit
+dans l'interface pour le support. C'est un UUID, différent à chaque requête et d'un démarrage du
+serveur à l'autre : il désigne une requête précise (champ `reqId` du journal). Une action de plan ou de restauration refusée
+ou en échec (y compris le 403 d'un opérateur) est inscrite au journal d'audit (« Échec
+d'accès », le code en motif). Le 503 `audit_unavailable` fait exception : sans journal, rien ne
+peut être inscrit, seul le journal du serveur en garde la trace.

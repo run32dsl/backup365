@@ -8,12 +8,11 @@ export function ConsoleFooter({ version, demo }: { version?: string; demo: boole
   if (version === undefined && !demo) return null;
   return (
     <footer className="console-footer">
-      {version !== undefined && <span>Version {version}</span>}
+      {version !== undefined && <span className="console-footer-item">Version {version}</span>}
       {demo && (
-        <>
-          {version !== undefined && ' · '}
-          <a href={COMPONENTS_HASH}>Composants</a> (démo seulement)
-        </>
+        <span className="console-footer-item console-footer-link">
+          <a href={COMPONENTS_HASH}>Composants</a>&nbsp;(démo seulement)
+        </span>
       )}
     </footer>
   );

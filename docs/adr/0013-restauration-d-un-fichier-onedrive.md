@@ -25,9 +25,9 @@ sans téléchargement intermédiaire.
   antérieur à la suppression). La date « Version du » est `lastModifiedAt`, à défaut `backupAt` ;
   pour un dossier, la plus récente de son contenu.
 - **Modes** : par défaut, **copie**, qui ne modifie rien :
-  - fichier : `restore` avec `fileFilter: [chemin]`, `inPlace`, `renameTo: nom (restauré
+  - fichier : `restore` avec `fileFilter: [chemin]`, `inPlace`, `renameTo: nom (restauré le
 jj-mm-aaaa).ext`, `conflictBehavior: 'rename'` ;
-  - dossier : `restore` avec `destination: <parent>/<nom> (restauré jj-mm-aaaa)` ;
+  - dossier : `restore` avec `destination: <parent>/<nom> (restauré le jj-mm-aaaa)` ;
   - version : `restoreVersion` avec `placement: 'copy'`.
     **Remplacer** n'existe que pour un fichier (ou une version) et exige la case de confirmation :
     `conflictBehavior: 'replace'` ou `placement: 'in-place'` ; l'ancienne version reste dans

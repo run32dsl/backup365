@@ -153,7 +153,7 @@ describe('AtlasSdkDriveRestorer', () => {
     path: '/Documents/Budget/budget.xlsx',
     kind: 'file',
     mode: 'copy',
-    copyName: 'budget (restauré 14-11-2026).xlsx',
+    copyName: 'budget (restauré le 14-11-2026).xlsx',
   };
 
   it('restores a file as a renamed copy in place, never replacing', async () => {
@@ -167,7 +167,7 @@ describe('AtlasSdkDriveRestorer', () => {
           fileFilter: ['/Documents/Budget/budget.xlsx'],
           conflictBehavior: 'rename',
           inPlace: true,
-          renameTo: 'budget (restauré 14-11-2026).xlsx',
+          renameTo: 'budget (restauré le 14-11-2026).xlsx',
         },
       ],
     ]);
@@ -179,11 +179,11 @@ describe('AtlasSdkDriveRestorer', () => {
       ...base,
       path: '/Documents/Budget',
       kind: 'folder',
-      copyName: 'Budget (restauré 14-11-2026)',
+      copyName: 'Budget (restauré le 14-11-2026)',
     });
     expect(calls[0]?.[1]).toMatchObject({
       conflictBehavior: 'rename',
-      destination: '/Documents/Budget (restauré 14-11-2026)',
+      destination: '/Documents/Budget (restauré le 14-11-2026)',
     });
   });
 
@@ -247,7 +247,7 @@ describe('DriveRestoreService', () => {
     const job = await service.start('alice', target, 'Ticket #1');
     expect(job).toMatchObject({
       status: 'running',
-      copyName: 'budget (restauré 14-11-2026).xlsx',
+      copyName: 'budget (restauré le 14-11-2026).xlsx',
     });
     now += 12_000;
     c.release({ restored: 1, errors: 0 });
@@ -387,13 +387,40 @@ describe('OneDrive read routes', () => {
   });
 });
 
+describe('OneDrive without storage', () => {
+  it('answers catalog_unavailable, never backup_not_configured', async () => {
+    const { audit } = auditLog();
+    const noBrowser = buildTestApp({ version: '1', audit });
+    const broken = buildTestApp({
+      version: '1',
+      audit,
+      drive: new AtlasSdkDriveBrowser({
+        onedrive: { listSnapshots: () => Promise.reject(new Error('down')) },
+      }),
+    });
+    const urls = [
+      `/api/onedrive/${owner}/snapshots`,
+      `/api/onedrive/${owner}/items?snapshot=snap-2`,
+      `/api/onedrive/${owner}/versions?path=/a.txt`,
+    ];
+    for (const app of [noBrowser, broken]) {
+      for (const url of urls) {
+        const res = await app.inject({ url });
+        expect(res.statusCode, url).toBe(503);
+        expect(res.json(), url).toEqual({ error: 'catalog_unavailable' });
+        expect(res.body).not.toContain('backup_not_configured');
+      }
+    }
+  });
+});
+
 describe('POST /api/onedrive/:ownerId/restore', () => {
   it('starts a restoration (202) and records the request with the reason', async () => {
     const t = setup({});
     const res = await post(t.app, item);
     expect(res.statusCode).toBe(202);
     expect(res.json<{ job: { copyName: string } }>().job.copyName).toMatch(
-      /^budget \(restauré \d\d-\d\d-\d{4}\)\.xlsx$/,
+      /^budget \(restauré le \d\d-\d\d-\d{4}\)\.xlsx$/,
     );
     expect(t.events).toMatchObject([
       { action: 'restore.request', reason: item.reason, actor: 'tester' },

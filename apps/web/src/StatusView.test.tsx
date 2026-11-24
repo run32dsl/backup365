@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { NoBackupError, fetchStatus } from './status.js';
 import { StatusView, sortRows } from './StatusView.js';
 import { ageLabel } from './format.js';
+import { complianceView, type PlanItem } from './plans.js';
 
 const report: StatusReport = {
   generatedAt: '2026-11-12T12:00:00.000Z',
@@ -70,7 +71,11 @@ describe('StatusView', () => {
     expect(html).toContain('Messagerie');
     expect(html).toContain('Dernière sauvegarde (UTC)');
     expect(html).not.toMatch(/instantané|T\d\d:\d\d:\d\dZ/u);
-    expect(html).toContain('site SharePoint');
+    expect(html).toContain('Site SharePoint');
+    expect(html).not.toMatch(/>(Type|Charge)</u);
+    expect(html).toContain('>Contenu<');
+    expect(html).toContain('OneDrive');
+    expect(html).not.toMatch(/boîte/u);
     expect(html.match(/<tr/g)).toHaveLength(5);
   });
 
@@ -107,6 +112,14 @@ describe('StatusView', () => {
     expect(warning).toContain('alert-warning');
     expect(warning).toContain('1 sauvegarde en retard<');
     expect(renderToString(<StatusView state={report} />)).toContain('alert-error');
+  });
+
+  it('links a late or failed mail source to the search on its mailbox, not an up-to-date one', () => {
+    const html = renderToString(<StatusView state={report} />);
+    expect(html).toContain('<a href="#/search?mailbox=b">Boîte B</a>');
+    expect(html).not.toContain('mailbox=a"');
+    expect(html).not.toContain('mailbox=x');
+    expect(html).not.toContain('<a href="#/plans">');
   });
 
   it('sorts the worst state first, then the oldest', () => {
@@ -154,11 +167,62 @@ describe('StatusView', () => {
       expect(html).toContain('10/11/2026 06:00');
     });
 
+    it('links the banner and each plan name to the plans screen, with the new caption', () => {
+      const html = renderToString(<StatusView state={{ ...report, plans }} />);
+      expect(html).toContain('<a href="#/plans">Voir les plans de protection</a>');
+      expect(html).toContain('<a href="#/plans">Direction</a>');
+      expect(html).toContain('<a href="#/plans">Finance</a>');
+      expect(html).toContain('>Plans en retard ou en échec</caption>');
+      expect(html).not.toMatch(/non conforme/iu);
+    });
+
+    it('gives a plan the same pill label here and in the plans list', () => {
+      const base = {
+        id: 'p',
+        name: 'P',
+        selection: [],
+        rpoHours: 4,
+        rtoHours: null,
+        retentionDays: 30,
+        gdprJustification: '',
+        createdAt: '2026-11-01T00:00:00Z',
+        running: false,
+        lastRun: null,
+      } as unknown as PlanItem;
+      for (const [state, label] of [
+        ['compliant', 'À jour'],
+        ['late', 'En retard'],
+        ['failed', 'En échec'],
+      ] as const) {
+        const view = complianceView({
+          ...base,
+          compliance: { state, lastSuccessAt: '2026-11-10T06:00:00Z', lastRestorePointAt: 'x' },
+        });
+        expect(view.label).toBe(label);
+        if (state === 'compliant') continue;
+        const html = renderToString(
+          <StatusView
+            state={{
+              ...report,
+              plans: {
+                counts: { compliant: 0, late: 0, failed: 0 },
+                nonCompliant: [
+                  { id: 'p', name: 'P', rpoHours: 4, state, lastSuccessAt: '2026-11-10T06:00:00Z' },
+                ],
+              },
+            }}
+          />,
+        );
+        expect(html).toContain(`${view.label}</span></td>`);
+      }
+    });
+
     it('lists no table when every plan is compliant', () => {
       const all = { counts: { compliant: 3, late: 0, failed: 0 }, nonCompliant: [] };
       const html = renderToString(<StatusView state={{ ...report, plans: all }} />);
       expect(html).toContain('À jour</span> <strong>3</strong>');
-      expect(html).not.toContain('Plans non conformes');
+      expect(html).not.toContain('Voir les plans de protection');
+      expect(html).not.toContain('Plans en retard ou en échec');
     });
 
     it('says so when there is no plan', () => {
@@ -183,10 +247,10 @@ describe('StatusView', () => {
     expect(renderToString(<StatusView state="error" />)).toContain('indisponible');
   });
 
-  it('asks for a first Atlas backup when none exists yet', () => {
-    expect(renderToString(<StatusView state="empty" />)).toContain(
-      'Aucune sauvegarde trouvée : lancez une première sauvegarde Atlas',
-    );
+  it('explains the empty state without naming Atlas', () => {
+    const html = renderToString(<StatusView state="empty" />);
+    expect(html).toContain('Aucune sauvegarde pour l’instant.');
+    expect(html).not.toContain('Atlas');
   });
 });
 

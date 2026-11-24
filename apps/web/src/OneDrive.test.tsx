@@ -1,4 +1,6 @@
+import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { ConfirmStep, EntriesTable, TrackStep } from './OneDrivePage.js';
 import {
   ONEDRIVE_MESSAGES,
   breadcrumbOf,
@@ -10,9 +12,12 @@ import {
   isOutcomeUncertain,
   oneDriveHash,
   parseOneDriveHash,
+  restoreBlocked,
   sizeOf,
   startDriveRestore,
-  summaryOf,
+  confirmRowsOf,
+  COPY_CONSEQUENCE,
+  replaceWarningOf,
 } from './onedrive.js';
 import { screenOf } from './App.js';
 
@@ -59,27 +64,43 @@ describe('OneDrive wording', () => {
 
   it('names the copy without slashes, as the server does', () => {
     expect(copyNameOf('budget.xlsx', 'file', new Date('2026-11-14T10:00:00Z'))).toBe(
-      'budget (restauré 14-11-2026).xlsx',
+      'budget (restauré le 14-11-2026).xlsx',
     );
   });
 
-  it('writes the summary in plain language for a copy and for a replacement', () => {
+  it('lists the summary rows for a copy and for a replacement', () => {
     const base = {
+      account: 'compte@exemple.test',
       name: 'budget.xlsx',
-      kind: 'file' as const,
+      backupAt: '2026-11-14T09:00:00.000Z',
       versionAt: '2026-11-10T18:30:00.000Z',
       folderLabel: 'Documents > Budget',
-      copyName: 'budget (restauré 14-11-2026).xlsx',
+      copyName: 'budget (restauré le 14-11-2026).xlsx',
+      reason: 'Reprise après incident',
     };
-    expect(summaryOf({ ...base, mode: 'copy' })).toBe(
-      'Vous allez restaurer le fichier « budget.xlsx », version du 10/11/2026 18:30, dans Documents > Budget, sous le nom « budget (restauré 14-11-2026).xlsx ». Aucun fichier existant ne sera modifié.',
+    expect(confirmRowsOf({ ...base, mode: 'copy' })).toEqual([
+      ['Compte', 'compte@exemple.test'],
+      ['Élément', 'budget.xlsx'],
+      ['Sauvegarde du', '14/11/2026 09:00'],
+      ['Version du', '10/11/2026 18:30'],
+      ['Emplacement', 'Documents > Budget'],
+      ['Restauré sous le nom', 'budget (restauré le 14-11-2026).xlsx'],
+      ['Motif', 'Reprise après incident'],
+    ]);
+    const replace = confirmRowsOf({ ...base, mode: 'replace' });
+    expect(replace).toContainEqual(['Fichier remplacé', 'budget.xlsx']);
+    expect(replace.map(([label]) => label)).not.toContain('Restauré sous le nom');
+    expect(confirmRowsOf({ ...base, versionAt: null, mode: 'copy' }).map(([l]) => l)).not.toContain(
+      'Version du',
     );
-    expect(summaryOf({ ...base, mode: 'replace' })).toContain(
-      'sera remplacé par la version du 10/11/2026. La version actuelle reste dans l’historique OneDrive.',
+    expect(COPY_CONSEQUENCE).toBe('Aucun fichier existant ne sera modifié.');
+    expect(replaceWarningOf('budget.xlsx', '2026-11-18T16:59:00Z')).toBe(
+      'budget.xlsx sera remplacé par la version du 18/11/2026 16:59. L’actuel reste dans l’historique OneDrive.',
     );
-    expect(summaryOf({ ...base, kind: 'folder', versionAt: null, mode: 'copy' })).toContain(
-      'le dossier « budget.xlsx », dans',
-    );
+    expect(confirmRowsOf({ ...base, copyName: '', mode: 'copy' })).toContainEqual([
+      'Restauré sous le nom',
+      'Nom choisi par OneDrive',
+    ]);
   });
 
   it('says when the outcome is uncertain', () => {
@@ -139,5 +160,213 @@ describe('OneDrive requests', () => {
     expect(await startDriveRestore('a', input, fetchFn)).toMatchObject({
       message: ONEDRIVE_MESSAGES.generic,
     });
+  });
+});
+
+describe('OneDrive entries table', () => {
+  const rows = [
+    {
+      name: '2025',
+      path: '/Budget 2025/2025',
+      kind: 'folder' as const,
+      versionAt: null,
+      sizeBytes: null,
+    },
+    {
+      name: 'budget.xlsx',
+      path: '/budget.xlsx',
+      kind: 'file' as const,
+      versionAt: '2026-11-13T22:04:00.000Z',
+      sizeBytes: 84_000,
+    },
+  ];
+  const html = renderToString(
+    <EntriesTable
+      account="a"
+      rows={rows}
+      selected={null}
+      emptyMessage="vide"
+      onSelect={() => undefined}
+      onVersions={() => undefined}
+    />,
+  );
+
+  it('has no emoji, no « Choix » column and a UTC date header', () => {
+    expect(html).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(html).not.toContain('Choix');
+    expect(html).toContain('Version du (UTC)');
+    expect(html).toContain('dossier</span>');
+  });
+
+  it('shows « — » for absent values in the table; the mobile card shows none', () => {
+    const folderRow = html.split('<tr').find((r) => r.includes('2025')) ?? '';
+    expect(folderRow.match(/—/gu)).toHaveLength(3);
+    // Les « — » et la colonne « Détail » vide sont masqués dans la carte (CSS `table-only`, `:empty`).
+    expect(folderRow).toContain('class="table-only">—');
+    expect(folderRow).toMatch(/data-label="Détail" class="card-only"><\/td>/u);
+    const fileRow = html.split('<tr').find((r) => r.includes('budget.xlsx')) ?? '';
+    expect(fileRow).toContain('Version du 13/11/2026 22:04 UTC · 84 Ko');
+    expect(html).not.toContain('>-<');
+  });
+
+  it('shows the version picked in the dialog on the checked row only', () => {
+    const picked = renderToString(
+      <EntriesTable
+        account="a"
+        rows={rows}
+        selected="/budget.xlsx"
+        pickedVersion={{
+          snapshotId: 's0',
+          versionId: 'v0',
+          at: '2026-11-16T23:17:00.000Z',
+          sizeBytes: 81_000,
+          current: false,
+        }}
+        emptyMessage="vide"
+        onSelect={() => undefined}
+        onVersions={() => undefined}
+      />,
+    );
+    const fileRow = picked.split('<tr').find((r) => r.includes('budget.xlsx')) ?? '';
+    expect(fileRow).toContain('16/11/2026 23:17');
+    expect(fileRow).toMatch(/checked/u);
+    expect(fileRow).not.toContain('13/11/2026 22:04</td>');
+    expect(fileRow).toContain('81 Ko');
+    expect(fileRow).not.toContain('84 Ko');
+    expect(fileRow).toContain('Version du 16/11/2026 23:17 UTC · 81 Ko');
+    const folderRow = picked.split('<tr').find((r) => r.includes('2025')) ?? '';
+    expect(folderRow).not.toContain('81 Ko');
+  });
+
+  it('names each radio button after the item', () => {
+    // Dossier : le bouton est nommé par le lien ; fichier : il est dans son libellé.
+    const folderId = /<input[^>]*aria-labelledby="([^"]+)"/u.exec(html)?.[1];
+    expect(html).toMatch(new RegExp(`<a id="${folderId}"[^>]*>2025</a>`, 'u'));
+    expect(html).toMatch(
+      /<label[^>]*><input[^>]*type="radio"[^>]*\/>(?: |<!-- -->)*budget\.xlsx<\/label>/u,
+    );
+  });
+});
+
+describe('OneDrive replace confirmation', () => {
+  it('keeps "Restaurer" inactive until the box is checked, in replace mode only', () => {
+    expect(restoreBlocked('replace', false)).toBe(true);
+    expect(restoreBlocked('replace', true)).toBe(false);
+    expect(restoreBlocked('copy', false)).toBe(false);
+  });
+
+  it('renders "Restaurer" active in the default copy mode', () => {
+    const entry = {
+      name: 'budget.xlsx',
+      kind: 'file' as const,
+      path: '/Documents/Budget/budget.xlsx',
+      versionAt: '2026-11-10T18:30:00.000Z',
+    };
+    const out = renderToString(
+      <ConfirmStep
+        account="a@exemple.fr"
+        choice={{ entry: entry as never, snapshotId: 's1' }}
+        backupAt="2026-11-14T09:00:00.000Z"
+        reason="Ticket #1 : essai"
+        onBack={() => undefined}
+        onStarted={() => undefined}
+      />,
+    );
+    const button = /<button[^>]*>Restaurer<\/button>/u.exec(out)?.[0];
+    expect(button).toBeDefined();
+    expect(button).not.toContain('aria-disabled');
+    // Récapitulatif libellé : le motif entre dans la liste, après le choix du mode.
+    expect(out).not.toContain('Vous allez restaurer');
+    expect(out).not.toContain('Motif : ');
+    expect(out).toContain('<dt>Motif</dt><dd>Ticket #1 : essai</dd>');
+    expect(out.indexOf('Mode')).toBeLessThan(out.indexOf('<h2>Récapitulatif</h2>'));
+    expect(out.indexOf('<h2>Récapitulatif</h2>')).toBeLessThan(out.indexOf('<dt>Compte</dt>'));
+    expect(out).toContain('Aucun fichier existant ne sera modifié.');
+  });
+});
+
+describe('OneDrive result list', () => {
+  const entry = {
+    name: 'budget.xlsx',
+    kind: 'file' as const,
+    path: '/Documents/Budget/budget.xlsx',
+    versionAt: '2026-11-10T18:30:00.000Z',
+  };
+  const job = {
+    id: 'j1',
+    ownerId: 'o1',
+    path: entry.path,
+    kind: 'file' as const,
+    mode: 'copy' as const,
+    versionAt: entry.versionAt,
+    startedAt: '2026-11-14T10:00:00.000Z',
+    finishedAt: null,
+    durationMs: null,
+    copyName: 'budget (restauré le 14-11-2026).xlsx',
+    error: null,
+  };
+  it.each([
+    ['running', null],
+    ['succeeded', null],
+    ['failed', 'restore_error'],
+  ] as const)('recalls account, version and location when %s', (status, error) => {
+    const out = renderToString(
+      <TrackStep
+        account="a@exemple.fr"
+        choice={{ entry: entry as never, snapshotId: 's1' }}
+        backupAt="2026-11-14T09:00:00.000Z"
+        job={{ ...job, status, error }}
+        onJob={() => undefined}
+        onAgain={() => undefined}
+        onRetry={() => undefined}
+      />,
+    );
+    expect(out).toContain('<dt>Compte</dt><dd>a@exemple.fr</dd>');
+    expect(out).toContain('<dt>Version du</dt><dd>10/11/2026 18:30</dd>');
+    const label = status === 'succeeded' ? 'Élément restauré' : 'Élément';
+    const at = ['Compte', label, 'Sauvegarde du', 'Version du', 'Emplacement'].map((l) =>
+      out.indexOf(`<dt>${l}</dt>`),
+    );
+    expect(at.every((i, n) => i >= 0 && (n === 0 || i > at[n - 1]!))).toBe(true);
+    if (status === 'succeeded') {
+      expect(out).toContain(
+        '<dt>Élément restauré</dt><dd>budget.xlsx → budget (restauré le 14-11-2026).xlsx</dd>',
+      );
+    } else {
+      expect(out).toContain('<dt>Élément</dt><dd>budget.xlsx</dd>');
+      expect(out).not.toContain('Élément restauré');
+      expect(out).not.toContain('→');
+    }
+    expect(out).toContain('<dt>Emplacement</dt><dd>Documents &gt; Budget</dd>');
+  });
+
+  function render(choice: object) {
+    return renderToString(
+      <TrackStep
+        account="a@exemple.fr"
+        choice={choice as never}
+        backupAt="2026-11-14T09:00:00.000Z"
+        job={{ ...job, status: 'succeeded' }}
+        onJob={() => undefined}
+        onAgain={() => undefined}
+        onRetry={() => undefined}
+      />,
+    );
+  }
+
+  it('shows the date of the chosen version rather than the entry date', () => {
+    const out = render({
+      entry,
+      snapshotId: 's1',
+      version: { versionId: 'v1', at: '2026-10-01T08:00:00.000Z' },
+    });
+    expect(out).toContain('<dt>Version du</dt><dd>01/10/2026 08:00</dd>');
+  });
+
+  it('omits the version row when no version date is known', () => {
+    const out = render({ entry: { ...entry, versionAt: null }, snapshotId: 's1' });
+    expect(out).not.toContain('<dt>Version du</dt>');
+    expect(out).toContain('<dt>Compte</dt>');
+    expect(out).toContain('<dt>Emplacement</dt>');
   });
 });

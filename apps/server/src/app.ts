@@ -8,10 +8,12 @@ import {
   type SearchIndex,
   type SiteBrowser,
 } from '@backup365/core';
+import { randomUUID } from 'node:crypto';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { registerAccountRoutes } from './account-routes.js';
 import type { AuthService } from './auth.js';
 import { registerAuthHook } from './auth-hook.js';
+import { registerOriginGuard } from './origin-guard.js';
 import { registerAuthRoutes } from './auth-routes.js';
 import { registerAuditRoutes } from './audit-routes.js';
 import { sendError } from './errors.js';
@@ -19,6 +21,7 @@ import type { OidcService } from './oidc.js';
 import { registerOidcRoutes } from './oidc-routes.js';
 import type { SimulatedOidcProvider } from './oidc-simulated.js';
 import { registerCatalogRoutes } from './catalog-routes.js';
+import { registerConfigurationRoutes } from './configuration-routes.js';
 import { registerMailRoutes } from './mail-routes.js';
 import type { DriveRestoreService } from './drive-restore-service.js';
 import { registerOneDriveRoutes } from './onedrive-routes.js';
@@ -32,6 +35,7 @@ import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 import type { SearchIndexer } from './search-indexer.js';
 import { registerSearchRoutes } from './search-routes.js';
 import { registerWebRoutes } from './static-web.js';
+import { registerOverviewRoutes } from './overview-routes.js';
 import { registerStatusRoutes, type StatusOptions } from './status-routes.js';
 
 export interface AppOptions {
@@ -136,7 +140,13 @@ export function buildApp({
   webDir,
   demo = false,
 }: AppOptions): FastifyInstance {
-  const app = Fastify({ logger, trustProxy, routerOptions: { maxParamLength: 512 } });
+  const app = Fastify({
+    logger,
+    trustProxy,
+    // UUID natif : unique d'un redémarrage à l'autre (le compteur `req-N` repartait de 1).
+    genReqId: () => randomUUID(),
+    routerOptions: { maxParamLength: 512 },
+  });
   app.addHook('onSend', (_req, reply, payload, done) => {
     // La politique propre aux pages de l'interface (static-web.ts) l'emporte sur celle de l'API.
     const own = reply.getHeader('content-security-policy');
@@ -145,8 +155,39 @@ export function buildApp({
     );
     done(null, payload);
   });
+  // Toute réponse d'erreur de l'API est journalisée et porte l'identifiant de requête, que
+  // l'interface affiche pour le support. Ni corps de requête ni contenu : le code métier seul.
+  app.addHook('onSend', (req, reply, payload, done) => {
+    const status = reply.statusCode;
+    if (status < 400 || !req.url.startsWith('/api/')) return done(null, payload);
+    let body: Record<string, unknown> | undefined;
+    if (typeof payload === 'string') {
+      try {
+        const parsed: unknown = JSON.parse(payload);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          body = parsed as Record<string, unknown>;
+        }
+      } catch {
+        body = undefined;
+      }
+    }
+    const code = typeof body?.error === 'string' ? body.error : undefined;
+    const entry = {
+      route: req.routeOptions.url ?? 'unmatched',
+      method: req.method,
+      status,
+      code,
+      reqId: req.id,
+      user: req.session?.username ?? 'anonymous',
+    };
+    if (status >= 500) req.log.error(entry, 'action en erreur');
+    else req.log.warn(entry, 'action refusée');
+    void reply.header('x-request-id', req.id);
+    done(null, payload);
+  });
   // Aucun message d'erreur interne (moteur SQLite, chemin) ne sort : 500 générique.
   app.setErrorHandler((err, _req, reply) => sendError(err, reply));
+  registerOriginGuard(app, audit);
   registerAuthHook(app, auth);
   app.get('/api/health', () => healthResponse(version, demo));
   void app.register((scope, _opts, done) => {
@@ -162,11 +203,16 @@ export function buildApp({
     done();
   });
   void app.register((scope, _opts, done) => {
+    registerOverviewRoutes(scope, plans, planScheduler);
+    registerConfigurationRoutes(scope, { backupConfigured, workloads: status.workloads });
+    done();
+  });
+  void app.register((scope, _opts, done) => {
     registerPlanRoutes(scope, plans, audit, planScheduler, backupConfigured);
     done();
   });
   void app.register((scope, _opts, done) => {
-    registerAuditRoutes(scope, audit);
+    registerAuditRoutes(scope, audit, searchIndex, catalog);
     done();
   });
   void app.register((scope, _opts, done) => {

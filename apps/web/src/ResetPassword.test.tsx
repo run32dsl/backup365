@@ -6,9 +6,11 @@ describe('réinitialisation : étape 2', () => {
   it('summarises the account, asks for a reason and says it is audited without the password', () => {
     const html = renderToStaticMarkup(<ResetReasonForm username="jean.exemple" />);
     expect(html).toContain('jean.exemple');
-    expect(html).toContain('Motif (obligatoire)');
+    expect(html).toContain('Motif de la réinitialisation (obligatoire)');
     expect(html).toContain('affiché une seule fois');
-    expect(html).toContain('Cette action sera journalisée (sans le mot de passe).');
+    expect(html).toContain('Ce motif sera inscrit au journal d’audit.');
+    expect(html).not.toContain('Chaque consultation');
+    expect(html).not.toContain('alert-info');
     expect(html).toContain('>Réinitialiser</button>');
     expect(html).toContain('>Annuler</button>');
   });
@@ -27,23 +29,40 @@ describe('réinitialisation : étape 3', () => {
   const password = 'Tz7k-Qp3m-Vx9d-Lw2h';
 
   it('shows the password once, in a labelled box, with Copier and the confirmation box', () => {
-    const html = renderToStaticMarkup(<TemporaryPasswordView password={password} />);
+    const html = renderToStaticMarkup(
+      <TemporaryPasswordView username="jean.exemple" password={password} />,
+    );
     expect(html).toContain(password);
     expect(html).toContain('aria-label="Mot de passe temporaire"');
     expect(html).toContain('Affiché une seule fois. Il ne pourra plus être consulté.');
     expect(html).toContain('>Copier</button>');
     expect(html).toContain('J’ai transmis le mot de passe');
-    expect(html).toMatch(/<button[^>]*aria-disabled="true"[^>]*>Terminer/);
+    expect(html).toContain('Compte : <strong>jean.exemple</strong>');
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Terminer/);
+    expect(html).toMatch(/<button[^>]*btn-primary[^>]*>Terminer/);
+  });
+
+  it('wraps the checkbox in a label.choice carrying the text, so a click on the text checks it', () => {
+    const html = renderToStaticMarkup(
+      <TemporaryPasswordView username="jean.exemple" password={password} />,
+    );
+    expect(html).toMatch(
+      /<label class="choice"><input type="checkbox"[^>]*\/>J’ai transmis le mot de passe<\/label>/,
+    );
   });
 
   it('enables Terminer once the box is checked, and reports a copy', () => {
-    const html = renderToStaticMarkup(<TemporaryPasswordView password={password} handed copied />);
-    expect(html).not.toMatch(/aria-disabled="true"[^>]*>Terminer/);
+    const html = renderToStaticMarkup(
+      <TemporaryPasswordView username="jean.exemple" password={password} handed copied />,
+    );
+    expect(html).not.toMatch(/disabled[^>]*>Terminer/);
     expect(html).toContain('>Copié</button>');
   });
 
   it('explains a failed copy and keeps the text selectable', () => {
-    const html = renderToStaticMarkup(<TemporaryPasswordView password={password} copyFailed />);
+    const html = renderToStaticMarkup(
+      <TemporaryPasswordView username="jean.exemple" password={password} copyFailed />,
+    );
     expect(html).toContain(
       'Copie impossible. Sélectionnez le mot de passe et copiez-le manuellement.',
     );

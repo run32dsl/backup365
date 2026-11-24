@@ -1,9 +1,11 @@
 # backup365 : démo sur un NAS Synology (DSM 7, Container Manager). Voir docs/installation-synology.md.
 #
-# RÉSEAU LOCAL UNIQUEMENT : comptes locaux, mais HTTP sans chiffrement. Le port est publié sur
-# l'adresse LAN du NAS (BACKUP365_BIND_ADDRESS, obligatoire dans .env), jamais sur 0.0.0.0 par
-# défaut. Ne pas rediriger de port sur la box, ne pas la placer derrière un proxy inverse public.
-# Au premier accès, la console demande de créer le compte administrateur.
+# Par défaut, RÉSEAU LOCAL SEUL : HTTP sans chiffrement. Le port est publié sur l'adresse LAN du
+# NAS (BACKUP365_BIND_ADDRESS, obligatoire dans .env), jamais sur 0.0.0.0. Ne pas rediriger ce
+# port sur la box. Exposition possible uniquement par le proxy inverse DSM en HTTPS, avec
+# BACKUP365_TRUST_PROXY réglé sur l'adresse du proxy vue par le conteneur et le compte
+# administrateur créé avant (docs/installation-synology.md). Au premier accès, la console
+# demande de créer ce compte.
 #
 # Configuration : copier .env.example en .env (non versionné) dans le dossier du projet.
 # Image : épinglée par digest. Mise à jour : relever le digest de l'étiquette voulue avec

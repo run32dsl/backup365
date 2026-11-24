@@ -4,8 +4,15 @@ import { EmptyState } from './EmptyState.js';
 export interface Column<T> {
   header: string;
   cell: (row: T) => ReactNode;
-  /** Classe CSS ajoutée à chaque cellule de la colonne (`nowrap`, `keep-words`, `address`, `card-hidden`, `card-wide`, `card-action`). */
+  /** Classe CSS ajoutée à l'en-tête et à chaque cellule de la colonne (`nowrap`, `keep-words`, `address`, `num`, `col-reason`, `card-hidden`, `card-wide`, `card-action`, `card-title`, `card-only`, `card-nolabel`, `col-mailbox`). */
   className?: string;
+}
+
+const CONTROLS = 'a,button,input,label,select,textarea,summary';
+
+/** Un clic sur une carte sélectionne la ligne, sauf s'il tombe sur un contrôle qui a son propre rôle. */
+export function isCardClick(target: { closest?: (selector: string) => unknown } | null): boolean {
+  return !target?.closest?.(CONTROLS);
 }
 
 /**
@@ -21,8 +28,8 @@ export function DataTable<T>({
   rowKey,
   empty,
   loading = false,
-  compact = false,
   rowClassName,
+  onRowClick,
 }: {
   caption: string;
   /** La légende reste lue par les lecteurs d'écran mais n'est pas affichée (le titre la remplace). */
@@ -33,21 +40,21 @@ export function DataTable<T>({
   /** Phrase de l'état vide, avec au plus une action. */
   empty?: { message: string; action?: ReactNode };
   loading?: boolean;
-  /** Sous 900 px : carte compacte, sans étiquettes, deux cellules par ligne, cellules vides omises. */
-  compact?: boolean;
   /** Classe CSS ajoutée à une ligne. */
   rowClassName?: (row: T) => string | undefined;
+  /** Rend la ligne (la carte en mobile) cliquable ; les liens, boutons et champs gardent leur action. */
+  onRowClick?: (row: T) => void;
 }) {
   if (loading) return <p role="status">Chargement…</p>;
   if (rows.length === 0 && empty)
     return <EmptyState action={empty.action}>{empty.message}</EmptyState>;
   return (
-    <table className={compact ? 'data-table data-table-compact' : 'data-table'} role="table">
+    <table className="data-table" role="table">
       <caption className={hideCaption ? 'sr-only' : 'table-caption'}>{caption}</caption>
       <thead role="rowgroup">
         <tr role="row">
           {columns.map((c, i) => (
-            <th key={i} scope="col" role="columnheader">
+            <th key={i} scope="col" role="columnheader" className={c.className}>
               {c.header}
             </th>
           ))}
@@ -55,7 +62,21 @@ export function DataTable<T>({
       </thead>
       <tbody role="rowgroup">
         {rows.map((row) => (
-          <tr key={rowKey(row)} role="row" className={rowClassName?.(row)}>
+          <tr
+            key={rowKey(row)}
+            role="row"
+            className={
+              [rowClassName?.(row), onRowClick && 'row-clickable'].filter(Boolean).join(' ') ||
+              undefined
+            }
+            onClick={
+              onRowClick
+                ? (ev) => {
+                    if (isCardClick(ev.target as Element)) onRowClick(row);
+                  }
+                : undefined
+            }
+          >
             {columns.map((c, i) => (
               <td key={i} role="cell" data-label={c.header} className={c.className}>
                 {c.cell(row)}

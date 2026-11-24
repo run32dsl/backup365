@@ -55,6 +55,26 @@ describe('GET /api/search', () => {
       count: 2,
     });
     expect(JSON.stringify(events)).not.toContain('facture');
+    expect(events[0]).toMatchObject({ target: '*' });
+  });
+
+  it('does not record a mailbox filter that matches no indexed mailbox', async () => {
+    events.length = 0;
+    const app = await appWithData();
+    await app.inject({ method: 'GET', url: '/api/search?q=facture&mailbox=dupont' });
+    expect(events).toHaveLength(1);
+    expect(events[0]).not.toHaveProperty('target');
+    expect(JSON.stringify(events)).not.toContain('dupont');
+  });
+
+  it('records the filtered mailbox as the target, still without the search terms', async () => {
+    events.length = 0;
+    const app = await appWithData();
+    await app.inject({ method: 'GET', url: '/api/search?q=facture&mailbox=mbx-1&from=alice' });
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ resource: 'mail.search', target: 'mbx-1' });
+    expect(JSON.stringify(events)).not.toContain('facture');
+    expect(JSON.stringify(events)).not.toContain('alice');
   });
 
   it('answers 503 without audit log', async () => {
@@ -86,14 +106,20 @@ describe('GET /api/search', () => {
     expect(res.json<{ total: number }>().total).toBe(2);
   });
 
-  it.each(['limit=0', 'limit=101', 'offset=-1', 'after=hier', 'q=', `q=${'a'.repeat(257)}`])(
-    'rejects invalid parameters (%s)',
-    async (qs) => {
-      const app = await appWithData();
-      const res = await app.inject({ method: 'GET', url: `/api/search?${qs}` });
-      expect(res.statusCode).toBe(400);
-    },
-  );
+  it.each([
+    'limit=0',
+    'limit=101',
+    'offset=-1',
+    'after=hier',
+    'after=2026-11-18',
+    'before=31/02/2026',
+    'q=',
+    `q=${'a'.repeat(257)}`,
+  ])('rejects invalid parameters (%s)', async (qs) => {
+    const app = await appWithData();
+    const res = await app.inject({ method: 'GET', url: `/api/search?${qs}` });
+    expect(res.statusCode).toBe(400);
+  });
 
   it('answers 400 on a date Ajv accepts but JavaScript rejects', async () => {
     const app = await appWithData();

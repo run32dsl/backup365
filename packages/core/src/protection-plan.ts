@@ -5,8 +5,11 @@ export const DEFAULT_RPO_HOURS: RpoHours = 24;
 
 export type PlanScope = 'all' | 'selection';
 
-/** Types de données qu'un plan protège, dans l'ordre d'affichage (ADR 0011). */
-export const DATA_TYPES = ['mail', 'files', 'calendar', 'contacts'] as const;
+/**
+ * Charges qu'un plan protège, dans l'ordre de l'accueil (ADR 0011). Le SDK ne sépare pas le
+ * calendrier ni les contacts de la boîte : ils suivent « mail ».
+ */
+export const DATA_TYPES = ['mail', 'onedrive', 'sharepoint'] as const;
 export type DataType = (typeof DATA_TYPES)[number];
 
 export interface ProtectionPlanInput {
@@ -147,12 +150,84 @@ export function staggerOffsetMinutes(planId: string, rpoHours: RpoHours): number
   return fnv1a(planId) % runIntervalMinutes(rpoHours);
 }
 
+/** Fenêtre de nuit des plans à RPO long (ADR 0017), en heure locale du serveur. */
+export const NIGHT_WINDOW = { startHour: 22, endHour: 6 } as const;
+/** RPO à partir duquel un plan est planifié dans la fenêtre de nuit. */
+export const NIGHT_MIN_RPO_HOURS = 24;
+/** Deux passages par nuit, espacés de 4 h : le second reprend un échec du premier. */
+const NIGHT_SLOT_GAP_MINUTES = 240;
+/** Décalage maximal du premier passage : le second reste avant 6 h, même au changement d'heure. */
+const NIGHT_STAGGER_MINUTES = 180;
+
+/** Vrai si les passages du plan tombent dans la fenêtre de nuit. */
+export function isNightPlan(rpoHours: number): boolean {
+  return rpoHours >= NIGHT_MIN_RPO_HOURS;
+}
+
+/** Ligne de la fiche du plan : la fenêtre utilisée, ou `null` si le plan garde son rythme RPO/2. */
+export function scheduleWindowLabel(rpoHours: number): string | null {
+  return isNightPlan(rpoHours)
+    ? `Sauvegarde planifiée la nuit (${NIGHT_WINDOW.startHour}\u00a0h – ${NIGHT_WINDOW.endHour}\u00a0h)`
+    : null;
+}
+
 /**
- * Prochaine exécution planifiée strictement après `after`, à la minute près. Les créneaux sont
- * `décalage + k × intervalle` depuis l'époque Unix (UTC) : ils ne dépendent que de l'identifiant
- * du plan et de l'horloge, donc survivent à un redémarrage.
+ * Passages d'un plan de nuit autour de `at`, triés. Le premier de chaque nuit est à 22 h locales
+ * (heure du serveur) plus un décalage propre au plan, le second 4 h plus tard. L'écart entre
+ * deux nuits se mesure en temps réel (23 à 25 h au changement d'heure) : le plus long écart entre
+ * deux passages (premier de la nuit suivante moins second) reste de 21 h, sous le RPO de 24 h.
  */
-export function nextRunAt(plan: { id: string; rpoHours: RpoHours }, after: Date): Date {
+function nightSlots(planId: string, at: Date): number[] {
+  const offset = fnv1a(planId) % NIGHT_STAGGER_MINUTES;
+  const slots: number[] = [];
+  for (let day = -2; day <= 2; day++) {
+    const start = new Date(
+      at.getFullYear(),
+      at.getMonth(),
+      at.getDate() + day,
+      NIGHT_WINDOW.startHour,
+    ).getTime();
+    slots.push(start + offset * MINUTE_MS, start + (offset + NIGHT_SLOT_GAP_MINUTES) * MINUTE_MS);
+  }
+  return slots;
+}
+
+type Schedulable = { id: string; rpoHours: RpoHours };
+
+/** Écart entre les deux passages d'une nuit, en minutes. */
+export const NIGHT_SLOT_GAP = NIGHT_SLOT_GAP_MINUTES;
+
+/** Début (22 h locales) de la fenêtre de nuit qui contient `at`, ou `null` hors fenêtre. */
+export function nightWindowStart(at: Date): Date | null {
+  const h = at.getHours();
+  if (h >= NIGHT_WINDOW.startHour) {
+    return new Date(at.getFullYear(), at.getMonth(), at.getDate(), NIGHT_WINDOW.startHour);
+  }
+  if (h < NIGHT_WINDOW.endHour) {
+    return new Date(at.getFullYear(), at.getMonth(), at.getDate() - 1, NIGHT_WINDOW.startHour);
+  }
+  return null;
+}
+
+/** Dernier créneau planifié à `at` ou avant. */
+export function currentRunSlot(plan: Schedulable, at: Date): Date {
+  if (isNightPlan(plan.rpoHours)) {
+    const past = nightSlots(plan.id, at).filter((t) => t <= at.getTime());
+    return new Date(past[past.length - 1] as number);
+  }
+  return new Date(nextRunAt(plan, at).getTime() - runIntervalMinutes(plan.rpoHours) * MINUTE_MS);
+}
+
+/**
+ * Prochaine exécution planifiée strictement après `after`, à la minute près. Hors nuit, les
+ * créneaux sont `décalage + k × intervalle` depuis l'époque Unix (UTC) : ils ne dépendent que de
+ * l'identifiant du plan et de l'horloge, donc survivent à un redémarrage. Les plans de nuit
+ * suivent la fenêtre de nuit du fuseau du serveur.
+ */
+export function nextRunAt(plan: Schedulable, after: Date): Date {
+  if (isNightPlan(plan.rpoHours)) {
+    return new Date(nightSlots(plan.id, after).find((t) => t > after.getTime()) as number);
+  }
   const interval = runIntervalMinutes(plan.rpoHours);
   const offset = staggerOffsetMinutes(plan.id, plan.rpoHours);
   const afterMinute = Math.floor(after.getTime() / MINUTE_MS);
@@ -172,6 +247,18 @@ export interface PlanRun {
    * ne contenait rien à sauvegarder. `null` ou absent : un point de restauration existe.
    */
   noSnapshotReason?: NoSnapshotReason | null;
+}
+
+/**
+ * Causes d'échec exposées à l'interface : liste fermée, jamais le code ni le message du SDK. Le
+ * libellé français de chaque cause est écrit dans l'interface.
+ */
+export const FAILURE_CAUSES = ['interrupted', 'backup_errors', 'no_result', 'unknown'] as const;
+export type FailureCause = (typeof FAILURE_CAUSES)[number];
+
+/** Cause (liste fermée) d'un code d'erreur enregistré ; `unknown` pour tout autre code. */
+export function failureCauseOf(code: string | null | undefined): FailureCause {
+  return FAILURE_CAUSES.find((c) => c === code && c !== 'unknown') ?? 'unknown';
 }
 
 /** Seul motif noté : `no_changes` laisse le point de restauration précédent valable. */

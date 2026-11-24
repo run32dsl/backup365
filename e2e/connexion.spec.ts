@@ -29,6 +29,79 @@ test('401 en cours de navigation : #/connexion avec message, puis retour à la p
   await expect(page.getByText(EXPIRED)).toHaveCount(0);
 });
 
+test('changement volontaire du mot de passe : la page reste affichée, formulaire vidé, confirmation qui disparaît au prochain envoi', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  // Réponse simulée : changer le vrai mot de passe casserait les autres tests.
+  await page.route('**/api/auth/password', (route) => route.fulfill({ status: 204 }));
+  await page.goto('/#/password');
+  const current = page.getByLabel('Mot de passe actuel', { exact: true });
+  const next = page.getByLabel('Nouveau mot de passe', { exact: true });
+  const confirm = page.getByLabel('Confirmer le nouveau mot de passe', { exact: true });
+  await current.fill('ancien mot de passe');
+  await next.fill('nouveau mot de passe');
+  await confirm.fill('nouveau mot de passe');
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+
+  await expect(page).toHaveURL(/#\/password$/);
+  await expect(page.getByRole('heading', { name: 'Mot de passe', exact: true })).toBeVisible();
+  const saved = page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' });
+  await expect(saved).toBeVisible();
+  await expect(current).toHaveValue('');
+  await expect(next).toHaveValue('');
+  await expect(confirm).toHaveValue('');
+
+  // Un second envoi avec une confirmation différente fait disparaître le message.
+  await current.fill('ancien mot de passe');
+  await next.fill('nouveau mot de passe');
+  await confirm.fill('autre mot de passe');
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(saved).toHaveCount(0);
+});
+
+test('changement imposé du mot de passe : même retour au tableau de bord, avec confirmation qui disparaît après 8 s', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  let changed = false;
+  // Session réelle, avec le drapeau « mot de passe à changer » tant que le changement n'a pas eu lieu.
+  await page.route('**/api/auth/me', async (route) => {
+    const response = await route.fetch();
+    const session = (await response.json()) as { user: Record<string, unknown> };
+    await route.fulfill({
+      response,
+      json: { ...session, user: { ...session.user, mustChangePassword: !changed } },
+    });
+  });
+  await page.route('**/api/auth/password', (route) => {
+    changed = true;
+    return route.fulfill({ status: 204 });
+  });
+  await page.clock.install();
+  await page.goto('/');
+  await page.getByLabel('Mot de passe actuel', { exact: true }).fill('ancien mot de passe');
+  await page.getByLabel('Nouveau mot de passe', { exact: true }).fill('nouveau mot de passe');
+  await page
+    .getByLabel('Confirmer le nouveau mot de passe', { exact: true })
+    .fill('nouveau mot de passe');
+  await page.getByRole('button', { name: 'Enregistrer et continuer' }).click();
+
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
+  const status = page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' }).first();
+  await expect(status).toBeVisible();
+  await expect(page.getByLabel('Mot de passe actuel', { exact: true })).toHaveCount(0);
+
+  // Le message disparaît après 8 s.
+  await page.clock.fastForward(8500);
+  await expect(page.getByText('Mot de passe modifié.')).toHaveCount(0);
+});
+
 test('connexion Microsoft (fournisseur simulé de la démo) : le bouton ouvre la console', async ({
   page,
 }) => {
@@ -57,7 +130,7 @@ test('connexion verrouillée : décompte, bouton inactif, puis le champ reprend 
 
   const alert = page.getByRole('alert');
   await expect(alert).toContainText(
-    /Connexion impossible pour le moment\. Nouvel essai possible dans 00:0\d\./,
+    /Connexion temporairement bloquée.*Nouvel essai possible dans 00:0\d\./s,
   );
   const submit = page.getByRole('button', { name: 'Se connecter' });
   await expect(submit).toBeDisabled();
@@ -86,16 +159,22 @@ test('réinitialisation : motif obligatoire, mot de passe affiché une seule foi
     return route.fulfill({ status: 200, json: { password: TEMPORARY } });
   });
   await page.goto('/#/comptes');
-  await page.getByLabel('Compte').selectOption({ label: DEMO_LOGINS.operator.username });
-  await page.getByRole('button', { name: 'Réinitialiser le mot de passe' }).click();
+  await page
+    .getByRole('button', {
+      name: `Réinitialiser le mot de passe : ${DEMO_LOGINS.operator.username}`,
+    })
+    .first()
+    .click();
 
   const step2 = page.getByRole('dialog', { name: 'Réinitialiser le mot de passe' });
   await expect(step2).toContainText(DEMO_LOGINS.operator.username);
-  await expect(step2).toContainText('Cette action sera journalisée (sans le mot de passe).');
+  await expect(step2).toContainText('Ce motif sera inscrit au journal d’audit.');
   await step2.getByRole('button', { name: 'Réinitialiser' }).click();
-  await expect(step2.getByText('Indiquez un motif.')).toBeVisible();
+  await expect(step2.getByText('Indiquez un motif pour continuer.')).toBeVisible();
   expect(bodies).toHaveLength(0);
-  await step2.getByLabel('Motif (obligatoire)').fill('Oubli du mot de passe');
+  await step2
+    .getByLabel('Motif de la réinitialisation (obligatoire)')
+    .fill('Oubli du mot de passe');
   await step2.getByRole('button', { name: 'Réinitialiser' }).click();
 
   const step3 = page.getByRole('dialog', { name: 'Mot de passe temporaire' });
@@ -122,4 +201,39 @@ test('réinitialisation : motif obligatoire, mot de passe affiché une seule foi
   expect(await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]))).not.toContain(
     TEMPORARY,
   );
+});
+
+test('administration : la boîte « Créer un compte » s’annule, signale un identifiant pris, puis crée le compte', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signInAs(context, baseURL!, 'admin');
+  await page.goto('/#/comptes');
+  const open = page.getByRole('button', { name: /Créer un compte/ });
+  const dialog = page.getByRole('dialog', { name: 'Créer un compte' });
+  const NEW_LOGIN = 'compte-e2e-boite';
+
+  // Annuler ferme la boîte sans rien créer.
+  await open.click();
+  await dialog.getByLabel('Identifiant').fill(NEW_LOGIN);
+  await dialog.getByRole('button', { name: 'Annuler' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('cell', { name: NEW_LOGIN })).toHaveCount(0);
+
+  // Identifiant déjà pris : la boîte reste ouverte avec l'erreur du serveur.
+  await open.click();
+  await dialog.getByLabel('Identifiant').fill(DEMO_LOGINS.operator.username);
+  await dialog
+    .getByRole('textbox', { name: /Mot de passe temporaire/ })
+    .fill('mot-de-passe-e2e-12345');
+  await dialog.getByRole('button', { name: 'Créer le compte' }).click();
+  await expect(dialog.getByRole('alert')).toBeVisible();
+  await expect(dialog).toBeVisible();
+
+  // Correction : la boîte se ferme et le compte apparaît dans le tableau.
+  await dialog.getByLabel('Identifiant').fill(NEW_LOGIN);
+  await dialog.getByRole('button', { name: 'Créer le compte' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('cell', { name: NEW_LOGIN }).first()).toBeVisible();
 });

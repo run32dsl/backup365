@@ -1,0 +1,4 @@
+# GitHub ignore un code owner sans droit d'écriture : @run32dsl est donc seul propriétaire.
+# L'avis du référent sécurité (MoonEyes, rôle Triage) est demandé sur SECURITY.md, docs/adr/,
+# deploy/, apps/server/src/auth*, apps/server/src/oidc* et .github/ (voir CONTRIBUTING.md).
+*  @run32dsl

@@ -54,7 +54,7 @@ export function sessionCookie(req: FastifyRequest, token: string, maxAgeSec?: nu
   ].join('; ');
 }
 
-function isApiPath(url: string): boolean {
+export function isApiPath(url: string): boolean {
   const raw = url.split('?')[0] ?? '';
   let path = raw;
   try {

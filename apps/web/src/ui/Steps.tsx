@@ -2,6 +2,7 @@ import type { Ref } from 'react';
 
 /**
  * Indicateur d'étapes : liste ordonnée, `aria-current="step"` sur l'étape en cours. Avec
+ * `current` au-delà de la dernière étape, toutes sont terminées et aucune n'est en cours. Avec
  * `titleRef`, le titre peut recevoir le focus (changement d'étape d'un parcours).
  */
 export function Steps({
@@ -13,16 +14,19 @@ export function Steps({
   current: number;
   titleRef?: Ref<HTMLParagraphElement>;
 }) {
+  const finished = current > steps.length;
   const label = steps[current - 1] ?? '';
   return (
     <div className="steps">
       <p ref={titleRef} tabIndex={titleRef ? -1 : undefined} className="steps-title">
-        {`Étape ${current} sur ${steps.length} : ${label}`}
+        {finished
+          ? 'Toutes les étapes sont terminées'
+          : `Étape ${current} sur ${steps.length} : ${label}`}
       </p>
       <ol>
         {steps.map((name, i) => {
           const n = i + 1;
-          const state = n < current ? 'done' : n === current ? 'current' : 'todo';
+          const state = finished || n < current ? 'done' : n === current ? 'current' : 'todo';
           const icon = state === 'done' ? '✔' : state === 'current' ? '●' : '○';
           return (
             <li
