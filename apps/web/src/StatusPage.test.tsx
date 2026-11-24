@@ -15,7 +15,8 @@ describe('StatusPage', () => {
   it('shows its title and the loading state first', () => {
     const html = renderToString(<StatusPage />);
     expect(html).toContain('<main tabindex="-1"');
-    expect(html).toContain('État détaillé');
+    expect(html).toContain('<h1>Sources</h1>');
+    expect(html).toContain('État de la protection de chaque service Microsoft 365.');
     expect(html).toContain('Chargement de l’état des sauvegardes');
   });
 

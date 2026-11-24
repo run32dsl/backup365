@@ -292,6 +292,19 @@ th {
 .data-table .row-muted {
   color: var(--muted);
 }
+/* En-tête de ligne (`<th scope="row">`) : l'aspect d'une cellule, nom du service en tête. */
+.data-table tbody th[scope='row'] {
+  background: transparent;
+  color: inherit;
+  font-weight: 600;
+  text-align: left;
+  white-space: normal;
+}
+.service-icon {
+  display: inline-block;
+  min-width: 1.25em;
+  text-align: center;
+}
 /* Action liée à un état, sous la pastille (le lien garde sa couleur, même sur une ligne grisée). */
 .state-link {
   display: block;
@@ -716,7 +729,8 @@ select[aria-disabled='true'] {
   .data-table,
   .data-table tbody,
   .data-table tr,
-  .data-table td {
+  .data-table td,
+  .data-table tbody th[scope='row'] {
     display: block;
   }
   /* La légende occupe toute la largeur de la carte, comme un titre. */

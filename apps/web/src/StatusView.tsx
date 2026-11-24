@@ -111,10 +111,17 @@ function ServiceState({ service }: { service: ServiceEntry }) {
   if (!service.hasPlan)
     return (
       <div>
-        <StatusPill status="pending" label="Aucun plan" />
+        <StatusPill status="unconfigured" label="Non protégé" />
         <a className="state-link" href={PLANS_HASH} aria-label={`Créer un plan pour ${name}`}>
           Créer un plan
         </a>
+      </div>
+    );
+  // Un plan sans sauvegarde : « En attente » jusqu'à l'échéance de sa première exécution (comme l'accueil).
+  if (service.awaitingFirstRun)
+    return (
+      <div>
+        <StatusPill status="pending" />
       </div>
     );
   return (
@@ -133,8 +140,26 @@ function ServiceState({ service }: { service: ServiceEntry }) {
   );
 }
 
+/** Glyphes décoratifs : le nom du service reste écrit à côté. */
+const SERVICE_ICONS: Record<ServiceEntry['service'], string> = {
+  mail: '✉',
+  onedrive: '☁',
+  sharepoint: '▤',
+};
+
 const SERVICE_COLUMNS: Column<ServiceEntry>[] = [
-  { header: 'Service', cell: (s) => workloadLabel(s.service) },
+  {
+    header: 'Service',
+    rowHeader: true,
+    cell: (s) => (
+      <>
+        <span className="service-icon" aria-hidden="true">
+          {SERVICE_ICONS[s.service]}
+        </span>{' '}
+        {workloadLabel(s.service)}
+      </>
+    ),
+  },
   {
     header: 'Dernière sauvegarde',
     cell: (s) => <LastBackup at={s.lastSnapshotAt} ageHours={s.ageHours} />,
@@ -147,13 +172,13 @@ const SERVICE_COLUMNS: Column<ServiceEntry>[] = [
   { header: 'Périmètre', cell: scopeLabel },
 ];
 
-/** Page « Sources » : une ligne par service ; un service sans plan est grisé. */
+/** Une ligne par service ; un service sans plan est grisé (`--muted`, sans `opacity`). */
 function Services({ services }: { services: StatusReport['services'] }) {
   if (services === undefined) return null;
   if (services === null) return <Alert tone="error">Synthèse des services indisponible</Alert>;
   return (
     <section className="status-section" aria-labelledby="services-title">
-      <h2 id="services-title">Sources</h2>
+      <h2 id="services-title">Services</h2>
       <DataTable
         caption="État par service"
         hideCaption

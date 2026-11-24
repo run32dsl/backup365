@@ -541,8 +541,8 @@ export const SCREENS = [
   },
   { name: 'page-reservee', hash: '#/comptes', role: 'operator' },
   {
-    name: 'etat-detaille',
-    hash: '#/etat',
+    name: 'sources',
+    hash: '#/sources',
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('heading', { name: 'Sauvegardes' }).waitFor();
@@ -551,8 +551,8 @@ export const SCREENS = [
   {
     // En démo chaque service a un plan : la réponse est modifiée pour montrer la ligne grisée
     // « Aucun plan » et son lien « Créer un plan ».
-    name: 'etat-detaille-sans-plan',
-    hash: '#/etat',
+    name: 'sources-sans-plan',
+    hash: '#/sources',
     role: 'admin',
     prepare: async (page) => {
       await page.route('**/api/status', async (route) => {
@@ -568,6 +568,7 @@ export const SCREENS = [
                 state: 'missing',
                 retentionDays: null,
                 scope: null,
+                awaitingFirstRun: false,
               }
             : s,
         );
@@ -575,6 +576,32 @@ export const SCREENS = [
       });
       await page.reload();
       await page.getByRole('link', { name: 'Créer un plan' }).waitFor();
+    },
+  },
+  {
+    // Un plan sans aucune sauvegarde, avant l'échéance de sa première exécution : « En attente ».
+    name: 'sources-en-attente',
+    hash: '#/sources',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/status', async (route) => {
+        const res = await route.fetch();
+        const body = await res.json();
+        body.services = body.services.map((s) =>
+          s.service === 'onedrive'
+            ? {
+                ...s,
+                lastSnapshotAt: null,
+                ageHours: null,
+                state: 'missing',
+                awaitingFirstRun: true,
+              }
+            : s,
+        );
+        await route.fulfill({ response: res, json: body });
+      });
+      await page.reload();
+      await page.getByText('En attente').first().waitFor();
     },
   },
   {

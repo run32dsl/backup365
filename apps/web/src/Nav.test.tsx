@@ -4,7 +4,9 @@ import {
   closeMenuOnEscape,
   ConsoleView,
   ForbiddenView,
+  MAX_ADMIN_NAV_ENTRIES,
   navEntries,
+  redirectLegacyHash,
   screenFor,
   screenOf,
   skipToContent,
@@ -176,7 +178,7 @@ describe('navEntries', () => {
       'Plans de protection',
       'Journal d’audit',
     ]);
-    expect(top(true)).toEqual([...top(false), 'État détaillé', 'Administration']);
+    expect(top(true)).toEqual([...top(false), 'Sources', 'Administration']);
     const group = navEntries('home', false)[1]!;
     expect('children' in group && group.children.map((c) => c.label)).toEqual([
       'Messagerie',
@@ -186,17 +188,31 @@ describe('navEntries', () => {
     expect(group).not.toHaveProperty('href');
   });
 
-  it('reaches the detailed status from the menu for an administrator only', () => {
-    expect(links('home').find((e) => e.label === 'État détaillé')?.href).toBe('#/etat');
-    expect(screenOf('#/etat')).toBe('status');
-    expect(screenFor('#/etat', true)).toBe('status');
+  it('reaches the Sources page from the menu for an administrator only', () => {
+    expect(links('home').find((e) => e.label === 'Sources')?.href).toBe('#/sources');
+    expect(screenOf('#/sources')).toBe('status');
+    expect(screenFor('#/sources', true)).toBe('status');
     expect(links('status').filter((e) => e.current)).toEqual([
-      { href: '#/etat', label: 'État détaillé', current: true },
+      { href: '#/sources', label: 'Sources', current: true },
     ]);
     expect(navEntries('home', false).flatMap((e) => ('href' in e ? [e.href] : []))).not.toContain(
-      '#/etat',
+      '#/sources',
     );
-    expect(screenFor('#/etat', false)).toBe('forbidden');
+    expect(screenFor('#/sources', false)).toBe('forbidden');
+  });
+
+  it('redirects the former #/etat address to #/sources', () => {
+    expect(redirectLegacyHash('#/etat')).toBe('#/sources');
+    expect(redirectLegacyHash('#/sources')).toBeNull();
+    expect(redirectLegacyHash('#/audit')).toBeNull();
+  });
+
+  it('keeps at most 8 entries for an administrator, on every screen', () => {
+    const screens = ['home', 'search', 'mail', 'onedrive', 'sharepoint', 'plans', 'audit'] as const;
+    for (const screen of [...screens, 'status', 'accounts', 'forbidden'] as const) {
+      expect(links(screen).length).toBeLessThanOrEqual(MAX_ADMIN_NAV_ENTRIES);
+    }
+    expect(MAX_ADMIN_NAV_ENTRIES).toBe(8);
   });
 
   it('marks exactly one entry as current, Messagerie for a mail sheet', () => {
