@@ -374,6 +374,16 @@ describe('maquette de l’issue #22', () => {
     expect(renderToString(<CredentialsView mode="login" />)).not.toContain('expiré');
   });
 
+  it('shows every lost session as an info alert, never as an error', () => {
+    for (const loss of ['expired', 'invalid'] as const) {
+      const html = renderToString(<CredentialsView mode="login" notice={lossMessage(loss)} />);
+      expect(html).toContain('<div class="alert alert-info" role="status">');
+      expect(html).toContain(lossMessage(loss));
+      expect(html).not.toContain('alert-error');
+      expect(html).not.toContain('role="alert"');
+    }
+  });
+
   it('shows a Microsoft refusal as an error alert, not a plain paragraph', () => {
     const html = renderToString(<CredentialsView mode="login" refusal="Accès refusé." microsoft />);
     expect(html).toContain('class="alert alert-error" role="alert"');
