@@ -75,9 +75,13 @@ s'authentifier simplement. Le SSO Microsoft (OIDC Entra ID) viendra dans une iss
   environ 92 bits), le rend une seule fois dans la réponse (`Cache-Control: no-store`) et impose le
   changement à la connexion suivante. L'audit consigne `password_reset: <motif>`, jamais le mot de
   passe. Remplace l'ancienne route où l'administrateur choisissait le mot de passe.
-- **Comptes créés par l'API** : mot de passe temporaire fixé par l'administrateur, à changer à la
-  première connexion (comme après une réinitialisation) ; tant que ce n'est pas fait, seules
-  `/api/auth/me`, `/logout` et `/password` répondent (403 `password_change_required` ailleurs).
+- **Comptes créés par l'API** (issue #352, décision du PM du 2026-11-24) : `POST /api/accounts`
+  prend l'identifiant et le rôle, **aucun mot de passe**. Comme pour la réinitialisation, le serveur
+  génère un mot de passe temporaire, le rend une seule fois (`Cache-Control: no-store`) et impose
+  le changement à la première connexion. L'audit consigne `account.create` (qui, quel compte,
+  rôle), jamais le mot de passe. Tant que le changement n'est pas fait, seules `/api/auth/me`,
+  `/logout` et `/password` répondent (403 `password_change_required` ailleurs). Remplace le mot
+  de passe saisi par l'administrateur, qui le connaissait durablement.
 - **Compte de test et dépannage** : commande locale
   `node apps/server/dist/admin.js create-admin --username <nom> --password-stdin` (mot de passe sur
   l'entrée standard, jamais en argument). Elle refuse un nom pris, journalise (acteur `cli`),

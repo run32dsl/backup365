@@ -224,16 +224,22 @@ test('administration : la boîte « Créer un compte » s’annule, signale un i
   // Identifiant déjà pris : la boîte reste ouverte avec l'erreur du serveur.
   await open.click();
   await dialog.getByLabel('Identifiant').fill(DEMO_LOGINS.operator.username);
-  await dialog
-    .getByRole('textbox', { name: /Mot de passe temporaire/ })
-    .fill('mot-de-passe-e2e-12345');
+  await expect(dialog.getByLabel('Mot de passe')).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Créer le compte' }).click();
   await expect(dialog.getByRole('alert')).toBeVisible();
   await expect(dialog).toBeVisible();
 
-  // Correction : la boîte se ferme et le compte apparaît dans le tableau.
+  // Correction : le serveur génère le mot de passe temporaire, affiché une seule fois ; la boîte
+  // ne se ferme qu'après la case « J'ai transmis le mot de passe ».
   await dialog.getByLabel('Identifiant').fill(NEW_LOGIN);
   await dialog.getByRole('button', { name: 'Créer le compte' }).click();
-  await expect(dialog).toBeHidden();
+  const step3 = page.getByRole('dialog', { name: `Mot de passe temporaire de ${NEW_LOGIN}` });
+  await expect(step3).toContainText(`Compte : ${NEW_LOGIN}`);
+  await expect(step3.getByLabel('Mot de passe temporaire')).not.toBeEmpty();
+  await page.keyboard.press('Escape');
+  await expect(step3).toBeVisible();
+  await step3.getByLabel('J’ai transmis le mot de passe').check();
+  await step3.getByRole('button', { name: 'Terminer' }).click();
+  await expect(step3).toBeHidden();
   await expect(page.getByRole('cell', { name: NEW_LOGIN }).first()).toBeVisible();
 });

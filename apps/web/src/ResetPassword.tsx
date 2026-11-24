@@ -130,43 +130,30 @@ export function TemporaryPasswordView({
 }
 
 /**
- * Réinitialisation en deux boîtes successives (le choix du compte est l'étape 1, dans la page) :
- * `reset` désigne le compte ; `run` appelle l'API et rend le mot de passe ou un message d'erreur.
- * Le mot de passe ne vit que dans l'état de ce composant et disparaît à la fermeture.
+ * Étape « mot de passe temporaire », commune à la création et à la réinitialisation : copie,
+ * focus sur le mot de passe et case « J'ai transmis le mot de passe ». `onHanded` informe la
+ * boîte, qui n'est fermable qu'une fois la case cochée. Le mot de passe ne vit que dans l'état
+ * de l'appelant et disparaît à la fermeture.
  */
-export function ResetPasswordDialog({
+export function TemporaryPasswordStep({
   username,
-  run,
-  onClose,
+  password,
+  onHanded,
+  onDone,
 }: {
-  username: string | null;
-  run: (reason: string) => Promise<{ password: string } | { error: Problem }>;
-  onClose: () => void;
+  username: string;
+  password: string;
+  onHanded: (handed: boolean) => void;
+  onDone: () => void;
 }) {
-  const [error, setError] = useState<string>();
-  const [failure, setFailure] = useState<Problem>();
-  const [busy, setBusy] = useState(false);
-  const [password, setPassword] = useState<string>();
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const [handed, setHanded] = useState(false);
   const code = useRef<HTMLElement>(null);
   useEffect(() => {
-    setError(undefined);
-    setFailure(undefined);
-    setBusy(false);
-    setPassword(undefined);
-    setCopied(false);
-    setCopyFailed(false);
-    setHanded(false);
-  }, [username]);
-  // Étape 3 : le focus va sur le mot de passe.
-  useEffect(() => {
-    if (password !== undefined) code.current?.focus();
-  }, [password]);
-
+    code.current?.focus();
+  }, []);
   const copy = () => {
-    if (password === undefined) return;
     // `navigator.clipboard` est absent hors contexte sécurisé (console en HTTP) : même message.
     void Promise.resolve()
       .then(() => navigator.clipboard.writeText(password))
@@ -181,6 +168,49 @@ export function ResetPasswordDialog({
         },
       );
   };
+  return (
+    <TemporaryPasswordView
+      username={username}
+      password={password}
+      copied={copied}
+      copyFailed={copyFailed}
+      handed={handed}
+      codeRef={code}
+      onCopy={copy}
+      onHanded={(checked) => {
+        setHanded(checked);
+        onHanded(checked);
+      }}
+      onDone={onDone}
+    />
+  );
+}
+
+/**
+ * Réinitialisation en deux boîtes successives (le choix du compte est l'étape 1, dans la page) :
+ * `reset` désigne le compte ; `run` appelle l'API et rend le mot de passe ou un message d'erreur.
+ */
+export function ResetPasswordDialog({
+  username,
+  run,
+  onClose,
+}: {
+  username: string | null;
+  run: (reason: string) => Promise<{ password: string } | { error: Problem }>;
+  onClose: () => void;
+}) {
+  const [error, setError] = useState<string>();
+  const [failure, setFailure] = useState<Problem>();
+  const [busy, setBusy] = useState(false);
+  const [password, setPassword] = useState<string>();
+  const [handed, setHanded] = useState(false);
+  useEffect(() => {
+    setError(undefined);
+    setFailure(undefined);
+    setBusy(false);
+    setPassword(undefined);
+    setHanded(false);
+  }, [username]);
 
   return (
     <Dialog
@@ -218,14 +248,9 @@ export function ResetPasswordDialog({
           }}
         />
       ) : (
-        <TemporaryPasswordView
+        <TemporaryPasswordStep
           username={username ?? ''}
           password={password}
-          copied={copied}
-          copyFailed={copyFailed}
-          handed={handed}
-          codeRef={code}
-          onCopy={copy}
           onHanded={setHanded}
           onDone={onClose}
         />

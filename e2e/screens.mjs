@@ -539,6 +539,35 @@ export const SCREENS = [
       await page.getByRole('dialog').getByLabel('Mot de passe temporaire').waitFor();
     },
   },
+  {
+    // Réponse simulée : créer un vrai compte à chaque capture polluerait la démonstration.
+    name: 'creation-mot-de-passe-temporaire',
+    hash: '#/comptes',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/accounts', (route) =>
+        route.request().method() === 'POST'
+          ? route.fulfill({
+              status: 201,
+              json: {
+                id: 99,
+                username: 'nouveau-compte',
+                role: 'operator',
+                disabled: false,
+                mustChangePassword: true,
+                createdAt: '2026-11-24T09:00:00.000Z',
+                password: 'Tz7k-Qp3m-Vx9d-Lw2h',
+              },
+            })
+          : route.fallback(),
+      );
+      await page.getByRole('table').first().waitFor();
+      await page.getByRole('button', { name: 'Créer un compte' }).click();
+      await page.getByLabel('Identifiant').fill('nouveau-compte');
+      await page.getByRole('button', { name: 'Créer le compte' }).click();
+      await page.getByRole('dialog').getByLabel('Mot de passe temporaire').waitFor();
+    },
+  },
   { name: 'page-reservee', hash: '#/comptes', role: 'operator' },
   {
     name: 'sources',

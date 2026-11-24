@@ -17,7 +17,7 @@ import { AccountChangeDialog, changeDone, type AccountChange } from './AccountCh
 import { requestIdOf, type Problem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { ErrorView, Field } from './LoginPage.js';
-import { ResetPasswordDialog } from './ResetPassword.js';
+import { ResetPasswordDialog, TemporaryPasswordStep } from './ResetPassword.js';
 import { AUDIT_NOTICE, UNREACHABLE, type Outcome, type Role } from './session.js';
 import {
   Address,
@@ -37,8 +37,8 @@ export interface AccountActions {
   onRole: (id: number) => void;
   /** Désactiver ouvre une boîte avec motif ; réactiver s'applique tout de suite. */
   onDisabled: (id: number, disabled: boolean) => void;
-  /** Résout à `true` si le compte est créé (la boîte se ferme), sinon au message d'erreur affiché dans la boîte. */
-  onCreate: (form: FormData) => Promise<true | Problem>;
+  /** Résout au mot de passe temporaire si le compte est créé, sinon au message d'erreur affiché dans la boîte. */
+  onCreate: (form: FormData) => Promise<{ password: string } | { error: Problem }>;
   /** Ouvre la boîte de réinitialisation du compte de la ligne. */
   onReset: (id: number) => void;
 }
@@ -215,13 +215,10 @@ export function CreateAccountForm({
         options={ROLE_OPTIONS}
         onChange={setRole}
       />
-      <Field
-        label="Mot de passe temporaire"
-        help="12 caractères minimum. Le compte devra le changer à sa première connexion."
-        name="password"
-        type="password"
-        autoComplete="new-password"
-      />
+      <p>
+        Un mot de passe temporaire sera créé et affiché une seule fois. Le compte devra le changer à
+        sa première connexion.
+      </p>
       <div className="button-row dialog-actions">
         <Button variant="secondary" data-safe onClick={onCancel}>
           Annuler
@@ -234,59 +231,70 @@ export function CreateAccountForm({
   );
 }
 
-/** Décide de la suite d'une création : la boîte se ferme si elle a réussi, sinon elle reste. */
-export async function submitCreate(
-  create: (form: FormData) => Promise<true | Problem>,
-  form: FormData,
-  close: () => void,
-): Promise<Problem | undefined> {
-  const result = await create(form);
-  if (result === true) {
-    close();
-    return undefined;
-  }
-  return result;
-}
+const text = (form: FormData, name: string): string => {
+  const value = form.get(name);
+  return typeof value === 'string' ? value : '';
+};
 
-/** Boîte « Créer un compte » : se ferme sur « Annuler » ou quand la création a réussi. */
+/**
+ * Boîte « Créer un compte » : une fois le compte créé, elle montre le mot de passe temporaire
+ * (même étape qu'après une réinitialisation) et ne se ferme qu'une fois la case cochée.
+ */
 export function CreateAccountDialog({
   open,
   onCreate,
   onClose,
 }: {
   open: boolean;
-  onCreate: (form: FormData) => Promise<true | Problem>;
+  onCreate: AccountActions['onCreate'];
   onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<Problem>();
+  const [created, setCreated] = useState<{ username: string; password: string }>();
+  const [handed, setHanded] = useState(false);
   useEffect(() => {
     setBusy(false);
     setError(undefined);
+    setCreated(undefined);
+    setHanded(false);
   }, [open]);
   return (
-    <Dialog open={open} title="Créer un compte" onClose={onClose}>
-      <CreateAccountForm
-        error={error}
-        busy={busy}
-        onCancel={onClose}
-        onSubmit={(form) => {
-          if (busy) return;
-          setBusy(true);
-          void submitCreate(onCreate, form, onClose).then((failure) => {
-            setBusy(false);
-            setError(failure);
-          });
-        }}
-      />
+    <Dialog
+      open={open}
+      title={created ? `${RESET_TEXTS.resultTitle} de ${created.username}` : 'Créer un compte'}
+      // Ni « ✕ » ni Échap tant que la case n'est pas cochée.
+      dismissible={!created || handed}
+      onClose={onClose}
+    >
+      {created ? (
+        <TemporaryPasswordStep
+          username={created.username}
+          password={created.password}
+          onHanded={setHanded}
+          onDone={onClose}
+        />
+      ) : (
+        <CreateAccountForm
+          error={error}
+          busy={busy}
+          onCancel={onClose}
+          onSubmit={(form) => {
+            if (busy) return;
+            setBusy(true);
+            setError(undefined);
+            void onCreate(form).then((result) => {
+              setBusy(false);
+              if ('password' in result) {
+                setCreated({ username: text(form, 'username').trim(), password: result.password });
+              } else setError(result.error);
+            });
+          }}
+        />
+      )}
     </Dialog>
   );
 }
-
-const text = (form: FormData, name: string): string => {
-  const value = form.get(name);
-  return typeof value === 'string' ? value : '';
-};
 
 /** Gestion des comptes (écran `#/comptes`, administrateur seulement). */
 export function AccountsPage() {
@@ -349,15 +357,22 @@ export function AccountsPage() {
       if (disabled) openChange(id, 'disable');
       else void run(`${nameOf(id)} est réactivé.`, updateAccount(id, { disabled }));
     },
-    onCreate: (form) =>
-      run(
-        'Compte créé.',
-        createAccount(
+    onCreate: async (form) => {
+      try {
+        const outcome = await createAccount(
           text(form, 'username').trim(),
-          text(form, 'password'),
           text(form, 'role') as Role,
-        ),
-      ),
+        );
+        if (outcome.ok) {
+          setMessage({ kind: 'status', text: 'Compte créé.' });
+          reload();
+          return { password: outcome.value };
+        }
+        return { error: { message: outcome.message, requestId: outcome.requestId } };
+      } catch {
+        return { error: { message: UNREACHABLE } };
+      }
+    },
     // Étape 1 : ouvre la boîte du compte de la ligne (étapes 2 et 3).
     onReset: (id) => {
       setReset({ id, username: nameOf(id) });

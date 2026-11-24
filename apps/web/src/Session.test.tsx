@@ -1,7 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { Console, ForbiddenView, screenFor, screenOf } from './App.js';
-import { AccountsPage, AccountsView, CreateAccountForm, submitCreate } from './AccountsPage.js';
+import { AccountsPage, AccountsView, CreateAccountForm } from './AccountsPage.js';
 import { AuditPage } from './AuditPage.js';
 import { CredentialsView, ErrorView, Field, PasswordPage, PasswordView } from './LoginPage.js';
 import { ROLE_OPTIONS, createAccount, isLastAdmin, resetPassword } from './accounts.js';
@@ -209,15 +209,12 @@ describe('Administration page structure', () => {
     expect(page.replaceAll('<!-- -->', '')).toContain('+ </span>Créer un compte</button>');
   });
 
-  it('closes the creation box once the account is created, and keeps it on failure', async () => {
-    const form = new FormData();
-    const close = vi.fn();
-    await expect(submitCreate(() => Promise.resolve(true), form, close)).resolves.toBeUndefined();
-    expect(close).toHaveBeenCalledTimes(1);
-    const kept = vi.fn();
-    const taken = { message: 'Cet identifiant est déjà utilisé.', requestId: 'req-7' };
-    await expect(submitCreate(() => Promise.resolve(taken), form, kept)).resolves.toEqual(taken);
-    expect(kept).not.toHaveBeenCalled();
+  it('asks for no password on creation: it says one is generated and shown once', () => {
+    const html = renderToString(<CreateAccountForm />);
+    expect(html).not.toContain('type="password"');
+    expect(html).not.toContain('name="password"');
+    expect(html).toContain('Un mot de passe temporaire sera créé et affiché une seule fois.');
+    expect(html).toContain('devra le changer');
   });
 });
 
@@ -398,23 +395,21 @@ describe('maquette de l’issue #22', () => {
     expect(requestedPage('#autre')).toBeNull();
   });
 
-  it('sends the typed password on creation and only a reason on reset', async () => {
+  it('sends no password on creation, returns the generated one, and only a reason on reset', async () => {
     const fetchFn = vi.fn<typeof fetch>(() => reply({ password: 'Tz7k-Qp3m-Vx9d-Lw2h' }));
-    await createAccount('bob', 'un mot de passe long', 'operator', fetchFn);
+    const created = await createAccount('bob', 'operator', fetchFn);
+    expect(created).toEqual({ ok: true, value: 'Tz7k-Qp3m-Vx9d-Lw2h' });
     const reset = await resetPassword(2, 'Oubli', fetchFn);
     expect(reset).toEqual({ ok: true, value: 'Tz7k-Qp3m-Vx9d-Lw2h' });
     expect(fetchFn.mock.calls.map(([url, init]) => [url, init?.body])).toEqual([
-      [
-        '/api/accounts',
-        JSON.stringify({ username: 'bob', password: 'un mot de passe long', role: 'operator' }),
-      ],
+      ['/api/accounts', JSON.stringify({ username: 'bob', role: 'operator' })],
       ['/api/accounts/2/reset-password', JSON.stringify({ reason: 'Oubli' })],
     ]);
   });
 
-  it('gives the account creation form an Afficher / Masquer button', () => {
+  it('gives the account creation form no Afficher / Masquer button, as it has no password', () => {
     const html = renderToString(<CreateAccountForm />);
-    expect(html.match(/Afficher</g)).toHaveLength(1);
+    expect(html).not.toContain('Afficher<');
     expect(html).toContain('Identifiant');
   });
 
@@ -540,17 +535,6 @@ describe('textes restants de la maquette de #22', () => {
     expect(html).toContain('consulte, exporte et restaure, avec un motif.');
   });
 
-  it('gives the temporary password a help linked by aria-describedby', () => {
-    const html = renderToString(<CreateAccountForm />);
-    expect(html).toContain('>Mot de passe temporaire</label>');
-    const help =
-      /<p id="([^"]+-help)" class="field-help">12 caractères minimum\. Le compte devra le changer à sa première connexion\./.exec(
-        html,
-      );
-    expect(help).not.toBeNull();
-    expect(html).toContain(`aria-describedby="${help?.[1]}"`);
-  });
-
   it('recaps the first start inside the form, before the validation', () => {
     expect(setupRecap('root')).toBe(
       'Compte « root », rôle administrateur. Ses actions sont inscrites au journal d’audit.',
@@ -567,9 +551,9 @@ describe('textes restants de la maquette de #22', () => {
     expect(renderToString(<CredentialsView mode="login" />)).not.toContain('Ses actions sont');
   });
 
-  it('says « Mot de passe temporaire » on the account forms, never « provisoire »', () => {
+  it('says « mot de passe temporaire » on the account forms, never « provisoire »', () => {
     const html = renderToString(<CreateAccountForm />);
-    expect(html).toContain('>Mot de passe temporaire</label>');
+    expect(html).toContain('Un mot de passe temporaire sera créé');
     expect(html).not.toContain('provisoire');
   });
 
