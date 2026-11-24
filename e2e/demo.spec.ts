@@ -801,21 +801,51 @@ test('recherche à 1024 px : adresses entières ou coupées après le « @ », s
     });
     return {
       right: t.getBoundingClientRect().right,
-      scrollable: getComputedStyle(t).overflowX === 'auto',
       page: document.documentElement.scrollWidth - window.innerWidth,
       cells,
     };
   });
-  // Le tableau défile dans son conteneur : ni la page ni le conteneur ne dépassent la fenêtre.
+  // Ni la page ni le conteneur du tableau ne dépassent la fenêtre.
   expect(result.page).toBeLessThanOrEqual(0);
   expect(result.right).toBeLessThanOrEqual(1024);
-  expect(result.scrollable).toBe(true);
   expect(result.cells.some((c) => c.text.length >= 60)).toBe(true);
   for (const c of result.cells) {
     expect(c.lines).toBeLessThanOrEqual(2);
     expect(c.afterAt).toBe(true);
   }
 });
+
+for (const width of [900, 1024, 1280]) {
+  test(`recherche à ${width} px : le tableau tient dans son conteneur, « Restaurer » visible`, async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await signInAs(context, baseURL!, 'admin');
+    await page.goto('/#/search');
+    await page.getByLabel('Recherche').fill('devis');
+    await page.getByRole('button', { name: 'Rechercher' }).click();
+    await page.getByRole('table').waitFor();
+    const m = await page.evaluate(() => {
+      const t = document.querySelector('table')!.parentElement!;
+      return { over: t.scrollWidth - t.clientWidth, right: t.getBoundingClientRect().right };
+    });
+    expect(m.over).toBeLessThanOrEqual(0);
+    expect(m.right).toBeLessThanOrEqual(width);
+    const buttons = await page.getByRole('button', { name: /^Restaurer / }).all();
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const b of buttons) {
+      const box = (await b.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+    }
+    // « Dossier » quitte le tableau entre 900 et 1100 px (il reste sur la carte à 900 px).
+    await expect(page.getByRole('columnheader', { name: 'Dossier' })).toHaveCount(
+      width > 900 && width < 1100 ? 0 : 1,
+    );
+  });
+}
 
 test.describe('recherche à 1280 px', () => {
   test.use({ viewport: { width: 1280, height: 800 } });

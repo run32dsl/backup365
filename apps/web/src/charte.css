@@ -644,6 +644,26 @@ select[aria-disabled='true'] {
   }
 }
 
+/* Sous 1100 px (1100 exclu) les six colonnes ne tiennent pas : « Dossier » quitte le tableau (il reste sur la fiche du mail), « Action » reste visible. */
+@media (min-width: 56.26rem) and (max-width: 68.74rem) {
+  .data-table th.mail-folder,
+  .data-table td.mail-folder {
+    display: none;
+  }
+
+  /* « Objet » est la colonne élastique : elle cède de la place si la police est plus large. */
+  .data-table th.subject,
+  .data-table td.subject {
+    min-width: 4rem;
+  }
+
+  /* La date et l'heure passent sur deux lignes plutôt que d'élargir le tableau. */
+  .data-table td.mail-date .nowrap {
+    white-space: normal;
+    overflow-wrap: normal;
+  }
+}
+
 /* Adresse sur une seule ligne en tableau ; en carte (sous 900 px) elle peut passer à la ligne. */
 @media (min-width: 56.26rem) {
   .data-table .address {
