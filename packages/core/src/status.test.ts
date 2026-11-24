@@ -159,8 +159,13 @@ describe('buildServiceSummaries', () => {
     expect(sharepoint).toMatchObject({ state: 'missing', ageHours: 6 });
   });
 
-  it('maps a files plan to OneDrive and SharePoint, a mail plan to mail only', () => {
-    const files = buildServiceSummaries([], [plan({ dataTypes: ['files'] })], 26, now);
+  it('maps each plan workload to its own service', () => {
+    const files = buildServiceSummaries(
+      [],
+      [plan({ dataTypes: ['onedrive', 'sharepoint'] })],
+      26,
+      now,
+    );
     expect(files.map((s) => s.hasPlan)).toEqual([false, true, true]);
     const mail = buildServiceSummaries([], [plan()], 26, now);
     expect(mail.map((s) => s.hasPlan)).toEqual([true, false, false]);

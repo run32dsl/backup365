@@ -164,6 +164,17 @@ export const PLAN_MIGRATIONS: readonly Migration[] = [
     // Réussite sans point de restauration : la ressource était vide (ADR 0009, issue #80).
     sql: `ALTER TABLE plan_runs ADD COLUMN no_snapshot_reason TEXT CHECK (no_snapshot_reason IS NULL OR no_snapshot_reason IN ('no_content'));`,
   },
+  {
+    version: 5,
+    name: 'plan-data-types-workloads',
+    // « files » devient OneDrive et SharePoint ; « calendar » et « contacts » vivent dans la boîte,
+    // donc suivent « mail » (issue #310). Une valeur illisible protège tout, comme avant.
+    sql: `UPDATE plans SET data_types = COALESCE(NULLIF(rtrim(
+      (CASE WHEN (',' || data_types || ',') LIKE '%,mail,%' OR (',' || data_types || ',') LIKE '%,calendar,%'
+              OR (',' || data_types || ',') LIKE '%,contacts,%' THEN 'mail,' ELSE '' END) ||
+      (CASE WHEN (',' || data_types || ',') LIKE '%,files,%' THEN 'onedrive,sharepoint,' ELSE '' END),
+    ','), ''), 'mail,onedrive,sharepoint');`,
+  },
 ];
 
 /** Applique les migrations manquantes, chacune dans une transaction. */

@@ -3,6 +3,7 @@ import {
   type AuditAction,
   type AuditEntry,
   type AuditLog,
+  type BackupCatalog,
   type SearchIndex,
 } from '@backup365/core';
 import type { FastifyInstance } from 'fastify';
@@ -41,11 +42,25 @@ async function withMailName(entry: AuditEntry, index: SearchIndex | undefined): 
   }
 }
 
+const SITE_RESOURCES: ReadonlySet<string> = new Set(['sharepoint.items', 'sharepoint.scope']);
+
+/**
+ * Ajoute à la consultation d'un site (`<site>/<dossier>`) le nom du site, lu dans le catalogue ;
+ * site absent du catalogue : rien.
+ */
+function withSiteName(entry: AuditItem, sites: ReadonlyMap<string, string> | undefined): AuditItem {
+  const name = SITE_RESOURCES.has(entry.resource)
+    ? sites?.get(entry.target?.split('/')[0] ?? '')
+    : undefined;
+  return name ? { ...entry, targetName: name } : entry;
+}
+
 /** Consultation du journal d'audit (lecture seule). Sans journal configuré, elle répond 503. */
 export function registerAuditRoutes(
   app: FastifyInstance,
   audit: AuditLog | undefined,
   index?: SearchIndex,
+  catalog?: BackupCatalog,
 ) {
   app.get<{ Querystring: AuditQuerystring }>(
     '/api/audit',
@@ -72,12 +87,35 @@ export function registerAuditRoutes(
       }
       const page = await audit.list(req.query);
       // La lecture du journal est elle-même journalisée (décision du 2026-11-12), avant la réponse.
-      await audit.record(auditEvent(req, 'list.view', 'audit', { count: page.items.length }));
+      // Cible : les filtres de période et d'action (valeurs validées par le schéma). Jamais
+      // l'acteur, texte libre saisi par l'utilisateur.
+      const { from, to, action } = req.query;
+      const filters = [
+        from && `from=${from}`,
+        to && `to=${to}`,
+        action && `action=${action}`,
+      ].filter(Boolean);
+      await audit.record(
+        auditEvent(req, 'list.view', 'audit', {
+          ...(filters.length > 0 ? { target: filters.join(';') } : {}),
+          count: page.items.length,
+        }),
+      );
+      let sites: Map<string, string> | undefined;
+      if (catalog && page.items.some((e) => SITE_RESOURCES.has(e.resource))) {
+        try {
+          sites = new Map((await catalog.listSites()).map((s) => [s.id, s.displayName]));
+        } catch {
+          // Enrichissement facultatif, comme pour les mails.
+        }
+      }
       return {
         total: page.total,
         limit: req.query.limit,
         offset: req.query.offset,
-        items: await Promise.all(page.items.map((e) => withMailName(e, index))),
+        items: (await Promise.all(page.items.map((e) => withMailName(e, index)))).map((e) =>
+          withSiteName(e, sites),
+        ),
       };
     },
   );

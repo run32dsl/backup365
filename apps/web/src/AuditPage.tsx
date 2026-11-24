@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { AUDIT_ACTIONS, type AuditAction } from '@backup365/core';
+import { AUDIT_ACTIONS } from '@backup365/core';
 import {
   AUDIT_PAGE_SIZE,
   DATE_HELP,
@@ -14,6 +14,7 @@ import {
   type AuditResponse,
 } from './audit.js';
 import {
+  ACTION_LABELS,
   NO_TARGET,
   actorLabel,
   auditDate,
@@ -36,24 +37,6 @@ import {
 /** État de la consultation du journal. */
 export type AuditState = AuditResponse | 'loading' | 'error';
 
-const ACTION_LABELS: Record<AuditAction, string> = {
-  'list.view': 'Consultation d’une liste',
-  'item.open': 'Ouverture d’une fiche',
-  'item.export': 'Export',
-  'access.denied': 'Échec d’accès',
-  'auth.login': 'Connexion',
-  'auth.login_failed': 'Échec de connexion',
-  'auth.logout': 'Déconnexion',
-  'account.create': 'Création de compte',
-  'account.update': 'Modification de compte',
-  'plan.create': 'Création de plan',
-  'plan.update': 'Modification de plan',
-  'plan.delete': 'Suppression de plan',
-  'plan.run': 'Lancement manuel d’un plan',
-  'restore.request': 'Demande de restauration',
-  'restore.result': 'Résultat de restauration',
-};
-
 type Entry = AuditItem;
 
 /** Colonnes du tableau ; l'empreinte n'y figure pas (elle reste dans l'infobulle du numéro et dans l'API). */
@@ -66,13 +49,13 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
     },
     {
       header: 'Date (UTC)',
-      className: 'nowrap',
+      className: 'nowrap audit-date',
       cell: (e) => <span title={e.at}>{auditDate(e.at) || '—'}</span>,
     },
-    { header: 'Acteur', className: 'keep-words', cell: (e) => actorLabel(e.actor) },
+    { header: 'Acteur', className: 'keep-words audit-actor', cell: (e) => actorLabel(e.actor) },
     {
       header: 'Action',
-      className: 'keep-words',
+      className: 'keep-words card-title',
       cell: (e) => {
         const detail = detailLabel(e.reason);
         return (
@@ -85,7 +68,7 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
     },
     {
       header: 'Cible',
-      className: 'keep-words address',
+      className: 'keep-words address card-nolabel',
       cell: (e) => {
         const { name, secondary } = targetView(e, planNames);
         // Sans cible : cellule vide, comme Éléments et Motif (la carte l'omet).

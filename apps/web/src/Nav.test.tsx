@@ -77,7 +77,7 @@ describe('keyboard path of the console', () => {
       'Aller au contenu',
       'Menu',
       'Tableau de bord',
-      'Rechercher et restaurer',
+      'Messagerie',
       'OneDrive',
       'SharePoint',
       'Plans de protection',
@@ -165,33 +165,61 @@ describe('keyboard path of the console', () => {
 });
 
 describe('navEntries', () => {
-  it('lists only delivered screens, with Administration for admins only', () => {
-    expect(navEntries('home', false).map((e) => e.label)).toEqual([
+  const top = (admin: boolean) => navEntries('home', admin).map((e) => e.label);
+  const links = (screen: Parameters<typeof navEntries>[0]) =>
+    navEntries(screen, true).flatMap((e) => ('children' in e ? e.children : [e]));
+
+  it('keeps five top-level entries at most, with the restore group and its three links', () => {
+    expect(top(false)).toEqual([
       'Tableau de bord',
-      'Rechercher et restaurer',
-      'OneDrive',
-      'SharePoint',
+      'Restaurer',
       'Plans de protection',
       'Journal d’audit',
     ]);
-    const admin = navEntries('home', true).map((e) => e.label);
-    expect(admin).toHaveLength(8);
-    expect(admin.slice(-2)).toEqual(['État détaillé', 'Administration']);
+    expect(top(true)).toEqual([...top(false), 'État détaillé', 'Administration']);
+    const group = navEntries('home', false)[1]!;
+    expect('children' in group && group.children.map((c) => c.label)).toEqual([
+      'Messagerie',
+      'OneDrive',
+      'SharePoint',
+    ]);
+    expect(group).not.toHaveProperty('href');
   });
 
   it('reaches the detailed status from the menu for an administrator only', () => {
-    expect(navEntries('home', true).find((e) => e.label === 'État détaillé')?.href).toBe('#/etat');
+    expect(links('home').find((e) => e.label === 'État détaillé')?.href).toBe('#/etat');
     expect(screenOf('#/etat')).toBe('status');
     expect(screenFor('#/etat', true)).toBe('status');
-    expect(navEntries('status', true).filter((e) => e.current)).toEqual([
+    expect(links('status').filter((e) => e.current)).toEqual([
       { href: '#/etat', label: 'État détaillé', current: true },
     ]);
-    expect(navEntries('home', false).map((e) => e.href)).not.toContain('#/etat');
+    expect(navEntries('home', false).flatMap((e) => ('href' in e ? [e.href] : []))).not.toContain(
+      '#/etat',
+    );
     expect(screenFor('#/etat', false)).toBe('forbidden');
   });
 
-  it('marks exactly one entry as current, the search entry for a mail sheet', () => {
-    const current = navEntries('mail', true).filter((e) => e.current);
-    expect(current.map((e) => e.href)).toEqual(['#/search']);
+  it('marks exactly one entry as current, Messagerie for a mail sheet', () => {
+    expect(
+      links('mail')
+        .filter((e) => e.current)
+        .map((e) => e.href),
+    ).toEqual(['#/search']);
+    expect(
+      links('onedrive')
+        .filter((e) => e.current)
+        .map((e) => e.href),
+    ).toEqual(['#/onedrive']);
+  });
+
+  it('renders the group label as plain text, the nav holding only links', () => {
+    const html = renderToString(view(true, { entries: navEntries('mail', false) }));
+    expect(html).toContain('<span class="nav-group">Restaurer</span>');
+    expect(html).toContain('<a href="#/search" aria-current="page">Messagerie</a>');
+    const nav = html.slice(html.indexOf('<nav'), html.indexOf('</nav>'));
+    expect(nav).not.toMatch(/<button/);
+    expect([...nav.matchAll(/<a\b[^>]*>/g)].every((m) => m[0].includes('href="#/'))).toBe(true);
+    expect(html.match(/<button\b/g)).toHaveLength(2);
+    expect(html.match(/aria-current="page"/g)).toHaveLength(1);
   });
 });

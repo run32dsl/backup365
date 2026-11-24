@@ -130,7 +130,7 @@ test('connexion verrouillée : décompte, bouton inactif, puis le champ reprend 
 
   const alert = page.getByRole('alert');
   await expect(alert).toContainText(
-    /Connexion impossible pour le moment\. Nouvel essai possible dans 00:0\d\./,
+    /Connexion temporairement bloquée.*Nouvel essai possible dans 00:0\d\./s,
   );
   const submit = page.getByRole('button', { name: 'Se connecter' });
   await expect(submit).toBeDisabled();
@@ -168,7 +168,7 @@ test('réinitialisation : motif obligatoire, mot de passe affiché une seule foi
 
   const step2 = page.getByRole('dialog', { name: 'Réinitialiser le mot de passe' });
   await expect(step2).toContainText(DEMO_LOGINS.operator.username);
-  await expect(step2).toContainText('Le mot de passe n’y figure pas.');
+  await expect(step2).toContainText('Ce motif sera inscrit au journal d’audit.');
   await step2.getByRole('button', { name: 'Réinitialiser' }).click();
   await expect(step2.getByText('Indiquez un motif pour continuer.')).toBeVisible();
   expect(bodies).toHaveLength(0);

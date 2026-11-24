@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   buildPlanComplianceReport,
+  currentRunSlot,
+  isNightPlan,
   nextRunAt,
+  scheduleWindowLabel,
   parseProtectionPlanInput,
   planCompliance,
   runIntervalMinutes,
@@ -28,11 +31,11 @@ describe('parseProtectionPlanInput', () => {
   });
   it('protects every data type by default and orders a given list', () => {
     expect(parseProtectionPlanInput(valid)).toMatchObject({
-      plan: { dataTypes: ['mail', 'files', 'calendar', 'contacts'] },
+      plan: { dataTypes: ['mail', 'onedrive', 'sharepoint'] },
     });
     expect(
-      parseProtectionPlanInput({ ...valid, dataTypes: ['contacts', 'mail', 'mail'] }),
-    ).toMatchObject({ ok: true, plan: { dataTypes: ['mail', 'contacts'] } });
+      parseProtectionPlanInput({ ...valid, dataTypes: ['sharepoint', 'mail', 'mail'] }),
+    ).toMatchObject({ ok: true, plan: { dataTypes: ['mail', 'sharepoint'] } });
   });
   it('refuses an empty or unknown list of data types', () => {
     for (const dataTypes of [[], ['teams'], 'mail', [1], null]) {
@@ -74,7 +77,6 @@ describe('nextRunAt', () => {
   it.each([
     [4, 120],
     [12, 360],
-    [24, 720],
   ] as const)('runs at least every RPO/2 for an RPO of %i h (%i min)', (rpo, minutes) => {
     expect(runIntervalMinutes(rpo)).toBe(minutes);
     const first = nextRunAt({ id: 'plan-a', rpoHours: rpo }, after);
@@ -194,5 +196,86 @@ describe('buildPlanComplianceReport', () => {
       counts: { compliant: 0, late: 0, failed: 0 },
       nonCompliant: [],
     });
+  });
+});
+
+// Le paquet n'embarque pas les types Node : seul `process.env.TZ` sert ici (fuseau du serveur).
+declare const process: { env: Record<string, string | undefined> };
+
+describe('night window (ADR 0017)', () => {
+  const zone = process.env.TZ;
+  afterEach(() => {
+    if (zone === undefined) delete process.env.TZ;
+    else process.env.TZ = zone;
+  });
+  const hourOf = (d: Date) => d.getHours() + d.getMinutes() / 60;
+  const night = (id: string) => ({ id, rpoHours: 24 }) as const;
+
+  /** Créneaux d'un plan de nuit entre deux dates, en suivant `nextRunAt`. */
+  function slotsBetween(id: string, from: Date, to: Date): Date[] {
+    const out: Date[] = [];
+    for (let t = nextRunAt(night(id), from); t < to; t = nextRunAt(night(id), t)) out.push(t);
+    return out;
+  }
+
+  it.each(['Europe/Paris', 'UTC', 'America/New_York'])(
+    'puts every slot of a 24 h plan in 22 h – 6 h and keeps the RPO across DST (%s)',
+    (tz) => {
+      process.env.TZ = tz;
+      for (const id of ['plan-a', 'plan-b', 'p3', 'zzz', 'Mails']) {
+        const slots = slotsBetween(
+          id,
+          new Date('2026-01-01T00:00:00Z'),
+          new Date('2027-01-01T00:00:00Z'),
+        );
+        for (const s of slots) expect(hourOf(s) >= 22 || hourOf(s) < 6).toBe(true);
+        for (let i = 1; i < slots.length; i++) {
+          const gap = (slots[i]!.getTime() - slots[i - 1]!.getTime()) / 3_600_000;
+          expect(gap).toBeLessThanOrEqual(24);
+        }
+      }
+    },
+  );
+
+  it('keeps the gap under 24 h on the spring-forward and fall-back nights', () => {
+    process.env.TZ = 'Europe/Paris';
+    for (const [from, to] of [
+      ['2026-03-27T00:00:00Z', '2026-03-31T00:00:00Z'],
+      ['2026-10-24T00:00:00Z', '2026-10-28T00:00:00Z'],
+    ] as const) {
+      const slots = slotsBetween('plan-a', new Date(from), new Date(to));
+      const gaps = slots.slice(1).map((s, i) => (s.getTime() - slots[i]!.getTime()) / 3_600_000);
+      expect(gaps.length).toBeGreaterThan(4);
+      expect(Math.max(...gaps)).toBeLessThanOrEqual(21);
+    }
+  });
+
+  it('gives currentRunSlot as the last slot at or before the instant', () => {
+    process.env.TZ = 'Europe/Paris';
+    const p = night('plan-a');
+    const slot = nextRunAt(p, new Date('2026-11-16T10:00:00Z'));
+    expect(currentRunSlot(p, slot)).toEqual(slot);
+    expect(currentRunSlot(p, new Date(slot.getTime() - 1))).not.toEqual(slot);
+    expect(currentRunSlot(p, new Date(slot.getTime() + 60_000))).toEqual(slot);
+  });
+
+  it('leaves plans under 24 h on their RPO/2 rhythm, whatever the time zone', () => {
+    const after = new Date('2026-11-16T10:17:42Z');
+    for (const rpo of [4, 12] as const) {
+      const p = { id: 'plan-a', rpoHours: rpo };
+      process.env.TZ = 'UTC';
+      const utc = nextRunAt(p, after);
+      process.env.TZ = 'Pacific/Auckland';
+      expect(nextRunAt(p, after)).toEqual(utc);
+      expect(nextRunAt(p, utc).getTime() - utc.getTime()).toBe(rpo * 30 * 60_000);
+      expect(currentRunSlot(p, utc)).toEqual(utc);
+      expect(isNightPlan(rpo)).toBe(false);
+      expect(scheduleWindowLabel(rpo)).toBeNull();
+    }
+  });
+
+  it('labels the window on the plan sheet', () => {
+    expect(isNightPlan(24)).toBe(true);
+    expect(scheduleWindowLabel(24)).toBe('Sauvegarde planifiée la nuit (22 h – 6 h)');
   });
 });

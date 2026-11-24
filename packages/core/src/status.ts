@@ -1,5 +1,5 @@
 import type { BackupCatalog, Workload } from './catalog.js';
-import type { DataType, PlanComplianceReport, ProtectionPlanInput } from './protection-plan.js';
+import type { PlanComplianceReport, ProtectionPlanInput } from './protection-plan.js';
 
 /** Seuil d'alerte par défaut : une sauvegarde nocturne doit avoir moins de 26 h. */
 export const DEFAULT_MAX_AGE_HOURS = 26;
@@ -120,13 +120,6 @@ export async function buildStatusReport(
 export const SERVICES = ['mail', 'onedrive', 'sharepoint'] as const;
 export type Service = (typeof SERVICES)[number];
 
-/** Type de données d'un plan qui couvre chaque service (ADR 0011). */
-const SERVICE_DATA_TYPE: Record<Service, DataType> = {
-  mail: 'mail',
-  onedrive: 'files',
-  sharepoint: 'files',
-};
-
 export interface ServiceSummary {
   service: Service;
   /** Au moins un plan couvre ce service ; sinon la ligne est grisée. */
@@ -159,7 +152,7 @@ export function buildServiceSummaries(
       own.flatMap((r) => (r.lastSnapshotAt === null ? [] : [{ createdAt: r.lastSnapshotAt }])),
     );
     const state = WORST_FIRST.find((s) => own.some((r) => r.state === s)) ?? 'missing';
-    const covering = plans.filter((p) => p.dataTypes.includes(SERVICE_DATA_TYPE[service]));
+    const covering = plans.filter((p) => p.dataTypes.includes(service));
     const selected = new Set(covering.flatMap((p) => (p.scope === 'selection' ? p.selection : [])));
     const scope: ServiceSummary['scope'] =
       covering.length === 0

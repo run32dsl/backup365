@@ -1,16 +1,25 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { IndexedMail } from '@backup365/core';
-import { API_ERRORS, type Problem } from './apiError.js';
+import { apiErrorFor, type Problem } from './apiError.js';
+import { ConfigurationLink } from './ConfigurationBlock.js';
+import { useAdmin } from './role.js';
 import { FailureAlert } from './FailureAlert.js';
+import { RestoreFailureAlert, restoreFailureBanner } from './restoreFailure.js';
 import { isReasonValid } from './mail.js';
-import { AuditReminder, REASON, RESTORE_BUTTONS as B, ReasonField } from './RestoreJourney.js';
+import {
+  AuditReminder,
+  REASON,
+  REASON_EXAMPLES,
+  RESTORE_BUTTONS as B,
+  ReasonField,
+  RunningProgress,
+} from './RestoreJourney.js';
 import {
   RESTORE_MESSAGES as T,
   announcement,
   failureCause,
   isOutcomeUncertain,
   fetchLastRestore,
-  formatClock,
   formatDuration,
   restoreFolderName,
   shortUtcDate,
@@ -26,9 +35,11 @@ export type RestorableMail = Pick<IndexedMail, 'mailboxId' | 'messageId' | 'subj
  * `POST …/restore` répond 503 `restore_unavailable`.
  */
 export function RestoreNotConfigured({ id }: { id: string }) {
+  const admin = useAdmin();
   return (
     <p id={id} className="field-help">
-      {API_ERRORS['restore_unavailable']}
+      {apiErrorFor('restore_unavailable', admin)}
+      {admin ? <ConfigurationLink /> : null}
     </p>
   );
 }
@@ -40,18 +51,47 @@ export function dialogTitle(job: RestoreJob | null): string {
   return job.status === 'succeeded' ? T.succeededTitle : T.failedTitle;
 }
 
-/** Suivi d'une restauration : la durée s'actualise chaque seconde, l'annonce vocale toutes les 15 s. */
-function Tracking({ job, now }: { job: RestoreJob; now: number }) {
+/** Rappel du mail et de la boîte, commun aux états en cours, réussi et échoué. */
+export function recallRows(mail: RestorableMail): [string, string][] {
+  const date = shortUtcDate(mail.date);
+  const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
+  return [
+    ['Mail', date ? `${subject} · ${date}` : subject],
+    ['Boîte', mail.mailboxId],
+  ];
+}
+
+/** Rappel du formulaire : les lignes des résultats, avec le dossier que la restauration créera. */
+export function formRows(mail: RestorableMail, now: number): [string, string][] {
+  return [...recallRows(mail), ['Dossier', restoreFolderName(new Date(now))]];
+}
+
+/** Restauration en cours : même modèle que les résultats (alerte, liste libellée, « Fermer »). */
+export function Tracking({
+  job,
+  mail,
+  now,
+  onClose,
+}: {
+  job: RestoreJob;
+  mail: RestorableMail;
+  now: number;
+  onClose: () => void;
+}) {
   const elapsed = Math.max(0, now - Date.parse(job.startedAt));
   return (
     <>
-      <p aria-hidden="true">
-        <span className="spinner" /> {T.running} {formatClock(elapsed)}
-      </p>
+      <RunningProgress />
       <p className="sr-only" role="status" aria-live="polite">
         {announcement(elapsed)}
       </p>
-      <p>{T.keepsRunning}</p>
+      <ResultList rows={[...recallRows(mail), ['Dossier', job.folder]]} />
+      <div className="button-row dialog-actions">
+        <a className="btn btn-secondary" href="#/audit">
+          {B.audit}
+        </a>
+        <Button onClick={onClose}>Fermer</Button>
+      </div>
     </>
   );
 }
@@ -68,12 +108,7 @@ export function RestoreOutcome({
   onClose: () => void;
   onRetry: () => void;
 }) {
-  const date = shortUtcDate(mail.date);
-  const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
-  const recall: [string, string][] = [
-    ['Mail', date ? `${subject} · ${date}` : subject],
-    ['Boîte', mail.mailboxId],
-  ];
+  const recall = recallRows(mail);
   if (job.status === 'succeeded') {
     return (
       <>
@@ -90,13 +125,20 @@ export function RestoreOutcome({
   }
   return (
     <>
-      <Alert tone="error">
-        La restauration a échoué après {formatDuration(job.durationMs ?? 0)}.
-      </Alert>
-      <ResultList rows={recall} />
-      <p>Cause : {failureCause(job.error)}</p>
-      <p>{isOutcomeUncertain(job.error) ? T.uncertain : T.untouched}</p>
+      <RestoreFailureAlert
+        banner={restoreFailureBanner({
+          item: mail.subject === '' ? '(sans objet)' : mail.subject,
+          at: job.finishedAt ?? job.startedAt,
+          cause: failureCause(job.error),
+          consequence: isOutcomeUncertain(job.error) ? T.uncertain : T.untouched,
+          uncertain: isOutcomeUncertain(job.error),
+        })}
+      />
+      <ResultList rows={[...recall, ['Durée', formatDuration(job.durationMs ?? 0)]]} />
       <div className="button-row dialog-actions">
+        <a className="btn btn-secondary" href="#/audit">
+          {B.audit}
+        </a>
         <Button variant="secondary" onClick={onClose}>
           Fermer
         </Button>
@@ -211,7 +253,6 @@ export function RestoreAction({
     });
   }
 
-  const date = shortUtcDate(mail.date);
   const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
   const label = `Restaurer ${subject}`;
   return (
@@ -226,22 +267,19 @@ export function RestoreAction({
         Restaurer
       </Button>
       <Dialog open={open} title={dialogTitle(job)} onClose={closePanel}>
-        <AuditReminder />
+        {job === null && <AuditReminder />}
         {job === null && (
           <form onSubmit={submit} noValidate>
-            <p>
-              {subject}
-              {date && ` · ${date}`}
-              <br />
-              Boîte d’origine : {mail.mailboxId}
-            </p>
-            <ReasonField value={reason} error={fieldError} onChange={setReason} />
+            <ResultList rows={formRows(mail, now)} />
+            <ReasonField
+              placeholder={REASON_EXAMPLES.restore}
+              value={reason}
+              error={fieldError}
+              onChange={setReason}
+            />
             <h3>Ce qui va se passer</h3>
             <ul>
-              <li>
-                Le mail sera copié dans la boîte d’origine, dans le dossier «{' '}
-                {restoreFolderName(new Date(now))} ».
-              </li>
+              <li>Le mail sera copié dans ce dossier de la boîte d’origine.</li>
               <li>Aucun mail existant ne sera modifié ni écrasé.</li>
               <li>Le contenu du mail n’est jamais inscrit au journal d’audit.</li>
             </ul>
@@ -257,14 +295,7 @@ export function RestoreAction({
           </form>
         )}
         {job?.status === 'running' && (
-          <>
-            <Tracking job={job} now={now} />
-            <div className="button-row dialog-actions">
-              <Button variant="secondary" onClick={closePanel}>
-                Fermer
-              </Button>
-            </div>
-          </>
+          <Tracking job={job} mail={mail} now={now} onClose={closePanel} />
         )}
         {(job?.status === 'succeeded' || job?.status === 'failed') && (
           <RestoreOutcome

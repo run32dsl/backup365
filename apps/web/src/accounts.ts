@@ -23,10 +23,17 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   operator: 'consulte, exporte et restaure, avec un motif.',
 };
 
+/** Options du choix du rôle, communes à « Créer un compte » et « Modifier le rôle ». */
+export const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as Role[]).map((role) => ({
+  value: role,
+  label: `${ROLE_LABELS[role]} : ${ROLE_DESCRIPTIONS[role]}`,
+}));
+
 /** Textes d'état de l'écran des comptes. */
 export const NO_OPERATOR = 'Aucun opérateur pour l’instant.';
 export const OIDC_PASSWORD_NOTICE = 'Mot de passe géré par Microsoft';
-export const LAST_ADMIN_NOTICE = 'Dernier administrateur : ce compte ne peut pas être désactivé.';
+export const LAST_ADMIN_NOTICE =
+  'Dernier administrateur : ce compte ne peut être ni désactivé ni rétrogradé.';
 
 /** Vrai pour l'unique administrateur actif : ni désactivation ni changement de rôle possibles. */
 export function isLastAdmin(accounts: AccountInfo[], account: AccountInfo): boolean {
@@ -67,7 +74,7 @@ export const createAccount = (
 
 export const updateAccount = (
   id: number,
-  patch: { role?: Role; disabled?: boolean },
+  patch: { role?: Role; disabled?: boolean; reason?: string },
   fetchFn: typeof fetch = fetch,
 ) => send(fetchFn, 'PATCH', `/api/accounts/${id}`, patch);
 
@@ -92,7 +99,6 @@ export async function resetPassword(
 /** Textes de la réinitialisation (maquette de #56). */
 export const RESET_TEXTS = {
   title: 'Réinitialiser le mot de passe',
-  audit: 'Le mot de passe n’y figure pas.',
   resultTitle: 'Mot de passe temporaire',
   once: 'Affiché une seule fois. Il ne pourra plus être consulté.',
   copyFailed: 'Copie impossible. Sélectionnez le mot de passe et copiez-le manuellement.',

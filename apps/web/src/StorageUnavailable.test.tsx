@@ -6,6 +6,9 @@ import { Problem as SharePointProblem } from './SharePointPage.js';
 import { StorageUnavailable } from './StorageUnavailable.js';
 import { Button } from './ui/index.js';
 
+// Le test appelle le composant comme une fonction, hors rendu : pas de contexte.
+vi.mock('./role.js', () => ({ useAdmin: () => false }));
+
 type Clickable = ReactElement<{ onClick?: () => void }>;
 
 /** Premier élément de l'arbre dont le type est `type` (pas de DOM dans ces tests). */
@@ -30,8 +33,8 @@ describe.each(pages)('%s, storage unavailable', (_name, Problem) => {
     expect(html).toContain('alert alert-warning');
     expect(html).toContain('role="alert"');
     expect(html).toContain('⚠');
-    expect(html).toContain('<strong>Sauvegardes inaccessibles :</strong>');
-    expect(html).toContain('le stockage n’est pas configuré ou ne répond pas');
+    expect(html).toContain('<strong class="alert-title">Sauvegardes inaccessibles</strong>');
+    expect(html).toContain('Le stockage n’est pas configuré ou ne répond pas');
     expect(html).not.toContain('class="empty"');
     expect(html).not.toContain('<a');
   });

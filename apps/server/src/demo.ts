@@ -414,6 +414,45 @@ export function demoAuditEvents(now: number, planId?: string): AuditEvent[] {
     {
       at: at(21),
       actor: 'operateur-demo',
+      action: 'list.view',
+      resource: 'mail.search',
+      target: DEMO_MAILBOXES[3]!.id,
+      count: 25,
+    },
+    {
+      at: at(21),
+      actor: 'operateur-demo',
+      action: 'list.view',
+      resource: 'mail.search',
+      target: '*',
+      count: 10,
+    },
+    {
+      at: at(21),
+      actor: 'operateur-demo',
+      action: 'list.view',
+      resource: 'audit',
+      count: 25,
+    },
+    {
+      at: at(21),
+      actor: 'operateur-demo',
+      action: 'list.view',
+      resource: 'audit',
+      target: 'action=restore.request',
+      count: 3,
+    },
+    {
+      at: at(21),
+      actor: 'operateur-demo',
+      action: 'list.view',
+      resource: 'sharepoint.items',
+      target: `${DEMO_SITES[0].id}/Documents`,
+      count: 10,
+    },
+    {
+      at: at(21),
+      actor: 'operateur-demo',
       action: 'item.open',
       resource: 'mail',
       target: `${DEMO_MAILBOXES[0]!.id}/msg-1-004`,
@@ -554,5 +593,5 @@ function seedDemoPlans(plans: SqlitePlanStore, now: number): void {
   const ok = plans.startRun(compliant.id, first!.id, at);
   if (ok !== undefined) plans.finishRun(ok, 'success', at);
   const ko = plans.startRun(failing.id, second!.id, at);
-  if (ko !== undefined) plans.finishRun(ko, 'failed', at, 'demo_failure');
+  if (ko !== undefined) plans.finishRun(ko, 'failed', at, 'backup_errors');
 }

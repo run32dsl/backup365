@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cardSummary,
   dateTimeOf,
   dateTimeOrDash,
   folderLabel,
@@ -7,6 +8,16 @@ import {
   sizeOf,
   workloadLabel,
 } from './format.js';
+
+describe('cardSummary', () => {
+  it('joins the UTC version and the size, and drops absent values', () => {
+    expect(cardSummary('2026-11-18T09:52:00.000Z', 84_000)).toBe(
+      'Version du 18/11/2026 09:52 UTC · 84 Ko',
+    );
+    expect(cardSummary(null, 84_000)).toBe('84 Ko');
+    expect(cardSummary(null, null)).toBeNull();
+  });
+});
 
 describe('format', () => {
   it('shows an ISO date as dd/mm/yyyy hh:mm UTC, without seconds or milliseconds', () => {

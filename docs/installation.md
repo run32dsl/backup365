@@ -103,7 +103,7 @@ doit exister, car Compose refuse de démarrer sans lui : la commande `: >` de la
 « Lancement » le crée vide, et un secret vide vaut « non défini ». Pour activer la sauvegarde,
 mettre l'identifiant dans `.env`, écrire le secret dans ce fichier (comme les autres secrets),
 puis `docker compose up -d`. Donner l'identifiant sans le secret (ou l'inverse) arrête le démarrage, avec le nom de la variable manquante. Avec un identifiant et un fichier vides, la console démarre et
-répond `backup_not_configured`. Les administrateurs voient l'état de cette connexion, en lecture seule, dans le bloc « Configuration » de la page d'accueil (aucun secret ni identifiant n'y figure) ; les messages « Sauvegarde indisponible » y renvoient.
+répond `backup_not_configured`. Les administrateurs voient l'état de cette connexion, en lecture seule, sur la page d'accueil : une ligne dans la carte « Sauvegarde » quand elle est établie, un bandeau « Connexion Microsoft 365 à configurer » avec les étapes sinon (aucun secret ni identifiant n'y figure) ; les messages « Sauvegarde indisponible » y renvoient.
 
 ## Premier accès
 
@@ -132,15 +132,17 @@ résultat inscrits au journal d'audit). Cette restauration passe par Graph : tan
 en écriture n'est configuré (ADR 0012), la fiche d'un mail affiche un avertissement à la place du bouton. L'écran
 « OneDrive » (`#/onedrive/<compte>/<chemin>`) fait de même pour un fichier, un dossier ou une
 version antérieure : on parcourt la sauvegarde (lecture seule, journalisée), puis la
-restauration se fait par défaut en copie `nom (restauré jj-mm-aaaa).ext`, le remplacement d'un
+restauration se fait par défaut en copie `nom (restauré le jj-mm-aaaa).ext`, le remplacement d'un
 fichier exigeant une confirmation (ADR 0013, même réserve sur le tenant). L'écran « SharePoint »
-(`#/sharepoint`) restaure un élément, un dossier, une bibliothèque ou le site entier, toujours à
-son emplacement d'origine et sans rien écraser ; le site entier est réservé à l'administrateur, qui
-coche une case puis retape le nom du site (ADR 0014, même réserve sur le tenant). Les
+(`#/sharepoint`) restaure un élément, un dossier, une bibliothèque (chaque ligne se coche, son nom
+ouvre le niveau) ou le site entier, toujours à son emplacement d'origine et sans rien écraser ; le
+site entier est réservé à l'administrateur, qui coche une case puis retape le nom du site (ADR 0014, même réserve sur le tenant). Les
 plans se créent en trois étapes dans « Plans de protection » (`#/plans`) : quoi protéger,
 objectifs (perte de données acceptable, remise en service, conservation et justification RGPD), récapitulatif ; « Lancer maintenant »
 demande un motif, inscrit au journal d'audit. L'administrateur crée, désactive et change le rôle des comptes dans l'écran « Comptes »
-(`#/comptes`) ; il ne peut pas désactiver ni rétrograder le dernier administrateur actif. Un mot
+(`#/comptes`) ; « Modifier le rôle » et « Désactiver » ouvrent une boîte qui nomme le compte et
+demande un motif obligatoire, inscrit au journal d'audit. Il ne peut pas désactiver ni rétrograder
+le dernier administrateur actif (boutons grisés). Un mot
 de passe provisoire (création ou réinitialisation) est à changer à la connexion suivante.
 L'entrée « État détaillé » (`#/etat`, administrateurs) affiche une ligne par service (Messagerie,
 OneDrive, SharePoint : dernière sauvegarde, état, conservation, périmètre), la conformité des plans
@@ -170,6 +172,15 @@ la première non fiable de la chaîne : un client ne peut pas choisir la sienne.
 de sauts sont refusés. **Sans cette variable derrière un proxy**, tous les clients partagent
 l'adresse du proxy : cinq échecs de n'importe qui temporisent alors tout le monde (le verrou par
 compte reste exact).
+
+**Requêtes d'une autre origine.** En plus du cookie `SameSite=Strict` et du jeton CSRF, la console
+refuse (403, `cross_origin`) toute requête POST, PUT, PATCH ou DELETE sur `/api/` dont
+`Sec-Fetch-Site` vaut `cross-site`, ou dont l'en-tête `Origin` ne correspond pas à l'hôte de la
+requête. Le refus est journalisé et inscrit au journal d'audit (accès refusé, motif `cross_origin`).
+Derrière un proxy, l'hôte comparé est `X-Forwarded-Host`, cru seulement si `BACKUP365_TRUST_PROXY`
+désigne ce proxy : **le proxy doit donc transmettre l'hôte demandé par le navigateur**
+(`X-Forwarded-Host`), sinon les connexions depuis le navigateur sont refusées. Les clients sans ces
+en-têtes (`curl`, scripts) ne sont pas concernés ; le rappel de connexion Microsoft (GET) non plus.
 
 Limite connue : le verrou par compte permet à qui atteint le port de bloquer un compte
 (15 minutes au plus) en multipliant les échecs. C'est le prix d'une protection sans liste d'adresses ;

@@ -20,6 +20,25 @@ vous avez le droit de proposer ce code, aux conditions du
 si un commit n'est pas signé. Pour corriger : `git rebase --signoff origin/develop`, puis
 `git push --force-with-lease` sur votre fork.
 
+### Renvois vers les issues de suivi
+
+Un renvoi cite le numéro réel de l'issue (`#NNN`), jamais un nom provisoire comme « SUIVI2 ».
+Le job `placeholders` (`.github/workflows/placeholders.yml`, script
+`.github/scripts/check-placeholders.sh`) fait échouer une PR ou une issue dont le titre ou le
+corps contient encore « SUIVI » suivi d'un chiffre, et signale de même un commentaire. Pour une
+issue, il signale seulement : GitHub ne permet pas de bloquer sa publication. Le contrôle ne
+distingue pas les citations : pour documenter la règle dans une PR ou une issue, écrivez « SUIVI
+suivi d'un chiffre » au lieu de l'exemple littéral.
+
+Deux outils servent à la procédure qui crée les issues de suivi (elle vit hors du dépôt) :
+
+- `.github/scripts/resolve-placeholders.sh SUIVI1=290 SUIVI2=291 < texte.md` écrit le texte avec
+  les numéros réels et échoue, sans rien écrire, s'il reste un nom provisoire ;
+- `gh issue list --state open --limit 1000 --json number,title,body | node .github/scripts/list-placeholders.mjs`
+  liste les issues ouvertes dont le titre ou le corps en contient encore (les commentaires ne
+  sont pas lus). La recherche de GitHub ne les trouve pas à partir du seul mot « SUIVI » : elle
+  cherche des mots entiers.
+
 ### Données
 
 Uniquement des données fictives (domaine `exemple.fr`) ou un tenant de test : jamais de donnée
@@ -120,9 +139,11 @@ développement :
   sur `develop` pour la semaine écoulée (lues dans l'interface Actions), et la plus longue durée de
   `captures` relevée dans les résumés de run et les fichiers `verifs` de la semaine ;
 - seuils d'alerte, tous deux sous le timeout de 15 min : 10 min pour le job `ci`, 5 min pour
-  `captures`. Au-delà, le Product Owner ouvre une issue pendant le bilan (mise en place suivie
-  dans #250) : rien dans le dépôt ne l'ouvre à sa place. Cas limite accepté : un dépassement du
-  job `ci` en milieu de semaine n'est vu qu'au bilan suivant.
+  `captures`. Au-delà, le Product Owner ouvre une issue pendant le bilan (modèle du bilan :
+  `docs/bilan-hebdomadaire.md`) : rien dans le dépôt ne l'ouvre à sa place. Cas limite accepté : un dépassement du
+  job `ci` en milieu de semaine n'est vu qu'au bilan suivant. Un dépassement répété deux semaines
+  de suite fait proposer au PM, dans une issue « [PM] », l'ouverture automatique d'une issue par un
+  workflow (permission `issues: write`).
 
 ## Version affichée
 

@@ -31,7 +31,9 @@ de tenant par console.
 ### Fréquence
 
 - Intervalle = RPO / 2 : 120, 360 ou 720 minutes. Ainsi, un échec isolé laisse encore une
-  seconde tentative avant l'échéance du RPO.
+  seconde tentative avant l'échéance du RPO. Depuis #298, les plans à RPO de 24 h font exception :
+  leurs passages suivent la fenêtre de nuit de l'ADR 0017, et les deux alinéas suivants ne les
+  concernent plus.
 - Créneaux = `décalage + k × intervalle` depuis l'époque Unix (UTC), à la minute. Le décalage est
   `FNV-1a(identifiant du plan) mod intervalle` : déterministe, identique d'un appel et d'un
   redémarrage à l'autre, sans état, et il étale les plans au lieu de les lancer tous à minuit.
@@ -62,7 +64,7 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
 | `GET /api/plans`        | `{ items }` : les plans, triés par nom                    | 200                |
 | `POST /api/plans`       | crée un plan (corps = `ProtectionPlanInput`)              | 201, 400, 409      |
 | `PUT /api/plans/:id`    | remplace le plan en entier (mêmes règles que la création) | 200, 400, 404, 409 |
-| `DELETE /api/plans/:id` | supprime le plan, sa sélection et son historique          | 204, 404           |
+| `DELETE /api/plans/:id` | supprime le plan, sa sélection et son historique (motif)  | 204, 400, 404      |
 
 - Un plan : `id` (UUID), `name`, `scope`, `selection`, `rpoHours`, `rtoHours`, `retentionDays`,
   `gdprJustification`, `createdAt`.
@@ -71,9 +73,11 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
   la valeur reçue. 409 : `plan_name_taken` (nom déjà pris, casse ignorée).
 - Audit : `plan.create`, `plan.update`, `plan.delete` (ressource `plan`, cible = identifiant du
   plan). Le motif ne porte que des codes (`scope:all,rpo:4`, `changed:rpoHours,name`), jamais le nom
-  ni la justification.
+  ni la justification. Exception : `plan.delete` porte le motif saisi (obligatoire, 200 caractères
+  au plus, sinon 400 `reason_required`), comme `plan.run`.
 - La suppression d'un plan emporte son historique d'exécutions (cascade) ; la purge n'est donc pas
-  rejouable : l'écran de l'issue suivante devra demander une confirmation.
+  rejouable : la boîte de suppression le dit (« Suppression définitive »), rappelle le plan,
+  demande un motif et ne promet aucune conservation des sauvegardes déjà faites (issue #377).
 
 ### Planificateur, historique et lancement manuel (issue #62)
 
@@ -100,7 +104,9 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
 - Mêmes règles d'accès que les autres routes des plans (administrateur ; 401, 403, 503).
 - `202 { started, skipped }` : les exécutions sont ouvertes avant la réponse et se poursuivent en
   arrière-plan ; `skipped` compte les éléments déjà en cours. 409 `run_in_progress` si tous le
-  sont, `no_items` si le plan ne couvre rien ; 400 `reason_required` sans motif.
+  sont, `no_items` si le plan ne couvre rien ; 400 `reason_required` sans motif. Si une autre
+  sauvegarde est en cours, le lancement est mis en file : `202 { started: 0, skipped: 0, queued:
+true }` (ADR 0017).
 - Audit : `plan.run` (ressource `plan`, cible = identifiant du plan, motif = le motif saisi), consigné
   avant le lancement. Le motif est du texte libre : il ne doit pas contenir de contenu de mail.
 
@@ -129,8 +135,12 @@ ou journal d'audit indisponible 503. Les écritures exigent le jeton CSRF comme 
   `GET /api/plans` est la fin de la dernière réussite qui a créé un point, lue par le magasin sur
   tout l'historique ; ce champ est propre à cette route, le type `Compliance` du core (partagé
   avec le tableau de bord) ne change pas. `lastSuccessAt` (qui fonde la conformité) compte
-  toujours une réussite vide. L'écran des plans écrit « Réussie (rien à sauvegarder) » et,
-  si aucune réussite n'a créé de point, « À jour » avec la note « Rien à sauvegarder pour l’instant » (une seule mention par ligne).
+  toujours une réussite vide. L’écran des plans écrit « Rien copié, <date> » dans la colonne « Dernière
+  exécution » (jamais « Réussie », issue #369) et, si aucune réussite n’a créé de point, la
+  pastille neutre « En attente » avec la note « Rien à sauvegarder dans le périmètre : vérifiez
+  la boîte, le compte ou le site choisi. » (issue #289) : rien n’a été copié, l’état ne doit pas
+  être vert.
+  Le tableau de bord, fondé sur `compliance.state`, n’est pas modifié par cette issue.
 - Identifiants : `BACKUP365_M365_CLIENT_ID` et `BACKUP365_M365_CLIENT_SECRET` (variante
   `_FILE`). Un seul des deux : démarrage refusé, l'erreur nomme la variable. Aucun : « sauvegarde
   non configurée » ; hors démo, aucun planificateur n'est créé, donc aucune exécution ni ligne de

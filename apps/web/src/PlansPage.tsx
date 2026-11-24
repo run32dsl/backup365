@@ -1,17 +1,19 @@
-import { DATA_TYPES, type DataType, type RpoHours } from '@backup365/core';
+import { DATA_TYPES, scheduleWindowLabel, type DataType, type RpoHours } from '@backup365/core';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ConfigurationLink } from './ConfigurationBlock.js';
 import {
   DATA_TYPE_LABELS,
+  MAIL_HELP,
   MESSAGES,
   NEW_PLAN_HASH,
   PLANS_HASH,
-  REASON_CHOICES,
+  JUSTIFICATION_HELP,
+  JUSTIFICATION_PLACEHOLDER,
   RETENTION_CHOICES,
   RPO_CHOICES,
   RTO_CHOICES,
-  RUN_REASONS,
   complianceView,
+  failureBanner,
   createPlan,
   createdMessage,
   deletePlan,
@@ -20,16 +22,19 @@ import {
   fetchMailboxes,
   fetchPlans,
   formFromPlan,
+  isFailed,
   lastRunLabel,
   planSummary,
+  runFlashText,
   retentionLabel,
   withCurrent,
   retentionHelp,
   rpoHelp,
   rtoHelp,
+  OBJECTIVE_LABELS,
   recapRows,
   runPlan,
-  runReasonText,
+  runReasonError,
   updatePlan,
   validateStep,
   type FormErrors,
@@ -37,10 +42,11 @@ import {
   type PlanForm,
   type PlanItem,
   type PlansRoute,
-  type ReasonKind,
 } from './plans.js';
-import { type Problem } from './apiError.js';
-import { AuditReminder, REASON, reasonLabel } from './RestoreJourney.js';
+import { problemMessage, splitTitle, type Problem } from './apiError.js';
+import { useAdmin } from './role.js';
+import { MAX_REASON_LENGTH } from './mail.js';
+import { REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
 import {
   Alert,
   Button,
@@ -63,10 +69,15 @@ const goTo = (hash: string) => {
 
 /** Échec d'une action sur les plans : la phrase pour l'utilisateur, sans détail technique. */
 export function PlanFailure({ problem }: { problem: Problem }) {
+  const message = problemMessage(problem, useAdmin());
   const tone = problem.code === 'backup_not_configured' ? 'warning' : 'error';
+  const { title, text } =
+    problem.code === 'backup_not_configured'
+      ? splitTitle(message)
+      : { title: undefined, text: message };
   return (
-    <Alert tone={tone}>
-      {problem.message}
+    <Alert tone={tone} {...(title ? { title } : {})}>
+      {text}
       {problem.code === 'backup_not_configured' ? <ConfigurationLink /> : null}
     </Alert>
   );
@@ -82,58 +93,6 @@ function ErrorText({ id, children }: { id: string; children?: string }) {
     <p id={id} className="field-error">
       <span aria-hidden="true">✖</span> {children}
     </p>
-  );
-}
-
-/** Liste déroulante native avec libellé relié, aide d'erreur reliée par `aria-describedby`. */
-function SelectField({
-  id,
-  label,
-  value,
-  placeholder,
-  options,
-  error,
-  help,
-  onChange,
-}: {
-  id: string;
-  help?: string;
-  label: string;
-  value: string;
-  placeholder: string;
-  options: readonly { value: string; label: string }[];
-  error?: string | undefined;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="field">
-      <label htmlFor={id}>{label}</label>
-      <select
-        id={id}
-        value={value}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={
-          [help ? `${id}-help` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ') ||
-          undefined
-        }
-        onChange={(e) => {
-          onChange(e.currentTarget.value);
-        }}
-      >
-        <option value="">{placeholder}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      {help && (
-        <p id={`${id}-help`} className="field-help">
-          {help}
-        </p>
-      )}
-      <ErrorText id={`${id}-error`}>{error}</ErrorText>
-    </div>
   );
 }
 
@@ -237,6 +196,7 @@ export function PlanWizard({
                 <label key={t} className="choice">
                   <input
                     type="checkbox"
+                    aria-describedby={t === 'mail' ? 'data-type-mail-help' : undefined}
                     checked={form.dataTypes.includes(t)}
                     onChange={() => {
                       patch({
@@ -245,6 +205,11 @@ export function PlanWizard({
                     }}
                   />
                   {DATA_TYPE_LABELS[t]}
+                  {t === 'mail' && (
+                    <small id="data-type-mail-help" className="state-note">
+                      {MAIL_HELP}
+                    </small>
+                  )}
                 </label>
               ))}
             </div>
@@ -292,7 +257,7 @@ export function PlanWizard({
       {step === 2 && (
         <>
           <ChoiceGroup<RpoHours>
-            legend="Perte de données acceptable"
+            legend={OBJECTIVE_LABELS.rpo}
             name="rpo"
             value={form.rpoHours}
             options={RPO_CHOICES.map((h) => ({ value: h, label: `${h} h` }))}
@@ -302,7 +267,7 @@ export function PlanWizard({
             }}
           />
           <ChoiceGroup<number>
-            legend="Remise en service souhaitée"
+            legend={OBJECTIVE_LABELS.rto}
             name="rto"
             value={form.rtoHours}
             options={withCurrent(RTO_CHOICES, form.rtoHours).map((h) => ({
@@ -315,7 +280,7 @@ export function PlanWizard({
             }}
           />
           <ChoiceGroup<number>
-            legend="Durée de conservation"
+            legend={OBJECTIVE_LABELS.retention}
             name="retention"
             value={form.retentionDays}
             options={withCurrent(RETENTION_CHOICES, form.retentionDays).map((d) => ({
@@ -327,29 +292,20 @@ export function PlanWizard({
               patch({ retentionDays });
             }}
           />
-          <SelectField
-            id="reason-kind"
-            label="Justification de cette durée *"
-            value={form.reasonKind}
-            placeholder="Choisir un motif"
-            options={REASON_CHOICES}
-            error={form.reasonKind === '' ? errors.justification : undefined}
-            onChange={(reasonKind) => {
-              patch({ reasonKind: reasonKind as ReasonKind | '' });
-            }}
-          />
           <FormField
-            label={
-              form.reasonKind === 'other' ? 'Précision (obligatoire)' : 'Précision (facultatif)'
-            }
-            value={form.reasonDetail}
-            maxLength={200}
-            error={form.reasonKind === '' ? undefined : errors.justification}
+            label={`${OBJECTIVE_LABELS.justification} (obligatoire)`}
+            type="text"
+            name="justification"
+            required
+            counterMax={MAX_REASON_LENGTH}
+            placeholder={JUSTIFICATION_PLACEHOLDER}
+            help={JUSTIFICATION_HELP}
+            error={errors.justification}
+            value={form.justification}
             onChange={(e) => {
-              patch({ reasonDetail: e.currentTarget.value });
+              patch({ justification: e.currentTarget.value });
             }}
           />
-          <p>Les durées longues doivent rester justifiées au regard du RGPD.</p>
         </>
       )}
 
@@ -357,7 +313,6 @@ export function PlanWizard({
         <>
           <h2>Récapitulatif</h2>
           <ResultList rows={recapRows(form)} />
-          <AuditReminder />
         </>
       )}
 
@@ -470,21 +425,19 @@ function RunDialog({
   onClose: () => void;
   onRun: (plan: PlanItem, reason: string) => Promise<Problem | undefined>;
 }) {
-  const [choice, setChoice] = useState('');
-  const [detail, setDetail] = useState('');
+  const [reason, setReason] = useState('');
   const [error, setError] = useState<string>();
   const [problem, setProblem] = useState<Problem>();
   const [busy, setBusy] = useState(false);
   // Chaque ouverture repart d'un formulaire vide.
   useEffect(() => {
-    setChoice('');
-    setDetail('');
+    setReason('');
     setError(undefined);
     setProblem(undefined);
     setBusy(false);
   }, [plan]);
   const blocked = isRunBlocked(problem);
-  const missing = choice === '' || (choice === 'Autre (préciser)' && detail.trim() === '');
+  const missing = runReasonError(reason);
   return (
     <Dialog
       open={plan !== null}
@@ -495,7 +448,7 @@ function RunDialog({
         <RunBlocked
           problem={problem}
           planName={plan?.name ?? ''}
-          reason={runReasonText(choice, detail)}
+          reason={reason.trim()}
           onClose={onClose}
         />
       ) : (
@@ -506,37 +459,25 @@ function RunDialog({
             if (!plan || busy) return;
             // Une nouvelle tentative efface l'échec précédent : un seul message à la fois.
             setProblem(undefined);
-            if (missing) {
-              setError(MESSAGES.runReason);
+            if (missing !== undefined) {
+              setError(missing);
               return;
             }
             setError(undefined);
             setBusy(true);
-            void onRun(plan, runReasonText(choice, detail)).then((failure) => {
+            void onRun(plan, reason).then((failure) => {
               setBusy(false);
               setProblem(failure);
             });
           }}
         >
-          <SelectField
-            id="run-reason"
-            label={reasonLabel('du lancement')}
-            help={REASON.help}
-            value={choice}
-            placeholder="Choisir un motif"
-            options={RUN_REASONS.map((r) => ({ value: r, label: r }))}
+          <ReasonField
+            of="du lancement"
+            placeholder={REASON_EXAMPLES.run}
+            value={reason}
             error={error}
-            onChange={setChoice}
+            onChange={setReason}
           />
-          <FormField
-            label="Précision (facultatif)"
-            value={detail}
-            counterMax={REASON.maxLength}
-            onChange={(e) => {
-              setDetail(e.currentTarget.value);
-            }}
-          />
-          <AuditReminder />
           <RunFeedback problem={problem} busy={busy} onClose={onClose} />
         </form>
       )}
@@ -544,47 +485,106 @@ function RunDialog({
   );
 }
 
+/** Contenu de la boîte de suppression : le plan, ce qui disparaît, le motif. Sans accès réseau. */
+export function DeleteForm({
+  plan,
+  mailboxes = [],
+  error,
+  failure,
+  busy = false,
+  onSubmit,
+  onCancel,
+}: {
+  plan: PlanItem;
+  mailboxes?: readonly Mailbox[];
+  error?: string | undefined;
+  failure?: Problem | undefined;
+  busy?: boolean;
+  onSubmit?: (reason: string) => void;
+  onCancel?: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  return (
+    <form
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit?.(reason.trim());
+      }}
+    >
+      <p>
+        Plan : <strong>{plan.name}</strong>
+        <small className="state-note plan-summary">{planSummary(plan, mailboxes)}</small>
+      </p>
+      <Alert tone="warning" title="Suppression définitive">
+        Aucune nouvelle sauvegarde ne sera faite. L’historique des exécutions de ce plan sera
+        effacé. Les sauvegardes déjà faites restent dans le stockage : la console ne les supprime
+        pas.
+      </Alert>
+      <ReasonField
+        of="de la suppression"
+        placeholder={REASON_EXAMPLES.deletePlan}
+        value={reason}
+        error={error}
+        onChange={setReason}
+      />
+      {failure && <PlanFailure problem={failure} />}
+      <div className="button-row dialog-actions">
+        <Button variant="secondary" data-safe onClick={onCancel}>
+          Annuler
+        </Button>
+        <Button variant="danger" type="submit" busy={busy}>
+          Supprimer le plan
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function DeleteDialog({
   plan,
+  mailboxes,
   onClose,
   onDelete,
 }: {
   plan: PlanItem | null;
+  mailboxes: readonly Mailbox[];
   onClose: () => void;
-  onDelete: (plan: PlanItem) => Promise<Problem | undefined>;
+  onDelete: (plan: PlanItem, reason: string) => Promise<Problem | undefined>;
 }) {
-  const [error, setError] = useState<Problem>();
+  const [error, setError] = useState<string>();
+  const [failure, setFailure] = useState<Problem>();
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     setError(undefined);
+    setFailure(undefined);
     setBusy(false);
   }, [plan]);
   return (
     <Dialog open={plan !== null} title={`Supprimer « ${plan?.name ?? ''} » ?`} onClose={onClose}>
-      <p>
-        Les sauvegardes existantes sont conservées jusqu’à la fin de leur durée de conservation.
-        Aucune nouvelle sauvegarde ne sera faite.
-      </p>
-      {error && <PlanFailure problem={error} />}
-      <div className="button-row dialog-actions">
-        <Button variant="secondary" data-safe onClick={onClose}>
-          Annuler
-        </Button>
-        <Button
-          variant="danger"
+      {plan && (
+        <DeleteForm
+          key={plan.id}
+          plan={plan}
+          mailboxes={mailboxes}
+          error={error}
+          failure={failure}
           busy={busy}
-          onClick={() => {
-            if (!plan) return;
+          onCancel={onClose}
+          onSubmit={(reason) => {
+            if (busy) return;
+            setFailure(undefined);
+            const missing = runReasonError(reason);
+            setError(missing);
+            if (missing !== undefined) return;
             setBusy(true);
-            void onDelete(plan).then((failure) => {
+            void onDelete(plan, reason).then((problem) => {
               setBusy(false);
-              setError(failure);
+              setFailure(problem);
             });
           }}
-        >
-          Supprimer le plan
-        </Button>
-      </div>
+        />
+      )}
     </Dialog>
   );
 }
@@ -595,23 +595,29 @@ export type PlansState = PlanItem[] | 'loading' | 'error';
 
 function planColumns(
   admin: boolean,
+  mailboxes: readonly Mailbox[],
+  runningName: string | undefined,
   actions: { onRun: (p: PlanItem) => void; onDelete: (p: PlanItem) => void },
 ): Column<PlanItem>[] {
   const columns: Column<PlanItem>[] = [
     {
       header: 'Plan',
+      className: 'card-title',
       cell: (p) => (
         <div>
           <span className="nowrap-wide">{p.name}</span>
-          <small className="state-note plan-summary">{planSummary(p)}</small>
+          <small className="state-note plan-summary">{planSummary(p, mailboxes)}</small>
+          {scheduleWindowLabel(p.rpoHours) && (
+            <small className="state-note plan-summary">{scheduleWindowLabel(p.rpoHours)}</small>
+          )}
         </div>
       ),
     },
     {
       header: 'État',
-      className: 'compliance-cell',
+      className: 'compliance-cell card-nolabel',
       cell: (p) => {
-        const view = complianceView(p);
+        const view = complianceView(p, runningName);
         return (
           <div>
             <StatusPill status={view.status} label={view.label} />
@@ -620,41 +626,51 @@ function planColumns(
         );
       },
     },
-    { header: 'Dernière exécution (UTC)', cell: lastRunLabel },
+    {
+      header: 'Dernière exécution (UTC)',
+      className: 'card-wide plan-last-run',
+      cell: lastRunLabel,
+    },
   ];
   if (admin) {
     columns.push({
       header: 'Actions',
+      className: 'card-action',
       cell: (p) => (
-        <div className="row-actions">
+        <div className="button-row row-actions">
           <Button
             variant="secondary"
             aria-label={`Lancer ${p.name} maintenant`}
-            aria-disabled={p.running || undefined}
+            aria-disabled={p.running || p.queued || undefined}
+            aria-describedby={p.running || p.queued ? `run-hint-${p.id}` : undefined}
             onClick={() => {
-              if (!p.running) actions.onRun(p);
+              if (!p.running && !p.queued) actions.onRun(p);
             }}
           >
             Lancer maintenant
           </Button>
-          <div className="row-actions-more">
-            <a
-              className="btn btn-secondary"
-              href={editHash(p.id)}
-              aria-label={`Modifier ${p.name}`}
-            >
-              Modifier
-            </a>
-            <Button
-              variant="danger"
-              aria-label={`Supprimer ${p.name}`}
-              onClick={() => {
-                actions.onDelete(p);
-              }}
-            >
-              Supprimer
-            </Button>
-          </div>
+          {(p.running || p.queued) && (
+            <small className="state-note" id={`run-hint-${p.id}`}>
+              {p.running ? MESSAGES.runBusy : MESSAGES.runAlreadyQueued}
+            </small>
+          )}
+          <a
+            className="btn btn-secondary action-half"
+            href={editHash(p.id)}
+            aria-label={`Modifier ${p.name}`}
+          >
+            Modifier
+          </a>
+          <Button
+            variant="danger"
+            className="action-half"
+            aria-label={`Supprimer ${p.name}`}
+            onClick={() => {
+              actions.onDelete(p);
+            }}
+          >
+            Supprimer
+          </Button>
         </div>
       ),
     });
@@ -667,12 +683,17 @@ export function PlansListView({
   state,
   admin,
   configured,
+  mailboxes = [],
+  failedOnly = false,
   onRetry,
   onRun,
   onDelete,
 }: {
   state: PlansState;
   admin: boolean;
+  /** Réduit la liste aux plans en échec (s'il y en a) ; un lien rend la liste entière. */
+  failedOnly?: boolean;
+  mailboxes?: readonly Mailbox[];
   configured: boolean;
   onRetry: () => void;
   onRun: (p: PlanItem) => void;
@@ -744,15 +765,59 @@ export function PlansListView({
       </EmptyState>
     );
   }
+  const failed = state.filter(isFailed);
+  const filtered = failedOnly && failed.length > 0;
   return (
     <>
       {notice}
       {!admin && <p>{MESSAGES.readOnly}</p>}
+      {filtered && (
+        <>
+          {failed.map((p) => {
+            const banner = failureBanner(p, admin);
+            const busy = p.running || p.queued;
+            return (
+              <Alert
+                key={p.id}
+                tone="error"
+                title={banner.title}
+                action={
+                  admin ? (
+                    <Button
+                      aria-label={`Lancer ${p.name} maintenant`}
+                      aria-disabled={busy || undefined}
+                      aria-describedby={busy ? `banner-run-hint-${p.id}` : undefined}
+                      onClick={() => {
+                        if (!busy) onRun(p);
+                      }}
+                    >
+                      Lancer maintenant
+                    </Button>
+                  ) : undefined
+                }
+              >
+                {[banner.cause, banner.consequence, banner.advice].filter(Boolean).join(' ')}
+                {busy && (
+                  <small className="state-note" id={`banner-run-hint-${p.id}`}>
+                    {p.running ? MESSAGES.runBusy : MESSAGES.runAlreadyQueued}
+                  </small>
+                )}
+              </Alert>
+            );
+          })}
+          <p>
+            <a href={PLANS_HASH}>Voir tous les plans</a>
+          </p>
+        </>
+      )}
       <DataTable
         caption="Plans de protection"
         hideCaption
-        columns={planColumns(admin, { onRun, onDelete })}
-        rows={state}
+        columns={planColumns(admin, mailboxes, state.find((p) => p.running)?.name, {
+          onRun,
+          onDelete,
+        })}
+        rows={filtered ? failed : state}
         rowKey={(p) => p.id}
       />
     </>
@@ -785,7 +850,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   }, []);
   useEffect(load, [load]);
   // Une exécution en cours se suit : la liste se relit tant qu'elle dure.
-  const running = Array.isArray(state) && state.some((p) => p.running);
+  const running = Array.isArray(state) && state.some((p) => p.running || p.queued);
   useEffect(() => {
     if (!running) return;
     const timer = setInterval(load, 3000);
@@ -812,12 +877,15 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     const outcome = await runPlan(plan.id, reason);
     if (!outcome.ok) return outcome;
     setRunTarget(null);
-    setFlash({ tone: 'success', text: MESSAGES.runStarted });
+    setFlash({
+      tone: 'success',
+      text: runFlashText(outcome.value.queued, plan.name, Array.isArray(state) ? state : undefined),
+    });
     load();
     return undefined;
   };
-  const onDelete = async (plan: PlanItem) => {
-    const outcome = await deletePlan(plan.id);
+  const onDelete = async (plan: PlanItem, reason: string) => {
+    const outcome = await deletePlan(plan.id, reason);
     if (!outcome.ok) return outcome;
     setDeleteTarget(null);
     setFlash({ tone: 'success', text: MESSAGES.deleted });
@@ -887,6 +955,8 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         state={state}
         admin={admin}
         configured={boxes.configured}
+        mailboxes={boxes.mailboxes}
+        failedOnly={route.page === 'list' && route.failedOnly === true}
         onRetry={reloadList}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
@@ -925,6 +995,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
           <RunDialog plan={runTarget} onClose={closeRun} onRun={onRun} />
           <DeleteDialog
             plan={deleteTarget}
+            mailboxes={boxes.mailboxes}
             onClose={() => {
               setDeleteTarget(null);
             }}

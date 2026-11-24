@@ -6,6 +6,7 @@ import { ComponentsPage, UnavailableView } from './ComponentsPage.js';
 import { ConsoleFooter } from './ConsoleFooter.js';
 import { DemoBanner, demoOf, useHealth, type HealthState } from './DemoBanner.js';
 import { Home } from './Home.js';
+import { AdminProvider } from './role.js';
 import { CredentialsPage, ErrorView, PASSWORD_CHANGED, PasswordPage } from './LoginPage.js';
 import { MailPage } from './MailPage.js';
 import { OneDrivePage } from './OneDrivePage.js';
@@ -18,9 +19,9 @@ import { parseMailHash, parseSearchHash } from './mail.js';
 import { PlansPage } from './PlansPage.js';
 import { parsePlansHash } from './plans.js';
 import { COMPONENTS_HASH, STATUS_HASH } from './routes.js';
-import { Alert, EmptyState } from './ui/index.js';
+import { AccessDenied } from './AccessDenied.js';
+import { Alert } from './ui/index.js';
 import {
-  ADMIN_ONLY,
   LOGIN_HASH,
   installSessionFetch,
   loadGate,
@@ -84,20 +85,32 @@ export function screenFor(
   return (screen === 'accounts' || screen === 'status') && !admin ? 'forbidden' : screen;
 }
 
+/** Entrée de navigation : un lien. */
+export type NavLink = { href: string; label: string; current: boolean };
+/** Rubrique de navigation : un lien, ou un libellé de groupe (sans lien) et ses liens. */
+export type NavEntry = NavLink | { label: string; children: NavLink[] };
+
 /**
- * Entrées de la navigation principale : seules les entrées livrées apparaissent. « État
- * détaillé » et Administration (comptes) sont réservées aux administrateurs.
+ * Entrées de la navigation principale : seules les entrées livrées apparaissent. « Restaurer »
+ * est un libellé de groupe, pas un lien : il regroupe les trois parcours de restauration
+ * (Messagerie, OneDrive, SharePoint). « État détaillé » et Administration (comptes) sont
+ * réservées aux administrateurs.
  */
-export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean) {
-  const entries = [
+export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean): NavEntry[] {
+  const entries: NavEntry[] = [
     { href: '#/', label: 'Tableau de bord', current: screen === 'home' },
     {
-      href: '#/search',
-      label: 'Rechercher et restaurer',
-      current: screen === 'search' || screen === 'mail',
+      label: 'Restaurer',
+      children: [
+        {
+          href: '#/search',
+          label: 'Messagerie',
+          current: screen === 'search' || screen === 'mail',
+        },
+        { href: '#/onedrive', label: 'OneDrive', current: screen === 'onedrive' },
+        { href: '#/sharepoint', label: 'SharePoint', current: screen === 'sharepoint' },
+      ],
     },
-    { href: '#/onedrive', label: 'OneDrive', current: screen === 'onedrive' },
-    { href: '#/sharepoint', label: 'SharePoint', current: screen === 'sharepoint' },
     { href: '#/plans', label: 'Plans de protection', current: screen === 'plans' },
     { href: '#/audit', label: 'Journal d’audit', current: screen === 'audit' },
   ];
@@ -124,15 +137,10 @@ export function ForbiddenView() {
   return (
     <main tabIndex={-1}>
       <h1>Administration</h1>
-      <EmptyState
-        action={
-          <a className="btn btn-secondary" href="#/">
-            Retour au tableau de bord
-          </a>
-        }
-      >
-        {ADMIN_ONLY} Demandez à un administrateur de la console de faire cette action.
-      </EmptyState>
+      <AccessDenied title="Accès réservé" href="#/" exit="Retour au tableau de bord">
+        Cette page est réservée aux administrateurs. Demandez à un administrateur de la console de
+        faire cette action.
+      </AccessDenied>
     </main>
   );
 }
@@ -228,10 +236,25 @@ export function ConsoleView({
             <nav aria-label="Navigation principale">
               <ul className="nav-list">
                 {entries.map((e) => (
-                  <li key={e.href}>
-                    <a href={e.href} aria-current={e.current ? 'page' : undefined}>
-                      {e.label}
-                    </a>
+                  <li key={e.label}>
+                    {'children' in e ? (
+                      <>
+                        <span className="nav-group">{e.label}</span>
+                        <ul className="nav-list nav-sublist">
+                          {e.children.map((c) => (
+                            <li key={c.href}>
+                              <a href={c.href} aria-current={c.current ? 'page' : undefined}>
+                                {c.label}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <a href={e.href} aria-current={e.current ? 'page' : undefined}>
+                        {e.label}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -311,33 +334,35 @@ export function Console({
         />
       }
     >
-      {screen === 'components' && <ComponentsPage />}
-      {screen === 'unavailable' && <UnavailableView />}
-      {screen === 'audit' && <AuditPage />}
-      {screen === 'search' && (
-        <SearchPage key={hash} mailbox={parseSearchHash(hash) ?? undefined} />
-      )}
-      {screen === 'plans' && (
-        <PlansPage route={parsePlansHash(hash) ?? { page: 'list' }} admin={admin} />
-      )}
-      {screen === 'accounts' && <AccountsPage />}
-      {screen === 'status' && <StatusPage />}
-      {screen === 'forbidden' && <ForbiddenView />}
-      {screen === 'password' && (
-        <PasswordPage forced={false} onDone={() => undefined} onCancel={goHome} />
-      )}
-      {screen === 'mail' && mail && <MailPage key={hash} {...mail} />}
-      {screen === 'sharepoint' && (
-        <SharePointPage
-          key={hash}
-          route={parseSharePointHash(hash) ?? { site: '', scope: null, path: '/' }}
-          admin={admin}
-        />
-      )}
-      {screen === 'onedrive' && (
-        <OneDrivePage route={parseOneDriveHash(hash) ?? { account: '', path: '/' }} />
-      )}
-      {screen === 'home' && <Home admin={admin} />}
+      <AdminProvider value={admin}>
+        {screen === 'components' && <ComponentsPage />}
+        {screen === 'unavailable' && <UnavailableView />}
+        {screen === 'audit' && <AuditPage />}
+        {screen === 'search' && (
+          <SearchPage key={hash} mailbox={parseSearchHash(hash) ?? undefined} />
+        )}
+        {screen === 'plans' && (
+          <PlansPage route={parsePlansHash(hash) ?? { page: 'list' }} admin={admin} />
+        )}
+        {screen === 'accounts' && <AccountsPage />}
+        {screen === 'status' && <StatusPage />}
+        {screen === 'forbidden' && <ForbiddenView />}
+        {screen === 'password' && (
+          <PasswordPage forced={false} onDone={() => undefined} onCancel={goHome} />
+        )}
+        {screen === 'mail' && mail && <MailPage key={hash} {...mail} />}
+        {screen === 'sharepoint' && (
+          <SharePointPage
+            key={hash}
+            route={parseSharePointHash(hash) ?? { site: '', scope: null, path: '/' }}
+            admin={admin}
+          />
+        )}
+        {screen === 'onedrive' && (
+          <OneDrivePage route={parseOneDriveHash(hash) ?? { account: '', path: '/' }} />
+        )}
+        {screen === 'home' && <Home admin={admin} />}
+      </AdminProvider>
     </ConsoleView>
   );
 }
@@ -367,11 +392,12 @@ function AppGate({ health }: { health: HealthState }) {
   };
   // Message affiché entre la perte d'une session et la connexion suivante.
   // Retour refusé de Microsoft (`?oidc_error=`) : lu une fois, puis retiré de l'adresse.
-  const [notice, setNotice] = useState<string | undefined>(() => {
+  const [refusal, setRefusal] = useState<string | undefined>(() => {
     const message = oidcErrorMessage(window.location.search);
     if (message) window.history.replaceState(null, '', window.location.pathname);
     return message;
   });
+  const [notice, setNotice] = useState<string | undefined>();
   // Page demandée avant la connexion, rouverte ensuite ; l'ancre vaut `#/connexion` entre-temps.
   const target = useRef<string | null>(null);
   // Incrémenté à chaque refus CSRF : une lecture de session partie avant ne doit pas le défaire.
@@ -424,12 +450,14 @@ function AppGate({ health }: { health: HealthState }) {
 
   const open = (session: SessionInfo) => {
     setNotice(undefined);
+    setRefusal(undefined);
     window.location.hash = target.current ?? '#/';
     target.current = null;
     apply({ status: 'ready', session });
   };
   const leave = () => {
     setNotice(undefined);
+    setRefusal(undefined);
     logout().finally(() => {
       target.current = null;
       window.location.hash = '';
@@ -455,17 +483,18 @@ function AppGate({ health }: { health: HealthState }) {
     case 'setup':
     case 'login':
       return (
-        <>
+        <div className="login-page">
           <CredentialsPage
             mode={gate.status}
             notice={gate.status === 'login' ? notice : undefined}
+            refusal={gate.status === 'login' ? refusal : undefined}
             onSession={open}
           />
           <ConsoleFooter
             version={typeof health === 'object' ? health?.version : undefined}
             demo={false}
           />
-        </>
+        </div>
       );
     case 'ready':
       return gate.session.user.mustChangePassword ? (

@@ -3,7 +3,9 @@ import { parentOf } from '@backup365/core';
 import { type Problem as FailureProblem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { StorageUnavailable } from './StorageUnavailable.js';
-import { dateTimeOrDash } from './format.js';
+import { cardSummary, dateTimeOrDash } from './format.js';
+import { RestoreFailureAlert, restoreFailureBanner } from './restoreFailure.js';
+import { RESTORE_LABELS } from './restoreLabels.js';
 import { isReasonValid } from './mail.js';
 import {
   ONEDRIVE_MESSAGES as T,
@@ -24,7 +26,9 @@ import {
   startDriveRestore,
   restoreBlocked,
   confirmRowsOf,
-  consequenceOf,
+  COPY_CONSEQUENCE,
+  REPLACE_WARNING_TITLE,
+  replaceWarningOf,
   type DriveEntry,
   type DriveJob,
   type DriveMode,
@@ -37,6 +41,7 @@ import { RestoreNotConfigured } from './RestoreAction.js';
 import {
   AuditReminder,
   REASON,
+  REASON_EXAMPLES,
   RESTORE_BUTTONS as B,
   RESTORE_STEPS,
   ReasonField,
@@ -93,7 +98,7 @@ export function Problem({
   );
 }
 
-/** Panneau des versions d'un fichier : une seule choisie, puis « Restaurer cette version ». */
+/** Panneau des versions d'un fichier : une seule choisie, la restauration vient après le motif. */
 function VersionsDialog({
   account,
   entry,
@@ -122,6 +127,9 @@ function VersionsDialog({
   const rows = versions?.status === 'ok' ? versions.data : [];
   return (
     <Dialog open title={`Versions de ${entry.name}`} onClose={onClose}>
+      <p className="field-help">
+        La version choisie sera restaurée après le motif et la confirmation.
+      </p>
       {versions === null && (
         <p role="status" aria-busy="true">
           {T.loading}
@@ -149,8 +157,8 @@ function VersionsDialog({
                   setPicked(i);
                 }}
               />{' '}
-              {dateTimeOf(v.at)}
-              {v.current ? ' · Actuelle sauvegardée' : ''} · {sizeOf(v.sizeBytes)}
+              {dateTimeOf(v.at)} · {sizeOf(v.sizeBytes)}
+              {v.current ? ' (la plus récente)' : ''}
             </label>
           ))}
         </fieldset>
@@ -166,7 +174,7 @@ function VersionsDialog({
             if (chosen) onChoose(chosen);
           }}
         >
-          Restaurer cette version
+          Choisir cette version
         </Button>
       </div>
     </Dialog>
@@ -178,6 +186,7 @@ export function EntriesTable({
   account,
   rows,
   selected,
+  pickedVersion = null,
   emptyMessage,
   onSelect,
   onVersions,
@@ -185,6 +194,8 @@ export function EntriesTable({
   account: string;
   rows: DriveEntry[];
   selected: string | null;
+  /** Version choisie dans la boîte « Versions » : remplace la date de la ligne cochée. */
+  pickedVersion?: DriveVersion | null;
   emptyMessage: string;
   onSelect: (path: string) => void;
   onVersions: (entry: DriveEntry, button: HTMLButtonElement) => void;
@@ -209,9 +220,13 @@ export function EntriesTable({
       rows={rows}
       rowKey={(e) => e.path}
       empty={{ message: emptyMessage }}
+      onRowClick={(e) => {
+        onSelect(e.path);
+      }}
       columns={[
         {
           header: 'Nom',
+          className: 'card-title',
           cell: (e) =>
             e.kind === 'folder' ? (
               <span className="choice">
@@ -227,10 +242,33 @@ export function EntriesTable({
               </label>
             ),
         },
-        { header: 'Version du (UTC)', cell: (e) => dateTimeOrDash(e.versionAt) },
-        { header: 'Taille', cell: (e) => (e.sizeBytes === null ? '—' : sizeOf(e.sizeBytes)) },
+        {
+          header: 'Version du (UTC)',
+          className: 'card-hidden',
+          cell: (e) =>
+            dateTimeOrDash(pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt),
+        },
+        {
+          header: 'Taille',
+          className: 'card-hidden',
+          cell: (e) => {
+            const size =
+              pickedVersion && selected === e.path ? pickedVersion.sizeBytes : e.sizeBytes;
+            return size === null ? '—' : sizeOf(size);
+          },
+        },
+        {
+          header: 'Détail',
+          className: 'card-only',
+          cell: (e) =>
+            cardSummary(
+              pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt,
+              pickedVersion && selected === e.path ? pickedVersion.sizeBytes : e.sizeBytes,
+            ),
+        },
         {
           header: 'Versions',
+          className: 'card-action',
           cell: (e) =>
             e.kind === 'file' ? (
               <Button
@@ -243,7 +281,7 @@ export function EntriesTable({
                 Versions
               </Button>
             ) : (
-              '—'
+              <span className="table-only">—</span>
             ),
         },
       ]}
@@ -273,6 +311,7 @@ function BrowseStep({
 }) {
   const [entries, setEntries] = useState<Loaded<DriveEntry[]> | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [pickedVersion, setPickedVersion] = useState<DriveVersion | null>(null);
   const [versionsOf, setVersionsOf] = useState<DriveEntry | null>(null);
   const [attempt, setAttempt] = useState(0);
   const versionsButton = useRef<HTMLButtonElement | null>(null);
@@ -283,6 +322,7 @@ function BrowseStep({
     let current = true;
     setEntries(null);
     setSelected(null);
+    setPickedVersion(null);
     void fetchEntries(account, snapshotId, path).then((result) => {
       if (current) setEntries(result);
     });
@@ -315,7 +355,7 @@ function BrowseStep({
           </select>
         </div>
         <div className="field">
-          <label htmlFor="od-snapshot">Date de la sauvegarde</label>
+          <label htmlFor="od-snapshot">{RESTORE_LABELS.backupDate}</label>
           <select
             id="od-snapshot"
             value={snapshotId}
@@ -331,7 +371,6 @@ function BrowseStep({
           </select>
         </div>
       </div>
-      <p>Sauvegarde du {dateTimeOf(snapshot?.createdAt ?? null)}</p>
       <nav aria-label="Fil d'Ariane">
         <ol className="breadcrumb">
           {breadcrumbOf(path).map((c, i, all) => (
@@ -364,7 +403,12 @@ function BrowseStep({
               rows={rows}
               selected={selected}
               emptyMessage={`Ce dossier est vide dans la sauvegarde du ${dayOf(snapshot?.createdAt ?? null)}.`}
-              onSelect={setSelected}
+              pickedVersion={pickedVersion}
+              onSelect={(p) => {
+                if (p === selected) return;
+                setSelected(p);
+                setPickedVersion(null);
+              }}
               onVersions={(entry, button) => {
                 versionsButton.current = button;
                 setVersionsOf(entry);
@@ -374,13 +418,22 @@ function BrowseStep({
         )}
       </div>
 
-      <p aria-live="polite">{chosen ? '1 élément sélectionné' : 'Aucun élément sélectionné'}</p>
+      <p aria-live="polite">
+        {chosen
+          ? `Sélection : ${chosen.name}${pickedVersion ? `, version du ${dateTimeOf(pickedVersion.at)}` : ''}`
+          : null}
+      </p>
       <WizardActions>
         <Button
           aria-disabled={!configured || !chosen || undefined}
           aria-describedby={!configured ? hintId : undefined}
           onClick={() => {
-            if (configured && chosen) onChoose({ entry: chosen, snapshotId });
+            if (configured && chosen)
+              onChoose(
+                pickedVersion
+                  ? { entry: chosen, snapshotId: pickedVersion.snapshotId, version: pickedVersion }
+                  : { entry: chosen, snapshotId },
+              );
           }}
         >
           {B.next}
@@ -396,9 +449,9 @@ function BrowseStep({
             setVersionsOf(null);
           }}
           onChoose={(version) => {
+            setSelected(versionsOf.path);
+            setPickedVersion(version);
             setVersionsOf(null);
-            if (configured)
-              onChoose({ entry: versionsOf, snapshotId: version.snapshotId, version });
           }}
         />
       )}
@@ -430,7 +483,12 @@ function ReasonStep({
 
   return (
     <form onSubmit={submit} noValidate>
-      <ReasonField value={reason} error={error} onChange={setReason} />
+      <ReasonField
+        placeholder={REASON_EXAMPLES.restore}
+        value={reason}
+        error={error}
+        onChange={setReason}
+      />
       <WizardActions
         back={
           <Button variant="secondary" data-safe onClick={onBack}>
@@ -448,12 +506,14 @@ function ReasonStep({
 export function ConfirmStep({
   account,
   choice,
+  backupAt,
   reason,
   onBack,
   onStarted,
 }: {
   account: string;
   choice: Choice;
+  backupAt: string | null;
   reason: string;
   onBack: () => void;
   onStarted: (job: DriveJob) => void;
@@ -519,13 +579,19 @@ export function ConfirmStep({
           account,
           name: entry.name,
           mode,
+          backupAt,
           versionAt,
           folderLabel: folderLabel(entry.path),
           copyName,
           reason,
         })}
       />
-      <p>{consequenceOf(mode)}</p>
+      {mode === 'copy' && <p>{COPY_CONSEQUENCE}</p>}
+      {mode === 'replace' && (
+        <Alert tone="warning" title={REPLACE_WARNING_TITLE}>
+          {replaceWarningOf(entry.name, versionAt)}
+        </Alert>
+      )}
       {mode === 'replace' && (
         <div className="field">
           <label className="choice">
@@ -573,6 +639,7 @@ export function ConfirmStep({
 export function TrackStep({
   account,
   choice,
+  backupAt,
   job,
   onJob,
   onAgain,
@@ -580,6 +647,7 @@ export function TrackStep({
 }: {
   account: string;
   choice: Choice;
+  backupAt: string | null;
   job: DriveJob;
   onJob: (job: DriveJob) => void;
   onAgain: () => void;
@@ -624,7 +692,10 @@ export function TrackStep({
     <ResultList
       rows={[
         ['Compte', account],
-        ['Élément restauré', `${choice.entry.name} → ${target}`],
+        job.status === 'succeeded'
+          ? [RESTORE_LABELS.itemRestored, `${choice.entry.name} → ${target}`]
+          : [RESTORE_LABELS.item, choice.entry.name],
+        [RESTORE_LABELS.backupAt, dateTimeOf(backupAt)],
         ...(versionAt ? [['Version du', dateTimeOf(versionAt)] as [string, string]] : []),
         ['Emplacement', where],
       ]}
@@ -636,7 +707,13 @@ export function TrackStep({
       <>
         <RunningProgress />
         {items}
-        <p>Vous pouvez quitter cette page, la restauration continue.</p>
+        <WizardActions
+          back={
+            <a className="btn btn-secondary" href="#/audit">
+              {B.audit}
+            </a>
+          }
+        />
       </>
     );
   } else if (job.status === 'succeeded') {
@@ -660,12 +737,17 @@ export function TrackStep({
   } else {
     body = (
       <>
-        <Alert tone="error">
-          La restauration a échoué : {failureCause(job.error)}.{' '}
-          {isOutcomeUncertain(job.error)
-            ? 'L’état de OneDrive est incertain : vérifiez avant de réessayer.'
-            : 'Rien n’a été modifié.'}
-        </Alert>
+        <RestoreFailureAlert
+          banner={restoreFailureBanner({
+            item: choice.entry.name,
+            at: job.finishedAt ?? job.startedAt,
+            cause: failureCause(job.error),
+            consequence: isOutcomeUncertain(job.error)
+              ? 'L’état de OneDrive est incertain : vérifiez avant de réessayer'
+              : 'Rien n’a été modifié',
+            uncertain: isOutcomeUncertain(job.error),
+          })}
+        />
         {items}
         <WizardActions
           back={
@@ -742,6 +824,10 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
     setJob(null);
   };
 
+  const backupAt =
+    snapshots?.status === 'ok'
+      ? (snapshots.data.find((s) => s.id === (choice?.snapshotId ?? snapshotId))?.createdAt ?? null)
+      : null;
   let journey = false;
   let content: ReactNode;
   if (accounts === null) {
@@ -774,6 +860,7 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
         key={job.id}
         account={account}
         choice={choice}
+        backupAt={backupAt}
         job={job}
         onJob={setJob}
         onAgain={reset}
@@ -788,6 +875,7 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
       <ConfirmStep
         account={account}
         choice={choice}
+        backupAt={backupAt}
         reason={reason}
         onBack={() => {
           setReason(null);
@@ -826,8 +914,10 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
   return (
     <main tabIndex={-1}>
       <h1>{T.title}</h1>
-      {journey && <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />}
-      {journey && <AuditReminder />}
+      {journey && !job && (
+        <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />
+      )}
+      {journey && !job && <AuditReminder />}
       {content}
     </main>
   );
