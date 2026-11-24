@@ -63,6 +63,8 @@ export function createServer(
   backupFactory?: BackupFactory,
 ): FastifyInstance {
   const demo = isDemo(env);
+  // Un seul instant pour tout le jeu de démonstration : les dates du catalogue et des plans concordent.
+  const demoNow = Date.now();
   // Avant d'ouvrir quoi que ce soit : le mode démo ne se mélange jamais à un vrai stockage.
   if (demo) assertNoRealStorage(env);
   const indexIntervalMs = parseIndexIntervalMs(env['BACKUP365_INDEX_INTERVAL_MINUTES']);
@@ -105,7 +107,7 @@ export function createServer(
       if (oidcConfig) oidc = new OidcService(oidcConfig, entraEndpoints(oidcConfig.tenantId));
     }
     startup = demo
-      ? { status: 'ready', atlas: createAtlasCatalog(DEMO_STORAGE, demoFactory()) }
+      ? { status: 'ready', atlas: createAtlasCatalog(DEMO_STORAGE, demoFactory(demoNow)) }
       : startAtlas(secretEnv, factory);
     // Deuxième instance du SDK, avec les identifiants Graph réels : seulement hors démo, avec un
     // stockage prêt et les deux variables BACKUP365_M365_*.
@@ -288,7 +290,7 @@ export function createServer(
   if (demo) {
     app.log.warn('MODE DÉMO : données fictives, aucun stockage réel (comptes de démonstration)');
     app.addHook('onReady', async () => {
-      if (auth) await seedDemo(auth, openedAudit.audit, undefined, openedPlans.store);
+      if (auth) await seedDemo(auth, openedAudit.audit, demoNow, openedPlans.store);
     });
   }
   if (indexer || anchorer || planScheduler) {

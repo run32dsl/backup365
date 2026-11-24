@@ -76,6 +76,14 @@ describe('mode démo', () => {
       late: 0,
       failed: 1,
     });
+
+    // Même instant sur l'accueil et sur Sources pour la messagerie (issue #445).
+    const overview = await app.inject({ url: '/api/overview', headers });
+    const lastBackupAt = overview.json<{ lastBackupAt: string }>().lastBackupAt;
+    const mail = status
+      .json<{ services: { service: string; lastSnapshotAt: string | null }[] }>()
+      .services.find((s) => s.service === 'mail');
+    expect(mail?.lastSnapshotAt).toBe(lastBackupAt);
   });
 
   it('ne signale pas le mode démo hors démo', async () => {

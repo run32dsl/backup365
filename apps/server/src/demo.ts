@@ -264,7 +264,9 @@ export function createDemoHandle(now: number = Date.now()): AtlasHandle {
     const index = Number(/^snap-mail-(\d+)-/.exec(snapshotId)?.[1]) - 1;
     return Number.isInteger(index) && DEMO_MAILBOXES[index] ? index : undefined;
   };
-  const snapshotAges = [3, 27, 51]; // heures
+  // Le plus récent est daté de l'instant de démonstration, comme les exécutions des plans semés :
+  // la carte « Dernière sauvegarde » de l'accueil et la page Sources donnent la même heure.
+  const snapshotAges = [0, 24, 48]; // heures
   return {
     outlook: {
       listMailboxes: () =>

@@ -240,18 +240,36 @@ describe('StatusView', () => {
       });
     });
 
-    it('shows the last success date of a plan, and a dash only without one', () => {
-      const plans = (lastSuccessAt: string | null): StatusReport['plans'] => ({
+    it('says what the plan list says: last run, then the cause, with no date borrowed from services', () => {
+      const plans = (
+        state: 'late' | 'failed',
+        lastRun: NonNullable<StatusReport['plans']>['nonCompliant'][number]['lastRun'],
+        lastSuccessAt: string | null = null,
+      ): StatusReport['plans'] => ({
         counts: { compliant: 0, late: 1, failed: 0 },
-        nonCompliant: [{ id: 'p', name: 'P', rpoHours: 4, state: 'late', lastSuccessAt }],
+        nonCompliant: [{ id: 'p', name: 'P', rpoHours: 4, state, lastSuccessAt, lastRun }],
       });
-      const withDate = renderToString(
-        <StatusView state={{ ...report, plans: plans('2026-11-24T05:30:00Z') }} />,
-      );
-      expect(withDate).toContain('24/11/2026 05:30');
-      const without = renderToString(<StatusView state={{ ...report, plans: plans(null) }} />);
-      expect(without).toContain('—');
-      expect(without).not.toContain('24/11/2026');
+      const services = [entry({ lastSnapshotAt: '2026-11-24T15:03:00Z' })];
+      const html = (p: StatusReport['plans']) =>
+        renderToString(<StatusView state={{ ...report, services, plans: p }} />);
+      const failedRun = {
+        status: 'failed' as const,
+        startedAt: '2026-11-24T18:00:00Z',
+        finishedAt: '2026-11-24T18:03:00Z',
+        noSnapshotReason: null,
+      };
+      const never = html(plans('late', null));
+      expect(never).toContain('Pas encore sauvegardé');
+      expect(never).toContain('<small class="state-note">Aucune sauvegarde réussie</small>');
+      const failed = html(plans('failed', failedRun));
+      const table = failed.slice(failed.indexOf('Plans en retard ou en échec'));
+      expect(table).toContain('Échec, 24/11/2026 18:03');
+      expect(table).toContain('Aucune sauvegarde réussie');
+      expect(table).not.toContain('15:03');
+      expect(table).not.toContain('Dernière réussite');
+      const old = html(plans('late', { ...failedRun, status: 'success' }, '2026-11-20T00:00:00Z'));
+      expect(old).toContain('Réussie, 24/11/2026 18:03');
+      expect(old).toContain('Dernière sauvegarde plus ancienne que prévu');
     });
 
     it('shows the relative time, then the exact date in a <time datetime>', () => {
@@ -388,6 +406,7 @@ describe('StatusView', () => {
           rpoHours: 4 as const,
           state: 'late' as const,
           lastSuccessAt: null,
+          lastRun: null,
         },
         {
           id: 'p2',
@@ -395,6 +414,12 @@ describe('StatusView', () => {
           rpoHours: 24 as const,
           state: 'failed' as const,
           lastSuccessAt: '2026-11-10T06:00:00Z',
+          lastRun: {
+            status: 'failed' as const,
+            startedAt: '2026-11-10T06:00:00Z',
+            finishedAt: '2026-11-10T06:00:00Z',
+            noSnapshotReason: null,
+          },
         },
       ],
     };
@@ -407,7 +432,7 @@ describe('StatusView', () => {
       expect(html).not.toContain('Objectif');
       expect(html).toContain('Direction');
       expect(html).toContain('Finance');
-      expect(html).toContain('10/11/2026 06:00');
+      expect(html).toContain('Échec, 10/11/2026 06:00');
     });
 
     it('links the banner and each plan name to the plans screen, with the new caption', () => {
@@ -450,13 +475,20 @@ describe('StatusView', () => {
               plans: {
                 counts: { compliant: 0, late: 0, failed: 0 },
                 nonCompliant: [
-                  { id: 'p', name: 'P', rpoHours: 4, state, lastSuccessAt: '2026-11-10T06:00:00Z' },
+                  {
+                    id: 'p',
+                    name: 'P',
+                    rpoHours: 4,
+                    state,
+                    lastSuccessAt: '2026-11-10T06:00:00Z',
+                    lastRun: null,
+                  },
                 ],
               },
             }}
           />,
         );
-        expect(html).toContain(`${view.label}</span></td>`);
+        expect(html).toContain(`${view.label}</span>`);
       }
     });
 

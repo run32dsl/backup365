@@ -16,7 +16,6 @@ export {
   backupState,
   buildServiceSummaries,
   buildStatusReport,
-  fillPlanLastSuccess,
   type BackupState,
   type Service,
   type ServiceSummary,
