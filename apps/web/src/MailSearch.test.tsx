@@ -9,7 +9,7 @@ import {
   mailTitle,
   runExport,
 } from './MailPage.js';
-import { submitFilters } from './audit.js';
+import { DATE_HELP, submitFilters } from './audit.js';
 import { SEARCH_HELP, SEARCH_START, SearchPage, SearchView, noResultText } from './SearchPage.js';
 import { AUDIT_REMINDER } from './RestoreJourney.js';
 import {
@@ -349,7 +349,10 @@ describe('mail helpers', () => {
     const html = renderToString(<SearchPage />);
     expect(html).not.toContain('datetime-local');
     expect(html).not.toContain('exclu');
-    expect(html).toContain('Date au format jj/mm/aaaa, en UTC comme le tableau');
+    expect(html).toContain(DATE_HELP);
+    expect(html).not.toContain('en UTC comme le tableau');
+    expect(html).toContain('Du (UTC)');
+    expect(html).toContain('Au (UTC)');
   });
 
   it('prefills the mailbox field and starts the search from the anchor mailbox', async () => {

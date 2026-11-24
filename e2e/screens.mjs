@@ -410,7 +410,7 @@ export const SCREENS = [
     hash: '#/search',
     role: 'admin',
     prepare: async (page) => {
-      await page.getByLabel('Du', { exact: true }).fill('31/02/2026');
+      await page.getByLabel('Du (UTC)', { exact: true }).fill('31/02/2026');
       await page.getByRole('button', { name: 'Rechercher' }).click();
       await page.getByText('Cette date n’existe pas (31/02/2026)').waitFor();
     },
@@ -420,8 +420,8 @@ export const SCREENS = [
     hash: '#/search',
     role: 'admin',
     prepare: async (page) => {
-      await page.getByLabel('Du', { exact: true }).fill('20/11/2026');
-      await page.getByLabel('Au', { exact: true }).fill('18/11/2026');
+      await page.getByLabel('Du (UTC)', { exact: true }).fill('20/11/2026');
+      await page.getByLabel('Au (UTC)', { exact: true }).fill('18/11/2026');
       await page.getByRole('button', { name: 'Rechercher' }).click();
       await page.getByText('La date « Au » doit être égale ou postérieure à « Du »').waitFor();
     },
@@ -448,7 +448,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('table').waitFor();
-      await page.getByLabel('Du', { exact: true }).fill('31/02/2026');
+      await page.getByLabel('Du (UTC)', { exact: true }).fill('31/02/2026');
       await page.getByRole('button', { name: 'Filtrer' }).click();
       await page.getByText('Cette date n’existe pas (31/02/2026)').waitFor();
     },
@@ -459,8 +459,8 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('table').waitFor();
-      await page.getByLabel('Du', { exact: true }).fill('20/11/2026');
-      await page.getByLabel('Au', { exact: true }).fill('18/11/2026');
+      await page.getByLabel('Du (UTC)', { exact: true }).fill('20/11/2026');
+      await page.getByLabel('Au (UTC)', { exact: true }).fill('18/11/2026');
       await page.getByRole('button', { name: 'Filtrer' }).click();
       await page.getByText('La date « Au » doit être égale ou postérieure à « Du »').waitFor();
     },
