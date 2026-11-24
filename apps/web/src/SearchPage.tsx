@@ -176,13 +176,15 @@ export function SearchView({
         {state.offset + state.items.length}
       </p>
       {restoreConfigured === false && <RestoreNotConfigured id={RESTORE_HINT_ID} />}
-      <DataTable
-        caption="Résultats de la recherche"
-        hideCaption
-        columns={columns}
-        rows={state.items}
-        rowKey={(m) => `${m.mailboxId}/${m.messageId}`}
-      />
+      <div className="table-scroll">
+        <DataTable
+          caption="Résultats de la recherche"
+          hideCaption
+          columns={columns}
+          rows={state.items}
+          rowKey={(m) => `${m.mailboxId}/${m.messageId}`}
+        />
+      </div>
       <Pager offset={state.offset} limit={state.limit} total={state.total} onPage={onPage} />
     </>
   );

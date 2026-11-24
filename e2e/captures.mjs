@@ -43,7 +43,7 @@ try {
   browser = await chromium.launch(launchOptions(process.env, lang));
   for (const screen of SCREENS) {
     const server = servers.get(screen.buildCommit);
-    for (const width of WIDTHS) {
+    for (const width of [...WIDTHS, ...(screen.extraWidths ?? [])]) {
       const context = await browser.newContext({
         viewport: { width, height: 800 },
         baseURL: server.baseURL,

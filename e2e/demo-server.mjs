@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Nombre de mails fictifs que le mode démo indexe (4 boîtes de 25). */
-export const DEMO_MAIL_COUNT = 100;
+/** Nombre de mails fictifs que le mode démo indexe (5 boîtes de 25). */
+export const DEMO_MAIL_COUNT = 125;
 
 export const DEMO_LOGINS = {
   admin: { username: 'admin-demo', password: 'demonstration-admin' },
@@ -66,7 +66,7 @@ async function waitFor(check, what, timeoutMs = 30_000) {
 
 /**
  * Lance la console construite en mode démo, sur un port libre et un dossier de données jetable.
- * Rend quand les comptes existent, que les 100 mails fictifs sont indexés et que les plans fictifs
+ * Rend quand les comptes existent, que les 125 mails fictifs sont indexés et que les plans fictifs
  * sont créés. Avec `settled`, attend aussi leur première exécution (jusqu'à une minute : le
  * planificateur passe toutes les 30 s), pour des captures où ils sont « Conformes ».
  * `buildCommit` joue le commit court qu'une image reçoit au build (`BACKUP365_BUILD_COMMIT`) : le

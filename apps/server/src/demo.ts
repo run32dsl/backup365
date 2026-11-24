@@ -105,6 +105,12 @@ export const DEMO_MAILBOXES: readonly DemoMailbox[] = [
   { id: `claire.durand@${DEMO_DOMAIN}`, name: 'Claire Durand' },
   { id: `marc.lefevre@${DEMO_DOMAIN}`, name: 'Marc Lefèvre' },
   { id: `sophie.bernard@${DEMO_DOMAIN}`, name: 'Sophie Bernard' },
+  // Adresse longue (plus de 60 caractères) : elle doit se couper après le « @ », sans faire déborder le tableau.
+  {
+    id: `direction.administrative.rh@filiale-europe-centrale.${DEMO_DOMAIN}`,
+    name: 'Direction administrative et financière',
+  },
+  // La dernière boîte reste Paul Moreau : c'est elle qui n'a pas été sauvegardée depuis trois jours.
   { id: `paul.moreau@${DEMO_DOMAIN}`, name: 'Paul Moreau' },
 ];
 
@@ -416,7 +422,7 @@ export function demoAuditEvents(now: number, planId?: string): AuditEvent[] {
       actor: 'operateur-demo',
       action: 'list.view',
       resource: 'mail.search',
-      target: DEMO_MAILBOXES[3]!.id,
+      target: DEMO_MAILBOXES.at(-1)!.id,
       count: 25,
     },
     {

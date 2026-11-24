@@ -102,7 +102,7 @@ test('restauration : motif obligatoire, suivi, résultat et journal', async ({
 test('restauration : un échec propose de réessayer', async ({ page, context, baseURL }) => {
   await signInAs(context, baseURL!, 'admin');
   // Le dernier mail de chaque boîte de démonstration échoue.
-  await page.goto(`/#/mail/${encodeURIComponent('paul.moreau@exemple.fr')}/msg-4-025`);
+  await page.goto(`/#/mail/${encodeURIComponent('paul.moreau@exemple.fr')}/msg-5-025`);
   await page.getByRole('button', { name: /^Restaurer / }).click();
   const dialog = page.getByRole('dialog', { name: 'Restaurer ce mail' });
   await dialog.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #1 : essai');
@@ -772,6 +772,51 @@ test('recherche à 1280 px : le tableau tient dans son conteneur, avec ou sans f
   expect(await overflow()).toEqual(fitted);
 });
 
+test('recherche à 1024 px : adresses entières ou coupées après le « @ », sans débordement', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await signInAs(context, baseURL!, 'admin');
+  await page.goto('/#/search');
+  await page.getByLabel('Recherche').fill('devis');
+  await page.getByRole('button', { name: 'Rechercher' }).click();
+  await page.getByRole('table').waitFor();
+  const result = await page.evaluate(() => {
+    const t = document.querySelector('table')!.parentElement!;
+    const col = [...document.querySelectorAll('th')].findIndex((h) => h.textContent === 'Boîte');
+    const cells = [...document.querySelectorAll('tbody tr')].map((tr) => {
+      const td = tr.children[col] as HTMLElement;
+      const local = td.querySelector('.addr-local')!.getBoundingClientRect();
+      const domain = td.querySelector('.addr-domain')!.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(td.firstElementChild!);
+      const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+      return {
+        text: td.textContent!,
+        lines,
+        afterAt: lines === 1 || domain.top >= local.bottom - 1,
+      };
+    });
+    return {
+      right: t.getBoundingClientRect().right,
+      scrollable: getComputedStyle(t).overflowX === 'auto',
+      page: document.documentElement.scrollWidth - window.innerWidth,
+      cells,
+    };
+  });
+  // Le tableau défile dans son conteneur : ni la page ni le conteneur ne dépassent la fenêtre.
+  expect(result.page).toBeLessThanOrEqual(0);
+  expect(result.right).toBeLessThanOrEqual(1024);
+  expect(result.scrollable).toBe(true);
+  expect(result.cells.some((c) => c.text.length >= 60)).toBe(true);
+  for (const c of result.cells) {
+    expect(c.lines).toBeLessThanOrEqual(2);
+    expect(c.afterAt).toBe(true);
+  }
+});
+
 test.describe('recherche à 1280 px', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -793,21 +838,33 @@ test.describe('recherche à 1280 px', () => {
     expect(button).not.toBeNull();
     expect(action).not.toBeNull();
     expect(action!.x + action!.width).toBeLessThanOrEqual(button!.x + button!.width + 1);
-    // Anti-régression de #261 : chaque cellule Boîte tient sur au plus deux lignes (jamais
-    // d'adresse coupée au milieu d'un mot sur cinq lignes) et le conteneur ne déborde pas.
-    const cells = await page.evaluate(() => {
+    // Anti-régression de #261 et #273 : on compte les lignes du texte de l'adresse (et non la
+    // hauteur de la cellule, étirée par « Restaurer »). Une adresse courte tient sur une ligne ; la
+    // longue passe sur deux au plus, coupée juste après le « @ ».
+    const addresses = await page.evaluate(() => {
       const col = [...document.querySelectorAll('th')].findIndex((h) => h.textContent === 'Boîte');
       return [...document.querySelectorAll('tbody tr')].map((tr) => {
         const td = tr.children[col] as HTMLElement;
+        const range = document.createRange();
+        range.selectNodeContents(td.firstElementChild!);
+        const tops = new Set([...range.getClientRects()].map((r) => Math.round(r.top)));
+        const local = td.querySelector('.addr-local')!.getBoundingClientRect();
+        const domain = td.querySelector('.addr-domain')!.getBoundingClientRect();
         return {
-          height: td.clientHeight,
-          line: parseFloat(getComputedStyle(td).lineHeight),
-          pad: parseFloat(getComputedStyle(td).paddingTop) * 2,
+          text: td.textContent!,
+          lines: tops.size,
+          // Le domaine est sous la partie locale : la coupe est juste après le « @ ».
+          brokenAfterAt: domain.top >= local.bottom - 1,
         };
       });
     });
-    expect(cells.length).toBeGreaterThan(0);
-    for (const c of cells) expect(c.height - c.pad).toBeLessThanOrEqual(c.line * 2 + 1);
+    expect(addresses.length).toBeGreaterThan(0);
+    expect(addresses.some((a) => a.text.length >= 60)).toBe(true);
+    for (const a of addresses) {
+      if (a.text.length >= 60) expect(a.lines).toBeLessThanOrEqual(2);
+      else expect(a.lines).toBe(1);
+      if (a.lines === 2) expect(a.brokenAfterAt).toBe(true);
+    }
     expect(
       await page.evaluate(() => {
         const t = document.querySelector('table')!.parentElement!;
