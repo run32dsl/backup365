@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NoBackupError, fetchStatus } from './status.js';
 import { StatusView, type StatusState } from './StatusView.js';
+import { SourcesNav } from './ui/index.js';
 
 /** Charge l'état : « aucune sauvegarde » devient `empty`, toute autre erreur `error`. */
 export function loadStatus(fetchStatusFn: typeof fetchStatus = fetchStatus): Promise<StatusState> {
@@ -19,6 +20,7 @@ export function StatusPage() {
   return (
     <main tabIndex={-1}>
       <h1>Sources</h1>
+      <SourcesNav current="status" admin />
       <p>État de la protection de chaque service Microsoft 365.</p>
       <StatusView state={status} />
     </main>

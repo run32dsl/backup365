@@ -101,14 +101,10 @@ describe('SharePoint route', () => {
     });
   });
 
-  it('adds a SharePoint entry to the navigation, under Restaurer', () => {
-    const links = navEntries('sharepoint', false).flatMap((e) =>
-      'children' in e ? e.children : [],
-    );
-    expect(links.find((e) => e.label === 'SharePoint')).toMatchObject({
-      href: '#/sharepoint',
-      current: true,
-    });
+  it('keeps Restaurer current on the SharePoint screen, with no entry of its own', () => {
+    const entries = navEntries('sharepoint', false);
+    expect(entries.find((e) => e.label === 'SharePoint')).toBeUndefined();
+    expect(entries.find((e) => e.label === 'Restaurer')).toMatchObject({ current: true });
   });
 });
 

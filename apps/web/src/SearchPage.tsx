@@ -27,6 +27,7 @@ import {
   EmptyState,
   FormField,
   Pager,
+  RestoreSourceNav,
   type Column,
 } from './ui/index.js';
 
@@ -238,6 +239,7 @@ export function SearchPage({ mailbox }: { mailbox?: string }) {
   return (
     <main tabIndex={-1}>
       <h1>Restaurer depuis la messagerie</h1>
+      <RestoreSourceNav current="mail" />
       <p className="page-help">{SEARCH_HELP}</p>
       <AuditReminder />
       <form ref={formRef} onSubmit={submit} className="filters">

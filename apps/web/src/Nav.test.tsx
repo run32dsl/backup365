@@ -74,16 +74,16 @@ describe('password link', () => {
 describe('keyboard path of the console', () => {
   it('tabs through skip link, Menu, nav entries, account links, then the content', () => {
     const html = renderToString(view(true));
-    const stops = [...html.matchAll(/<(a|button|main)\b[^>]*>(.*?)<\/\1>/g)].map((m) => m[2]);
+    const stops = [...html.matchAll(/<(a|button|main)\b[^>]*>(.*?)<\/\1>/g)].map((m) =>
+      m[2]!.replace(/<[^>]*>/g, ''),
+    );
     expect(stops).toEqual([
       'Aller au contenu',
       'Menu',
-      'Tableau de bord',
-      'Messagerie',
-      'OneDrive',
-      'SharePoint',
-      'Plans de protection',
-      'Journal d’audit',
+      '⌂Accueil',
+      '▤Sources',
+      '↺Restaurer',
+      '≡Activités',
       'Mot de passe',
       'Se déconnecter',
       'Contenu',
@@ -168,37 +168,33 @@ describe('keyboard path of the console', () => {
 
 describe('navEntries', () => {
   const top = (admin: boolean) => navEntries('home', admin).map((e) => e.label);
-  const links = (screen: Parameters<typeof navEntries>[0]) =>
-    navEntries(screen, true).flatMap((e) => ('children' in e ? e.children : [e]));
+  const current = (screen: Parameters<typeof navEntries>[0]) =>
+    navEntries(screen, true)
+      .filter((e) => e.current)
+      .map((e) => e.label);
 
-  it('keeps five top-level entries at most, with the restore group and its three links', () => {
-    expect(top(false)).toEqual([
-      'Tableau de bord',
-      'Restaurer',
-      'Plans de protection',
-      'Journal d’audit',
+  it('keeps five entries for an administrator and four for an operator', () => {
+    expect(top(true)).toEqual(['Accueil', 'Sources', 'Restaurer', 'Activités', 'Réglages']);
+    expect(top(false)).toEqual(['Accueil', 'Sources', 'Restaurer', 'Activités']);
+    expect(navEntries('home', true).map((e) => e.href)).toEqual([
+      '#/',
+      '#/plans',
+      '#/search',
+      '#/audit',
+      '#/comptes',
     ]);
-    expect(top(true)).toEqual([...top(false), 'Sources', 'Administration']);
-    const group = navEntries('home', false)[1]!;
-    expect('children' in group && group.children.map((c) => c.label)).toEqual([
-      'Messagerie',
-      'OneDrive',
-      'SharePoint',
-    ]);
-    expect(group).not.toHaveProperty('href');
+    expect(navEntries('home', true).every((e) => e.icon.length > 0)).toBe(true);
   });
 
-  it('reaches the Sources page from the menu for an administrator only', () => {
-    expect(links('home').find((e) => e.label === 'Sources')?.href).toBe('#/sources');
+  it('reaches the source status from Sources and the accounts from Réglages, for administrators', () => {
     expect(screenOf('#/sources')).toBe('status');
     expect(screenFor('#/sources', true)).toBe('status');
-    expect(links('status').filter((e) => e.current)).toEqual([
-      { href: '#/sources', label: 'Sources', current: true },
-    ]);
-    expect(navEntries('home', false).flatMap((e) => ('href' in e ? [e.href] : []))).not.toContain(
-      '#/sources',
-    );
     expect(screenFor('#/sources', false)).toBe('forbidden');
+    expect(screenFor('#/comptes', false)).toBe('forbidden');
+    expect(current('status')).toEqual(['Sources']);
+    expect(current('plans')).toEqual(['Sources']);
+    expect(current('accounts')).toEqual(['Réglages']);
+    expect(current('forbidden')).toEqual(['Réglages']);
   });
 
   it('redirects the former #/etat address to #/sources', () => {
@@ -207,31 +203,27 @@ describe('navEntries', () => {
     expect(redirectLegacyHash('#/audit')).toBeNull();
   });
 
-  it('keeps at most 8 entries for an administrator, on every screen', () => {
+  it('keeps at most 5 entries for an administrator, on every screen', () => {
     const screens = ['home', 'search', 'mail', 'onedrive', 'sharepoint', 'plans', 'audit'] as const;
     for (const screen of [...screens, 'status', 'accounts', 'forbidden'] as const) {
-      expect(links(screen).length).toBeLessThanOrEqual(MAX_ADMIN_NAV_ENTRIES);
+      expect(navEntries(screen, true).length).toBeLessThanOrEqual(MAX_ADMIN_NAV_ENTRIES);
     }
-    expect(MAX_ADMIN_NAV_ENTRIES).toBe(8);
+    expect(MAX_ADMIN_NAV_ENTRIES).toBe(5);
   });
 
-  it('marks exactly one entry as current, Messagerie for a mail sheet', () => {
-    expect(
-      links('mail')
-        .filter((e) => e.current)
-        .map((e) => e.href),
-    ).toEqual(['#/search']);
-    expect(
-      links('onedrive')
-        .filter((e) => e.current)
-        .map((e) => e.href),
-    ).toEqual(['#/onedrive']);
+  it('keeps Restaurer current on the search, the mail sheet, OneDrive and SharePoint', () => {
+    for (const screen of ['search', 'mail', 'onedrive', 'sharepoint'] as const) {
+      expect(current(screen)).toEqual(['Restaurer']);
+    }
+    expect(current('home')).toEqual(['Accueil']);
+    expect(current('audit')).toEqual(['Activités']);
   });
 
-  it('renders the group label as plain text, the nav holding only links', () => {
-    const html = renderToString(view(true, { entries: navEntries('mail', false) }));
-    expect(html).toContain('<span class="nav-group">Restaurer</span>');
-    expect(html).toContain('<a href="#/search" aria-current="page">Messagerie</a>');
+  it('renders only native links, with the icon hidden from assistive technology', () => {
+    const html = renderToString(view(true, { entries: navEntries('onedrive', false) }));
+    expect(html).toContain('<a href="#/search" aria-current="page">');
+    expect(html).toContain('<span class="nav-icon" aria-hidden="true">↺</span>');
+    expect(html).toContain('<span class="nav-label">Restaurer</span>');
     const nav = html.slice(html.indexOf('<nav'), html.indexOf('</nav>'));
     expect(nav).not.toMatch(/<button/);
     expect([...nav.matchAll(/<a\b[^>]*>/g)].every((m) => m[0].includes('href="#/'))).toBe(true);

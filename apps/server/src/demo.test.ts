@@ -87,13 +87,17 @@ describe('mode démo', () => {
     );
     expect(plansReport.pending).toBe(0);
 
-    // Même instant sur l'accueil et sur Sources pour la messagerie (issue #445).
+    // Accueil et Sources partent du même instant de démonstration pour la messagerie (issue
+    // #445). Le planificateur peut inscrire, pendant le test, une exécution plus récente à
+    // l'horloge réelle : l'accueil n'est donc jamais antérieur à Sources, à quelques secondes près.
     const overview = await app.inject({ url: '/api/overview', headers });
-    const lastBackupAt = overview.json<{ lastBackupAt: string }>().lastBackupAt;
+    const lastBackupAt = Date.parse(overview.json<{ lastBackupAt: string }>().lastBackupAt);
     const mail = status
       .json<{ services: { service: string; lastSnapshotAt: string | null }[] }>()
       .services.find((s) => s.service === 'mail');
-    expect(mail?.lastSnapshotAt).toBe(lastBackupAt);
+    const snapshotAt = Date.parse(mail?.lastSnapshotAt ?? '');
+    expect(lastBackupAt).toBeGreaterThanOrEqual(snapshotAt);
+    expect(lastBackupAt - snapshotAt).toBeLessThan(10_000);
   });
 
   it('ne signale pas le mode démo hors démo', async () => {

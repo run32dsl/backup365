@@ -61,6 +61,7 @@ import {
   Steps,
   WIZARD_LABELS,
   WizardActions,
+  SourcesNav,
   type Column,
 } from './ui/index.js';
 
@@ -1021,6 +1022,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
           </Button>
         )}
       </div>
+      {!wizard && <SourcesNav current="plans" admin={admin} />}
       <div aria-live="polite">
         {flash && !wizard && (
           <Alert tone={flash.tone} focusRef={flashRef}>

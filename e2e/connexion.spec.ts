@@ -16,7 +16,7 @@ test('401 en cours de navigation : #/connexion avec message, puis retour à la p
 
   // La session disparaît côté serveur : la prochaine requête protégée reçoit un 401.
   await context.clearCookies();
-  await page.getByRole('link', { name: 'Journal d’audit' }).click();
+  await page.getByRole('link', { name: 'Activités' }).click();
 
   await expect(page).toHaveURL(/#\/connexion$/);
   await expect(page.getByRole('status').filter({ hasText: EXPIRED })).toBeVisible();

@@ -125,7 +125,8 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
 }) => {
   await signInAs(context, baseURL!, 'operator');
   await page.goto('/#/');
-  await page.getByRole('link', { name: 'OneDrive', exact: true }).click();
+  await page.getByRole('link', { name: 'Restaurer', exact: true }).click();
+  await page.getByRole('link', { name: 'Fichiers OneDrive' }).click();
   await expect(page.getByRole('heading', { name: 'Restaurer depuis OneDrive' })).toBeVisible();
   await expect(page.getByText('Étape 1 sur 3 : Choisir')).toBeVisible();
   await expect(
@@ -241,7 +242,8 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
 }) => {
   await signInAs(context, baseURL!, 'operator');
   await page.goto('/#/');
-  await page.getByRole('link', { name: 'SharePoint', exact: true }).click();
+  await page.getByRole('link', { name: 'Restaurer', exact: true }).click();
+  await page.getByRole('link', { name: 'Sites SharePoint' }).click();
   await expect(page.getByRole('heading', { name: 'Restaurer depuis SharePoint' })).toBeVisible();
   await expect(page.getByText(/Étape 1 sur 3 : Choisir/)).toBeVisible();
   await expect(
@@ -418,19 +420,17 @@ test('navigation au clavier du menu replié à 390 px', async ({ page, context, 
   await page.goto('/#/');
   const toggle = page.getByRole('button', { name: 'Menu' });
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByRole('link', { name: 'Journal d’audit' })).toBeHidden();
+  await expect(page.getByRole('link', { name: 'Activités' })).toBeHidden();
 
   await toggle.focus();
   await page.keyboard.press('Enter');
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('link', { name: 'Tableau de bord' })).toBeFocused();
+  await expect(page.getByRole('link', { name: 'Accueil' })).toBeFocused();
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Tab');
-  await expect(page.getByRole('link', { name: 'Journal d’audit' })).toBeFocused();
+  await expect(page.getByRole('link', { name: 'Activités' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/audit$/);
   await expect(page.getByRole('heading', { name: 'Journal d’audit' })).toBeVisible();
