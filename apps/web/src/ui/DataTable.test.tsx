@@ -20,6 +20,20 @@ describe('DataTable', () => {
     expect(html).toContain('Camille Durand');
   });
 
+  it('renders a rowHeader column as <th scope="row"> without data-label', () => {
+    const html = renderToStaticMarkup(
+      <DataTable
+        caption="Comptes"
+        columns={[{ ...columns[0]!, rowHeader: true }, columns[1]!]}
+        rows={rows}
+        rowKey={(r) => r.n}
+      />,
+    );
+    expect(html).toContain('<th scope="row" role="rowheader">Camille Durand</th>');
+    expect(html).not.toContain('data-label="Nom"');
+    expect(html).toContain('data-label="Rôle"');
+  });
+
   it('applies a column class to its header and to its cells', () => {
     const html = renderToStaticMarkup(
       <DataTable

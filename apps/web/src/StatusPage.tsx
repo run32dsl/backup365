@@ -10,7 +10,7 @@ export function loadStatus(fetchStatusFn: typeof fetchStatus = fetchStatus): Pro
   );
 }
 
-/** État détaillé des sauvegardes et conformité des plans : page réservée aux administrateurs. */
+/** Page « Sources » : protection par service, conformité des plans et sauvegardes (administrateurs). */
 export function StatusPage() {
   const [status, setStatus] = useState<StatusState>('loading');
   useEffect(() => {
@@ -18,7 +18,8 @@ export function StatusPage() {
   }, []);
   return (
     <main tabIndex={-1}>
-      <h1>État détaillé</h1>
+      <h1>Sources</h1>
+      <p>État de la protection de chaque service Microsoft 365.</p>
       <StatusView state={status} />
     </main>
   );
