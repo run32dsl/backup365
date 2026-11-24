@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, MouseEvent } from 'react';
+import type { ButtonHTMLAttributes, MouseEvent, Ref } from 'react';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'danger';
 
@@ -23,6 +23,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   /** Action en cours : `aria-busy`, clic ignoré, libellé inchangé (la largeur ne bouge pas). */
   busy?: boolean;
+  /** Accès au bouton natif (focus programmatique). */
+  ref?: Ref<HTMLButtonElement>;
 }
 
 /** Bouton natif : principal (plein), secondaire (contour) ou danger (texte rouge). */

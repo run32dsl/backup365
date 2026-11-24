@@ -540,6 +540,28 @@ export const SCREENS = [
     },
   },
   {
+    // Même écran, case cochée : « Terminer » est plein et actif.
+    name: 'mot-de-passe-temporaire-coche',
+    hash: '#/comptes',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/accounts/*/reset-password', (route) =>
+        route.fulfill({ status: 200, json: { password: 'Tz7k-Qp3m-Vx9d-Lw2h' } }),
+      );
+      await page.getByRole('table').first().waitFor();
+      await page
+        .getByRole('button', { name: 'Réinitialiser le mot de passe : operateur-demo' })
+        .click();
+      await page
+        .getByLabel('Motif de la réinitialisation (obligatoire)')
+        .fill('Oubli du mot de passe');
+      await page.getByRole('button', { name: 'Réinitialiser', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByLabel('Mot de passe temporaire').waitFor();
+      await dialog.getByLabel('J’ai transmis le mot de passe').check();
+    },
+  },
+  {
     // Réponse simulée : créer un vrai compte à chaque capture polluerait la démonstration.
     name: 'creation-mot-de-passe-temporaire',
     hash: '#/comptes',
