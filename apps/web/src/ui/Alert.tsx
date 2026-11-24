@@ -15,22 +15,31 @@ export const alertRole = (tone: AlertTone): 'alert' | 'status' => TONES[tone].ro
 /** Message d'alerte : icône et texte, jamais la couleur seule ; sans détail technique. */
 export function Alert({
   tone,
+  title,
   children,
   action,
   id,
+  role,
 }: {
   tone: AlertTone;
+  /** Cause courte, en gras sur sa propre ligne ; le corps donne la conséquence et la conduite. */
+  title?: string;
   children: ReactNode;
   /** Action proposée, par exemple « Réessayer ». */
   action?: ReactNode;
   /** Identifiant, pour qu'un contrôle le cite par `aria-describedby`. */
   id?: string;
+  /** Rôle imposé : `status` pour un avertissement qui n'interrompt pas la lecture. */
+  role?: 'alert' | 'status';
 }) {
-  const { icon, role } = TONES[tone];
+  const { icon, role: toneRole } = TONES[tone];
   return (
-    <div id={id} className={`alert alert-${tone}`} role={role}>
+    <div id={id} className={`alert alert-${tone}`} role={role ?? toneRole}>
       <span aria-hidden="true">{icon}</span>
-      <span className="alert-text">{children}</span>
+      <span className="alert-text">
+        {title ? <strong className="alert-title">{title}</strong> : null}
+        {children}
+      </span>
       {action}
     </div>
   );

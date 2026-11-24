@@ -45,6 +45,7 @@ import {
 import { SearchIndexer } from './search-indexer.js';
 import { tryOpenAccountStore } from './sqlite/open-account-store.js';
 import { tryOpenAuditLog } from './sqlite/open-audit-log.js';
+import { listPlanItems } from './plan-items.js';
 import { tryOpenPlanStore } from './sqlite/open-plan-store.js';
 import { tryOpenSearchIndex } from './sqlite/open-search-index.js';
 
@@ -172,10 +173,7 @@ export function createServer(
       ? new PlanScheduler({
           plans: openedPlans.store,
           executeur,
-          listItems: async (plan) =>
-            plan.scope === 'selection'
-              ? plan.selection
-              : ((await catalogForPlans?.listMailboxes()) ?? []).map((m) => m.id),
+          listItems: (plan) => listPlanItems(plan, catalogForPlans),
           // `app` existe quand le planificateur démarre (hook onReady).
           logger: {
             info: (obj, msg) => app.log.info(obj, msg),

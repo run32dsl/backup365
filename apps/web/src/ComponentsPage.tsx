@@ -13,7 +13,7 @@ import {
   type Column,
   type PillStatus,
 } from './ui/index.js';
-import { AuditReminder, REASON, ReasonField } from './RestoreJourney.js';
+import { AuditReminder, REASON, REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
 
 /** Sections de la page, dans l'ordre du sommaire. */
 export const SECTIONS = [
@@ -27,6 +27,7 @@ export const SECTIONS = [
   { id: 'etapes', summary: 'Étapes', title: 'Indicateur d’étapes' },
   { id: 'actions-etapes', summary: 'Actions d’étapes', title: 'Barre d’actions des parcours' },
   { id: 'pastilles', summary: 'Pastilles', title: 'Pastilles d’état' },
+  { id: 'titres', summary: 'Titres', title: 'Échelle de titres' },
 ] as const;
 
 /**
@@ -78,8 +79,10 @@ function Section({ id, title, children }: { id: string; title: string; children:
 function Playground() {
   const [reason, setReason] = useState('Contrôle trimestriel du dossier');
   const [mode, setMode] = useState('copy');
+  const [scope, setScope] = useState('item');
   const [open, setOpen] = useState(false);
   const [dialogReason, setDialogReason] = useState('');
+  const [destructiveOpen, setDestructiveOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   return (
     <>
@@ -107,8 +110,19 @@ function Playground() {
         </div>
       </Section>
       <Section id="champs" title="Champs de formulaire">
-        <ReasonField of="de l’export" value={reason} onChange={setReason} />
-        <ReasonField of="de l’export" value="" error={REASON.error} onChange={() => undefined} />
+        <ReasonField
+          of="de l’export"
+          placeholder={REASON_EXAMPLES.export}
+          value={reason}
+          onChange={setReason}
+        />
+        <ReasonField
+          of="du lancement"
+          placeholder={REASON_EXAMPLES.run}
+          value=""
+          error={REASON.error}
+          onChange={() => undefined}
+        />
       </Section>
       <Section id="choix" title="Groupe d’options">
         <ChoiceGroup
@@ -124,17 +138,12 @@ function Playground() {
         <ChoiceGroup
           legend="Restaurer"
           name="demo-scope"
-          value="item"
+          value={scope}
           options={[
             { value: 'item', label: 'Un élément' },
-            {
-              value: 'site',
-              label: 'Le site entier',
-              disabled: true,
-              hint: 'Réservé aux administrateurs',
-            },
+            { value: 'site', label: 'Le site entier' },
           ]}
-          onChange={() => undefined}
+          onChange={setScope}
         />
       </Section>
       <Section id="tableau" title="Tableau">
@@ -158,6 +167,11 @@ function Playground() {
         />
       </Section>
       <Section id="dialogue" title="Boîte de dialogue">
+        <p>
+          Rappel d’audit : premier bandeau d’information, sous le titre de l’étape de saisie. Il est
+          retiré des boîtes de résultat et absent des actions qui ne touchent pas à un élément
+          sauvegardé.
+        </p>
         <Button
           variant="secondary"
           onClick={() => {
@@ -166,6 +180,42 @@ function Playground() {
         >
           Ouvrir l’exemple de dialogue
         </Button>
+        <Button
+          variant="danger"
+          onClick={() => {
+            setDestructiveOpen(true);
+          }}
+        >
+          Supprimer
+        </Button>
+        <Dialog
+          open={destructiveOpen}
+          title="Supprimer cet exemple ?"
+          onClose={() => {
+            setDestructiveOpen(false);
+          }}
+        >
+          <p>Confirmation destructive : le bouton qui confirme est en variante danger.</p>
+          <div className="button-row dialog-actions">
+            <Button
+              variant="secondary"
+              data-safe
+              onClick={() => {
+                setDestructiveOpen(false);
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                setDestructiveOpen(false);
+              }}
+            >
+              Supprimer
+            </Button>
+          </div>
+        </Dialog>
         <Dialog
           open={open}
           title="Exporter cette boîte ?"
@@ -173,9 +223,14 @@ function Playground() {
             setOpen(false);
           }}
         >
-          <p>Indiquez le motif de l’export.</p>
-          <ReasonField of="de l’export" value={dialogReason} onChange={setDialogReason} />
           <AuditReminder />
+          <p>Indiquez le motif de l’export.</p>
+          <ReasonField
+            of="de l’export"
+            placeholder={REASON_EXAMPLES.export}
+            value={dialogReason}
+            onChange={setDialogReason}
+          />
           <div className="button-row dialog-actions">
             <Button
               variant="secondary"
@@ -235,6 +290,12 @@ export function ComponentsPage() {
         <Alert tone="success">Succès : le compte a été créé.</Alert>
         <Alert tone="warning">Avertissement : la dernière sauvegarde date de plus de 24 h.</Alert>
         <Alert tone="error">Erreur : l’action n’a pas abouti. Réessayez.</Alert>
+        <Alert tone="warning" title="Sauvegardes inaccessibles">
+          Le stockage ne répond pas. Prévenez un administrateur.
+        </Alert>
+        <Alert tone="error" title="Restauration impossible">
+          Le fichier n’a pas été modifié. Réessayez plus tard.
+        </Alert>
       </Section>
       <Section id="etapes" title="Indicateur d’étapes">
         <Steps steps={['Choisir', 'Vérifier', 'Confirmer']} current={1} />
@@ -259,7 +320,15 @@ export function ComponentsPage() {
           <StatusPill status="running" />
           <StatusPill status="operational" />
           <StatusPill status="unconfigured" />
+          <StatusPill status="pending" />
         </div>
+      </Section>
+      <Section id="titres" title="Échelle de titres">
+        <p>
+          Le titre de la page (<code>h1</code>, 1,5 rem) domine ; les parties de la page sont en{' '}
+          <code>h2</code> (1,25 rem), leurs sous-parties en <code>h3</code> (1,125 rem).
+        </p>
+        <h3>Exemple de sous-partie</h3>
       </Section>
     </main>
   );

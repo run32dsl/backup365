@@ -1,24 +1,31 @@
 import { renderToStaticMarkup } from 'react-dom/server';
+import { scheduleWindowLabel } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
-import { PlanWizard, PlansListView } from './PlansPage.js';
+import { DeleteForm, PlanWizard, PlansListView } from './PlansPage.js';
 import { AUDIT_REMINDER } from './RestoreJourney.js';
+import { Alert } from './ui/index.js';
 import {
   complianceView,
   createdMessage,
+  deletePlan,
   emptyForm,
   fetchMailboxes,
   formFromPlan,
-  justificationText,
   lastRunLabel,
-  parseJustification,
+  queuedMessage,
+  runFlashText,
+  planSummary,
   parsePlansHash,
   RETENTION_CHOICES,
   RTO_CHOICES,
   withCurrent,
   payloadOf,
   runPlan,
+  runReasonError,
+  OBJECTIVE_LABELS,
   recapRows,
   validateStep,
+  JUSTIFICATION_PLACEHOLDER,
   type PlanItem,
 } from './plans.js';
 
@@ -26,7 +33,7 @@ const plan: PlanItem = {
   id: 'p1',
   name: 'Messagerie Direction',
   scope: 'all',
-  dataTypes: ['mail', 'files', 'calendar', 'contacts'],
+  dataTypes: ['mail', 'onedrive', 'sharepoint'],
   selection: [],
   rpoHours: 12,
   rtoHours: 24,
@@ -47,6 +54,17 @@ const plan: PlanItem = {
   },
 };
 
+/**
+ * Le plan tel que `GET /api/plans` l'envoie à un opérateur : sans délai de remise en
+ * service ni justification (le test de `plan-routes.ts` fige la même liste de champs).
+ */
+function asOperator(item: PlanItem): PlanItem {
+  const visible = { ...item };
+  delete visible.rtoHours;
+  delete visible.gdprJustification;
+  return visible;
+}
+
 const noop = () => undefined;
 const list = (
   state: Parameters<typeof PlansListView>[0]['state'],
@@ -66,11 +84,11 @@ const list = (
 
 describe('plan form', () => {
   it('starts with safe defaults and a payload the API accepts', () => {
-    const form = { ...emptyForm(), name: ' Mails ', reasonKind: 'legal' as const };
+    const form = { ...emptyForm(), name: ' Mails ', justification: 'Obligation légale' };
     expect(payloadOf(form)).toEqual({
       name: 'Mails',
       scope: 'all',
-      dataTypes: ['mail', 'files', 'calendar', 'contacts'],
+      dataTypes: ['mail', 'onedrive', 'sharepoint'],
       selection: [],
       rpoHours: 12,
       rtoHours: 24,
@@ -90,48 +108,48 @@ describe('plan form', () => {
     expect(validateStep(emptyForm(), 2).justification).toBe(
       'Indiquez la justification de la durée de conservation.',
     );
-    expect(validateStep({ ...emptyForm(), reasonKind: 'other' }, 2).justification).toBeDefined();
-    expect(validateStep({ ...emptyForm(), reasonKind: 'other', reasonDetail: 'x' }, 2)).toEqual({});
+    expect(validateStep({ ...emptyForm(), justification: '   ' }, 2).justification).toBeDefined();
+    expect(validateStep({ ...emptyForm(), justification: 'x' }, 2)).toEqual({});
   });
 
-  it('writes and reads back the justification', () => {
-    expect(justificationText('legal', '')).toBe('Obligation légale');
-    expect(justificationText('business', ' Audit ')).toBe('Besoin métier : Audit');
-    expect(justificationText('other', 'Contrat')).toBe('Autre : Contrat');
-    expect(parseJustification('Besoin métier : Audit')).toEqual({
-      kind: 'business',
-      detail: 'Audit',
-    });
-    expect(parseJustification('Texte libre')).toEqual({ kind: 'other', detail: 'Texte libre' });
-    expect(formFromPlan(plan).reasonKind).toBe('legal');
+  it('keeps the justification as typed in the form, the payload and the recap', () => {
+    const text = 'Besoin métier : archives de projets';
+    const form = formFromPlan({ ...plan, gdprJustification: text });
+    expect(form.justification).toBe(text);
+    expect(payloadOf(form).gdprJustification).toBe(text);
+    expect(Object.fromEntries(recapRows(form))['Justification de cette durée']).toBe(text);
+    expect(payloadOf({ ...form, justification: `  ${text} ` }).gdprJustification).toBe(text);
   });
 
   it('keeps the selection only for a chosen scope', () => {
-    const form = { ...emptyForm(), selection: ['a'], reasonKind: 'legal' as const };
+    const form = { ...emptyForm(), selection: ['a'], justification: 'Obligation légale' };
     expect(payloadOf(form).selection).toEqual([]);
     expect(payloadOf({ ...form, scope: 'selection' }).selection).toEqual(['a']);
   });
 
   it('lists the plan in labelled rows, in order', () => {
-    const rows = recapRows({ ...emptyForm(), name: ' Messagerie Direction ', reasonKind: 'legal' });
+    const rows = recapRows({
+      ...emptyForm(),
+      name: ' Messagerie Direction ',
+      justification: 'Obligation légale',
+    });
     expect(rows).toEqual([
       ['Nom du plan', 'Messagerie Direction'],
-      ['Données', 'Messagerie, Fichiers, Calendriers, Contacts'],
+      ['Données', 'Messagerie, OneDrive, SharePoint'],
       ['Périmètre', 'Toute l’organisation'],
-      ['Fréquence', 'toutes les 12 h'],
-      ['Remise en service visée', 'sous 24 h'],
-      ['Conservation', '1 an'],
-      ['Justification', 'Obligation légale'],
+      ['Perte de données acceptable', '12\u00a0h (une sauvegarde toutes les 12\u00a0h)'],
+      ['Remise en service souhaitée', '24\u00a0h'],
+      ['Durée de conservation', '1 an'],
+      ['Justification de cette durée', 'Obligation légale'],
     ]);
   });
 
-  it('adds the precision to the justification and counts a chosen selection', () => {
+  it('shows the justification as typed and counts a chosen selection', () => {
     const form = {
       ...emptyForm(),
       dataTypes: ['mail' as const],
       scope: 'selection' as const,
-      reasonKind: 'business' as const,
-      reasonDetail: 'Audit annuel',
+      justification: 'Besoin métier : Audit annuel',
     };
     const row = (f: typeof form, label: string) =>
       Object.fromEntries(recapRows(f))[label] as string;
@@ -141,7 +159,7 @@ describe('plan form', () => {
     );
     expect(row({ ...form, selection: ['a'] }, 'Périmètre')).toBe('1 boîte ou compte choisi');
     expect(row(form, 'Périmètre')).toBe('Aucune boîte ou compte choisi');
-    expect(row(form, 'Justification')).toBe('Besoin métier : Audit annuel');
+    expect(row(form, 'Justification de cette durée')).toBe('Besoin métier : Audit annuel');
     expect(row({ ...form, dataTypes: [] }, 'Données')).toBe('Aucune donnée choisie');
   });
 
@@ -149,6 +167,29 @@ describe('plan form', () => {
     expect(createdMessage({ id: 'p1', rpoHours: 12 })).toMatch(
       /^Plan créé\. Première sauvegarde prévue à \d\d:\d\d\.$/,
     );
+    expect(createdMessage({ id: 'p1', rpoHours: 24 })).toBe(
+      'Plan créé. Première sauvegarde prévue cette nuit.',
+    );
+  });
+});
+
+describe('run reason', () => {
+  it('refuses an empty reason with the shared message and accepts any free text', () => {
+    expect(runReasonError('')).toBe('Indiquez un motif pour continuer.');
+    expect(runReasonError('   ')).toBe('Indiquez un motif pour continuer.');
+    expect(runReasonError('x'.repeat(120))).toBeUndefined();
+  });
+
+  it('sends the typed reason as is', async () => {
+    const reason = 'Ticket INC-1 : ' + 'x'.repeat(105);
+    let body = '';
+    const fetchFn = ((_url: string, init: RequestInit) => {
+      body = String(init.body);
+      return Promise.resolve(new Response(JSON.stringify({ queued: true })));
+    }) as unknown as typeof fetch;
+    await runPlan('p1', reason, fetchFn);
+    expect(JSON.parse(body)).toEqual({ reason });
+    expect(reason).toHaveLength(120);
   });
 });
 
@@ -175,26 +216,33 @@ describe('list labels', () => {
   });
 
   it('describes the last run', () => {
-    expect(lastRunLabel(plan)).toMatch(/^Réussie, \d\d\/\d\d \d\d:\d\d$/);
-    expect(lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, status: 'failed' } })).toMatch(
-      /^Échec, \d\d\/\d\d \d\d:\d\d$/,
+    expect(lastRunLabel(plan)).toBe('Réussie, 14/11/2026 06:00');
+    expect(lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, status: 'failed' } })).toBe(
+      'Échec, 14/11/2026 06:00',
     );
-    expect(
-      lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, noSnapshotReason: 'no_content' } }),
-    ).toMatch(/^Réussie \(rien à sauvegarder\), \d\d\/\d\d \d\d:\d\d$/);
-    // « rien à sauvegarder » : une seule fois par ligne.
+    // Rien copié : jamais « Réussie ».
     const empty = { ...plan.compliance, lastRestorePointAt: null };
-    expect(complianceView({ ...plan, compliance: empty }).note).toBe(
-      'Rien à sauvegarder pour l’instant',
-    );
-    expect(
-      complianceView({
-        ...plan,
-        compliance: empty,
-        lastRun: { ...plan.lastRun!, noSnapshotReason: 'no_content' },
-      }).note,
-    ).toBeUndefined();
-    expect(lastRunLabel({ ...plan, running: true })).toBe('En cours…');
+    const emptyRun = { ...plan.lastRun!, noSnapshotReason: 'no_content' as const };
+    expect(lastRunLabel({ ...plan, lastRun: emptyRun })).toBe('Rien copié, 14/11/2026 06:00');
+    expect(lastRunLabel({ ...plan, compliance: empty })).toBe('Rien copié, 14/11/2026 06:00');
+    expect(complianceView({ ...plan, compliance: empty }).status).toBe('pending');
+    expect(complianceView({ ...plan, compliance: empty, lastRun: emptyRun })).toEqual({
+      status: 'pending',
+      label: 'En attente',
+      note: 'Rien à sauvegarder dans le périmètre : vérifiez la boîte, le compte ou le site choisi.',
+    });
+    // En cours ou en file : la colonne garde le dernier résultat terminé.
+    expect(lastRunLabel({ ...plan, running: true })).toBe(lastRunLabel(plan));
+    expect(lastRunLabel({ ...plan, queued: true })).toBe(lastRunLabel(plan));
+    expect(complianceView({ ...plan, running: true })).toEqual({
+      status: 'running',
+      label: 'En cours',
+    });
+    expect(complianceView({ ...plan, queued: true }, 'Boîte direction')).toEqual({
+      status: 'pending',
+      label: 'En file d’attente',
+      note: 'Démarrera après « Boîte direction »',
+    });
     expect(lastRunLabel({ ...plan, lastRun: null })).toBe('Pas encore sauvegardé');
   });
 });
@@ -211,10 +259,20 @@ describe('routes', () => {
 });
 
 describe('PlansListView', () => {
+  it('gives the columns their mobile card classes', () => {
+    const html = list([plan], true);
+    expect(html).toMatch(/<th[^>]*class="card-title"[^>]*>Plan</);
+    expect(html).toMatch(/<th[^>]*class="card-action"[^>]*>Actions</);
+    expect(html).toMatch(/<td[^>]*data-label="Plan"[^>]*class="card-title"/);
+    expect(html).toContain('card-wide plan-last-run');
+    expect(html).toContain('compliance-cell card-nolabel');
+  });
+
   it('shows the table with action buttons named after the plan for an administrator', () => {
     const html = list([plan], true);
     expect(html).toContain('Messagerie Direction');
     expect(html).toContain('À jour');
+    expect(html).toContain('Dernière exécution (UTC)');
     expect(
       list(
         [{ ...plan, compliance: { ...plan.compliance, state: 'failed', lastSuccessAt: null } }],
@@ -227,8 +285,97 @@ describe('PlansListView', () => {
     expect(html).toContain('aria-label="Supprimer Messagerie Direction"');
   });
 
+  it('shows a neutral pill and a note for a plan whose last run copied nothing', () => {
+    const empty = {
+      ...plan,
+      compliance: { ...plan.compliance, lastRestorePointAt: null },
+      lastRun: { ...plan.lastRun!, noSnapshotReason: 'no_content' as const },
+    };
+    const html = list([empty], false);
+    expect(html).toContain('◷</span> En attente');
+    expect(html).toContain(
+      '<small class="state-note">Rien à sauvegarder dans le périmètre : vérifiez la boîte, le compte ou le site choisi.</small>',
+    );
+    expect(html).not.toContain('À jour');
+    expect(html).not.toContain('rien à sauvegarder)');
+  });
+
+  it('summarises what each plan protects, for both roles', () => {
+    const other: PlanItem = {
+      ...plan,
+      id: 'p2',
+      name: 'OneDrive et SharePoint Services',
+      scope: 'selection',
+      selection: ['a', 'b'],
+      dataTypes: ['onedrive'],
+      rpoHours: 24,
+      retentionDays: 1095,
+    };
+    const all =
+      '<small class="state-note plan-summary">Messagerie, OneDrive et SharePoint · toute l’organisation · toutes les 12 h · conservés 1 an</small>';
+    const html = list([plan, other], true);
+    expect(html).toContain(all);
+    expect(html).toContain(
+      '<small class="state-note plan-summary">OneDrive · 2 boîtes choisies · toutes les 24 h · conservés 3 ans</small>',
+    );
+    // Les deux rôles reçoivent la sélection : même plan, même synthèse.
+    const operatorHtml = list([plan, other].map(asOperator), false);
+    expect(operatorHtml).toContain(all);
+    expect(operatorHtml).toContain('OneDrive · 2 boîtes choisies ·');
+  });
+
+  it('never splits a number from its unit in a plan description', () => {
+    for (const retentionDays of [90, 180, 365, 1095, 400]) {
+      for (const rpoHours of [4, 12, 24] as const) {
+        const text = [
+          planSummary({ ...plan, rpoHours, retentionDays }),
+          scheduleWindowLabel(rpoHours) ?? '',
+        ].join(' ');
+        expect(text).not.toMatch(/\d (h|jours|mois|ans?)\b/);
+        expect(text).toMatch(/\d\u00a0(h|jours|mois|ans?)/);
+      }
+    }
+  });
+
+  it('names the mailboxes of a restricted plan, the same way for both roles', () => {
+    const boxes = [
+      { id: 'a', displayName: 'claire.durand@exemple.fr' },
+      { id: 'b', displayName: 'paul.martin@exemple.fr' },
+    ];
+    const tail = 'toutes les 24 h · conservés 3 ans';
+    const restricted: PlanItem = {
+      ...plan,
+      scope: 'selection',
+      dataTypes: ['onedrive'],
+      rpoHours: 24,
+      retentionDays: 1095,
+    };
+    const summary = (selection: string[], names = boxes) =>
+      planSummary({ ...restricted, selection }, names);
+    expect(summary(['a'])).toBe(`OneDrive · claire.durand@exemple.fr · ${tail}`);
+    expect(summary(['a', 'b'])).toBe(
+      `OneDrive · claire.durand@exemple.fr et paul.martin@exemple.fr · ${tail}`,
+    );
+    expect(summary(['a', 'b', 'c', 'd', 'e'])).toBe(
+      `OneDrive · claire.durand@exemple.fr et 4 autres · ${tail}`,
+    );
+    // Catalogue indisponible : le nombre, jamais un gabarit.
+    expect(summary([])).toBe(`OneDrive · aucune boîte choisie · ${tail}`);
+    expect(summary(['a', 'b'], boxes.slice(0, 1))).toBe(
+      `OneDrive · claire.durand@exemple.fr et 1 autre · ${tail}`,
+    );
+    expect(summary(['a'], [])).toBe(`OneDrive · 1 boîte choisie · ${tail}`);
+    expect(summary(['a', 'b', 'c'], [])).toBe(`OneDrive · 3 boîtes choisies · ${tail}`);
+    // Mêmes données pour les deux rôles, avec ou sans champs d'administrateur.
+    const admin = { ...restricted, selection: ['a'] };
+    expect(planSummary(asOperator(admin), boxes)).toBe(planSummary(admin, boxes));
+    const html = list([{ ...admin, selection: ['a', 'b', 'c'] }], false);
+    expect(html).not.toContain('une boîte ou un compte');
+  });
+
   it('is read-only for an operator: no Actions column, a notice', () => {
-    const html = list([plan], false);
+    const html = list([asOperator(plan)], false);
+    expect(html).toContain('Messagerie Direction');
     expect(html).not.toContain('Actions');
     expect(html).not.toContain('Lancer');
     expect(html).toContain('Lecture seule : seul un administrateur peut modifier les plans.');
@@ -236,10 +383,68 @@ describe('PlansListView', () => {
 
   it('disables « Lancer maintenant » while a run is in progress', () => {
     const html = list([{ ...plan, running: true }], true);
-    expect(html).toContain('En cours…');
+    expect(html).toContain('En cours');
+    expect(html).not.toContain('En échec');
     expect(html).toMatch(
-      /aria-label="Lancer Messagerie Direction maintenant"[^>]*aria-disabled="true"/,
+      /aria-label="Lancer Messagerie Direction maintenant"[^>]*aria-disabled="true"[^>]*aria-describedby="run-hint-/,
     );
+    expect(html).toContain('Sauvegarde déjà en cours');
+  });
+
+  it('puts the three actions in one button row, the hint right after the disabled button', () => {
+    const html = list([{ ...plan, running: true }], true);
+    const row = /<div class="button-row row-actions">(.*?)<\/div>/.exec(html)?.[1] ?? '';
+    expect(row).toMatch(
+      /aria-describedby="(run-hint-[^"]+)"[^>]*>Lancer maintenant<\/button><small class="state-note" id="\1">Sauvegarde déjà en cours<\/small><a /,
+    );
+    expect(row).toMatch(/aria-label="Lancer [^>]*btn btn-secondary/);
+    expect(row).toMatch(/<a class="btn btn-secondary action-half"[^>]*aria-label="Modifier /);
+    expect(row).toMatch(/aria-label="Supprimer [^>]*btn btn-danger action-half/);
+  });
+
+  it('shows a queued plan and the plan it waits for', () => {
+    const other = { ...plan, id: 'p2', name: 'Boîte direction', running: true };
+    const html = list([other, { ...plan, queued: true }], true);
+    expect(html).toContain('En file d’attente');
+    expect(html).toContain('Démarrera après « Boîte direction »');
+    expect(html).toContain('Déjà en file d’attente');
+  });
+
+  it('falls back when the running plan is unknown', () => {
+    expect(complianceView({ ...plan, queued: true })).toEqual({
+      status: 'pending',
+      label: 'En file d’attente',
+    });
+    expect(queuedMessage('Boîtes mail')).toBe(
+      'Sauvegarde de « Boîtes mail » mise en file : elle démarrera à la fin de la sauvegarde en cours.',
+    );
+    expect(list([{ ...plan, queued: true }], true)).toContain('Déjà en file d’attente');
+  });
+
+  it('names both plans in the queued confirmation', () => {
+    expect(queuedMessage('Boîtes mail', 'Boîte direction')).toBe(
+      'Sauvegarde de « Boîtes mail » mise en file : elle démarrera à la fin de « Boîte direction ».',
+    );
+  });
+
+  it('picks the confirmation text after a run is sent', () => {
+    const current = { ...plan, id: 'p0', name: 'Boîte direction', running: true };
+    expect(runFlashText(true, 'Boîtes mail', [current, plan])).toBe(
+      queuedMessage('Boîtes mail', 'Boîte direction'),
+    );
+    expect(runFlashText(true, 'Boîtes mail', undefined)).toBe(queuedMessage('Boîtes mail'));
+    expect(runFlashText(false, 'Boîtes mail', [current])).toContain('Sauvegarde lancée');
+  });
+
+  it('renders the queued confirmation as a status banner naming both plans', () => {
+    const current = { ...plan, id: 'p0', name: 'Boîte direction', running: true };
+    // Le même rendu que la page : `Alert` au ton `success`, avec le texte choisi après l'envoi.
+    const html = renderToStaticMarkup(
+      <Alert tone="success">{runFlashText(true, 'Boîtes mail', [current, plan])}</Alert>,
+    );
+    expect(html).toContain('role="status"');
+    expect(html).toContain('« Boîtes mail »');
+    expect(html).toContain('« Boîte direction »');
   });
 
   it('handles loading, error and empty states', () => {
@@ -287,14 +492,37 @@ describe('PlanWizard', () => {
     expect(html).not.toContain('Précédent');
   });
 
-  it('recaps the plan on step 3 as a labelled list with the audit reminder', () => {
+  it('asks for the justification in one free text field with help and counter', () => {
+    const html = renderToStaticMarkup(
+      <PlanWizard
+        initial={emptyForm()}
+        editing={false}
+        mailboxes={[]}
+        onSubmit={() => Promise.resolve(undefined)}
+        initialStep={2}
+      />,
+    );
+    expect(html).not.toContain('<select');
+    expect(html).not.toContain('Précision');
+    expect(html).toContain('Justification de cette durée (obligatoire)');
+    expect(html).toContain('placeholder="Obligation légale : courriers 1 an"');
+    expect([...JUSTIFICATION_PLACEHOLDER].length).toBeLessThanOrEqual(40);
+    expect(html).toContain('maxLength="120"');
+    expect(html).toContain('0 / 120');
+    expect(html).toMatch(/aria-describedby="[^"]*-help"/);
+    expect(html).toMatch(
+      /-help"[^>]*>Les durées longues doivent rester justifiées au regard du RGPD\. N’y saisissez pas de donnée personnelle\.</,
+    );
+    expect(html).not.toContain('<p>Les durées longues');
+  });
+
+  it('recaps the plan on step 3 as a labelled list without the audit reminder', () => {
     const html = renderToStaticMarkup(
       <PlanWizard
         initial={{
           ...emptyForm(),
           name: 'Messagerie Direction',
-          reasonKind: 'other',
-          reasonDetail: 'Contrat client',
+          justification: 'Contrat client',
         }}
         editing={false}
         mailboxes={[]}
@@ -305,9 +533,8 @@ describe('PlanWizard', () => {
     expect(html).toContain('<h2>Récapitulatif</h2>');
     expect(html).toContain('<dl class="meta-list">');
     expect(html).toContain('<dd>Messagerie Direction</dd>');
-    expect(html).toContain('<dd>Autre : Contrat client</dd>');
-    expect(html).toContain(AUDIT_REMINDER);
-    expect(html).toContain('role="status"');
+    expect(html).toContain('<dd>Contrat client</dd>');
+    expect(html).not.toContain(AUDIT_REMINDER);
     expect(html).not.toContain('recap-sentence');
   });
 
@@ -325,6 +552,20 @@ describe('PlanWizard', () => {
     [...html.matchAll(new RegExp(`<input[^>]*name="${name}"[^>]*>`, 'g'))].map(
       (m) => [/value="(\d+)"/.exec(m[0])?.[1], m[0].includes('checked=""')] as const,
     );
+
+  it('names the recap rows like the objectives step, and marks no label with an asterisk', () => {
+    const html = step2();
+    const recapLabels = recapRows(emptyForm())
+      .map(([label]) => label)
+      .slice(3);
+    expect(recapLabels).toEqual(Object.values(OBJECTIVE_LABELS));
+    const legends = [...html.matchAll(/<legend>([^<]*)<\/legend>/g)].map((m) => m[1]);
+    expect(legends).toEqual(recapLabels.slice(0, 3));
+    expect(html).toContain('Justification de cette durée (obligatoire)');
+    const labels = [...html.matchAll(/<(?:label|legend)[^>]*>([^<]*)</g)].map((m) => m[1]);
+    for (const label of labels) expect(label).not.toMatch(/\*\s*$/);
+    expect(html).not.toContain('*');
+  });
 
   it('lists the objectives in ascending order, defaults checked, without acronyms', () => {
     const html = step2();
@@ -393,5 +634,40 @@ describe('network helpers', () => {
     });
     const down = await runPlan('p', 'x', (() => Promise.reject(new Error('net'))) as typeof fetch);
     expect(down.ok).toBe(false);
+  });
+});
+
+describe('delete plan dialog', () => {
+  const html = renderToStaticMarkup(<DeleteForm plan={plan} />);
+
+  it('does not promise that retention is applied', () => {
+    expect(html).not.toContain('conservées jusqu');
+    expect(html).not.toMatch(/durée de conservation/);
+    expect(html).toContain('la console ne les supprime pas');
+  });
+
+  it('recalls the plan and warns that the run history is erased', () => {
+    expect(html).toContain('Plan : <strong>Messagerie Direction</strong>');
+    expect(html).toContain(planSummary(plan));
+    expect(html).toContain('alert-warning');
+    expect(html).toContain('Suppression définitive');
+    expect(html).toContain('L’historique des exécutions de ce plan sera effacé.');
+  });
+
+  it('asks a mandatory reason and uses the same button variant as account deactivation', () => {
+    expect(html).toContain('Motif de la suppression');
+    expect(html).toMatch(/btn btn-danger[^>]*>(<[^>]*>)*Supprimer le plan/);
+    expect(html).not.toContain('btn-primary');
+  });
+
+  it('sends the trimmed reason with the DELETE', async () => {
+    let sent: { method?: string | undefined; body?: unknown } = {};
+    const fetchFn = ((_url: string, init?: RequestInit) => {
+      sent = { method: init?.method, body: init?.body };
+      return Promise.resolve({ ok: true, status: 204 });
+    }) as unknown as typeof fetch;
+    expect((await deletePlan('p1', '  Plan remplacé ', fetchFn)).ok).toBe(true);
+    expect(sent.method).toBe('DELETE');
+    expect(JSON.parse(String(sent.body))).toEqual({ reason: 'Plan remplacé' });
   });
 });

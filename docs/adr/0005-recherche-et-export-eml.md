@@ -38,7 +38,7 @@ l'index (métadonnées), l'ADR 0004 le journal d'audit ; ce dernier note que `it
   exemple `Ticket INC-12345`, et consigne « Indiquez de préférence le numéro du ticket interne.
   N'y saisissez pas de donnée personnelle (nom, adresse, contenu du mail). »
 - Interface : écrans `#/search` (champ libre, boîte, plage de dates, résultats paginés) et
-  `#/mail/<boîte>/<message>` (fiche, motif, bouton « Exporter en EML »).
+  `#/mail/<boîte>/<message>` (fiche, motif, bouton « Exporter », boîte de dialogue avec motif).
 
 ## Limites connues
 

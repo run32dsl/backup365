@@ -51,7 +51,7 @@ Graph et exige donc de vrais identifiants avec droit d'écriture.
   applicatifs par un code, la restauration n'est pas annulée pour autant.
 - Interface : bouton « Restaurer » sur chaque résultat de recherche et sur la fiche ; panneau
   modal (`Dialog`) en trois états (formulaire, en cours, réussie ou échouée). La fiche affiche
-  « Dernière restauration : réussie, 18 s ». Le panneau peut être fermé : la restauration continue.
+  « Dernière restauration : ✔ Réussie 18 s » (badge d’état suivi de la durée). Le panneau peut être fermé : la restauration continue.
 
 ## Conséquences
 

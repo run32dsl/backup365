@@ -3,6 +3,8 @@ import type { FastifyInstance } from 'fastify';
 import { auditEvent, recordDenied } from './audit-events.js';
 
 export const MAX_PAGE_SIZE = 100;
+/** Cible d'audit d'une recherche sans filtre de boîte. */
+const ALL_MAILBOXES = '*';
 
 interface SearchQuerystring {
   q?: string;
@@ -61,7 +63,18 @@ export function registerSearchRoutes(
       }
       // Les termes recherchés sont des données personnelles : ils ne sont jamais journalisés.
       const page = await index.search(req.query);
-      await audit.record(auditEvent(req, 'list.view', 'mail.search', { count: page.items.length }));
+      await audit.record(
+        auditEvent(req, 'list.view', 'mail.search', {
+          // Périmètre seul, jamais les termes. Le filtre `mailbox` est un texte libre : il n'est
+          // journalisé que s'il désigne une boîte indexée (au moins un résultat). `*` = toutes.
+          ...(req.query.mailbox === undefined
+            ? { target: ALL_MAILBOXES }
+            : page.total > 0
+              ? { target: req.query.mailbox }
+              : {}),
+          count: page.items.length,
+        }),
+      );
       return {
         total: page.total,
         limit: req.query.limit,

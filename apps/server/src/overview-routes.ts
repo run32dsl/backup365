@@ -1,3 +1,4 @@
+import { planCompliance } from '@backup365/core';
 import type { FastifyInstance } from 'fastify';
 import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 
@@ -16,8 +17,15 @@ export interface Overview {
   state: BackupOverviewState;
   plans: {
     total: number;
-    /** Plans dont la dernière exécution a réussi (aucun plan n'est suspendu : tous sont actifs). */
+    /** Plans à jour, au sens de la liste des plans (« À jour » : réussite plus récente que le RPO). */
     operational: number;
+    /** Plans dont une exécution est en cours. */
+    running: number;
+    /** Plans dont un lancement manuel attend la fin de la sauvegarde en cours. */
+    queued: number;
+    /** Plans « en échec » et « en retard », au sens de la liste des plans. */
+    failed: number;
+    late: number;
   };
   /** Fin de la dernière exécution réussie, tous plans confondus ; `null` si aucune. */
   lastBackupAt: string | null;
@@ -28,14 +36,23 @@ export interface Overview {
  * seulement, sans nom de plan ni détail d'erreur ; ouvert à l'opérateur (lecture seule). Simple
  * lecture de métadonnées, hors journal d'audit (ADR 0002).
  */
-export function registerOverviewRoutes(scope: FastifyInstance, plans: SqlitePlanStore | undefined) {
+export function registerOverviewRoutes(
+  scope: FastifyInstance,
+  plans: SqlitePlanStore | undefined,
+  queue?: { isQueued(planId: string): boolean },
+) {
   scope.get('/api/overview', (req, reply) => {
     if (!req.session) return reply.code(401).send({ error: 'unauthenticated' });
     if (!plans) return reply.code(503).send({ error: 'plans_unavailable' });
     const all = plans.list();
     let operational = 0;
     let failed = 0;
+    let failedPlans = 0;
+    let latePlans = 0;
+    const now = new Date();
     let ran = 0;
+    let running = 0;
+    let queued = 0;
     let lastBackupMs = Number.NEGATIVE_INFINITY;
     let lastBackupAt: string | null = null;
     for (const plan of all) {
@@ -43,8 +60,17 @@ export function registerOverviewRoutes(scope: FastifyInstance, plans: SqlitePlan
       // Une exécution en cours n'est pas un résultat : on lit la dernière terminée.
       const latest = runs.find((r) => r.status !== 'running');
       if (latest) ran += 1;
-      if (latest?.status === 'success') operational += 1;
+
       if (latest?.status === 'failed') failed += 1;
+      // « En échec » : conformité en échec ou dernière exécution (celle de la liste) en échec ;
+      // la liste filtrée de « Voir l'erreur » applique la même règle.
+      const compliance = planCompliance(plan.rpoHours, runs, now).state;
+      if (compliance === 'failed' || runs[0]?.status === 'failed') failedPlans += 1;
+      else if (compliance === 'compliant') operational += 1;
+      else latePlans += 1;
+      // Mêmes règles que `GET /api/plans` : en cours prime, la file est celle du planificateur.
+      if (runs.some((r) => r.status === 'running')) running += 1;
+      else if (queue?.isQueued(plan.id)) queued += 1;
       for (const run of runs) {
         if (run.status !== 'success' || run.finishedAt === null) continue;
         const ms = Date.parse(run.finishedAt);
@@ -64,7 +90,14 @@ export function registerOverviewRoutes(scope: FastifyInstance, plans: SqlitePlan
             : 'operational';
     const overview: Overview = {
       state,
-      plans: { total: all.length, operational },
+      plans: {
+        total: all.length,
+        operational,
+        running,
+        queued,
+        failed: failedPlans,
+        late: latePlans,
+      },
       lastBackupAt,
     };
     return overview;

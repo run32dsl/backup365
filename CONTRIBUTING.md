@@ -20,6 +20,25 @@ vous avez le droit de proposer ce code, aux conditions du
 si un commit n'est pas signé. Pour corriger : `git rebase --signoff origin/develop`, puis
 `git push --force-with-lease` sur votre fork.
 
+### Renvois vers les issues de suivi
+
+Un renvoi cite le numéro réel de l'issue (`#NNN`), jamais un nom provisoire comme « SUIVI2 ».
+Le job `placeholders` (`.github/workflows/placeholders.yml`, script
+`.github/scripts/check-placeholders.sh`) fait échouer une PR ou une issue dont le titre ou le
+corps contient encore « SUIVI » suivi d'un chiffre, et signale de même un commentaire. Pour une
+issue, il signale seulement : GitHub ne permet pas de bloquer sa publication. Le contrôle ne
+distingue pas les citations : pour documenter la règle dans une PR ou une issue, écrivez « SUIVI
+suivi d'un chiffre » au lieu de l'exemple littéral.
+
+Deux outils servent à la procédure qui crée les issues de suivi (elle vit hors du dépôt) :
+
+- `.github/scripts/resolve-placeholders.sh SUIVI1=290 SUIVI2=291 < texte.md` écrit le texte avec
+  les numéros réels et échoue, sans rien écrire, s'il reste un nom provisoire ;
+- `gh issue list --state open --limit 1000 --json number,title,body | node .github/scripts/list-placeholders.mjs`
+  liste les issues ouvertes dont le titre ou le corps en contient encore (les commentaires ne
+  sont pas lus). La recherche de GitHub ne les trouve pas à partir du seul mot « SUIVI » : elle
+  cherche des mots entiers.
+
 ### Données
 
 Uniquement des données fictives (domaine `exemple.fr`) ou un tenant de test : jamais de donnée
@@ -96,7 +115,8 @@ présente ; utiliser un `BACKUP365_DATA_DIR` jetable.
   (conteneurs des agents) affiche ses champs natifs en anglais quelle que soit l'option : ne pas
   utiliser de champ `date` ou `datetime-local`, mais un champ texte au format `jj/mm/aaaa`.
 - **Ajouter un écran** : une entrée dans `e2e/screens.mjs` (`name`, `hash`, `role`, `prepare`
-  éventuel pour les gestes préalables).
+  éventuel pour les gestes préalables). Deux champs facultatifs : `colorScheme: 'dark'` pour le
+  thème sombre, `buildCommit` pour photographier l'écran avec la version d'une image construite.
 - `pnpm run test:e2e` joue les tests Playwright (`e2e/*.spec.ts`) en mode démo. Installer le
   navigateur une fois avec `pnpm exec playwright install chromium`, ou pointer
   `BACKUP365_CHROMIUM` vers un exécutable Chromium existant.
@@ -119,15 +139,27 @@ développement :
   sur `develop` pour la semaine écoulée (lues dans l'interface Actions), et la plus longue durée de
   `captures` relevée dans les résumés de run et les fichiers `verifs` de la semaine ;
 - seuils d'alerte, tous deux sous le timeout de 15 min : 10 min pour le job `ci`, 5 min pour
-  `captures`. Au-delà, le Product Owner ouvre une issue pendant le bilan (mise en place suivie
-  dans #250) : rien dans le dépôt ne l'ouvre à sa place. Cas limite accepté : un dépassement du
-  job `ci` en milieu de semaine n'est vu qu'au bilan suivant.
+  `captures`. Au-delà, le Product Owner ouvre une issue pendant le bilan (modèle du bilan :
+  `docs/bilan-hebdomadaire.md`) : rien dans le dépôt ne l'ouvre à sa place. Cas limite accepté : un dépassement du
+  job `ci` en milieu de semaine n'est vu qu'au bilan suivant. Un dépassement répété deux semaines
+  de suite fait proposer au PM, dans une issue « [PM] », l'ouverture automatique d'une issue par un
+  workflow (permission `issues: write`).
 
 ## Version affichée
 
-Le pied de page de la console affiche la version du serveur (`/api/health`).
+Le pied de page affiche « Version <paquet> · <commit court> » pour une image construite avec
+`--build-arg BUILD_COMMIT=$(git rev-parse HEAD | cut -c1-7)` (la CI en prend aussi 7 caractères),
+et « Version dev » en local ou sans l'argument. La CI vérifie que l'image affiche bien la version et le commit, jamais
+0.0.0. La version du paquet est celle de `apps/server/package.json`. Sans Docker,
+`e2e/version.spec.ts` lance le serveur avec `BACKUP365_BUILD_COMMIT` et vérifie la même chose dans
+le navigateur, avant et après connexion ; les captures `*-version-image*` en montrent le rendu.
 
-- Le produit reste en 0.x, avec un incrément mineur à chaque promotion `develop` → `main`.
+- Le produit reste en 0.x (version initiale 0.1.0) jusqu'au passage en 1.0.0, décrit plus bas.
+- Incrément mineur (0.1.0 → 0.2.0) à chaque promotion `develop` → `main` : une PR vers `develop`,
+  qui ne change que le numéro de version, est fusionnée avant la promotion.
+- Incrément correctif (0.2.0 → 0.2.1) pour une correction appliquée à `main` hors promotion (par une PR, jamais un push direct).
+- Le commit court fait toujours 7 caractères : `git rev-parse --short=7` peut en donner plus
+  quand deux commits partagent le même début, et le serveur retombe alors sur « dev ».
 - Le passage en 1.0.0 est décidé par le Product Manager (décision du 2026-11-18) : seulement quand
   le MVP est jugé satisfaisant et validé par lui. Ni la promotion du MVP, ni un jalon technique
   (par exemple la validation de la connexion Microsoft) ne suffisent à eux seuls.

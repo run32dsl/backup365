@@ -42,14 +42,15 @@ export function trapTab(
   return false;
 }
 
-/** Échap ferme la boîte. */
+/** Échap ferme la boîte, sauf si `dismissible` est faux : il est alors absorbé sans effet. */
 export function closeOnEscape(
   e: { key: string; stopPropagation: () => void },
   close: () => void,
+  dismissible = true,
 ): boolean {
   if (e.key !== 'Escape') return false;
   e.stopPropagation();
-  close();
+  if (dismissible) close();
   return true;
 }
 

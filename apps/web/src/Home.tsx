@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { ConfigurationBlock } from './ConfigurationBlock.js';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ConfigurationNotice, connectionLine, useConfiguration } from './ConfigurationBlock.js';
 import { dateTimeOf } from './format.js';
 import { fetchOverview, type Overview } from './overview.js';
-import { PLANS_HASH } from './plans.js';
+import {
+  FAILED_PLANS_HASH,
+  MESSAGES as PLAN_MESSAGES,
+  NEW_PLAN_HASH,
+  PLANS_HASH,
+} from './plans.js';
 import { Alert, Button, StatusPill } from './ui/index.js';
 
 /** État du chargement de l'accueil. */
@@ -22,10 +27,21 @@ export function agoLabel(iso: string, now: number): string {
   return hours < 24 ? `il y a ${hours} h` : `il y a ${Math.floor(hours / 24)} j`;
 }
 
-/** `3 plans opérationnels sur 4`, `1 plan opérationnel sur 1`. */
+/** `3 plans à jour sur 4`, `1 plan à jour sur 1` : le mot de la pastille « À jour » de la liste. */
 export const plansLabel = (operational: number, total: number): string =>
-  `${operational} ${operational < 2 ? 'plan opérationnel' : 'plans opérationnels'} sur ${total}`;
+  `${operational} ${operational < 2 ? 'plan' : 'plans'} à jour sur ${total}`;
 
+/** « Créer un plan » : directement l'assistant, sans passer par la liste vide. */
+const goToNewPlan = () => {
+  window.location.hash = NEW_PLAN_HASH;
+};
+
+/** « Voir l'erreur » : la liste des plans, réduite à ceux en échec, avec la cause. */
+const goToFailedPlans = () => {
+  window.location.hash = FAILED_PLANS_HASH;
+};
+
+/** « Voir les plans » : la liste des plans, sans filtre. */
 const goToPlans = () => {
   window.location.hash = PLANS_HASH;
 };
@@ -33,20 +49,56 @@ const goToPlans = () => {
 function Card({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section className="overview-card" aria-labelledby={id}>
-      <h2 id={id}>{title}</h2>
+      <h2 id={id} tabIndex={id === 'overview-backup' ? -1 : undefined}>
+        {title}
+      </h2>
       {children}
     </section>
   );
 }
 
-/** Action unique de la carte « Sauvegarde » : « Configurer » (administrateur) ou « Voir l'erreur ». */
-function BackupAction({ state, admin }: { state: Overview['state']; admin: boolean }) {
-  if (state === 'failed') return <Button onClick={goToPlans}>Voir l’erreur</Button>;
+/**
+ * Plans par état, du plus grave au moins grave, avec les pastilles et les mots de la liste des
+ * plans ; une pastille par état non nul, rien quand aucun plan n'est dans ces états.
+ */
+function PlanStates({ plans }: { plans: Overview['plans'] }) {
+  const states = [
+    { status: 'failed', count: plans.failed },
+    { status: 'late', count: plans.late },
+    { status: 'running', count: plans.running, label: PLAN_MESSAGES.running },
+    { status: 'pending', count: plans.queued, label: PLAN_MESSAGES.queued },
+  ] as const;
+  const shown = states.filter((s) => s.count > 0);
+  if (shown.length === 0) return null;
+  return (
+    <ul className="plan-counts">
+      {shown.map((s) => (
+        <li key={s.status}>
+          <StatusPill status={s.status} label={'label' in s ? s.label : undefined} />{' '}
+          <strong>{s.count}</strong>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Action unique de la carte « Sauvegarde » : « Créer un plan » (administrateur) ou « Voir l'erreur ». */
+export function BackupAction({ state, admin }: { state: Overview['state']; admin: boolean }) {
+  if (state === 'failed') return <Button onClick={goToFailedPlans}>Voir l’erreur</Button>;
   if (state !== 'unconfigured') return null;
   return admin ? (
-    <Button onClick={goToPlans}>Configurer</Button>
+    <Button onClick={goToNewPlan}>Créer un plan</Button>
   ) : (
     <p>Demandez à un administrateur de la console de configurer la sauvegarde.</p>
+  );
+}
+
+/** Action de la carte « Plans » : en contour, pour ne pas concurrencer « Voir l'erreur ». */
+export function PlansAction() {
+  return (
+    <Button variant="secondary" onClick={goToPlans}>
+      Voir les plans
+    </Button>
   );
 }
 
@@ -56,9 +108,12 @@ export function OverviewView({
   admin,
   onRetry,
   now = Date.now(),
+  connection = null,
 }: {
   state: OverviewState;
   admin: boolean;
+  /** Ligne secondaire de la carte « Sauvegarde » (administrateur, connexion configurée). */
+  connection?: string | null;
   onRetry: () => void;
   now?: number;
 }) {
@@ -90,28 +145,30 @@ export function OverviewView({
   return (
     <div className="overview">
       <Card id="overview-backup" title="Sauvegarde">
-        {/* Sans résultat, pas de pastille : la maquette n'en nomme aucune pour ce cas. */}
-        {state.state !== 'pending' && (
-          <div role="status">
-            <StatusPill status={state.state} />
-          </div>
-        )}
+        <div role="status">
+          <StatusPill status={state.state} />
+        </div>
         {MESSAGES[state.state] && <p>{MESSAGES[state.state]}</p>}
+        {connection && <p className="overview-connection">{connection}</p>}
         <BackupAction state={state.state} admin={admin} />
       </Card>
       <Card id="overview-plans" title="Plans">
         {plans.total === 0 ? (
-          <p>Aucun plan</p>
+          <p>Aucun plan pour l’instant.</p>
         ) : (
           <>
             <p>{plansLabel(plans.operational, plans.total)}</p>
-            <a href={PLANS_HASH}>Voir les plans</a>
+            <PlanStates plans={plans} />
+            <PlansAction />
           </>
         )}
       </Card>
       <Card id="overview-last" title="Dernière sauvegarde">
         {last === null || lastDate === '' ? (
-          <p>Aucune sauvegarde</p>
+          <p>
+            Aucune sauvegarde pour l’instant. Elle apparaîtra ici après la première exécution d’un
+            plan.
+          </p>
         ) : (
           <p>
             {agoLabel(last, now)} · <time dateTime={last}>{lastDate}</time>
@@ -123,19 +180,58 @@ export function OverviewView({
   );
 }
 
+/** Texte annoncé après « Réessayer » ; vide pour l'erreur (l'alerte s'annonce seule). */
+export function announcementOf(state: OverviewState): string {
+  if (state === 'loading') return 'Chargement de l’état de la sauvegarde…';
+  return state === 'error' ? '' : 'État de la sauvegarde mis à jour.';
+}
+
+/** Le bouton « Réessayer » est démonté : le focus va au titre de la carte « Sauvegarde », sinon au `h1`. */
+export function focusAfterRetry(
+  doc: { querySelector: (selector: string) => { focus: () => void } | null } = document,
+): void {
+  (doc.querySelector('#overview-backup') ?? doc.querySelector('h1'))?.focus();
+}
+
+/** Lance la lecture et publie `loading` puis le résultat, ou `error` ; ne rejette jamais. */
+export function loadOverview(
+  publish: (state: OverviewState) => void,
+  fetcher: () => Promise<Overview> = fetchOverview,
+): Promise<void> {
+  publish('loading');
+  return fetcher().then(publish, () => publish('error'));
+}
+
 /** Page d'accueil : trois informations. La version du serveur est dans le pied de page. */
 export function Home({ admin = false }: { admin?: boolean }) {
   const [state, setState] = useState<OverviewState>('loading');
+  const config = useConfiguration(admin);
+  const retried = useRef(false);
   const load = useCallback(() => {
-    setState('loading');
-    fetchOverview().then(setState, () => setState('error'));
+    void loadOverview(setState);
   }, []);
+  const retry = useCallback(() => {
+    retried.current = true;
+    load();
+  }, [load]);
   useEffect(load, [load]);
+  // Après « Réessayer » le bouton disparaît : sans cela le focus tomberait sur `body`.
+  useEffect(() => {
+    if (retried.current) focusAfterRetry();
+  }, [state]);
   return (
     <main tabIndex={-1}>
-      <h1>Tableau de bord</h1>
-      {admin && <ConfigurationBlock />}
-      <OverviewView state={state} admin={admin} onRetry={load} />
+      <h1 tabIndex={-1}>Tableau de bord</h1>
+      <div role="status" className="sr-only">
+        {retried.current ? announcementOf(state) : ''}
+      </div>
+      {admin && <ConfigurationNotice config={config} />}
+      <OverviewView
+        state={state}
+        admin={admin}
+        onRetry={retry}
+        connection={admin ? connectionLine(config) : null}
+      />
     </main>
   );
 }

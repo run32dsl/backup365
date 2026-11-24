@@ -14,6 +14,7 @@ export function DialogPanel({
   titleId,
   title,
   onClose,
+  dismissible = true,
   onKeyDown,
   panelRef,
   children,
@@ -21,6 +22,8 @@ export function DialogPanel({
   titleId: string;
   title: string;
   onClose: () => void;
+  /** Faux : pas de « ✕ » ; la boîte ne se ferme que par une action de son contenu. */
+  dismissible?: boolean;
   onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
   panelRef?: Ref<HTMLDivElement>;
   children: ReactNode;
@@ -37,9 +40,11 @@ export function DialogPanel({
       >
         <div className="dialog-header">
           <h2 id={titleId}>{title}</h2>
-          <Button variant="secondary" aria-label="Fermer" onClick={onClose}>
-            <span aria-hidden="true">✕</span>
-          </Button>
+          {dismissible && (
+            <Button variant="secondary" aria-label="Fermer" onClick={onClose}>
+              <span aria-hidden="true">✕</span>
+            </Button>
+          )}
         </div>
         {children}
       </div>
@@ -56,11 +61,14 @@ export function Dialog({
   open,
   title,
   onClose,
+  dismissible = true,
   children,
 }: {
   open: boolean;
   title: string;
   onClose: () => void;
+  /** Faux : ni « ✕ » ni Échap ; seul le contenu de la boîte peut la fermer. */
+  dismissible?: boolean;
   children: ReactNode;
 }) {
   const titleId = useId();
@@ -68,6 +76,8 @@ export function Dialog({
   const host = useRef<HTMLDivElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const dismissibleRef = useRef(dismissible);
+  dismissibleRef.current = dismissible;
   if (typeof document !== 'undefined' && host.current === null) {
     host.current = document.createElement('div');
   }
@@ -92,7 +102,7 @@ export function Dialog({
     // Sur le document : si le focus est tombé sur `body` (clic sur du texte), Échap et Tab
     // doivent encore agir sur la boîte.
     const onKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (closeOnEscape(e, () => onCloseRef.current())) return;
+      if (closeOnEscape(e, () => onCloseRef.current(), dismissibleRef.current)) return;
       if (panel.current) {
         trapTab(
           e,
@@ -112,7 +122,13 @@ export function Dialog({
 
   if (!open || !host.current) return null;
   return createPortal(
-    <DialogPanel titleId={titleId} title={title} onClose={onClose} panelRef={panel}>
+    <DialogPanel
+      titleId={titleId}
+      title={title}
+      onClose={onClose}
+      dismissible={dismissible}
+      panelRef={panel}
+    >
       {children}
     </DialogPanel>,
     host.current,

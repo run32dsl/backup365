@@ -73,7 +73,8 @@ Statut : **proposé** (issue #21, décisions du PO du 2026-11-13).
   externe »). **Obligatoire avant toute mise en production** (décision du PM du 2026-11-12), #21.
 - Écrit avant l'ADR 0008 : l'acteur valait `anonymous` et `GET /api/audit` était ouvert. Depuis,
   l'acteur est le compte de la session (`actorOf`) et la lecture du journal est elle-même
-  consignée (`list.view`, ressource `audit`).
+  consignée (`list.view`, ressource `audit`) ; la cible porte les filtres de période et d’action
+  (`from=…;to=…;action=…`), jamais l’acteur saisi.
 - `item.export` fait partie du vocabulaire mais **rien ne l'émet** : aucune route d'export
   n'existe, et le port `BackupCatalog` ne lit que des métadonnées (ADR 0002), pas le contenu d'un
   élément. L'événement sera émis par la route d'export, qui demande d'abord un port de lecture
@@ -94,6 +95,10 @@ Statut : **proposé** (issue #21, décisions du PO du 2026-11-13).
   `GET /api/audit` ajoute `targetName` (objet) et `targetMailbox` lus dans l'index à la
   consultation, hors chaîne d'empreintes ; ils restent absents si le mail n'est plus indexé. Le
   journal est réservé aux comptes authentifiés (ADR 0008)._
+  _Note (issue #321, proposé) : une consultation de liste enregistre son périmètre, jamais les
+  termes cherchés : `mail.search` a pour cible la boîte filtrée (seulement si elle est indexée)
+  ou `*` sans filtre ; les entrées antérieures n'ont pas de cible. Pour `sharepoint.items` et
+  `sharepoint.scope`, `GET /api/audit` ajoute `targetName` (nom du site, lu dans le catalogue)._
 - `access.denied` est émis quand le catalogue ou l'index est indisponible ou qu'un instantané est
   introuvable, sur l'ouverture d'un instantané et sur la recherche ; le refus d'authentification
   viendra avec l'authentification.

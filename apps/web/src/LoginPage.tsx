@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { FailureAlert } from './FailureAlert.js';
 import { Alert, Button, FormField, WizardActions } from './ui/index.js';
 import {
@@ -97,6 +97,19 @@ export function ErrorView({
   );
 }
 
+/** Bloc centré commun aux écrans d'accès : nom du produit, puis le contenu de l'écran. */
+function AuthBlock({ children, plain = false }: { children: ReactNode; plain?: boolean }) {
+  // Dans la console (changement volontaire), la barre latérale porte déjà le nom du produit.
+  if (plain) return <main tabIndex={-1}>{children}</main>;
+  return (
+    <main tabIndex={-1} className="auth">
+      <p className="auth-brand">backup365</p>
+      <p className="auth-tagline">Console de sauvegarde Microsoft 365</p>
+      {children}
+    </main>
+  );
+}
+
 /**
  * Formulaire de connexion ou de création du premier administrateur. `notice` annonce une session
  * perdue (expirée ou refusée).
@@ -111,8 +124,11 @@ export function CredentialsView({
   lockedStartSec,
   announcement = '',
   microsoft = false,
+  refusal,
   onSubmit,
 }: {
+  /** Refus de Microsoft au retour de la connexion : bandeau d'erreur « Accès refusé ». */
+  refusal?: string;
   /** Connexion Microsoft configurée : le bouton s'affiche sous le formulaire local. */
   microsoft?: boolean;
   mode: 'login' | 'setup';
@@ -133,13 +149,18 @@ export function CredentialsView({
   const locked = lockedSec > 0;
   const [typed, setTyped] = useState('');
   return (
-    <main tabIndex={-1}>
+    <AuthBlock>
       <h1>{setup ? 'Créer le compte administrateur' : 'Connexion à la console'}</h1>
+      {refusal && !setup && (
+        <Alert tone="error" title="Accès refusé">
+          <span className="alert-detail">{refusal}</span>
+        </Alert>
+      )}
       {locked && (
-        <Alert tone="warning">
+        <Alert tone="warning" title="Connexion temporairement bloquée">
           <span className="sr-only">{lockedMessage(lockedStartSec ?? lockedSec)}</span>
           <span aria-hidden="true">
-            Connexion impossible pour le moment. Nouvel essai possible dans{' '}
+            Nouvel essai possible dans{' '}
             <span className="countdown">{formatCountdown(lockedSec)}</span>.
           </span>
         </Alert>
@@ -152,7 +173,7 @@ export function CredentialsView({
           Aucun compte n’existe encore. Ce compte gère les comptes, les plans et les restaurations.
         </p>
       )}
-      {notice && <p role="status">{notice}</p>}
+      {notice && <Alert tone="info">{notice}</Alert>}
       <form
         onSubmit={(e: FormEvent<HTMLFormElement>) => {
           e.preventDefault();
@@ -189,14 +210,17 @@ export function CredentialsView({
         </Button>
       </form>
       {microsoft && !setup && (
-        <p>
-          <a className="btn btn-secondary" href={MICROSOFT_LOGIN_URL}>
+        <>
+          <p className="auth-or" aria-hidden="true">
+            ou
+          </p>
+          <a className="btn btn-secondary auth-microsoft" href={MICROSOFT_LOGIN_URL}>
             {MICROSOFT_LABEL}
           </a>
-        </p>
+        </>
       )}
-      <p>{AUDIT_NOTICE}</p>
-    </main>
+      <p className="auth-audit">{AUDIT_NOTICE}</p>
+    </AuthBlock>
   );
 }
 
@@ -209,10 +233,12 @@ const text = (form: FormData, name: string): string => {
 export function CredentialsPage({
   mode,
   notice,
+  refusal,
   onSession,
 }: {
   mode: 'login' | 'setup';
   notice?: string;
+  refusal?: string;
   onSession: (session: SessionInfo) => void;
 }) {
   const [error, setError] = useState<string>();
@@ -277,12 +303,13 @@ export function CredentialsPage({
     );
   };
   return (
-    <div ref={root}>
+    <div ref={root} className="login-page-body">
       <CredentialsView
         mode={mode}
         error={error}
         requestId={requestId}
         notice={notice}
+        refusal={refusal}
         busy={busy}
         lockedSec={lockedSec}
         lockedStartSec={startSec}
@@ -313,7 +340,7 @@ export function PasswordView({
   onCancel?: () => void;
 }) {
   return (
-    <main tabIndex={-1}>
+    <AuthBlock plain={!forced}>
       <h1>{forced ? 'Choisissez un nouveau mot de passe' : 'Mot de passe'}</h1>
       {forced ? (
         <p>Votre mot de passe est temporaire. Choisissez-en un nouveau pour continuer.</p>
@@ -360,7 +387,7 @@ export function PasswordView({
           <Button type="submit">{forced ? 'Enregistrer et continuer' : 'Enregistrer'}</Button>
         </WizardActions>
       </form>
-    </main>
+    </AuthBlock>
   );
 }
 

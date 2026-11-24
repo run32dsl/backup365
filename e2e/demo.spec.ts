@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import type { BrowserContext } from '@playwright/test';
 import { DEMO_LOGINS } from './demo-server.mjs';
 import { expect, test } from './fixtures.js';
 import { RESTORE_REASON_LABEL, SCREENS, SITES, WIDTHS } from './screens.mjs';
@@ -22,12 +23,15 @@ test('recherche, puis export d’un mail avec motif', async ({ page, context, ba
   await page.getByLabel('Recherche').fill('devis');
   await page.getByRole('button', { name: 'Rechercher' }).click();
   await page.getByRole('table').getByRole('link').first().click();
-  await expect(page.getByRole('heading', { level: 2, name: 'Exporter en EML' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Exporter' })).toBeVisible();
   await expect(page.getByText('@exemple.fr').first()).toBeVisible();
 
-  const reason = page.getByLabel('Motif de l’export (obligatoire)');
-  const exportButton = page.getByRole('button', { name: 'Exporter en EML' });
-  await expect(exportButton).toBeDisabled();
+  await page.getByRole('button', { name: /^Exporter / }).click();
+  const dialog = page.getByRole('dialog', { name: 'Exporter ce mail' });
+  const reason = dialog.getByLabel('Motif de l’export (obligatoire)');
+  const exportButton = dialog.getByRole('button', { name: 'Exporter', exact: true });
+  await exportButton.click();
+  await expect(dialog.getByText('Indiquez un motif pour continuer.')).toBeVisible();
   await reason.fill('Ticket INC-20001');
   const [download] = await Promise.all([page.waitForEvent('download'), exportButton.click()]);
   const eml = readFileSync(await download.path(), 'utf8');
@@ -56,8 +60,9 @@ test('restauration : motif obligatoire, suivi, résultat et journal', async ({
   const reason = dialog.getByLabel(RESTORE_REASON_LABEL);
   await expect(reason).toBeFocused();
   await expect(dialog.getByText('Ce motif sera inscrit au journal d’audit.')).toBeVisible();
+  await expect(dialog.getByText(/^Restauré par backup365 \d\d\/\d\d\/\d{4}$/)).toBeVisible();
   await expect(
-    dialog.getByText(/dossier « Restauré par backup365 \d\d\/\d\d\/\d{4} »/),
+    dialog.getByText('Le mail sera copié dans ce dossier de la boîte d’origine.'),
   ).toBeVisible();
 
   // Le motif est obligatoire ; la saisie est bornée à 120 caractères.
@@ -69,9 +74,8 @@ test('restauration : motif obligatoire, suivi, résultat et journal', async ({
   await reason.fill('Ticket #4242 : mail supprimé par erreur');
   await dialog.getByRole('button', { name: 'Restaurer', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Restauration en cours' })).toBeVisible();
-  await expect(
-    page.getByRole('dialog').getByText('Vous pouvez fermer cette fenêtre'),
-  ).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('Vous pouvez quitter cette page')).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('progressbar')).toBeVisible();
   // La restauration continue quand on ferme le panneau ; le focus revient au bouton.
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toBeHidden();
@@ -82,8 +86,8 @@ test('restauration : motif obligatoire, suivi, résultat et journal', async ({
   await page.getByLabel('Recherche').fill('devis');
   await page.getByRole('button', { name: 'Rechercher' }).click();
   await page.getByRole('table').getByRole('link').first().click();
-  await expect(page.getByText(/Dernière restauration : (en cours|réussie, \d+ s)/)).toBeVisible();
-  await expect(page.getByText(/Dernière restauration : réussie, \d+ s/)).toBeVisible();
+  await expect(page.getByText(/Dernière restauration : .*(En cours|Réussie \d+ s)/)).toBeVisible();
+  await expect(page.getByText(/Dernière restauration : .*Réussie \d+ s/)).toBeVisible();
 
   // Le journal garde la demande et le résultat avec le motif, jamais l'objet du mail.
   await page.goto('/#/audit');
@@ -104,8 +108,8 @@ test('restauration : un échec propose de réessayer', async ({ page, context, b
   await dialog.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #1 : essai');
   await dialog.getByRole('button', { name: 'Restaurer', exact: true }).click();
   const failed = page.getByRole('dialog', { name: 'Restauration échouée' });
-  await expect(failed.getByRole('alert')).toContainText('La restauration a échoué après');
-  await expect(failed.getByText('Rien n’a été modifié dans la boîte.')).toBeVisible();
+  await expect(failed.getByRole('alert')).toContainText('Échec de la restauration de ');
+  await expect(failed.getByRole('alert')).toContainText('Rien n’a été modifié.');
   // Une nouvelle tentative repasse par la confirmation.
   await failed.getByRole('button', { name: 'Réessayer' }).click();
   await expect(page.getByRole('dialog', { name: 'Restaurer ce mail' })).toBeVisible();
@@ -135,8 +139,8 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
     .getByRole('link', { name: /Budget/ })
     .first()
     .click();
-  const path = page.getByRole('navigation', { name: 'Chemin' });
-  await expect(path.getByText('Budget')).toHaveAttribute('aria-current', 'page');
+  const path = page.getByRole('navigation', { name: "Fil d'Ariane" });
+  await expect(path.getByText('Budget')).toHaveAttribute('aria-current', 'location');
   await expect(page.getByRole('columnheader', { name: 'Version du' })).toBeVisible();
   await expect(
     page.getByRole('cell', { name: /\d\d\/\d\d\/\d{4} \d\d:\d\d/ }).first(),
@@ -144,11 +148,11 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
 
   // Sélection annoncée ; le panneau des versions rend le focus à son bouton.
   await page.getByRole('radio', { name: 'budget.xlsx' }).check();
-  await expect(page.getByText('1 élément sélectionné')).toBeVisible();
+  await expect(page.getByText('Sélection : budget.xlsx')).toBeVisible();
   const versions = page.getByRole('button', { name: 'Versions de budget.xlsx' });
   await versions.click();
   const panel = page.getByRole('dialog', { name: 'Versions de budget.xlsx' });
-  await expect(panel.getByText(/Actuelle sauvegardée/)).toBeVisible();
+  await expect(panel.getByText(/84 Ko \(la plus récente\)/)).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(panel).toBeHidden();
   await expect(versions).toBeFocused();
@@ -156,7 +160,10 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   // Une version antérieure : récapitulatif en copie, motif obligatoire.
   await versions.click();
   await panel.getByRole('radio').nth(1).check();
-  await panel.getByRole('button', { name: 'Restaurer cette version' }).click();
+  await panel.getByRole('button', { name: 'Choisir cette version' }).click();
+  await expect(page.getByText(/Étape 1 sur 3/)).toBeVisible();
+  await expect(page.getByText(/Sélection : budget\.xlsx, version du /)).toBeVisible();
+  await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page.getByRole('heading', { name: 'Restaurer depuis OneDrive' })).toBeVisible();
   await expect(page.getByText(/Étape 2 sur 3 : Motif/)).toBeVisible();
   await page.getByRole('button', { name: 'Continuer' }).click();
@@ -167,11 +174,16 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
 
   // Confirmation : récapitulatif ; remplacer exige une confirmation explicite.
   await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
-  await expect(page.getByText('Version du', { exact: true })).toBeVisible();
-  await expect(page.getByText(/^\d\d\/\d\d\/\d{4} \d\d:\d\d$/)).toBeVisible();
+  for (const term of ['Sauvegarde du', 'Version du']) {
+    await expect(
+      page
+        .locator('dt', { hasText: new RegExp(`^${term}$`) })
+        .locator('xpath=following-sibling::dd[1]'),
+    ).toHaveText(/^\d\d\/\d\d\/\d{4} \d\d:\d\d$/);
+  }
   await expect(page.getByText('Nom choisi par OneDrive')).toBeVisible();
   await page.getByLabel('Remplacer le fichier actuel').check();
-  await expect(page.getByText(/il reste dans l’historique OneDrive/)).toBeVisible();
+  await expect(page.getByText(/L’actuel reste dans l’historique OneDrive/)).toBeVisible();
   const replaceGo = page.getByRole('button', { name: 'Restaurer', exact: true });
   await expect(replaceGo).toHaveAttribute('aria-disabled', 'true');
   // Le bouton grisé reste cliquable : le clic affiche l’erreur.
@@ -213,7 +225,7 @@ test('OneDrive : un échec propose de réessayer, rien n’est modifié', async 
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #8 : essai');
   await page.getByRole('button', { name: 'Continuer' }).click();
   await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
-  const failed = page.getByRole('alert').getByText(/La restauration a échoué/);
+  const failed = page.getByRole('alert').getByText(/Échec de la restauration de /);
   await expect(failed).toBeVisible();
   await expect(page.getByText(/Rien n’a été modifié/)).toBeVisible();
   await page.getByRole('button', { name: 'Réessayer' }).click();
@@ -234,18 +246,19 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
     page.getByText(/Chaque consultation, export ou restauration est inscrite/),
   ).toBeVisible();
 
-  // Un opérateur ne peut pas restaurer le site entier : l'option dit pourquoi, en texte.
-  await expect(page.getByLabel('Le site entier')).toBeDisabled();
-  await expect(page.getByText('(Réservé aux administrateurs)')).toBeVisible();
+  // Un opérateur ne peut pas restaurer le site entier : l'option n'est pas proposée.
+  await expect(page.getByLabel('Restaurer le site entier')).toHaveCount(0);
+  await expect(page.getByText('Réservé aux administrateurs')).toHaveCount(0);
 
-  // Bibliothèque : « Continuer » reste inactif tant qu'aucune n'est ouverte.
-  await page.getByLabel('Une bibliothèque').check();
+  // Rien de coché : « Continuer » reste inactif et la consigne est au-dessus du bouton.
   const next = page.getByRole('button', { name: 'Continuer' });
   await expect(next).toHaveAttribute('aria-disabled', 'true');
-  await expect(page.getByText('Ouvrez la bibliothèque à restaurer pour continuer.')).toBeVisible();
-  // Le lien d'une bibliothèque ouvre le niveau et la choisit.
-  await page.getByRole('link', { name: 'Documents partagés', exact: true }).click();
-  await expect(page.getByText('Sélection : Documents partagés')).toBeVisible();
+  await expect(
+    page.getByText('Cochez un fichier, un dossier ou une bibliothèque pour continuer.'),
+  ).toBeVisible();
+  // Une bibliothèque se coche sans être ouverte.
+  await page.getByRole('radio', { name: 'Documents partagés', exact: true }).check();
+  await expect(page.getByText('Sélection : Bibliothèque Documents partagés')).toBeVisible();
   await next.click();
 
   // Motif : la précision est obligatoire.
@@ -259,7 +272,7 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   // Récapitulatif en langage clair, sans écrasement.
   await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
   await expect(page.getByText('Bibliothèque : Documents partagés', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Les fichiers existants ne seront pas remplacés/)).toBeVisible();
+  await expect(page.getByText(/Fichiers déjà présents/)).toBeVisible();
   await expect(page.getByText('Ticket #9 : essai trimestriel', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
 
@@ -288,14 +301,12 @@ test('SharePoint : le site entier exige la case, puis le nom exact du site (admi
 }) => {
   await signInAs(context, baseURL!, 'admin');
   await page.goto(`/#/sharepoint/${SITES.rh}`);
-  await page.getByLabel('Le site entier').check();
+  await page.getByLabel('Restaurer le site entier').check();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #10 : reprise après incident');
   await page.getByRole('button', { name: 'Continuer' }).click();
 
-  await expect(
-    page.getByText('Restauration du site entier : action de grande ampleur'),
-  ).toBeVisible();
+  await expect(page.getByText('Restauration du site entier', { exact: true })).toBeVisible();
   const go = page.getByRole('button', { name: 'Restaurer', exact: true });
   await expect(go).toHaveAttribute('aria-disabled', 'true');
   await expect(page.getByText(/inactif tant que la case n’est pas cochée/)).toBeVisible();
@@ -337,17 +348,66 @@ test('SharePoint : un échec affiche le résultat partiel et propose de réessay
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket #11 : essai');
   await page.getByRole('button', { name: 'Continuer' }).click();
   await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
-  await expect(
-    page
-      .getByRole('alert')
-      .getByText('La restauration a échoué : aucun élément restauré. Rien n’a été écrasé.'),
-  ).toBeVisible();
+  await expect(page.getByRole('alert').getByText(/Rien n’a été modifié\./)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Restauration échouée' })).toBeVisible();
   await expect(page.getByText('Éléments en erreur', { exact: true })).toBeVisible();
   // Réessayer ramène au récapitulatif, motif et choix conservés.
   await page.getByRole('button', { name: 'Réessayer' }).click();
   await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Restaurer', exact: true })).toBeVisible();
+});
+
+test('SharePoint : fil d’Ariane à 390 px, séparateurs et liens par niveau', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await signInAs(context, baseURL!, 'operator');
+  // L'ancre porte le dossier : c'est ce qu'ouvre un clic milieu sur un niveau du fil.
+  const library = `#/sharepoint/${SITES.commerce}/item/Documents%20partag%C3%A9s`;
+  await page.goto(`/${library}/Plans%202024`);
+  const nav = page.getByRole('navigation', { name: "Fil d'Ariane" });
+  await expect(nav.getByText('Plans 2024')).toHaveAttribute('aria-current', 'location');
+  await expect(nav.getByRole('link')).toHaveCount(2);
+  const parent = nav.getByRole('link', { name: 'Documents partagés' });
+  await expect(parent).toHaveAttribute('href', library);
+
+  // Chaque « > » est dans le `li` du niveau qui le précède, donc sur sa ligne, après le libellé :
+  // aucune ligne ne commence par « > ». Le dernier niveau n'en a pas.
+  const levels = await nav.locator('ol').evaluate((ol) =>
+    [...ol.children].map((li) => {
+      const box = li.getBoundingClientRect();
+      const label = li.firstElementChild!.getBoundingClientRect();
+      const after = getComputedStyle(li, '::after');
+      return {
+        top: Math.round(box.top),
+        display: after.display,
+        content: after.content,
+        // Le séparateur suit le libellé, sur la même ligne.
+        glued:
+          label.right <= box.right - parseFloat(after.width) &&
+          label.top < box.bottom &&
+          label.bottom > box.top,
+      };
+    }),
+  );
+  expect(levels).toHaveLength(3);
+  // À 390 px, le chemin à trois niveaux du jeu de démo ne tient pas sur une ligne.
+  expect(new Set(levels.map((l) => l.top)).size).toBeGreaterThan(1);
+  for (const [i, level] of levels.entries()) {
+    if (i === levels.length - 1) {
+      expect(level.display).toBe('none');
+      continue;
+    }
+    expect(level.display).not.toBe('none');
+    expect(level.content).toBe('">"');
+    expect(level.glued).toBe(true);
+  }
+
+  // Clic simple : on remonte d'un niveau sans quitter la page.
+  await parent.click();
+  await expect(nav.getByText('Documents partagés')).toHaveAttribute('aria-current', 'location');
 });
 
 test('navigation au clavier du menu replié à 390 px', async ({ page, context, baseURL }) => {
@@ -390,7 +450,7 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await signInAs(context, baseURL!, 'admin');
   await page.goto('/#/plans');
   await expect(page.getByRole('heading', { name: 'Plans de protection', level: 1 })).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'Messagerie Direction', exact: true })).toBeVisible();
+  await expect(page.getByText('Messagerie Direction', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Créer un plan' }).click();
   await expect(page.getByText('Étape 1 sur 3 : Quoi protéger')).toBeVisible();
@@ -407,7 +467,7 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
     page.getByRole('alert').getByText('Indiquez la justification de la durée de conservation.'),
   ).toBeVisible();
   await page.getByRole('group', { name: 'Durée de conservation' }).getByLabel('3 ans').check();
-  await page.getByLabel('Justification de cette durée').selectOption({ label: 'Besoin métier' });
+  await page.getByLabel('Justification de cette durée').fill('Besoin métier : archives');
   await page.getByRole('button', { name: 'Continuer' }).click();
 
   // Étape 3 : récapitulatif en langage clair, puis création.
@@ -420,26 +480,34 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
     page.getByText(/Plan créé\. Première sauvegarde prévue à \d\d:\d\d\./),
   ).toBeVisible();
   await expect(page).toHaveURL(/#\/plans$/);
-  await expect(page.getByRole('cell', { name: 'Contacts Exemple', exact: true })).toBeVisible();
+  await expect(
+    page.locator('td[data-label="Plan"]').filter({ hasText: 'Contacts Exemple' }),
+  ).toBeVisible();
 
   // Lancement manuel : le motif est exigé, puis inscrit au journal d'audit.
   await page.getByRole('button', { name: 'Lancer Contacts Exemple maintenant' }).click();
   const run = page.getByRole('dialog', { name: 'Lancer « Contacts Exemple » maintenant' });
   await run.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
-  await expect(run.getByText('Indiquez un motif.')).toBeVisible();
-  await run.getByLabel('Motif').selectOption({ label: 'Après un incident' });
+  await expect(run.getByText('Indiquez un motif pour continuer.')).toBeVisible();
+  await run.getByLabel('Motif du lancement (obligatoire)').fill('Après un incident');
   await run.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
   await expect(
     page.getByText('Sauvegarde lancée. Motif enregistré au journal d’audit.'),
   ).toBeVisible();
 
-  // Suppression : la confirmation s'ouvre sur « Annuler ».
+  // Suppression : la confirmation s'ouvre sur le champ du motif (comme les autres boîtes à motif).
   await page.getByRole('button', { name: 'Supprimer Contacts Exemple' }).click();
   const del = page.getByRole('dialog', { name: 'Supprimer « Contacts Exemple » ?' });
-  await expect(del.getByRole('button', { name: 'Annuler' })).toBeFocused();
+  await expect(del.getByLabel('Motif de la suppression (obligatoire)')).toBeFocused();
+  await del.getByRole('button', { name: 'Supprimer le plan' }).click();
+  await expect(del.getByText('Indiquez un motif pour continuer.')).toBeVisible();
+  await expect(page.getByText('Plan supprimé.')).toHaveCount(0);
+  await del.getByLabel('Motif de la suppression (obligatoire)').fill('Plan remplacé');
   await del.getByRole('button', { name: 'Supprimer le plan' }).click();
   await expect(page.getByText('Plan supprimé.')).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'Contacts Exemple', exact: true })).toHaveCount(0);
+  await expect(
+    page.locator('td[data-label="Plan"]').filter({ hasText: 'Contacts Exemple' }),
+  ).toHaveCount(0);
 
   await page.goto('/#/audit');
   await expect(page.getByText('Après un incident').first()).toBeVisible();
@@ -462,7 +530,7 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
   const run = page.getByRole('dialog', { name: 'Lancer « Messagerie Direction » maintenant' });
   const submit = run.getByRole('button', { name: 'Lancer la sauvegarde' });
-  await run.getByLabel('Motif').selectOption({ label: 'Après un incident' });
+  await run.getByLabel('Motif du lancement (obligatoire)').fill('Après un incident');
   await submit.click();
 
   // Console non reliée : avertissement sans identifiant, au-dessus du seul bouton « Fermer ».
@@ -492,14 +560,14 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
     }),
   );
   await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
-  await run.getByLabel('Motif').selectOption({ label: 'Après un incident' });
+  await run.getByLabel('Motif du lancement (obligatoire)').fill('Après un incident');
   await submit.click();
   await expect(run.getByRole('alert').filter({ hasText: 'Erreur du serveur' })).toBeVisible();
   await expect(run.getByText('Identifiant de requête')).toHaveCount(0);
   await expect(submit).toBeEnabled();
-  await run.getByLabel('Motif').selectOption({ label: 'Autre (préciser)' });
+  await run.getByLabel('Motif du lancement (obligatoire)').fill('');
   await submit.click();
-  await expect(run.getByText('Indiquez un motif.')).toBeVisible();
+  await expect(run.getByText('Indiquez un motif pour continuer.')).toBeVisible();
   await expect(run.getByText('Erreur du serveur')).toHaveCount(0);
   await run.getByRole('button', { name: 'Annuler' }).click();
 
@@ -515,13 +583,14 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   );
   await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
   const del = page.getByRole('dialog', { name: 'Supprimer « Messagerie Direction » ?' });
+  await del.getByLabel('Motif de la suppression (obligatoire)').fill('Plan remplacé');
   await del.getByRole('button', { name: 'Supprimer le plan' }).click();
   const refused = del.getByRole('alert').filter({ hasText: 'Journal d’audit indisponible' });
   await expect(refused).toBeVisible();
   await expect(del.getByText('Identifiant de requête')).toHaveCount(0);
   await expect(refused.getByRole('link')).toHaveCount(0);
   await del.getByRole('button', { name: 'Annuler' }).click();
-  await expect(page.getByRole('cell', { name: 'Messagerie Direction', exact: true })).toBeVisible();
+  await expect(page.getByText('Messagerie Direction', { exact: true })).toBeVisible();
 });
 
 test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
@@ -531,7 +600,7 @@ test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
 }) => {
   await signInAs(context, baseURL!, 'operator');
   await page.goto('/#/plans');
-  await expect(page.getByRole('cell', { name: 'Messagerie Direction', exact: true })).toBeVisible();
+  await expect(page.getByText('Messagerie Direction', { exact: true })).toBeVisible();
   await expect(
     page.getByText('Lecture seule : seul un administrateur peut modifier les plans.'),
   ).toBeVisible();
@@ -580,11 +649,25 @@ for (const width of WIDTHS) {
 }
 
 test('le bandeau du mode démo est présent sur chaque écran', async ({ browser, baseURL }) => {
+  // Les variantes de thème ou de version reprennent des écrans déjà parcourus.
   // Le test parcourt tous les écrans de `screens.mjs` : sa durée croît avec la liste.
   test.setTimeout(120_000);
-  for (const screen of SCREENS) {
-    const context = await browser.newContext({ baseURL: baseURL! });
-    if (screen.role) await signInAs(context, baseURL!, screen.role);
+  // Une seule connexion par rôle : la session est reprise d'un écran à l'autre. Une connexion
+  // par écran faisait dépasser le délai du test à mesure que la liste des écrans grandissait.
+  const sessions = new Map<string, Awaited<ReturnType<BrowserContext['storageState']>>>();
+  for (const screen of SCREENS.filter((s) => !s.scheme && !s.buildCommit)) {
+    let storageState = screen.role ? sessions.get(screen.role) : undefined;
+    if (screen.role && !storageState) {
+      const login = await browser.newContext({ baseURL: baseURL! });
+      await signInAs(login, baseURL!, screen.role);
+      storageState = await login.storageState();
+      sessions.set(screen.role, storageState);
+      await login.close();
+    }
+    const context = await browser.newContext({
+      baseURL: baseURL!,
+      ...(storageState ? { storageState } : {}),
+    });
     const page = await context.newPage();
     await page.goto(`/${screen.hash}`);
     await page.locator('main').waitFor();
@@ -611,11 +694,7 @@ test('dialogue : focus piégé, Échap, retour du focus', async ({ page, context
   await expect(trigger).toBeFocused();
 });
 
-test('groupe d’options : légende, flèches du clavier, option désactivée', async ({
-  page,
-  context,
-  baseURL,
-}) => {
+test('groupe d’options : légende, flèches du clavier', async ({ page, context, baseURL }) => {
   await signInAs(context, baseURL!, 'admin');
   await page.goto('/#/composants');
 
@@ -630,16 +709,15 @@ test('groupe d’options : légende, flèches du clavier, option désactivée', 
   await page.keyboard.press('ArrowLeft');
   await expect(copy).toBeChecked();
 
-  // Une option désactivée n'est jamais atteinte par les flèches et garde son explication.
+  // Les flèches passent d'une option à l'autre du groupe.
   const scope = page.getByRole('group', { name: 'Restaurer' });
   const item = scope.getByRole('radio', { name: 'Un élément' });
   const site = scope.getByRole('radio', { name: /Le site entier/ });
-  await expect(site).toBeDisabled();
-  await expect(site).toHaveAccessibleDescription('(Réservé aux administrateurs)');
+  await expect(item).toBeChecked();
   await item.focus();
   await page.keyboard.press('ArrowRight');
-  await expect(item).toBeChecked();
-  await expect(site).not.toBeChecked();
+  await expect(site).toBeChecked();
+  await expect(item).not.toBeChecked();
 });
 
 test('recherche à 1280 px : le tableau tient dans son conteneur, avec ou sans filtre de boîte', async ({
@@ -715,9 +793,11 @@ test.describe('recherche à 1280 px', () => {
     expect(button).not.toBeNull();
     expect(action).not.toBeNull();
     expect(action!.x + action!.width).toBeLessThanOrEqual(button!.x + button!.width + 1);
-    // La colonne Boîte passe à la ligne : elle reste étroite (11 rem = 176 px, plus les marges).
-    const mailbox = await page.getByRole('columnheader', { name: 'Boîte' }).boundingBox();
-    expect(mailbox!.width).toBeLessThanOrEqual(200);
+    // L'adresse de la colonne Boîte tient sur une ligne : les lignes gardent leur hauteur normale.
+    const rows = await page.getByRole('row').all();
+    for (const row of rows.slice(1)) {
+      expect((await row.boundingBox())!.height).toBeLessThanOrEqual(70);
+    }
   });
 
   test('écran recherche-boite : pas de défilement horizontal', async ({

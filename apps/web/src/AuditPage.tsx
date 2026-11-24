@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { AUDIT_ACTIONS, type AuditAction } from '@backup365/core';
+import { AUDIT_ACTIONS } from '@backup365/core';
 import {
   AUDIT_PAGE_SIZE,
   DATE_HELP,
+  FILTER_NOT_APPLIED,
+  hasDateError,
   fetchAudit,
   queryFromForm,
   submitFilters,
@@ -12,6 +14,7 @@ import {
   type AuditResponse,
 } from './audit.js';
 import {
+  ACTION_LABELS,
   NO_TARGET,
   actorLabel,
   auditDate,
@@ -34,24 +37,6 @@ import {
 /** État de la consultation du journal. */
 export type AuditState = AuditResponse | 'loading' | 'error';
 
-const ACTION_LABELS: Record<AuditAction, string> = {
-  'list.view': 'Consultation d’une liste',
-  'item.open': 'Ouverture d’une fiche',
-  'item.export': 'Export',
-  'access.denied': 'Échec d’accès',
-  'auth.login': 'Connexion',
-  'auth.login_failed': 'Échec de connexion',
-  'auth.logout': 'Déconnexion',
-  'account.create': 'Création de compte',
-  'account.update': 'Modification de compte',
-  'plan.create': 'Création de plan',
-  'plan.update': 'Modification de plan',
-  'plan.delete': 'Suppression de plan',
-  'plan.run': 'Lancement manuel d’un plan',
-  'restore.request': 'Demande de restauration',
-  'restore.result': 'Résultat de restauration',
-};
-
 type Entry = AuditItem;
 
 /** Colonnes du tableau ; l'empreinte n'y figure pas (elle reste dans l'infobulle du numéro et dans l'API). */
@@ -64,13 +49,13 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
     },
     {
       header: 'Date (UTC)',
-      className: 'nowrap',
+      className: 'nowrap audit-date',
       cell: (e) => <span title={e.at}>{auditDate(e.at) || '—'}</span>,
     },
-    { header: 'Acteur', className: 'keep-words', cell: (e) => actorLabel(e.actor) },
+    { header: 'Acteur', className: 'keep-words audit-actor', cell: (e) => actorLabel(e.actor) },
     {
       header: 'Action',
-      className: 'keep-words',
+      className: 'keep-words card-title',
       cell: (e) => {
         const detail = detailLabel(e.reason);
         return (
@@ -83,7 +68,7 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
     },
     {
       header: 'Cible',
-      className: 'keep-words address',
+      className: 'keep-words address card-nolabel',
       cell: (e) => {
         const { name, secondary } = targetView(e, planNames);
         // Sans cible : cellule vide, comme Éléments et Motif (la carte l'omet).
@@ -114,16 +99,27 @@ export function AuditView({
   state,
   planNames = null,
   onPage,
+  filterRefused = false,
 }: {
   state: AuditState;
+  /** Un filtre de date refusé n'a pas été appliqué : la liste affichée n'est pas filtrée. */
+  filterRefused?: boolean;
   planNames?: ReadonlyMap<string, string> | null;
   onPage?: (offset: number) => void;
 }) {
   if (state === 'loading') return <p role="status">Chargement du journal…</p>;
   if (state === 'error') return <Alert tone="error">Journal d’audit indisponible</Alert>;
-  if (state.items.length === 0) return <EmptyState>Aucune entrée.</EmptyState>;
+  const notice = filterRefused && <Alert tone="info">{FILTER_NOT_APPLIED}</Alert>;
+  if (state.items.length === 0)
+    return (
+      <>
+        {notice}
+        <EmptyState>Aucune entrée.</EmptyState>
+      </>
+    );
   return (
     <>
+      {notice}
       <p role="status">
         {state.total === 1
           ? '1 entrée'
@@ -219,6 +215,7 @@ export function AuditPage() {
       <AuditView
         state={state}
         planNames={planNames}
+        filterRefused={hasDateError(errors)}
         onPage={(offset) => setQuery({ ...query, offset })}
       />
     </main>

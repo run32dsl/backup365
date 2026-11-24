@@ -1,4 +1,23 @@
-import { dateTimeOf, elementsInError, elementsWhich } from './format.js';
+import type { AuditAction } from '@backup365/core';
+import { dateTimeOf, dayOf, elementsInError, elementsWhich } from './format.js';
+
+export const ACTION_LABELS: Record<AuditAction, string> = {
+  'list.view': 'Consultation d’une liste',
+  'item.open': 'Ouverture d’une fiche',
+  'item.export': 'Export',
+  'access.denied': 'Échec d’accès',
+  'auth.login': 'Connexion',
+  'auth.login_failed': 'Échec de connexion',
+  'auth.logout': 'Déconnexion',
+  'account.create': 'Création de compte',
+  'account.update': 'Modification de compte',
+  'plan.create': 'Création de plan',
+  'plan.update': 'Modification de plan',
+  'plan.delete': 'Suppression de plan',
+  'plan.run': 'Lancement manuel d’un plan',
+  'restore.request': 'Demande de restauration',
+  'restore.result': 'Résultat de restauration',
+};
 
 const REASON_LABELS: Record<string, string> = {
   forbidden: 'Accès refusé',
@@ -158,6 +177,34 @@ export interface TargetInfo {
 /** Texte de « pas de cible » ; la colonne Cible du journal laisse alors sa cellule vide. */
 export const NO_TARGET = '—';
 
+const LIST_SOURCES: Record<string, string> = {
+  'mail.search': 'Messagerie',
+  'onedrive.items': 'OneDrive',
+  'sharepoint.items': 'SharePoint',
+  'sharepoint.scope': 'SharePoint',
+  audit: 'Journal d’audit',
+};
+
+/** Filtres inscrits avec la consultation du journal (`from=…;to=…;action=…`), jamais l'acteur saisi. */
+function auditFilters(target: string | undefined): string {
+  const f = new Map<string, string>();
+  for (const pair of (target ?? '').split(';')) {
+    const eq = pair.indexOf('=');
+    if (eq > 0) f.set(pair.slice(0, eq), pair.slice(eq + 1));
+  }
+  const from = dayOf(f.get('from') ?? null);
+  // `to` est une borne exclue (lendemain 00:00) : le dernier jour inclus est la veille.
+  const toEnd = Date.parse(f.get('to') ?? '');
+  const to = Number.isNaN(toEnd) ? '' : dayOf(new Date(toEnd - 1).toISOString());
+  const parts: string[] = [];
+  if (from && to) parts.push(`du ${from} au ${to}`);
+  else if (from) parts.push(`depuis le ${from}`);
+  else if (to) parts.push(`jusqu’au ${to}`);
+  const action = ACTION_LABELS[(f.get('action') ?? '') as AuditAction];
+  if (action) parts.push(`action : ${action}`);
+  return parts.length > 0 ? parts.join(', ') : 'sans filtre';
+}
+
 /**
  * Cible lisible : un nom, et pour un mail la boîte en texte secondaire. Jamais un identifiant
  * interne : mail ou plan introuvable → « Élément supprimé » / « Plan supprimé », sinon « — ».
@@ -166,6 +213,19 @@ export function targetView(
   e: TargetInfo,
   planNames: ReadonlyMap<string, string> | null,
 ): { name: string; secondary?: string } {
+  const list = LIST_SOURCES[e.resource];
+  if (list) {
+    if (e.resource === 'audit') return { name: list, secondary: auditFilters(e.target) };
+    // Consultation d'une liste : la source, puis le compte ou le site ; jamais les termes cherchés.
+    const scope = e.resource.startsWith('sharepoint')
+      ? e.targetName
+      : e.resource === 'onedrive.items'
+        ? e.target?.split('/')[0]
+        : e.target === '*'
+          ? 'toutes les boîtes'
+          : e.target; // absent : entrée antérieure ou filtre sans boîte indexée
+    return scope ? { name: list, secondary: scope } : { name: list };
+  }
   if (!e.target) return { name: NO_TARGET };
   if (e.resource === 'plan') {
     return { name: planNames?.get(e.target) ?? (planNames ? 'Plan supprimé' : NO_TARGET) };

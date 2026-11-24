@@ -1,9 +1,21 @@
 import { renderToStaticMarkup, renderToString } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ConsoleFooter } from './ConsoleFooter.js';
-import { OverviewView, Home, agoLabel, plansLabel } from './Home.js';
+import {
+  BackupAction,
+  PlansAction,
+  OverviewView,
+  Home,
+  agoLabel,
+  announcementOf,
+  focusAfterRetry,
+  loadOverview,
+  plansLabel,
+  type OverviewState,
+} from './Home.js';
 import { fetchHealth } from './health.js';
 import { fetchOverview, type Overview } from './overview.js';
+import { MESSAGES as PLAN_MESSAGES, NEW_PLAN_HASH, PLANS_HASH } from './plans.js';
 
 const NOW = Date.parse('2026-11-18T17:02:00Z');
 const retry = () => undefined;
@@ -12,22 +24,22 @@ const render = (state: Parameters<typeof OverviewView>[0]['state'], admin = true
 
 const operational: Overview = {
   state: 'operational',
-  plans: { total: 4, operational: 4 },
+  plans: { total: 4, operational: 4, running: 0, queued: 0, failed: 0, late: 0 },
   lastBackupAt: '2026-11-18T14:02:00Z',
 };
 const unconfigured: Overview = {
   state: 'unconfigured',
-  plans: { total: 0, operational: 0 },
+  plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
   lastBackupAt: null,
 };
 const pending: Overview = {
   state: 'pending',
-  plans: { total: 1, operational: 0 },
+  plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
   lastBackupAt: null,
 };
 const failed: Overview = {
   state: 'failed',
-  plans: { total: 4, operational: 2 },
+  plans: { total: 4, operational: 2, running: 0, queued: 0, failed: 1, late: 1 },
   lastBackupAt: '2026-11-16T02:00:00Z',
 };
 
@@ -43,62 +55,130 @@ describe('Home', () => {
 });
 
 describe('OverviewView', () => {
-  it('operational: pill, plans count with link, date, and no button', () => {
+  it('operational: pill, plans count, date, one secondary Voir les plans button', () => {
     const html = render(operational);
     expect(html).toContain('Opérationnelle');
-    expect(html).toContain('4 plans opérationnels sur 4');
-    expect(html).toContain('href="#/plans"');
+    expect(html).toContain('4 plans à jour sur 4');
+    expect(html).not.toContain('<a ');
+    expect(html.match(/<button/g)).toHaveLength(1);
+    expect(html).toMatch(/<button[^>]*btn-secondary[^>]*>Voir les plans<\/button>/);
     expect(html).toContain('il y a 3 h');
     expect(html).toContain('<time dateTime="2026-11-18T14:02:00Z">18/11/2026 14:02</time>');
-    expect(html).not.toContain('<button');
     expect(html).not.toContain('Erreur inattendue');
   });
 
-  it('unconfigured: one Configurer button, no plan link, no backup', () => {
+  it('unconfigured: one Créer un plan button in the Sauvegarde card, said once, plain lines', () => {
     const html = render(unconfigured);
     expect(html).toContain('Non configurée');
-    expect(html).toContain('Aucune donnée Microsoft 365 n’est encore protégée.');
-    expect(html).toContain('Aucun plan');
-    expect(html).toContain('Aucune sauvegarde');
+    expect(html.match(/protégée/g)).toHaveLength(1);
+    expect(html).toContain('<p>Aucun plan pour l’instant.</p>');
+    expect(html).toContain(
+      'Aucune sauvegarde pour l’instant. Elle apparaîtra ici après la première exécution d’un plan.',
+    );
     expect(html.match(/<button/g)).toHaveLength(1);
-    expect(html).toContain('Configurer');
+    const backupCard = html.split('<section')[1] ?? '';
+    expect(backupCard).toContain('Créer un plan</button>');
+    expect(html).not.toContain('Configurer');
+    expect(html).not.toContain('empty');
     expect(html).not.toContain('Voir les plans');
     expect(html).not.toContain('Erreur inattendue');
   });
 
-  it('unconfigured, operator: no button, asks an administrator', () => {
+  it('Voir les plans opens the plans list', () => {
+    const win = { location: { hash: '' } };
+    vi.stubGlobal('window', win);
+    try {
+      const button = PlansAction() as { props: { onClick: () => void } };
+      button.props.onClick();
+      expect(win.location.hash).toBe(PLANS_HASH);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('unconfigured: Créer un plan opens the wizard, not the list', () => {
+    const win = { location: { hash: '' } };
+    vi.stubGlobal('window', win);
+    try {
+      const button = BackupAction({ state: 'unconfigured', admin: true }) as {
+        props: { onClick: () => void };
+      };
+      button.props.onClick();
+      expect(win.location.hash).toBe(NEW_PLAN_HASH);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('unconfigured, operator: no button, asks an administrator, plain plans line', () => {
     const html = render(unconfigured, false);
     expect(html).not.toContain('<button');
+    expect(html).toContain('<p>Aucun plan pour l’instant.</p>');
+    expect(html).not.toContain('empty');
     expect(html).toContain(
       'Demandez à un administrateur de la console de configurer la sauvegarde.',
     );
   });
 
-  it('pending (plans without any result): never Non configurée, no pill, no button', () => {
+  it('pending (plans without any result): En attente pill, never Non configurée, no button', () => {
     for (const admin of [true, false]) {
       const html = render(pending, admin);
       expect(html).not.toContain('Non configurée');
       expect(html).not.toContain('Configurer');
-      expect(html).not.toContain('class="badge');
-      expect(html).not.toContain('<button');
+      expect(html).toContain('<span aria-hidden="true">◷</span> En attente');
+      expect(html).toContain('role="status"');
+      expect(html.match(/<button/g)).toHaveLength(1);
       expect(html).toContain('Aucune sauvegarde n’est encore terminée.');
-      expect(html).toContain('0 plan opérationnel sur 1');
+      expect(html).toContain('0 plan à jour sur 1');
       expect(html).toContain('Voir les plans');
       expect(html.match(/<section/g)).toHaveLength(3);
       expect(html).not.toContain('Erreur inattendue');
     }
   });
 
-  it('failed: one Voir l’erreur button, a plain message, last success date', () => {
+  it('failed: Voir l’erreur and Voir les plans buttons, a plain message, last success date', () => {
     const html = render(failed, false);
     expect(html).toContain('En échec');
     expect(html).toContain('La dernière exécution a échoué.');
-    expect(html.match(/<button/g)).toHaveLength(1);
+    expect(html.match(/<button/g)).toHaveLength(2);
     expect(html).toContain('Voir l’erreur');
-    expect(html).toContain('2 plans opérationnels sur 4');
+    expect(html).toContain('2 plans à jour sur 4');
     expect(html).toContain('il y a 2 j');
     expect(html).toContain('(dernière réussie)');
     expect(html).not.toContain('Erreur inattendue');
+  });
+
+  it('Plans card: running and queued plans with the pills and words of the plans list', () => {
+    const busy = render({ ...failed, plans: { ...failed.plans, running: 1, queued: 2 } });
+    const card = busy.slice(busy.indexOf('>Plans<'), busy.indexOf('>Dernière sauvegarde<'));
+    expect(card).toContain(
+      `<span aria-hidden="true">↻</span> ${PLAN_MESSAGES.running}</span> <strong>1</strong>`,
+    );
+    expect(card).toContain(
+      `<span aria-hidden="true">◷</span> ${PLAN_MESSAGES.queued}</span> <strong>2</strong>`,
+    );
+    // Le dernier résultat reste dit : le décompte « à jour » et l'état de la carte « Sauvegarde ».
+    expect(card).toContain('2 plans à jour sur 4');
+    expect(busy).toContain('La dernière exécution a échoué.');
+    const queuedOnly = render({ ...failed, plans: { ...failed.plans, queued: 1 } });
+    expect(queuedOnly).toContain('En file d’attente');
+    expect(queuedOnly).not.toContain('En cours');
+    // Au repos : aucune pastille d'activité.
+    expect(render(operational)).not.toContain('plan-counts');
+  });
+
+  it('Plans card: four states as pills, most serious first, none for a zero count', () => {
+    const all = render({ ...failed, plans: { ...failed.plans, running: 1, queued: 2 } });
+    const card = all.slice(all.indexOf('>Plans<'), all.indexOf('>Dernière sauvegarde<'));
+    const order = ['En échec', 'En retard', PLAN_MESSAGES.running, PLAN_MESSAGES.queued].map((w) =>
+      card.indexOf(`${w}</span> <strong>`),
+    );
+    expect(order.every((i) => i > 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(card.match(/class="badge /g)).toHaveLength(4);
+    expect(card).toContain('2 plans à jour sur 4</p>');
+    const none = render({ ...failed, plans: { ...failed.plans, failed: 0, late: 0 } });
+    expect(none).not.toContain('plan-counts');
   });
 
   it('request error: an alert with Réessayer as the only action', () => {
@@ -118,11 +198,58 @@ describe('OverviewView', () => {
   });
 });
 
+describe('retry after an error', () => {
+  const run = async (fetcher: () => Promise<Overview>) => {
+    const states: OverviewState[] = [];
+    await loadOverview((s) => states.push(s), fetcher);
+    return states;
+  };
+  const fail = () => Promise.reject(new Error('HTTP 503'));
+
+  it('goes back to loading (aria-busy) then shows the data', async () => {
+    expect(await run(fail)).toEqual(['loading', 'error']);
+    const states = await run(() => Promise.resolve(operational));
+    expect(states).toEqual(['loading', operational]);
+    const html = render(states[0]!);
+    expect(html).toContain('aria-busy="true"');
+    expect(html).not.toContain('role="alert"');
+    const done = render(states[1]!);
+    expect(done).not.toContain('aria-busy');
+    expect(done).toContain('4 plans à jour sur 4');
+  });
+
+  it('shows the alert again, without « Erreur inattendue », after a new error', async () => {
+    const states = await run(fail);
+    expect(states.at(-1)).toBe('error');
+    const html = render('error');
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('Réessayer');
+    expect(html).not.toContain('Erreur inattendue');
+  });
+
+  it('announces the new state inside a role="status" zone', () => {
+    expect(renderToString(<Home />)).toMatch(/<div role="status"[^>]*><\/div>/);
+    expect(announcementOf('loading')).toBe('Chargement de l’état de la sauvegarde…');
+    expect(announcementOf(operational)).toBe('État de la sauvegarde mis à jour.');
+    expect(announcementOf('error')).toBe('');
+  });
+
+  it('puts the focus on the Sauvegarde title, else on the h1, never on body', () => {
+    const focused: string[] = [];
+    const el = (name: string) => ({ focus: () => focused.push(name) });
+    focusAfterRetry({ querySelector: (q) => (q === '#overview-backup' ? el('card') : el('h1')) });
+    focusAfterRetry({ querySelector: (q) => (q === 'h1' ? el('h1') : null) });
+    expect(focused).toEqual(['card', 'h1']);
+    expect(render(operational)).toContain('<h2 id="overview-backup" tabindex="-1">Sauvegarde</h2>');
+    expect(renderToStaticMarkup(<Home />)).toContain('<h1 tabindex="-1">Tableau de bord</h1>');
+  });
+});
+
 describe('labels', () => {
   it('writes the plans count in the singular and plural', () => {
-    expect(plansLabel(1, 1)).toBe('1 plan opérationnel sur 1');
-    expect(plansLabel(0, 3)).toBe('0 plan opérationnel sur 3');
-    expect(plansLabel(3, 4)).toBe('3 plans opérationnels sur 4');
+    expect(plansLabel(1, 1)).toBe('1 plan à jour sur 1');
+    expect(plansLabel(0, 3)).toBe('0 plan à jour sur 3');
+    expect(plansLabel(3, 4)).toBe('3 plans à jour sur 4');
   });
 
   it('writes the age in hours then days', () => {
@@ -154,6 +281,12 @@ describe('ConsoleFooter', () => {
     expect(renderToStaticMarkup(<ConsoleFooter version="1.4.2" demo={false} />)).toContain(
       'Version 1.4.2',
     );
+  });
+
+  it('shows a version built from the image', () => {
+    expect(
+      renderToStaticMarkup(<ConsoleFooter version="0.1.0 · abc1234" demo={false} />),
+    ).toContain('Version 0.1.0 · abc1234');
   });
 
   it('links to the components page in demo mode only', () => {
