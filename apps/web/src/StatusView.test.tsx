@@ -162,7 +162,7 @@ describe('StatusView', () => {
     });
     /** Ligne du tableau « Sources » qui porte ce service. */
     const line = (services: Entry[], label: string): string => {
-      const html = renderToString(<StatusView state={{ ...report, services }} />);
+      const html = renderToString(<StatusView state={{ ...report, rows: [], services }} />);
       const table = html.slice(html.indexOf('services-title'), html.indexOf('backups-title'));
       const found = table.split('<tr').find((tr) => tr.includes(`${label}</th>`));
       if (found === undefined) throw new Error(`ligne ${label} absente`);
@@ -331,6 +331,153 @@ describe('StatusView', () => {
       expect(tr).not.toContain('En échec');
       expect(tr).not.toContain('#/audit');
       expect(tr).not.toContain('row-muted');
+    });
+
+    it('takes the latest date and the state from the catalogue rows listed below, never « Jamais » or « En attente »', () => {
+      const od = (id: string, at: string, ageHours: number, state: 'ok' | 'stale') => ({
+        kind: 'mailbox' as const,
+        sourceId: id,
+        displayName: id,
+        workload: 'onedrive' as const,
+        lastSnapshotAt: at,
+        ageHours,
+        state,
+      });
+      const rows = [
+        od('u1', '2026-11-10T08:00:00Z', 52, 'stale'),
+        od('u2', '2026-11-12T06:00:00Z', 6, 'ok'),
+        od('u3', '2026-11-11T06:00:00Z', 30, 'stale'),
+      ];
+      const html = renderToString(
+        <StatusView
+          state={{
+            ...report,
+            rows,
+            services: [
+              entry({
+                service: 'onedrive',
+                ...noBackup,
+                awaitingFirstRun: true,
+              }),
+            ],
+          }}
+        />,
+      );
+      const table = html.slice(html.indexOf('services-title'), html.indexOf('backups-title'));
+      expect(table).toContain('<time dateTime="2026-11-12T06:00:00Z">Il y a 6 h');
+      expect(table).toContain('12/11/2026 06:00 UTC');
+      expect(table).toContain('En retard');
+      expect(table).toContain('2 comptes sur 3 en retard');
+      expect(table).not.toContain('Jamais');
+      expect(table).not.toContain('En attente');
+    });
+
+    it('names the state of a listed plan that covers the service, without « Non protégé »', () => {
+      const plan = {
+        id: 'p',
+        name: 'OneDrive et SharePoint Services',
+        rpoHours: 24 as const,
+        dataTypes: ['onedrive', 'sharepoint'] as ('onedrive' | 'sharepoint')[],
+        state: 'late' as const,
+        lastSuccessAt: null,
+        lastRun: null,
+      };
+      const services = [
+        entry({ service: 'sharepoint', hasPlan: false, ...noBackup, retentionDays: null }),
+      ];
+      const html = renderToString(
+        <StatusView
+          state={{
+            ...report,
+            rows: [],
+            services,
+            plans: { counts: { compliant: 0, late: 1, failed: 0 }, nonCompliant: [plan] },
+          }}
+        />,
+      );
+      const table = html.slice(html.indexOf('services-title'), html.indexOf('Plans de protection'));
+      expect(table).not.toContain('Non protégé');
+      expect(table).not.toContain('Créer un plan');
+      expect(table).not.toContain('row-muted');
+      expect(table).toContain('En retard');
+      expect(table).toContain('Aucune sauvegarde réussie');
+      expect(html).not.toContain('sans plan');
+    });
+
+    /** Lignes que le catalogue rend pour des sites connus mais jamais sauvegardés. */
+    const neverBackedUp = (n: number): StatusReport['rows'] =>
+      Array.from({ length: n }, (_, i) => ({
+        kind: 'site' as const,
+        sourceId: `s,${i}`,
+        displayName: `Site ${i}`,
+        workload: 'sharepoint' as const,
+        lastSnapshotAt: null,
+        ageHours: null,
+        state: 'missing' as const,
+      }));
+    const listed = (id: string, state: 'late' | 'failed') => ({
+      id,
+      name: id,
+      rpoHours: 24 as const,
+      dataTypes: ['sharepoint'] as 'sharepoint'[],
+      state,
+      lastSuccessAt: null,
+      lastRun: null,
+    });
+    /** Tableau « Sources » d'un SharePoint sans sauvegarde, avec ces lignes et ces plans listés. */
+    const sharepoint = (
+      over: Partial<Entry>,
+      rows: StatusReport['rows'],
+      nonCompliant: ReturnType<typeof listed>[],
+    ): string => {
+      const html = renderToString(
+        <StatusView
+          state={{
+            ...report,
+            rows,
+            services: [entry({ service: 'sharepoint', ...noBackup, ...over })],
+            plans: { counts: { compliant: 0, late: 0, failed: 0 }, nonCompliant },
+          }}
+        />,
+      );
+      const end = html.indexOf('Plans de protection');
+      if (end === -1) throw new Error('section des plans absente');
+      return html.slice(html.indexOf('services-title'), end);
+    };
+
+    it('prefers a failed listed plan to a late one', () => {
+      const table = sharepoint({}, [], [listed('a', 'late'), listed('b', 'failed')]);
+      expect(table).toContain('En échec');
+      expect(table).toContain('Aucune sauvegarde réussie');
+      expect(table).not.toContain('En retard');
+    });
+
+    // Ce que le serveur rend pour un plan tout juste créé : une ligne par source, sans aucune
+    // sauvegarde. Ces lignes ne prouvent rien contre « Jamais · En attente ».
+    it('keeps « Jamais » and « En attente » when the catalogue rows carry no backup at all', () => {
+      const table = sharepoint({ awaitingFirstRun: true }, neverBackedUp(3), []);
+      expect(table).toContain('Jamais');
+      expect(table).toMatch(/◷<\/span> (<!-- -->)?En attente/u);
+      expect(table).not.toContain('En échec');
+      expect(table).not.toContain('#/audit');
+    });
+
+    // Règle documentée (docs/installation.md). Le plan listé « En retard » avant sa première
+    // échéance est une question posée au PO dans la PR, pas un choix de cet écran.
+    it('keeps « En attente » until the first run is due, even when the plan is already listed', () => {
+      const table = sharepoint({ awaitingFirstRun: true }, neverBackedUp(2), [listed('a', 'late')]);
+      expect(table).toMatch(/◷<\/span> (<!-- -->)?En attente/u);
+      expect(table).not.toContain('Non protégé');
+      expect(table).not.toContain('En retard');
+    });
+
+    it('names the listed plan state once the first run is due, with rows that carry no backup', () => {
+      const table = sharepoint({}, neverBackedUp(2), [listed('a', 'late')]);
+      expect(table).toContain('Jamais');
+      expect(table).toContain('En retard');
+      expect(table).toContain('Aucune sauvegarde réussie');
+      expect(table).not.toContain('En attente');
+      expect(table).not.toContain('#/audit');
     });
 
     it('puts a decorative icon beside the written service name, in a native table', () => {

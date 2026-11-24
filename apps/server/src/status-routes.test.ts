@@ -168,6 +168,27 @@ describe('GET /api/status', () => {
       ]);
     });
 
+    // La page « Sources » rapproche `services`, `rows` et `plans` : ce test fixe ce que la route
+    // rend pour un plan tout juste créé, jamais exécuté, sur un service sans aucune sauvegarde.
+    it('gives a new plan its data types, a service awaiting its first run and rows without backup', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      plans.create({ ...input('Fichiers'), dataTypes: ['onedrive'] });
+      const report = await get(plans);
+      // Sans `dataTypes`, la page ne peut pas savoir quel service un plan listé couvre.
+      expect(report.plans?.nonCompliant).toMatchObject([
+        { name: 'Fichiers', state: 'late', dataTypes: ['onedrive'], lastRun: null },
+      ]);
+      expect(report.services?.find((s) => s.service === 'onedrive')).toMatchObject({
+        hasPlan: true,
+        lastSnapshotAt: null,
+        awaitingFirstRun: true,
+      });
+      // Une ligne par compte connu, même jamais sauvegardé : elles ne valent pas une sauvegarde.
+      expect(
+        report.rows.filter((r) => r.workload === 'onedrive').map((r) => r.lastSnapshotAt),
+      ).toEqual([null, null]);
+    });
+
     it('counts the distinct selected items when no plan covers a whole service', async () => {
       const plans = SqlitePlanStore.open(':memory:');
       plans.create({ ...input('A'), scope: 'selection', selection: ['a', 'b'] });

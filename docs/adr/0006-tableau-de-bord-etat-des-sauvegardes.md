@@ -101,7 +101,13 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
 - `GET /api/status` ajoute `plans` : `{ counts: { compliant, late, failed }, nonCompliant: [...] }`.
   Chaque plan est classé par `planCompliance` (ADR 0009) ; `nonCompliant` liste les plans
   « en retard » ou « en échec » (`id`, `name`, `rpoHours`, `state`, `lastSuccessAt`, `lastRun`, la
-  dernière exécution terminée, dite comme la liste des plans).
+  dernière exécution terminée, dite comme la liste des plans ; `dataTypes`, les types de données
+  couverts, issue #451).
+- La page « Sources » accorde la ligne d'un service avec ce qu'elle liste plus bas (issue #451) :
+  une sauvegarde datée dans `rows` donne à la ligne sa date et son état ; un plan de `nonCompliant`
+  dont les `dataTypes` contiennent le service suffit à ne pas le dire « Non protégé ». Une ligne
+  de `rows` sans sauvegarde (une par source connue, même jamais sauvegardée) ne change rien :
+  « Jamais » et « En attente » restent ceux de `services`.
 - `plans` est absent sans base des plans, `null` si elle ne répond pas (le reste du tableau est
   servi). Sans plan, les trois décomptes valent 0.
 - Par plan, les 500 dernières exécutions sont relues.

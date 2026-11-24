@@ -101,6 +101,57 @@ function LastBackup({ at, ageHours }: { at: string | null; ageHours: number | nu
   );
 }
 
+type Late = { plan: PlanComplianceReport['nonCompliant'][number] };
+
+/**
+ * Ce que les lignes du catalogue disent d'un service : la plus récente sauvegarde et le pire état.
+ * `last` est nul tant qu'aucune source n'a de sauvegarde datée : le catalogue rend une ligne par
+ * compte dès qu'il existe, même jamais sauvegardé, et ces lignes ne contredisent pas la synthèse.
+ */
+function fromRows(service: ServiceEntry['service'], rows: readonly Row[]) {
+  const own = rows.filter((r) => serviceOf(r) === service);
+  let last: Row | null = null;
+  for (const r of own) {
+    if (r.lastSnapshotAt === null || r.ageHours === null || dateTimeOf(r.lastSnapshotAt) === '')
+      continue;
+    if (last === null || Date.parse(r.lastSnapshotAt) > Date.parse(last.lastSnapshotAt ?? ''))
+      last = r;
+  }
+  const state: BackupState = own.some((r) => r.state === 'missing')
+    ? 'missing'
+    : own.some((r) => r.state === 'stale')
+      ? 'stale'
+      : 'ok';
+  return { last, state };
+}
+
+/**
+ * Un service de la synthèse, remis d'accord avec ce que la page liste plus bas. Deux faits
+ * seulement priment sur la synthèse : une sauvegarde datée dans « Sauvegardes » (la ligne en
+ * reprend la date et l'état) et un plan listé qui couvre le service (il n'est pas « Non
+ * protégé »). Sans sauvegarde datée, « Jamais » et « En attente » restent ceux du serveur.
+ */
+function reconcile(
+  s: ServiceEntry,
+  rows: readonly Row[],
+  plans: PlanComplianceReport | null | undefined,
+): ServiceEntry & Partial<Late> {
+  const own = fromRows(s.service, rows);
+  // Plusieurs plans listés : le pire état l'emporte (un échec n'est pas masqué par un retard).
+  const covering = (plans?.nonCompliant ?? []).filter((p) => p.dataTypes?.includes(s.service));
+  const plan = covering.find((p) => p.state === 'failed') ?? covering[0];
+  const hasPlan = s.hasPlan || plan !== undefined;
+  if (own.last === null) return { ...s, hasPlan, ...(plan && { plan }) };
+  return {
+    ...s,
+    hasPlan,
+    lastSnapshotAt: own.last.lastSnapshotAt,
+    ageHours: own.last.ageHours,
+    state: own.state,
+    awaitingFirstRun: false,
+  };
+}
+
 /** Le service d'une ligne du catalogue : un site est toujours SharePoint. */
 function serviceOf(r: Row): ServiceEntry['service'] {
   if (r.kind === 'site') return 'sharepoint';
@@ -127,7 +178,13 @@ export function lateCause(service: ServiceEntry['service'], rows: readonly Row[]
  * service : le même libellé revient sur plusieurs lignes. Un seul élément dans la cellule : en
  * carte, le lien reste sous la pastille.
  */
-function ServiceState({ service, rows }: { service: ServiceEntry; rows: readonly Row[] }) {
+function ServiceState({
+  service,
+  rows,
+}: {
+  service: ServiceEntry & Partial<Late>;
+  rows: readonly Row[];
+}) {
   const name = workloadLabel(service.service);
   if (!service.hasPlan)
     return (
@@ -145,6 +202,17 @@ function ServiceState({ service, rows }: { service: ServiceEntry; rows: readonly
         <StatusPill status="pending" />
       </div>
     );
+  // Un plan listé couvre le service sans qu'aucune source soit sauvegardée, première échéance
+  // passée : l'état est celui du plan, dit comme dans le tableau des plans.
+  if (service.plan && service.lastSnapshotAt === null) {
+    const note = lateNote(service.plan.state, service.plan.lastSuccessAt);
+    return (
+      <div>
+        <StatusPill status={service.plan.state === 'failed' ? 'failed' : 'late'} />
+        {note && <small className="state-note">{note}</small>}
+      </div>
+    );
+  }
   const cause = lateCause(service.service, rows);
   return (
     <div>
@@ -170,7 +238,7 @@ const SERVICE_ICONS: Record<ServiceEntry['service'], string> = {
   sharepoint: '▤',
 };
 
-const serviceColumns = (rows: readonly Row[]): Column<ServiceEntry>[] => [
+const serviceColumns = (rows: readonly Row[]): Column<ServiceEntry & Partial<Late>>[] => [
   {
     header: 'Service',
     rowHeader: true,
@@ -196,13 +264,8 @@ const serviceColumns = (rows: readonly Row[]): Column<ServiceEntry>[] => [
 ];
 
 /** Une ligne par service ; un service sans plan est grisé (`--muted`, sans `opacity`). */
-function Services({
-  services,
-  rows,
-}: {
-  services: StatusReport['services'];
-  rows: readonly Row[];
-}) {
+function Services({ report }: { report: StatusReport }) {
+  const { services, rows } = report;
   if (services === undefined) return null;
   if (services === null) return <Alert tone="error">Synthèse des services indisponible</Alert>;
   return (
@@ -212,7 +275,7 @@ function Services({
         caption="État par service"
         hideCaption
         columns={serviceColumns(rows)}
-        rows={services}
+        rows={services.map((s) => reconcile(s, rows, report.plans))}
         rowKey={(s) => s.service}
         rowClassName={(s) => (s.hasPlan ? undefined : 'row-muted')}
       />
@@ -285,7 +348,10 @@ function PlansCompliance({ plans }: { plans: PlanComplianceReport | null | undef
 
 /** Services sans aucun plan ; vide tant que la synthèse des services est absente ou en erreur. */
 function unprotectedServices(report: StatusReport): ServiceEntry['service'][] {
-  return (report.services ?? []).filter((s) => !s.hasPlan).map((s) => s.service);
+  return (report.services ?? [])
+    .map((s) => reconcile(s, report.rows, report.plans))
+    .filter((s) => !s.hasPlan)
+    .map((s) => s.service);
 }
 
 /** Bandeau de synthèse : « mes sauvegardes vont-elles bien ? » */
@@ -387,7 +453,7 @@ export function StatusView({ state }: { state: StatusState }) {
   return (
     <>
       <Summary report={state} />
-      <Services services={state.services} rows={state.rows} />
+      <Services report={state} />
       <PlansCompliance plans={state.plans} />
       <Backups report={state} />
     </>

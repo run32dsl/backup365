@@ -191,6 +191,13 @@ describe('buildPlanComplianceReport', () => {
     ]);
   });
 
+  it('carries the data types of each listed plan, and none when the plan gives none', () => {
+    const typed = [{ ...plans[3]!, dataTypes: ['onedrive', 'sharepoint'] as const }, plans[2]!];
+    const report = buildPlanComplianceReport(typed, (id) => runs[id] ?? [], now);
+    expect(report.nonCompliant[0]?.dataTypes).toEqual(['onedrive', 'sharepoint']);
+    expect(report.nonCompliant[1]).not.toHaveProperty('dataTypes');
+  });
+
   it('carries the last finished run of each non-compliant plan, null without any', () => {
     const report = buildPlanComplianceReport(plans, (id) => runs[id] ?? [], now);
     const lastRuns = Object.fromEntries(report.nonCompliant.map((p) => [p.id, p.lastRun]));
