@@ -1334,6 +1334,28 @@ select[aria-disabled='true'] {
 }
 
 /* Plans de protection */
+.view-intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.view-intro p {
+  margin: 0;
+}
+.view-intro .btn {
+  width: 100%;
+}
+@media (min-width: 900px) {
+  .view-intro {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .view-intro .btn {
+    width: auto;
+  }
+}
 .page-header {
   display: flex;
   flex-wrap: wrap;

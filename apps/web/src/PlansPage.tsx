@@ -1008,21 +1008,24 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   const canCreate = admin && boxes.configured;
   return (
     <main tabIndex={-1}>
-      <div className="page-header">
-        <h1>{title}</h1>
-        {!wizard && admin && (
-          <Button
-            aria-disabled={!canCreate || undefined}
-            onClick={() => {
-              if (canCreate) goTo(NEW_PLAN_HASH);
-            }}
-          >
-            <span aria-hidden="true">+ </span>
-            Créer un plan
-          </Button>
-        )}
-      </div>
+      <h1>{title}</h1>
       {!wizard && <SourcesNav current="plans" admin={admin} />}
+      {!wizard && (
+        <div className="view-intro">
+          <p>Ce que chaque plan sauvegarde, et quand.</p>
+          {admin && (
+            <Button
+              aria-disabled={!canCreate || undefined}
+              onClick={() => {
+                if (canCreate) goTo(NEW_PLAN_HASH);
+              }}
+            >
+              <span aria-hidden="true">+ </span>
+              Créer un plan
+            </Button>
+          )}
+        </div>
+      )}
       <div aria-live="polite">
         {flash && !wizard && (
           <Alert tone={flash.tone} focusRef={flashRef}>

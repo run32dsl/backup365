@@ -123,6 +123,10 @@ liens natifs, sans `role="tab"`, défilant horizontalement sous 900 px) :
   et État des sources (`#/sources` ; l'ancienne `#/etat` y redirige). Un opérateur n'a que les
   plans.
 
+Dans chaque rubrique, l'ordre est le `h1` propre à la vue, le sélecteur, puis le contenu. Les
+actions propres à une vue (« Créer un plan ») viennent après le sélecteur, sur la ligne de la
+phrase d'introduction : à droite dès 900 px, pleine largeur dessous.
+
 Les titres des écrans de restauration restent « Restaurer depuis la messagerie », « Restaurer
 depuis OneDrive », « Restaurer depuis SharePoint ». Seules les entrées livrées apparaissent, sans
 entrée grisée. Le compte, le lien « Mot de passe » et « Se déconnecter » sont en bas de la barre.
