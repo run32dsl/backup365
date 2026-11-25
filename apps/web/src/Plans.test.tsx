@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { scheduleWindowLabel } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
-import { DeleteForm, PlanWizard, PlansListView } from './PlansPage.js';
+import { DeleteForm, PlanRecap, PlanWizard, PlansListView } from './PlansPage.js';
 import { AUDIT_REMINDER } from './RestoreJourney.js';
 import { Alert } from './ui/index.js';
 import {
@@ -725,7 +725,9 @@ describe('delete plan dialog', () => {
   });
 
   it('recalls the plan and warns that the run history is erased', () => {
-    expect(html).toContain('Plan : <strong>Messagerie Direction</strong>');
+    expect(html).toContain('<dt>Plan</dt><dd>Messagerie Direction</dd>');
+    expect(html).toContain('<dt>Périmètre</dt>');
+    expect(html.match(/Messagerie Direction/g)).toHaveLength(1);
     expect(html).toContain(planSummary(plan));
     expect(html).toContain('alert-warning');
     expect(html).toContain('Suppression définitive');
@@ -747,5 +749,14 @@ describe('delete plan dialog', () => {
     expect((await deletePlan('p1', '  Plan remplacé ', fetchFn)).ok).toBe(true);
     expect(sent.method).toBe('DELETE');
     expect(JSON.parse(String(sent.body))).toEqual({ reason: 'Plan remplacé' });
+  });
+});
+
+describe('PlanRecap', () => {
+  it('names the plan once, with its scope line', () => {
+    const html = renderToStaticMarkup(<PlanRecap plan={plan} />);
+    expect(html).toContain('<dt>Plan</dt><dd>Messagerie Direction</dd>');
+    expect(html).toContain('<dt>Périmètre</dt>');
+    expect(html.match(/Messagerie Direction/g)).toHaveLength(1);
   });
 });

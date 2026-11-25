@@ -900,9 +900,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
-      await page
-        .getByRole('dialog', { name: 'Lancer « Messagerie Direction » maintenant' })
-        .waitFor();
+      await page.getByRole('dialog', { name: 'Lancer ce plan maintenant' }).waitFor();
     },
   },
   {
@@ -920,7 +918,7 @@ export const SCREENS = [
       );
       await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
       const dialog = page.getByRole('dialog', {
-        name: 'Lancer « Messagerie Direction » maintenant',
+        name: 'Lancer ce plan maintenant',
       });
       await dialog.getByLabel('Motif du lancement (obligatoire)').fill('Contrôle de conformité');
       await dialog.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
@@ -939,7 +937,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
-      await page.getByRole('dialog', { name: 'Supprimer « Messagerie Direction » ?' }).waitFor();
+      await page.getByRole('dialog', { name: 'Supprimer ce plan ?' }).waitFor();
     },
   },
   {
@@ -948,7 +946,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
-      const dialog = page.getByRole('dialog', { name: 'Supprimer « Messagerie Direction » ?' });
+      const dialog = page.getByRole('dialog', { name: 'Supprimer ce plan ?' });
       await dialog.getByRole('button', { name: 'Supprimer le plan' }).click();
       await dialog.getByText('Indiquez un motif pour continuer.').waitFor();
     },

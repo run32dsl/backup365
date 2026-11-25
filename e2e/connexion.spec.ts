@@ -286,8 +286,8 @@ test('administration : la boîte « Créer un compte » s’annule, signale un i
   // ne se ferme qu'après la case « J'ai transmis le mot de passe ».
   await dialog.getByLabel('Identifiant').fill(NEW_LOGIN);
   await dialog.getByRole('button', { name: 'Créer le compte' }).click();
-  const step3 = page.getByRole('dialog', { name: `Mot de passe temporaire de ${NEW_LOGIN}` });
-  await expect(step3).toContainText(`Compte : ${NEW_LOGIN}`);
+  const step3 = page.getByRole('dialog', { name: 'Mot de passe temporaire' });
+  await expect(step3).toContainText(NEW_LOGIN);
   await expect(step3.getByLabel('Mot de passe temporaire')).not.toBeEmpty();
   await page.keyboard.press('Escape');
   await expect(step3).toBeVisible();

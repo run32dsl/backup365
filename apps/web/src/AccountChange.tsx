@@ -4,7 +4,7 @@ import type { Problem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { REASON, REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
 import type { Role } from './session.js';
-import { Button, ChoiceGroup, Dialog } from './ui/index.js';
+import { Button, ChoiceGroup, Dialog, ResultList } from './ui/index.js';
 
 /** Changement demandé sur la ligne d'un compte : le rôle ou la désactivation. */
 export interface AccountChange {
@@ -14,9 +14,9 @@ export interface AccountChange {
   role: Role;
 }
 
-/** Titre de la boîte : il nomme le compte. */
+/** Titre de la boîte : l'action seule, le compte est dans la liste du corps. */
 export const changeTitle = (c: AccountChange): string =>
-  c.kind === 'role' ? `Modifier le rôle de ${c.username}` : `Désactiver ${c.username} ?`;
+  c.kind === 'role' ? 'Modifier le rôle' : 'Désactiver ce compte ?';
 
 /** Phrase de succès du bandeau : elle nomme le compte. */
 export const changeDone = (c: AccountChange, role: Role): string =>
@@ -55,14 +55,9 @@ export function AccountChangeForm({
         onSubmit?.(reason.trim());
       }}
     >
-      <p>
-        Compte : <strong>{change.username}</strong>
-      </p>
+      <ResultList rows={[['Compte', change.username]]} />
       {disable ? (
-        <p>
-          {change.username} ne pourra plus se connecter ; ses actions restent dans le journal
-          d’audit.
-        </p>
+        <p>Ce compte ne pourra plus se connecter ; ses actions restent dans le journal d’audit.</p>
       ) : (
         <ChoiceGroup
           legend="Rôle"

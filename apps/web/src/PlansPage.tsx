@@ -502,12 +502,32 @@ export function RunFeedback({
   );
 }
 
+/** Le plan visé par une boîte d'action : son nom une seule fois, puis son périmètre. */
+export function PlanRecap({
+  plan,
+  mailboxes = [],
+}: {
+  plan: PlanItem;
+  mailboxes?: readonly Mailbox[];
+}) {
+  return (
+    <ResultList
+      rows={[
+        ['Plan', plan.name],
+        ['Périmètre', planSummary(plan, mailboxes)],
+      ]}
+    />
+  );
+}
+
 function RunDialog({
   plan,
+  mailboxes,
   onClose,
   onRun,
 }: {
   plan: PlanItem | null;
+  mailboxes: readonly Mailbox[];
   onClose: () => void;
   onRun: (plan: PlanItem, reason: string) => Promise<Problem | undefined>;
 }) {
@@ -527,7 +547,7 @@ function RunDialog({
   return (
     <Dialog
       open={plan !== null}
-      title={blocked ? 'Lancement impossible' : `Lancer « ${plan?.name ?? ''} » maintenant`}
+      title={blocked ? 'Lancement impossible' : 'Lancer ce plan maintenant'}
       onClose={onClose}
     >
       {blocked ? (
@@ -557,6 +577,7 @@ function RunDialog({
             });
           }}
         >
+          {plan && <PlanRecap plan={plan} mailboxes={mailboxes} />}
           <ReasonField
             of="du lancement"
             placeholder={REASON_EXAMPLES.run}
@@ -598,10 +619,7 @@ export function DeleteForm({
         onSubmit?.(reason.trim());
       }}
     >
-      <p>
-        Plan : <strong>{plan.name}</strong>
-        <small className="state-note plan-summary">{planSummary(plan, mailboxes)}</small>
-      </p>
+      <PlanRecap plan={plan} mailboxes={mailboxes} />
       <Alert tone="warning" title="Suppression définitive">
         Aucune nouvelle sauvegarde ne sera faite. L’historique des exécutions de ce plan sera
         effacé. Les sauvegardes déjà faites restent dans le stockage : la console ne les supprime
@@ -647,7 +665,7 @@ function DeleteDialog({
     setBusy(false);
   }, [plan]);
   return (
-    <Dialog open={plan !== null} title={`Supprimer « ${plan?.name ?? ''} » ?`} onClose={onClose}>
+    <Dialog open={plan !== null} title="Supprimer ce plan ?" onClose={onClose}>
       {plan && (
         <DeleteForm
           key={plan.id}
@@ -1152,7 +1170,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
       {body}
       {!wizard && (
         <>
-          <RunDialog plan={runTarget} onClose={closeRun} onRun={onRun} />
+          <RunDialog plan={runTarget} mailboxes={named} onClose={closeRun} onRun={onRun} />
           <DeleteDialog
             plan={deleteTarget}
             mailboxes={named}
