@@ -199,12 +199,11 @@ describe('Administration page structure', () => {
   it('offers an outlined reset button on every row, naming the account', () => {
     expect(html.match(/btn-secondary[^>]*>Réinitialiser le mot de passe</g)).toHaveLength(2);
     expect(html).toContain('aria-label="Réinitialiser le mot de passe : bob"');
-    expect(html).toContain(AUDIT_NOTICE);
   });
 
-  it('keeps one filled button on the page, « + Créer un compte », next to the title', () => {
+  it('keeps one filled button on the page, « + Créer un compte », on the intro line', () => {
     const page = renderToString(<AccountsPage />);
-    expect(page).toContain('<div class="page-header"><h1>Administration</h1>');
+    expect(page).toContain('<h1>Administration</h1><div class="view-intro">');
     expect(page.match(/btn-primary/g)).toHaveLength(1);
     expect(page.replaceAll('<!-- -->', '')).toContain('+ </span>Créer un compte</button>');
   });
@@ -429,12 +428,14 @@ describe('maquette de l’issue #22', () => {
 
   it('names the console in the accounts title and says the journal is audited', () => {
     expect(renderToString(<AccountsPage />)).toContain('<h1>Administration</h1>');
-    expect(renderToString(<AccountsView state={[]} />)).toContain('<h2>Comptes de la console</h2>');
-    for (const html of [
-      renderToString(<CredentialsView mode="login" />),
-      renderToString(<AccountsView state={[]} />),
-    ])
-      expect(html).toContain(AUDIT_NOTICE);
+    const accounts = renderToString(<AccountsView state={[]} />);
+    expect(accounts).not.toContain('<h2>Comptes de la console</h2>');
+    expect(accounts).toContain('<caption class="sr-only">Comptes de la console</caption>');
+    expect(accounts).not.toContain(AUDIT_NOTICE);
+    const page = renderToString(<AccountsPage />);
+    expect(page).toContain('class="view-intro"');
+    expect(page.split(AUDIT_NOTICE)).toHaveLength(2);
+    expect(renderToString(<CredentialsView mode="login" />)).toContain(AUDIT_NOTICE);
     expect(renderToString(<AuditPage />)).toContain(
       'La consultation de ce journal est elle-même inscrite au journal d’audit.',
     );
