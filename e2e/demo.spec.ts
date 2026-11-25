@@ -292,9 +292,12 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   await expect(
     page
       .getByRole('cell', {
-        name: /Réussie, \d+ (ms|s), bibliothèque, 1 élément conservé$/,
+        name: /Réussie, \d+ (ms|s), bibliothèque, 1 élément conservé/,
       })
       .first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('cell', { name: /Motif : Ticket #9 : essai trimestriel/ }).first(),
   ).toBeVisible();
 });
 
