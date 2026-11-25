@@ -23,7 +23,7 @@ test('recherche, puis export d’un mail avec motif', async ({ page, context, ba
   await page.getByLabel('Recherche').fill('devis');
   await page.getByRole('button', { name: 'Rechercher' }).click();
   await page.getByRole('table').getByRole('link').first().click();
-  await expect(page.getByRole('heading', { level: 2, name: 'Exporter' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 3, name: 'Exporter' })).toBeVisible();
   await expect(page.getByText('@exemple.fr').first()).toBeVisible();
 
   await page.getByRole('button', { name: /^Exporter / }).click();
