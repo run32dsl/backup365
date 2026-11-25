@@ -234,6 +234,11 @@ a {
   text-align: center;
   overflow-wrap: anywhere;
 }
+.sidebar-account {
+  display: flex;
+  flex-direction: column;
+  overflow-wrap: normal;
+}
 .sidebar-footer button {
   padding: 0 var(--space-1);
   font-size: 0.6875rem;
