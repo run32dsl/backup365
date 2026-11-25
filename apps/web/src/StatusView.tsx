@@ -6,7 +6,15 @@ import type {
   StatusReport,
 } from '@backup365/core';
 import { Alert, Button, DataTable, EmptyState, StatusPill, type Column } from './ui/index.js';
-import { PLANS_HASH, lateNote, retentionLabel, runLabel } from './plans.js';
+import {
+  PLANS_HASH,
+  UNIT_NAMES,
+  lateNote,
+  lateSourcesNote,
+  retentionLabel,
+  runLabel,
+  serviceOf,
+} from './plans.js';
 import { searchHref } from './mail.js';
 import { ageLabel, dateTimeOf, dateTimeOrDash, plural, workloadLabel } from './format.js';
 import { AUDIT_HASH } from './routes.js';
@@ -153,18 +161,6 @@ function reconcile(
   };
 }
 
-/** Le service d'une ligne du catalogue : un site est toujours SharePoint. */
-function serviceOf(r: Row): ServiceEntry['service'] {
-  if (r.kind === 'site') return 'sharepoint';
-  return r.workload === 'onedrive' ? 'onedrive' : 'mail';
-}
-
-const UNIT_NAMES: Record<ServiceEntry['service'], string> = {
-  mail: 'boîte',
-  onedrive: 'compte',
-  sharepoint: 'site',
-};
-
 /** `1 compte sur 5 en retard` ; chaîne vide si aucune source du service n'est en retard. */
 export function lateCause(service: ServiceEntry['service'], rows: readonly Row[]): string {
   const own = rows.filter((r) => serviceOf(r) === service);
@@ -291,7 +287,7 @@ const hasBackupsOf = (p: PlanEntry, rows: readonly Row[]): boolean =>
   p.lastRun === null &&
   rows.some((r) => r.lastSnapshotAt !== null && (p.dataTypes ?? []).includes(serviceOf(r)));
 
-const planColumns = (rows: readonly Row[]): Column<PlanEntry>[] => [
+const planColumns = (report: StatusReport): Column<PlanEntry>[] => [
   { header: 'Plan', cell: (p) => <a href={PLANS_HASH}>{p.name}</a> },
   // Même texte que la liste des plans (hors « Rien copié » sans point de restauration, que ce
   // rapport ne porte pas) : la dernière exécution du plan, jamais une date de service.
@@ -299,7 +295,10 @@ const planColumns = (rows: readonly Row[]): Column<PlanEntry>[] => [
   {
     header: 'État',
     cell: (p) => {
-      const note = lateNote(p.state, p.lastSuccessAt, hasBackupsOf(p, rows));
+      // Un plan en retard dont la réussite est récente : la note nomme les sources en retard.
+      const fromSources = p.state === 'late' ? lateSourcesNote(p, report) : undefined;
+      const note =
+        fromSources?.text ?? lateNote(p.state, p.lastSuccessAt, hasBackupsOf(p, report.rows));
       return (
         <div>
           <StatusPill status={p.state === 'failed' ? 'failed' : 'late'} />
@@ -340,13 +339,8 @@ function Counts({
 }
 
 /** Conformité des plans de protection : décompte par état, puis les plans non conformes. */
-function PlansCompliance({
-  plans,
-  rows,
-}: {
-  plans: PlanComplianceReport | null | undefined;
-  rows: readonly Row[];
-}) {
+function PlansCompliance({ report }: { report: StatusReport }) {
+  const plans = report.plans;
   if (plans === undefined) return null;
   if (plans === null) return <Alert tone="error">Conformité des plans indisponible</Alert>;
   const total = COMPLIANCE_ORDER.reduce((sum, state) => sum + plans.counts[state], 0);
@@ -361,7 +355,7 @@ function PlansCompliance({
           {plans.nonCompliant.length > 0 && (
             <DataTable
               caption="Plans en retard ou en échec"
-              columns={planColumns(rows)}
+              columns={planColumns(report)}
               rows={plans.nonCompliant}
               rowKey={(p) => p.id}
               empty={{ message: 'Aucun plan en retard ou en échec.' }}
@@ -481,7 +475,7 @@ export function StatusView({ state }: { state: StatusState }) {
     <>
       <Summary report={state} />
       <Services report={state} />
-      <PlansCompliance plans={state.plans} rows={state.rows} />
+      <PlansCompliance report={state} />
       <Backups report={state} />
     </>
   );
