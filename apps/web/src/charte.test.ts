@@ -213,4 +213,14 @@ describe('charte.css breadcrumb', () => {
     expect(/\.breadcrumb li:first-child::before\s*\{[^}]*display:\s*none;/.test(css)).toBe(true);
     expect(/\.breadcrumb li::after/.test(css)).toBe(false);
   });
+
+  it('keeps the levels compact, with a 44 px target only on the links, and bolds the current one', () => {
+    expect(/\.breadcrumb li\s*\{[^}]*min-height/.test(css)).toBe(false);
+    expect(/\.breadcrumb a\s*\{[^}]*min-height/.test(css)).toBe(false);
+    expect(/\.breadcrumb a::after\s*\{[^}]*height:\s*2\.75rem;/.test(css)).toBe(true);
+    expect(/\.breadcrumb \[aria-current='location'\]\s*\{[^}]*font-weight:\s*700;/.test(css)).toBe(
+      true,
+    );
+    expect(/\.breadcrumb\s*\{[^}]*gap:\s*0 var\(--space-1\);/.test(css)).toBe(true);
+  });
 });
