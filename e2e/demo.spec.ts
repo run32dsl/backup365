@@ -182,7 +182,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
       page
         .locator('dt', { hasText: new RegExp(`^${term}$`) })
         .locator('xpath=following-sibling::dd[1]'),
-    ).toHaveText(/^\d\d\/\d\d\/\d{4} \d\d:\d\d$/);
+    ).toHaveText(/^\d\d\/\d\d\/\d{4}[\s\u00a0]\d\d:\d\d$/);
   }
   await expect(page.getByText('Nom choisi par OneDrive')).toBeVisible();
   await page.getByLabel('Remplacer le fichier actuel').check();
