@@ -19,7 +19,7 @@ export function StatusPage() {
   }, []);
   return (
     <main tabIndex={-1}>
-      <h1>Sources</h1>
+      <h1>État des sources</h1>
       <SourcesNav current="status" admin />
       <p>État de la protection de chaque service Microsoft 365.</p>
       <StatusView state={status} />
