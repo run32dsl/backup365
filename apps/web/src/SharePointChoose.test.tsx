@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { ChooseStep, ContentTree } from './SharePointPage.js';
+import { ChooseStep } from './sharepoint/ChooseStep.js';
+import { ContentTree } from './sharepoint/ContentTree.js';
 
 const site = { id: 's1', displayName: 'Équipe' };
 const noop = () => undefined;

@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { ConfigurationLink, ConfigurationNotice, connectionLine } from './ConfigurationBlock.js';
 import { FailureAlert } from './FailureAlert.js';
 import { Home, OverviewView } from './Home.js';
-import { PlanFailure, RunBlocked } from './PlansPage.js';
+import { PlanFailure } from './plans/PlanFailure.js';
+import { RunBlocked } from './plans/RunDialog.js';
 import { fetchConfiguration } from './configuration.js';
 
 const NOT_CONFIGURED = { message: 'Sauvegarde indisponible', code: 'backup_not_configured' };

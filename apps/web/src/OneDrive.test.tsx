@@ -1,6 +1,8 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { ConfirmStep, EntriesTable, TrackStep } from './OneDrivePage.js';
+import { ConfirmStep } from './onedrive/ConfirmStep.js';
+import { EntriesTable } from './onedrive/EntriesTable.js';
+import { TrackStep } from './onedrive/TrackStep.js';
 import {
   ONEDRIVE_MESSAGES,
   breadcrumbOf,

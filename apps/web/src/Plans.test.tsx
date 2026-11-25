@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { scheduleWindowLabel } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
-import { DeleteForm, PlanWizard, PlansListView } from './PlansPage.js';
+import { DeleteForm } from './plans/DeleteDialog.js';
+import { PlansListView } from './plans/PlansListView.js';
+import { PlanWizard } from './plans/wizard/PlanWizard.js';
 import { AUDIT_REMINDER } from './RestoreJourney.js';
 import { Alert } from './ui/index.js';
 import {

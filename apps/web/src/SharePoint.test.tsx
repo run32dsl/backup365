@@ -23,7 +23,10 @@ import {
   siteWarningOf,
 } from './sharepoint.js';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ConfirmStep, ContentTree, SiteDenied, SiteEntriesTable } from './SharePointPage.js';
+import { ConfirmStep } from './sharepoint/ConfirmStep.js';
+import { ContentTree } from './sharepoint/ContentTree.js';
+import { SiteDenied } from './sharepoint/SiteDenied.js';
+import { SiteEntriesTable } from './sharepoint/SiteEntriesTable.js';
 import { navEntries, screenOf } from './App.js';
 
 const json = (body: unknown, status = 200) =>

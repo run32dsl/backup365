@@ -4,7 +4,9 @@ import { createAccount, fetchAccounts, resetPassword } from './accounts.js';
 import { requestIdOf } from './apiError.js';
 import { AccountsView, CreateAccountForm } from './AccountsPage.js';
 import { createPlan, emptyForm, fetchPlans } from './plans.js';
-import { PlanFailure, PlansListView, RunBlocked, RunFeedback, isRunBlocked } from './PlansPage.js';
+import { PlanFailure } from './plans/PlanFailure.js';
+import { PlansListView } from './plans/PlansListView.js';
+import { RunBlocked, RunFeedback, isRunBlocked } from './plans/RunDialog.js';
 
 const failing = (): typeof fetch =>
   (() =>

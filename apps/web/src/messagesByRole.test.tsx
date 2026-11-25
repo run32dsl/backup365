@@ -5,7 +5,7 @@ import { API_ERRORS, apiErrorFor, problemMessage } from './apiError.js';
 import { ConfigurationLink } from './ConfigurationBlock.js';
 import { FailureAlert } from './FailureAlert.js';
 import { RestoreUnavailable } from './MailPage.js';
-import { RunBlocked } from './PlansPage.js';
+import { RunBlocked } from './plans/RunDialog.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
 import { AdminProvider } from './role.js';
 import { StorageUnavailable } from './StorageUnavailable.js';

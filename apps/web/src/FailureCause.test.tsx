@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { OverviewView } from './Home.js';
 import type { Overview } from './overview.js';
-import { PlansListView } from './PlansPage.js';
+import { PlansListView } from './plans/PlansListView.js';
 import { FAILED_PLANS_HASH, complianceView, parsePlansHash, type PlanItem } from './plans.js';
 
 const noop = () => undefined;

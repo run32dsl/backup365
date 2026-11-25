@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { TrackStep } from './SharePointPage.js';
+import { TrackStep } from './sharepoint/TrackStep.js';
 import type { SiteJob } from './sharepoint.js';
 
 const base: SiteJob = {
