@@ -256,7 +256,27 @@ describe('RestoreOutcome', () => {
     expect(html).toContain('Le service de restauration a signalé une erreur.');
     expect(html).toContain('Rien n’a été modifié.');
     expect(html).not.toContain('Cause :');
-    expect(html).toContain('<dt>Durée</dt><dd>2 s</dd>');
+    expect(html).toContain('<dt>Dossier d’origine</dt><dd>Boîte de réception</dd>');
+    expect(html).toContain('<dt>Dossier visé</dt><dd>Restauré par backup365 18/11/2026</dd>');
+    expect(html).not.toContain('<dt>Durée</dt>');
+  });
+
+  it('keeps the same labels while running, on success and on failure', () => {
+    const labels = (html: string) => [...html.matchAll(/<dt>(.*?)<\/dt>/g)].map((m) => m[1]);
+    const running = labels(
+      renderToString(
+        <Tracking
+          job={{ ...job, status: 'running', finishedAt: null, durationMs: null }}
+          mail={mail}
+          now={Date.parse(job.startedAt)}
+          onClose={vi.fn()}
+        />,
+      ),
+    );
+    const ok = labels(render({}));
+    const ko = labels(render({ status: 'failed', error: 'restore_error' }));
+    expect(ok).toEqual(running);
+    expect(ko.map((l) => (l === 'Dossier visé' ? 'Restauré dans le dossier' : l))).toEqual(running);
   });
 
   it('says the mailbox state is uncertain when the outcome is unknown', () => {
