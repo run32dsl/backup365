@@ -212,7 +212,11 @@ export function buildApp({
     done();
   });
   void app.register((scope, _opts, done) => {
-    registerPlanRoutes(scope, plans, audit, planScheduler, backupConfigured);
+    registerPlanRoutes(scope, plans, audit, planScheduler, backupConfigured, {
+      catalog,
+      maxAgeHours: status.maxAgeHours,
+      workloads: status.workloads,
+    });
     done();
   });
   void app.register((scope, _opts, done) => {

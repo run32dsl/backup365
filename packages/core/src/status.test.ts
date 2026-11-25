@@ -180,14 +180,11 @@ describe('buildServiceSummaries', () => {
     );
   });
 
-  it('dates a covered service by the end of the plan success, the time shown on the dashboard and plans', () => {
-    const rows = [row('mail', '2026-11-19T11:58:00Z')];
-    const lastSuccess = () => '2026-11-19T12:00:00Z';
-    const [mail, drive] = buildServiceSummaries(rows, [plan()], 26, now, lastSuccess);
-    expect(mail?.lastSnapshotAt).toBe('2026-11-19T12:00:00Z');
-    expect(drive?.lastSnapshotAt).toBeNull();
-    const [kept] = buildServiceSummaries(rows, [plan()], 26, now, () => null);
-    expect(kept?.lastSnapshotAt).toBe('2026-11-19T11:58:00Z');
+  it('dates a service by its latest listed backup, never by a plan run, and none without backups', () => {
+    const rows = [row('onedrive', '2026-11-19T11:58:00Z'), row('onedrive', '2026-11-17T11:58:00Z')];
+    const [mail, drive] = buildServiceSummaries(rows, [plan({ dataTypes: ['onedrive'] })], 26, now);
+    expect(drive?.lastSnapshotAt).toBe('2026-11-19T11:58:00Z');
+    expect(mail?.lastSnapshotAt).toBeNull();
   });
 
   it('keeps the latest snapshot but the worst state of the service', () => {

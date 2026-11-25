@@ -55,10 +55,11 @@ describe('GET /api/status', () => {
   });
 
   describe('plan compliance', () => {
-    const input = (name: string) => ({
+    // Boîte A seule : la boîte B, en retard, ferait passer tout plan qui la couvre en retard.
+    const input = (name: string, scope: 'all' | 'selection' = 'selection') => ({
       name,
-      scope: 'all' as const,
-      selection: [],
+      scope,
+      selection: scope === 'all' ? [] : ['a'],
       dataTypes: ['mail' as const],
       rpoHours: 4 as const,
       rtoHours: null,
@@ -87,6 +88,16 @@ describe('GET /api/status', () => {
         ['Jamais lancé', 'late'],
         ['Échoué', 'failed'],
       ]);
+    });
+
+    it('lists a plan as late when a source it covers is late, with the date of its latest backup', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      finished(plans, plans.create(input('Tout', 'all')).id, 'success');
+      const report = await get(plans);
+      expect(report.plans?.counts).toEqual({ compliant: 0, late: 1, failed: 0 });
+      const [late] = report.plans?.nonCompliant ?? [];
+      const latest = report.rows.find((r) => r.sourceId === 'a')?.lastSnapshotAt;
+      expect(Date.parse(late?.lastRun?.finishedAt ?? '')).toBe(Date.parse(latest ?? ''));
     });
 
     it.each(ROLES.filter((role) => role !== 'admin'))(
@@ -151,7 +162,7 @@ describe('GET /api/status', () => {
 
     it('gives one line per service with retention and scope, and no plan for OneDrive', async () => {
       const plans = SqlitePlanStore.open(':memory:');
-      plans.create({ ...input('Courrier'), retentionDays: 30 });
+      plans.create({ ...input('Courrier', 'all'), retentionDays: 30 });
       plans.create({
         ...input('Courrier long'),
         scope: 'selection',

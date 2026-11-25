@@ -145,10 +145,9 @@ function reconcile(
   return {
     ...s,
     hasPlan,
-    // La date du serveur (fin de la réussite du plan) est l'heure de référence, la même que sur
-    // l'accueil et dans les plans ; la date du catalogue ne sert que sans elle.
-    lastSnapshotAt: s.lastSnapshotAt ?? own.last.lastSnapshotAt,
-    ageHours: s.lastSnapshotAt === null ? own.last.ageHours : s.ageHours,
+    // La date d'un service est celle de la plus récente ligne du tableau « Sauvegardes ».
+    lastSnapshotAt: own.last.lastSnapshotAt,
+    ageHours: own.last.ageHours,
     state: own.state,
     awaitingFirstRun: false,
   };

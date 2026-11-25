@@ -1,3 +1,5 @@
+import type { StatusRow } from './status.js';
+
 /** RPO autorisés, en heures. */
 export const RPO_HOURS = [4, 12, 24] as const;
 export type RpoHours = (typeof RPO_HOURS)[number];
@@ -310,6 +312,71 @@ export function planCompliance(
   return { state: latest?.run.status === 'failed' ? 'failed' : 'late', lastSuccessAt };
 }
 
+type CoverageFacts = {
+  dataTypes?: readonly DataType[];
+  scope?: PlanScope;
+  selection?: readonly string[];
+};
+
+/** Lignes de la page « Sources » que couvre un plan : ses services et, en sélection, ses sources. */
+function coveredRows(plan: CoverageFacts, rows: readonly StatusRow[]): StatusRow[] {
+  return rows.filter((r) => {
+    const service =
+      r.kind === 'site' ? 'sharepoint' : r.workload === 'onedrive' ? 'onedrive' : 'mail';
+    return (
+      (plan.dataTypes ?? []).includes(service) &&
+      (plan.scope !== 'selection' || (plan.selection ?? []).includes(r.sourceId))
+    );
+  });
+}
+
+/** Plus récente sauvegarde datée des sources couvertes ; `null` si aucune. */
+function latestSnapshotMs(covered: readonly StatusRow[]): number | null {
+  const times = covered.flatMap((r) =>
+    r.lastSnapshotAt === null ? [] : [Date.parse(r.lastSnapshotAt)],
+  );
+  const valid = times.filter((t) => !Number.isNaN(t));
+  return valid.length === 0 ? null : Math.max(...valid);
+}
+
+/** Une date d'exécution n'est jamais plus récente que la dernière sauvegarde des sources du plan. */
+function cap(at: string, covered: readonly StatusRow[]): string {
+  const bound = latestSnapshotMs(covered);
+  return bound !== null && bound < Date.parse(at) ? new Date(bound).toISOString() : at;
+}
+
+/**
+ * Remet la conformité d'un plan d'accord avec la page « Sources » : sa dernière réussite ne
+ * dépasse pas la plus récente sauvegarde de ses sources, et un plan dont une source couverte est
+ * en retard n'est plus « à jour ». Sans lignes du catalogue, rien ne change.
+ */
+export function alignCompliance<T extends Compliance>(
+  compliance: T,
+  plan: CoverageFacts,
+  rows: readonly StatusRow[] | undefined,
+): T {
+  if (!rows) return compliance;
+  const covered = coveredRows(plan, rows);
+  const late = compliance.state === 'compliant' && covered.some((r) => r.state === 'stale');
+  return {
+    ...compliance,
+    ...(compliance.lastSuccessAt !== null && {
+      lastSuccessAt: cap(compliance.lastSuccessAt, covered),
+    }),
+    ...(late && { state: 'late' as const }),
+  };
+}
+
+/** Fin d'une exécution réussie, bornée comme `alignCompliance` ; un échec garde sa date. */
+export function alignRunEnd(
+  run: Pick<PlanRun, 'status' | 'finishedAt'>,
+  plan: CoverageFacts,
+  rows: readonly StatusRow[] | undefined,
+): string | null {
+  if (!rows || run.finishedAt === null || run.status !== 'success') return run.finishedAt;
+  return cap(run.finishedAt, coveredRows(plan, rows));
+}
+
 export interface PlanComplianceEntry extends Compliance {
   id: string;
   name: string;
@@ -342,16 +409,20 @@ export function buildPlanComplianceReport(
     name: string;
     rpoHours: RpoHours;
     dataTypes?: readonly DataType[];
+    scope?: PlanScope;
+    selection?: readonly string[];
   }[],
   runsOf: (planId: string) => readonly PlanRun[],
   now: Date,
+  /** Lignes de la page « Sources » : un plan se juge aussi sur les sauvegardes de ses sources. */
+  rows?: readonly StatusRow[],
 ): PlanComplianceReport {
   const counts: Record<ComplianceState, number> = { compliant: 0, late: 0, failed: 0 };
   const nonCompliant: PlanComplianceEntry[] = [];
   let pending = 0;
   for (const plan of plans) {
     const runs = runsOf(plan.id);
-    const compliance = planCompliance(plan.rpoHours, runs, now);
+    const compliance = alignCompliance(planCompliance(plan.rpoHours, runs, now), plan, rows);
     counts[compliance.state] += 1;
     if (
       compliance.state === 'compliant' &&
@@ -373,7 +444,7 @@ export function buildPlanComplianceReport(
           ? {
               status: last.status,
               startedAt: last.startedAt,
-              finishedAt: last.finishedAt,
+              finishedAt: alignRunEnd(last, plan, rows),
               noSnapshotReason: last.noSnapshotReason ?? null,
             }
           : null,

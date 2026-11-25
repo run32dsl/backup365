@@ -1,3 +1,4 @@
+import { FakeBackupCatalog } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
@@ -28,6 +29,28 @@ const get = (plans?: SqlitePlanStore, role: 'admin' | 'operator' = 'admin') => {
   const app = buildTestApp({ version: '1', role, ...(plans ? { plans } : {}) });
   return app.inject({ method: 'GET', url: '/api/overview' });
 };
+
+describe('plans and overview against the listed backups (#485)', () => {
+  const catalog = new FakeBackupCatalog({
+    mailboxes: [
+      { id: 'a', displayName: 'A' },
+      { id: 'b', displayName: 'B' },
+    ],
+    snapshots: {
+      a: [{ id: 's1', workload: 'mail', createdAt: hoursAgo(2) }],
+      b: [{ id: 's2', workload: 'mail', createdAt: hoursAgo(40) }],
+    },
+  });
+
+  it('counts a plan covering a late source as late, dated by the latest backup', async () => {
+    const plans = SqlitePlanStore.open(':memory:');
+    run(plans, plans.create({ ...input('Tout'), rpoHours: 24 }).id, 'success', 0.5);
+    const app = buildTestApp({ version: '1', catalog, plans });
+    const overview = (await app.inject({ method: 'GET', url: '/api/overview' })).json<Overview>();
+    expect(overview.plans).toMatchObject({ operational: 0, late: 1 });
+    expect(Date.parse(overview.lastBackupAt ?? '')).toBeLessThan(Date.now() - 1.9 * 3_600_000);
+  });
+});
 
 describe('GET /api/overview', () => {
   it('is unconfigured without any plan', async () => {
