@@ -2,9 +2,43 @@ import { describe, expect, it } from 'vitest';
 import type { BackupCatalog } from './catalog.js';
 import { FakeBackupCatalog } from './fake-catalog.js';
 import { nextRunAt } from './protection-plan.js';
-import { backupState, buildServiceSummaries, buildStatusReport, type StatusRow } from './status.js';
+import {
+  backupState,
+  buildServiceSummaries,
+  buildStatusReport,
+  lateBackups,
+  type StatusRow,
+} from './status.js';
 
 const now = new Date('2026-11-12T12:00:00Z');
+
+describe('lateBackups', () => {
+  const row = (over: Partial<StatusRow>): StatusRow => ({
+    kind: 'mailbox',
+    sourceId: 'a',
+    displayName: 'Boîte A',
+    workload: 'mail',
+    lastSnapshotAt: '2026-11-01T00:00:00Z',
+    ageHours: 276,
+    state: 'stale',
+    ...over,
+  });
+
+  it('keeps only stale rows and maps them to a service', () => {
+    const late = lateBackups([
+      row({}),
+      row({ workload: 'onedrive', displayName: 'Compte' }),
+      row({ kind: 'site', workload: 'sharepoint', displayName: 'Site' }),
+      row({ state: 'ok' }),
+      row({ state: 'missing', lastSnapshotAt: null, ageHours: null }),
+    ]);
+    expect(late.map((l) => [l.service, l.name])).toEqual([
+      ['mail', 'Boîte A'],
+      ['onedrive', 'Compte'],
+      ['sharepoint', 'Site'],
+    ]);
+  });
+});
 
 describe('backupState', () => {
   it('is ok under the threshold and at the threshold', () => {

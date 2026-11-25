@@ -202,3 +202,28 @@ export function buildServiceSummaries(
     };
   });
 }
+
+/** Une sauvegarde au-delà du seuil de retard, rattachée au service de la page « Sources ». */
+export interface LateBackup {
+  service: Service;
+  /** Nom de la boîte, du compte ou du site. */
+  name: string;
+  /** Date du dernier instantané (UTC, ISO 8601). */
+  lastSnapshotAt: string;
+}
+
+/**
+ * Sauvegardes en retard (`stale`), pour la carte « Sauvegarde » de l'accueil. Même définition que
+ * le bandeau et le compteur de « Sources », qui comptent les lignes `stale` de `GET /api/status` ;
+ * un test serveur garantit que les nombres restent égaux. Une source sans instantané (`missing`)
+ * n'en fait pas partie.
+ */
+export function lateBackups(rows: readonly StatusRow[]): LateBackup[] {
+  const serviceOf = (r: StatusRow): Service =>
+    r.kind === 'site' ? 'sharepoint' : r.workload === 'onedrive' ? 'onedrive' : 'mail';
+  return rows.flatMap((r) =>
+    r.state === 'stale' && r.lastSnapshotAt !== null
+      ? [{ service: serviceOf(r), name: r.displayName, lastSnapshotAt: r.lastSnapshotAt }]
+      : [],
+  );
+}

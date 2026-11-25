@@ -1,4 +1,11 @@
-import { planCompliance } from '@backup365/core';
+import {
+  buildStatusReport,
+  lateBackups,
+  planCompliance,
+  type BackupCatalog,
+  type LateBackup,
+  type Workload,
+} from '@backup365/core';
 import type { FastifyInstance } from 'fastify';
 import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 
@@ -36,6 +43,26 @@ export interface Overview {
    * et fin de l'exécution. `null` si aucun plan n'est dans ce cas.
    */
   lastFailure: { plan: string; at: string } | null;
+  /**
+   * Sauvegardes au-delà du seuil de retard (par boîte, compte ou site), calculées comme la page
+   * « Sources » (`lateBackups`). Vide sans catalogue ou si celui-ci ne répond pas.
+   */
+  lateBackups: LateBackup[];
+}
+
+/** Mêmes lignes que `GET /api/status` ; un catalogue qui ne répond pas ne fait pas échouer l'accueil. */
+async function lateBackupsOf(
+  late: Parameters<typeof registerOverviewRoutes>[3],
+  log: { warn(obj: object, msg: string): void },
+): Promise<LateBackup[]> {
+  if (!late?.catalog) return [];
+  try {
+    const report = await buildStatusReport(late.catalog, late.workloads, late.maxAgeHours);
+    return lateBackups(report.rows);
+  } catch (err) {
+    log.warn({ code: (err as NodeJS.ErrnoException).code }, 'sauvegardes en retard indisponibles');
+    return [];
+  }
 }
 
 /**
@@ -47,8 +74,13 @@ export function registerOverviewRoutes(
   scope: FastifyInstance,
   plans: SqlitePlanStore | undefined,
   queue?: { isQueued(planId: string): boolean },
+  late?: {
+    catalog: BackupCatalog | undefined;
+    maxAgeHours: number;
+    workloads: readonly Workload[];
+  },
 ) {
-  scope.get('/api/overview', (req, reply) => {
+  scope.get('/api/overview', async (req, reply) => {
     if (!req.session) return reply.code(401).send({ error: 'unauthenticated' });
     if (!plans) return reply.code(503).send({ error: 'plans_unavailable' });
     const all = plans.list();
@@ -120,6 +152,7 @@ export function registerOverviewRoutes(
       lastBackupAt,
       lastBackupPlan,
       lastFailure,
+      lateBackups: await lateBackupsOf(late, req.log),
     };
     return overview;
   });
