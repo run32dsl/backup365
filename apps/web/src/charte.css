@@ -962,7 +962,7 @@ select[aria-disabled='true'] {
     margin-right: var(--space-2);
   }
   /* Règle commune (comptes, plans) : action principale seule en pleine largeur, puis les deux
-     secondaires (.action-half) côte à côte ; la raison d'un bouton grisé juste sous lui. */
+     secondaires (.action-half) côte à côte ; la raison des boutons grisés en tête de carte. */
   .data-table td.card-action .button-row .btn.action-half {
     flex: 1 1 calc(50% - var(--space-2));
   }
@@ -1375,7 +1375,7 @@ a.btn-secondary {
   color: var(--accent);
 }
 /* Actions d'une ligne (`.button-row.row-actions`) : sur mobile, la règle des cartes les met en
-   pleine largeur, la raison d'un bouton grisé juste sous lui. Au bureau, les boutons restent sur
+   pleine largeur, la raison des boutons grisés en tête de carte. Au bureau, les boutons restent sur
    une rangée et la raison, placée après le bouton dans le DOM, passe sous la rangée. */
 @media (min-width: 56.26rem) {
   .data-table .row-actions {
