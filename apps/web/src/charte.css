@@ -1393,6 +1393,18 @@ a.btn-secondary {
     grid-column: 1 / -1;
   }
 }
+/* Vue « plans en échec » : sans « Lancer maintenant », Modifier et Supprimer gardent leurs colonnes. */
+@media (min-width: 56.26rem) {
+  .data-table .row-actions-no-run > :first-child {
+    grid-column: 2;
+  }
+}
+/* Bouton du bandeau d'erreur : pleine largeur sur mobile, comme les actions de la page. */
+@media (max-width: 37.5rem) {
+  .alert > .alert-run {
+    width: 100%;
+  }
+}
 .choices {
   margin: 0 0 var(--space-3);
   padding: 0;

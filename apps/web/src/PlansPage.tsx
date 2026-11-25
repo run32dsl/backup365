@@ -685,6 +685,8 @@ function planColumns(
   runningName: string | undefined,
   sources: SourcesReport | null,
   actions: { onRun: (p: PlanItem) => void; onDelete: (p: PlanItem) => void },
+  /** Vue « plans en échec » : le bandeau du plan porte « Lancer maintenant », pas la ligne. */
+  runInBanner = false,
 ): Column<PlanItem>[] {
   const columns: Column<PlanItem>[] = [
     {
@@ -729,19 +731,21 @@ function planColumns(
       header: 'Actions',
       className: 'card-action',
       cell: (p) => (
-        <div className="button-row row-actions">
-          <Button
-            variant="secondary"
-            aria-label={`Lancer ${p.name} maintenant`}
-            aria-disabled={p.running || p.queued || undefined}
-            aria-describedby={p.running || p.queued ? `run-hint-${p.id}` : undefined}
-            onClick={() => {
-              if (!p.running && !p.queued) actions.onRun(p);
-            }}
-          >
-            Lancer maintenant
-          </Button>
-          {(p.running || p.queued) && (
+        <div className={`button-row row-actions${runInBanner ? ' row-actions-no-run' : ''}`}>
+          {!runInBanner && (
+            <Button
+              variant="secondary"
+              aria-label={`Lancer ${p.name} maintenant`}
+              aria-disabled={p.running || p.queued || undefined}
+              aria-describedby={p.running || p.queued ? `run-hint-${p.id}` : undefined}
+              onClick={() => {
+                if (!p.running && !p.queued) actions.onRun(p);
+              }}
+            >
+              Lancer maintenant
+            </Button>
+          )}
+          {!runInBanner && (p.running || p.queued) && (
             <small className="state-note" id={`run-hint-${p.id}`}>
               {p.running ? MESSAGES.runBusy : MESSAGES.runAlreadyQueued}
             </small>
@@ -879,6 +883,7 @@ export function PlansListView({
                 action={
                   admin ? (
                     <Button
+                      className="alert-run"
                       aria-label={`Lancer ${p.name} maintenant`}
                       aria-disabled={busy || undefined}
                       aria-describedby={busy ? `banner-run-hint-${p.id}` : undefined}
@@ -900,18 +905,19 @@ export function PlansListView({
               </Alert>
             );
           })}
-          <p>
-            <a href={PLANS_HASH}>Voir tous les plans</a>
-          </p>
         </>
       )}
       <DataTable
         caption="Plans de protection"
         hideCaption
-        columns={planColumns(admin, mailboxes, state.find((p) => p.running)?.name, sources, {
-          onRun,
-          onDelete,
-        })}
+        columns={planColumns(
+          admin,
+          mailboxes,
+          state.find((p) => p.running)?.name,
+          sources,
+          { onRun, onDelete },
+          filtered,
+        )}
         rows={filtered ? failed : state}
         rowKey={(p) => p.id}
       />
@@ -920,6 +926,30 @@ export function PlansListView({
 }
 
 // ---- Écran ----------------------------------------------------------------------------------
+
+/** Phrase d'introduction : dit le filtre « plans en échec » (`shown` sur `total`) quand il est actif. */
+export function PlansIntro({
+  shown,
+  total,
+}: {
+  shown?: number | undefined;
+  total?: number | undefined;
+}) {
+  if (shown === undefined || total === undefined)
+    return <p>Ce que chaque plan sauvegarde, et quand.</p>;
+  // Tous les plans sont en échec : le filtre ne cache rien, le lien serait inutile.
+  if (shown === total)
+    return (
+      <p>
+        Plans en échec : {shown} sur {total}.
+      </p>
+    );
+  return (
+    <p>
+      Plans en échec : {shown} sur {total}. <a href={PLANS_HASH}>Voir les {total} plans</a>
+    </p>
+  );
+}
 
 /** Écran `#/plans` : liste, parcours de création ou de modification, lancement et suppression. */
 export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean }) {
@@ -1083,13 +1113,22 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
       ? 'Modifier le plan'
       : 'Créer un plan de protection';
   const canCreate = admin && boxes.configured;
+  const failedShown = Array.isArray(state) ? state.filter(isFailed).length : 0;
+  const failedView =
+    !wizard &&
+    Array.isArray(state) &&
+    route.page === 'list' &&
+    route.failedOnly === true &&
+    failedShown > 0
+      ? { shown: failedShown, total: state.length }
+      : null;
   return (
     <main tabIndex={-1}>
       <h1>{title}</h1>
       {!wizard && <SourcesNav current="plans" admin={admin} />}
       {!wizard && (
         <div className="view-intro">
-          <p>Ce que chaque plan sauvegarde, et quand.</p>
+          <PlansIntro shown={failedView?.shown} total={failedView?.total} />
           {admin && (
             <Button
               aria-disabled={!canCreate || undefined}
