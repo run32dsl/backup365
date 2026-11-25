@@ -1,6 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { ConfirmStep, EntriesTable, TrackStep } from './OneDrivePage.js';
+import { BrowseStep, ConfirmStep, EntriesTable, TrackStep } from './OneDrivePage.js';
 import {
   ONEDRIVE_MESSAGES,
   breadcrumbOf,
@@ -42,13 +42,15 @@ describe('OneDrive route', () => {
     expect(screenOf('#/onedrive/a')).toBe('onedrive');
   });
 
-  it('builds the breadcrumb from Accueil', () => {
-    expect(breadcrumbOf('/Documents/Budget')).toEqual([
-      { label: 'Accueil', path: '/' },
+  it('roots the breadcrumb at the account, which leads back to the drive root', () => {
+    expect(breadcrumbOf('/Documents/Budget', 'claire.durand@exemple.fr')).toEqual([
+      { label: 'claire.durand@exemple.fr', path: '/' },
       { label: 'Documents', path: '/Documents' },
       { label: 'Budget', path: '/Documents/Budget' },
     ]);
-    expect(breadcrumbOf('/')).toHaveLength(1);
+    expect(breadcrumbOf('/', 'claire.durand@exemple.fr')).toEqual([
+      { label: 'claire.durand@exemple.fr', path: '/' },
+    ]);
   });
 });
 
@@ -385,5 +387,28 @@ describe('OneDrive result list', () => {
     expect(out).not.toContain('<dt>Date de la version (UTC)</dt>');
     expect(out).toContain('<dt>Compte</dt>');
     expect(out).toContain('<dt>Emplacement</dt>');
+  });
+});
+
+describe('OneDrive breadcrumb', () => {
+  it('starts at the selected account and never shows Accueil', () => {
+    const out = renderToString(
+      <BrowseStep
+        route={{ account: 'u1', path: '/Documents/Budget' }}
+        account="u1"
+        accounts={[
+          { id: 'u0', displayName: 'autre@exemple.fr' },
+          { id: 'u1', displayName: 'claire.durand@exemple.fr' },
+        ]}
+        snapshots={[]}
+        snapshotId=""
+        onSnapshot={() => undefined}
+        configured
+        onChoose={() => undefined}
+      />,
+    );
+    const nav = out.slice(out.indexOf('<nav'), out.indexOf('</nav>'));
+    expect(nav).toMatch(/<a href="#\/onedrive\/u1">claire\.durand@exemple\.fr<\/a>/);
+    expect(nav).not.toContain('Accueil');
   });
 });

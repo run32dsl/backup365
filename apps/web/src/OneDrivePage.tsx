@@ -297,7 +297,7 @@ export function EntriesTable({
 }
 
 /** Étape 1 : parcourir la sauvegarde et choisir un élément. */
-function BrowseStep({
+export function BrowseStep({
   route,
   account,
   accounts,
@@ -342,6 +342,9 @@ function BrowseStep({
   const chosen = rows.find((e) => e.path === selected);
   const snapshot = snapshots.find((s) => s.id === snapshotId);
 
+  const rootLabel = accounts.find((a) => a.id === account)?.displayName ?? account;
+  const crumbs = breadcrumbOf(path, rootLabel);
+
   return (
     <>
       <div className="toolbar">
@@ -380,7 +383,7 @@ function BrowseStep({
       </div>
       <nav aria-label="Fil d'Ariane">
         <ol className="breadcrumb">
-          {breadcrumbOf(path).map((c, i, all) => (
+          {crumbs.map((c, i, all) => (
             <li key={c.path}>
               {i === all.length - 1 ? (
                 <span aria-current="location">{c.label}</span>
@@ -404,7 +407,7 @@ function BrowseStep({
         )}
         {entries?.status === 'ok' && (
           <fieldset className="choices drive-list">
-            <legend className="sr-only">Éléments de {breadcrumbOf(path).at(-1)?.label}</legend>
+            <legend className="sr-only">Éléments de {crumbs.at(-1)?.label}</legend>
             <EntriesTable
               account={account}
               rows={rows}
