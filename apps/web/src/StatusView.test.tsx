@@ -169,7 +169,7 @@ describe('StatusView', () => {
       return found;
     };
 
-    it('keeps the server time of the service when a catalogue row is dated a minute earlier', () => {
+    it('dates the service by the latest row of the backups table, not by the server summary', () => {
       const catalogue = { ...report.rows[0]!, workload: 'mail' as const };
       const services = [entry({ lastSnapshotAt: '2026-11-24T19:00:00Z', ageHours: 1 })];
       const html = renderToString(
@@ -182,8 +182,8 @@ describe('StatusView', () => {
         />,
       );
       const table = html.slice(html.indexOf('services-title'), html.indexOf('backups-title'));
-      expect(table).toContain('24/11/2026 19:00');
-      expect(table).not.toContain('24/11/2026 18:58');
+      expect(table).toContain('24/11/2026 18:58');
+      expect(table).not.toContain('24/11/2026 19:00');
     });
 
     it('says « Non protégé » with a link to create one, and nothing to read in the journal', () => {

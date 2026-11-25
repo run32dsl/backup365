@@ -72,25 +72,36 @@ describe('mode démo', () => {
 
     const status = await app.inject({ url: '/api/status', headers });
     expect(status.json<{ plans: { counts: object } }>().plans.counts).toEqual({
-      compliant: 2,
-      late: 0,
+      compliant: 1,
+      late: 1,
       failed: 1,
     });
 
-    // Les sauvegardes OneDrive et SharePoint viennent d'une réussite du plan qui les couvre
-    // (issue #457) : aucun plan listé en retard ne les contredit.
+    // Un compte OneDrive est en retard depuis 3 jours (issue #485) : le plan qui le couvre est en
+    // retard, daté de la plus récente sauvegarde listée, jamais de son heure d'exécution.
     const plansReport = status.json<{
-      plans: { nonCompliant: { name: string }[]; pending: number };
-    }>().plans;
-    expect(plansReport.nonCompliant.map((p) => p.name)).not.toContain(
-      'OneDrive et SharePoint Services',
+      plans: {
+        nonCompliant: { name: string; state: string; lastRun: { finishedAt: string } }[];
+        pending: number;
+      };
+      services: { service: string; lastSnapshotAt: string | null }[];
+    }>();
+    const files = plansReport.plans.nonCompliant.find(
+      (p) => p.name === 'OneDrive et SharePoint Services',
     );
-    expect(plansReport.pending).toBe(0);
+    expect(files?.state).toBe('late');
+    const onedrive = plansReport.services.find((s) => s.service === 'onedrive');
+    expect(Date.parse(files?.lastRun.finishedAt ?? '')).toBe(
+      Date.parse(onedrive?.lastSnapshotAt ?? ''),
+    );
+    expect(plansReport.plans.pending).toBe(0);
 
     // Accueil et Sources partent du même instant de démonstration pour la messagerie (issue
     // #445). Le planificateur peut inscrire, pendant le test, une exécution plus récente à
     // l'horloge réelle : l'accueil n'est donc jamais antérieur à Sources, à quelques secondes près.
     const overview = await app.inject({ url: '/api/overview', headers });
+    // Le nombre de plans « à jour » de l'accueil est celui de la page Plans de protection.
+    expect(overview.json<{ plans: { operational: number } }>().plans.operational).toBe(1);
     const lastBackupAt = Date.parse(overview.json<{ lastBackupAt: string }>().lastBackupAt);
     const mail = status
       .json<{ services: { service: string; lastSnapshotAt: string | null }[] }>()

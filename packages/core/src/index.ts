@@ -119,4 +119,6 @@ export {
   type ProtectionPlanInput,
   type RpoHours,
   type RunStatus,
+  alignCompliance,
+  alignRunEnd,
 } from './protection-plan.js';

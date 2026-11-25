@@ -22,12 +22,17 @@ export interface StatusOptions {
 }
 
 /** Conformité de tous les plans ; `null` si leur base ne répond pas (le tableau reste servi). */
-function planCompliance(store: SqlitePlanStore, log: { warn(obj: object, msg: string): void }) {
+function planCompliance(
+  store: SqlitePlanStore,
+  rows: readonly StatusRow[],
+  log: { warn(obj: object, msg: string): void },
+) {
   try {
     return buildPlanComplianceReport(
       store.list(),
       (id) => store.listRuns(id, COMPLIANCE_RUNS_LIMIT),
       new Date(),
+      rows,
     );
   } catch (err) {
     // Code technique seul : jamais de message ni de nom de plan.
@@ -44,10 +49,7 @@ function serviceSummaries(
   log: { warn(obj: object, msg: string): void },
 ) {
   try {
-    return buildServiceSummaries(rows, store.list(), maxAgeHours, new Date(), (id) => {
-      const ok = store.listRuns(id, COMPLIANCE_RUNS_LIMIT).find((r) => r.status === 'success');
-      return ok?.finishedAt ?? null;
-    });
+    return buildServiceSummaries(rows, store.list(), maxAgeHours);
   } catch (err) {
     log.warn({ code: (err as NodeJS.ErrnoException).code }, 'synthèse des services indisponible');
     return null;
@@ -78,7 +80,7 @@ export function registerStatusRoutes(
     const base = store
       ? {
           ...catalogReport,
-          plans: planCompliance(store, req.log),
+          plans: planCompliance(store, catalogReport.rows, req.log),
           services: serviceSummaries(store, catalogReport.rows, options.maxAgeHours, req.log),
         }
       : catalogReport;
