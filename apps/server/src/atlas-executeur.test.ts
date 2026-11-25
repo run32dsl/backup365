@@ -65,6 +65,32 @@ describe('AtlasExecuteur', () => {
     ).resolves.toEqual({});
   });
 
+  it('adds up the copied items and the source size the SDK reports', async () => {
+    const owner = fakeApi({
+      mail: () =>
+        Promise.resolve({
+          ...mailOk,
+          summary: { folderErrors: [], stored: 40 },
+          manifest: { totalSizeBytes: 1000 },
+        }),
+      drive: () =>
+        Promise.resolve({
+          ...driveOk,
+          summary: { healthy: true, filesStored: 2 },
+          snapshot: { totalSizeBytes: 500 },
+        }),
+    });
+    await expect(
+      owner.executeur.execute({ planId: 'p', itemId: 'owner-1', dataTypes: ALL }),
+    ).resolves.toEqual({ itemsSaved: 42, sourceBytes: 1500 });
+    const site = fakeApi({
+      site: () => Promise.resolve([{ ...driveOk, summary: { healthy: true, filesStored: 3 } }]),
+    });
+    await expect(
+      site.executeur.execute({ planId: 'p', itemId: 'site-1', dataTypes: ALL }),
+    ).resolves.toEqual({ itemsSaved: 3 });
+  });
+
   it('backs up mail then OneDrive for an owner, without forcing a full backup', async () => {
     const { calls, executeur, api } = fakeApi();
     await executeur.execute({ planId: 'p', itemId: 'owner-1', dataTypes: ALL });

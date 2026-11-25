@@ -9,6 +9,7 @@ import {
   type PlanItem,
   type SourcesReport,
 } from '../plans.js';
+import { runsHash } from '../activities/runs.js';
 import { Button, StatusPill, type Column } from '../ui/index.js';
 
 export function planColumns(
@@ -55,7 +56,14 @@ export function planColumns(
     {
       header: 'Dernière exécution (UTC)',
       className: 'card-wide plan-last-run',
-      cell: lastRunLabel,
+      cell: (p) => (
+        <>
+          {lastRunLabel(p)}
+          <a className="state-link" href={runsHash(p.id)} aria-label={`Historique de ${p.name}`}>
+            Historique
+          </a>
+        </>
+      ),
     },
   ];
   if (admin) {

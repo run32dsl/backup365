@@ -180,7 +180,7 @@ describe('navEntries', () => {
       '#/',
       '#/plans',
       '#/search',
-      '#/audit',
+      '#/activites',
       '#/comptes',
     ]);
     expect(navEntries('home', true).every((e) => e.icon.length > 0)).toBe(true);
