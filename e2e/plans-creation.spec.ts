@@ -107,7 +107,7 @@ for (const width of WIDTHS) {
 
     test('périmètre vide : message, focus et champ visible', async ({ page }) => {
       await page.getByLabel('Nom du plan').fill('Plan périmètre');
-      await page.getByRole('radio', { name: 'Boîtes et comptes choisis' }).check();
+      await page.getByRole('radio', { name: 'Boîtes, comptes et sites choisis' }).check();
       await page.getByRole('button', { name: 'Continuer' }).click();
       await expect(page.getByText('Choisissez au moins un élément à protéger.')).toBeVisible();
       const first = page.locator('fieldset[aria-describedby="selection-error"] input').first();

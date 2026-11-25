@@ -138,6 +138,25 @@ describe('plan form', () => {
     expect(payloadOf({ ...form, scope: 'selection' }).selection).toEqual(['a']);
   });
 
+  it('names the chosen mailboxes and sites in the recap and the list summary', () => {
+    const names = [
+      { id: 'a', displayName: 'claire.durand@exemple.fr' },
+      { id: 's1', displayName: 'Équipe commerciale' },
+    ];
+    const form = {
+      ...emptyForm(),
+      scope: 'selection' as const,
+      selection: ['a', 's1'],
+      justification: 'Obligation légale',
+    };
+    expect(Object.fromEntries(recapRows(form, names))['Périmètre']).toBe(
+      'claire.durand@exemple.fr et Équipe commerciale',
+    );
+    expect(planSummary({ ...plan, scope: 'selection', selection: ['s1'] }, names)).toContain(
+      'Équipe commerciale',
+    );
+  });
+
   it('lists the plan in labelled rows, in order', () => {
     const rows = recapRows({
       ...emptyForm(),
@@ -165,11 +184,9 @@ describe('plan form', () => {
     const row = (f: typeof form, label: string) =>
       Object.fromEntries(recapRows(f))[label] as string;
     expect(row({ ...form, selection: ['a', 'b'] }, 'Données')).toBe('Messagerie');
-    expect(row({ ...form, selection: ['a', 'b'] }, 'Périmètre')).toBe(
-      '2 boîtes ou comptes choisis',
-    );
-    expect(row({ ...form, selection: ['a'] }, 'Périmètre')).toBe('1 boîte ou compte choisi');
-    expect(row(form, 'Périmètre')).toBe('Aucune boîte ou compte choisi');
+    expect(row({ ...form, selection: ['a', 'b'] }, 'Périmètre')).toBe('2 éléments choisis');
+    expect(row({ ...form, selection: ['a'] }, 'Périmètre')).toBe('1 élément choisi');
+    expect(row(form, 'Périmètre')).toBe('Aucune boîte, compte ou site choisi');
     expect(row(form, 'Justification de cette durée')).toBe('Besoin métier : Audit annuel');
     expect(row({ ...form, dataTypes: [] }, 'Données')).toBe('Aucune donnée choisie');
   });
@@ -501,6 +518,30 @@ describe('PlanWizard', () => {
     expect(html).toContain('Nom du plan');
     expect(html).toContain('Continuer');
     expect(html).not.toContain('Précédent');
+  });
+
+  it('offers the sites only when SharePoint is ticked, once a selection is chosen', () => {
+    const render = (dataTypes: ('mail' | 'onedrive' | 'sharepoint')[]) =>
+      renderToStaticMarkup(
+        <PlanWizard
+          initial={{ ...emptyForm(), dataTypes, scope: 'selection' }}
+          editing={false}
+          mailboxes={[{ id: 'a', displayName: 'claire.durand@exemple.fr' }]}
+          sites={[{ id: 's1', displayName: 'Équipe commerciale' }]}
+          onSubmit={() => Promise.resolve(undefined)}
+        />,
+      );
+    const all = render(['mail', 'onedrive', 'sharepoint']);
+    expect(all).toContain('<legend>Sites SharePoint</legend>');
+    expect(all).toContain('Équipe commerciale');
+    expect(all).toContain('<legend>Boîtes et comptes</legend>');
+    expect(all).toContain('Boîtes, comptes et sites choisis');
+    const noSites = render(['mail']);
+    expect(noSites).not.toContain('Sites SharePoint');
+    expect(noSites).not.toContain('Équipe commerciale');
+    const onlySites = render(['sharepoint']);
+    expect(onlySites).not.toContain('<legend>Boîtes et comptes</legend>');
+    expect(onlySites).toContain('Équipe commerciale');
   });
 
   it('asks for the justification in one free text field with help and counter', () => {

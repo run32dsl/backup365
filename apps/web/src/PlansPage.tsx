@@ -1,5 +1,5 @@
 import { DATA_TYPES, scheduleWindowLabel, type DataType, type RpoHours } from '@backup365/core';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ConfigurationLink } from './ConfigurationBlock.js';
 import {
   DATA_TYPE_LABELS,
@@ -45,6 +45,7 @@ import {
   type PlansRoute,
 } from './plans.js';
 import { problemMessage, splitTitle, type Problem } from './apiError.js';
+import { fetchSites } from './sharepoint.js';
 import { useAdmin } from './role.js';
 import { MAX_REASON_LENGTH } from './mail.js';
 import { REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
@@ -106,11 +107,52 @@ function toggle<T>(list: T[], item: T): T[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
 
+/** Groupe de cases d'un service dans le périmètre choisi (mêmes `.choice` que les données). */
+function SelectionGroup({
+  legend,
+  empty,
+  items,
+  selection,
+  invalid,
+  onToggle,
+}: {
+  legend: string;
+  empty: string;
+  items: readonly Mailbox[];
+  selection: readonly string[];
+  invalid: true | undefined;
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <fieldset className="choices" aria-describedby={invalid ? 'selection-error' : undefined}>
+      <legend>{legend}</legend>
+      {items.length === 0 && <p>{empty}</p>}
+      <div className="choice-list">
+        {items.map((m) => (
+          <label key={m.id} className="choice">
+            <input
+              type="checkbox"
+              aria-invalid={invalid}
+              aria-describedby={invalid ? 'selection-error' : undefined}
+              checked={selection.includes(m.id)}
+              onChange={() => {
+                onToggle(m.id);
+              }}
+            />
+            {m.displayName}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 /** Parcours de création et de modification : les saisies restent en mémoire d'une étape à l'autre. */
 export function PlanWizard({
   initial,
   editing,
   mailboxes,
+  sites = [],
   onSubmit,
   initialStep = 1,
   takenNames = [],
@@ -120,6 +162,8 @@ export function PlanWizard({
   initial: PlanForm;
   editing: boolean;
   mailboxes: Mailbox[];
+  /** Sites SharePoint sauvegardables, proposés quand SharePoint est coché. */
+  sites?: Mailbox[];
   /** Renvoie le problème, ou `undefined` si l'enregistrement a réussi. */
   onSubmit: (form: PlanForm) => Promise<Problem | undefined>;
   /** Étape affichée à l'ouverture (tests). */
@@ -224,8 +268,19 @@ export function PlanWizard({
                     }
                     checked={form.dataTypes.includes(t)}
                     onChange={() => {
+                      const dataTypes = DATA_TYPES.filter((d) =>
+                        toggle(form.dataTypes, t).includes(d),
+                      );
+                      // Un groupe qui disparaît emporte ses choix ; les ids inconnus du catalogue restent.
+                      const hidden = new Set<string>([
+                        ...(dataTypes.some((d) => d !== 'sharepoint') ? [] : mailboxes).map(
+                          (m) => m.id,
+                        ),
+                        ...(dataTypes.includes('sharepoint') ? [] : sites).map((s) => s.id),
+                      ]);
                       patch({
-                        dataTypes: DATA_TYPES.filter((d) => toggle(form.dataTypes, t).includes(d)),
+                        dataTypes,
+                        selection: form.selection.filter((id) => !hidden.has(id)),
                       });
                     }}
                   />
@@ -246,37 +301,40 @@ export function PlanWizard({
             value={form.scope}
             options={[
               { value: 'all', label: 'Toute l’organisation' },
-              { value: 'selection', label: 'Boîtes et comptes choisis' },
+              { value: 'selection', label: 'Boîtes, comptes et sites choisis' },
             ]}
             onChange={(scope) => {
               patch({ scope });
             }}
           />
           {form.scope === 'selection' && (
-            <fieldset
-              className="choices"
-              aria-describedby={errors.selection ? 'selection-error' : undefined}
-            >
-              <legend>Boîtes et comptes</legend>
-              {mailboxes.length === 0 && <p>Aucune boîte à choisir pour l’instant.</p>}
-              <div className="choice-list">
-                {mailboxes.map((m) => (
-                  <label key={m.id} className="choice">
-                    <input
-                      type="checkbox"
-                      aria-invalid={invalid('selection')}
-                      aria-describedby={errors.selection ? 'selection-error' : undefined}
-                      checked={form.selection.includes(m.id)}
-                      onChange={() => {
-                        patch({ selection: toggle(form.selection, m.id) });
-                      }}
-                    />
-                    {m.displayName}
-                  </label>
-                ))}
-              </div>
+            <>
+              {form.dataTypes.some((t) => t !== 'sharepoint') && (
+                <SelectionGroup
+                  legend="Boîtes et comptes"
+                  empty="Aucune boîte à choisir pour l’instant."
+                  items={mailboxes}
+                  selection={form.selection}
+                  invalid={invalid('selection')}
+                  onToggle={(id) => {
+                    patch({ selection: toggle(form.selection, id) });
+                  }}
+                />
+              )}
+              {form.dataTypes.includes('sharepoint') && (
+                <SelectionGroup
+                  legend="Sites SharePoint"
+                  empty="Aucun site à choisir pour l’instant."
+                  items={sites}
+                  selection={form.selection}
+                  invalid={invalid('selection')}
+                  onToggle={(id) => {
+                    patch({ selection: toggle(form.selection, id) });
+                  }}
+                />
+              )}
               <ErrorText id="selection-error">{errors.selection}</ErrorText>
-            </fieldset>
+            </>
           )}
         </>
       )}
@@ -339,7 +397,7 @@ export function PlanWizard({
       {step === 3 && (
         <>
           <h2>Récapitulatif</h2>
-          <ResultList rows={recapRows(form)} />
+          <ResultList rows={recapRows(form, [...mailboxes, ...sites])} />
         </>
       )}
 
@@ -860,15 +918,18 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     configured: true,
     mailboxes: [],
   });
+  const [sites, setSites] = useState<Mailbox[]>([]);
   const [flash, setFlash] = useState<Flash>();
   const [runTarget, setRunTarget] = useState<PlanItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlanItem | null>(null);
 
+  const named = useMemo(() => [...boxes.mailboxes, ...sites], [boxes.mailboxes, sites]);
   const load = useCallback(() => {
-    Promise.all([fetchPlans(), fetchMailboxes()]).then(
-      ([plans, mailboxes]) => {
+    Promise.all([fetchPlans(), fetchMailboxes(), fetchSites()]).then(
+      ([plans, mailboxes, found]) => {
         setState(plans);
         setBoxes(mailboxes);
+        setSites(found.status === 'ok' ? found.data : []);
       },
       () => {
         setState('error');
@@ -979,6 +1040,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         initial={plan ? formFromPlan(plan) : emptyForm()}
         editing={editing !== undefined}
         mailboxes={boxes.mailboxes}
+        sites={sites}
         takenNames={
           Array.isArray(state) ? state.filter((p) => p.id !== editing).map((p) => p.name) : []
         }
@@ -991,7 +1053,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         state={state}
         admin={admin}
         configured={boxes.configured}
-        mailboxes={boxes.mailboxes}
+        mailboxes={named}
         failedOnly={route.page === 'list' && route.failedOnly === true}
         onRetry={reloadList}
         onRun={setRunTarget}
@@ -1039,7 +1101,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
           <RunDialog plan={runTarget} onClose={closeRun} onRun={onRun} />
           <DeleteDialog
             plan={deleteTarget}
-            mailboxes={boxes.mailboxes}
+            mailboxes={named}
             onClose={() => {
               setDeleteTarget(null);
             }}
