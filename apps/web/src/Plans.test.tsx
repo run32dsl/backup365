@@ -28,6 +28,7 @@ import {
   validateStep,
   JUSTIFICATION_PLACEHOLDER,
   type PlanItem,
+  hoursLabel,
 } from './plans.js';
 
 const plan: PlanItem = {
@@ -167,9 +168,12 @@ describe('plan form', () => {
       ['Nom du plan', 'Messagerie Direction'],
       ['Données', 'Messagerie, OneDrive, SharePoint'],
       ['Périmètre', 'Toute l’organisation'],
-      ['Perte de données acceptable', '12\u00a0h (une sauvegarde toutes les 12\u00a0h)'],
-      ['Remise en service souhaitée', '24\u00a0h'],
-      ['Durée de conservation', '1 an'],
+      [
+        'Perte de données acceptable',
+        '12\u00a0heures au plus (une sauvegarde toutes les 12\u00a0heures)',
+      ],
+      ['Remise en service souhaitée', '24\u00a0heures au plus'],
+      ['Durée de conservation', '1\u00a0an, puis suppression'],
       ['Justification de cette durée', 'Obligation légale'],
     ]);
   });
@@ -580,7 +584,7 @@ describe('PlanWizard', () => {
         initialStep={2}
       />,
     );
-    expect(html).not.toContain('<select');
+    expect(html).toContain('<select');
     expect(html).not.toContain('Précision');
     expect(html).toContain('Justification de cette durée (obligatoire)');
     expect(html).toContain('placeholder="Obligation légale : courriers 1 an"');
@@ -631,6 +635,11 @@ describe('PlanWizard', () => {
       (m) => [/value="(\d+)"/.exec(m[0])?.[1], m[0].includes('checked=""')] as const,
     );
 
+  const options = (html: string) =>
+    [...html.matchAll(/<option[^>]*>/g)].map(
+      (m) => [/value="(\d+)"/.exec(m[0])?.[1], m[0].includes('selected=""')] as const,
+    );
+
   it('names the recap rows like the objectives step, and marks no label with an asterisk', () => {
     const html = step2();
     const recapLabels = recapRows(emptyForm())
@@ -638,7 +647,7 @@ describe('PlanWizard', () => {
       .slice(3);
     expect(recapLabels).toEqual(Object.values(OBJECTIVE_LABELS));
     const legends = [...html.matchAll(/<legend>([^<]*)<\/legend>/g)].map((m) => m[1]);
-    expect(legends).toEqual(recapLabels.slice(0, 3));
+    expect(legends).toEqual(recapLabels.slice(0, 2));
     expect(html).toContain('Justification de cette durée (obligatoire)');
     const labels = [...html.matchAll(/<(?:label|legend)[^>]*>([^<]*)</g)].map((m) => m[1]);
     for (const label of labels) expect(label).not.toMatch(/\*\s*$/);
@@ -657,7 +666,7 @@ describe('PlanWizard', () => {
       ['24', true],
       ['72', false],
     ]);
-    expect(radios(html, 'retention')).toEqual([
+    expect(options(html)).toEqual([
       ['180', false],
       ['365', true],
       ['1095', false],
@@ -671,13 +680,18 @@ describe('PlanWizard', () => {
       expect(html).toContain(`aria-describedby="${name}-help"`);
       expect(html).toContain(`id="${name}-help"`);
     }
-    expect(html).toContain('perdre au plus 12 h');
-    expect(html).toContain('rétabli en 24 h au plus');
+    expect(html).toContain('perdre au plus 12\u00a0heures');
+    expect(html).toContain('rétabli en 24\u00a0heures au plus');
     expect(html).toContain('supprimées au bout de 1\u00a0an');
     const other = step2({ ...emptyForm(), rpoHours: 4, rtoHours: 8, retentionDays: 180 });
-    expect(other).toContain('perdre au plus 4 h');
-    expect(other).toContain('rétabli en 8 h au plus');
+    expect(other).toContain('perdre au plus 4\u00a0heures');
+    expect(other).toContain('rétabli en 8\u00a0heures au plus');
     expect(other).toContain('supprimées au bout de 6\u00a0mois');
+  });
+
+  it('writes hours in full, singular included', () => {
+    expect(hoursLabel(1)).toBe('1\u00a0heure');
+    expect(hoursLabel(24)).toBe('24\u00a0heures');
   });
 
   it('keeps the options sorted when the current value is outside the list', () => {
@@ -685,7 +699,7 @@ describe('PlanWizard', () => {
     expect(withCurrent(RETENTION_CHOICES, 30)).toEqual([30, 180, 365, 1095]);
     expect(withCurrent(RTO_CHOICES, 48)).toEqual([8, 24, 48, 72]);
     const html = step2({ ...emptyForm(), retentionDays: 730 });
-    expect(radios(html, 'retention').map(([v]) => v)).toEqual(['180', '365', '730', '1095']);
+    expect(options(html).map(([v]) => v)).toEqual(['180', '365', '730', '1095']);
   });
 });
 
