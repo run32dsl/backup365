@@ -380,20 +380,20 @@ test('SharePoint : fil d’Ariane à 390 px, séparateurs et liens par niveau', 
   const parent = nav.getByRole('link', { name: 'Documents partagés' });
   await expect(parent).toHaveAttribute('href', library);
 
-  // Chaque « > » est dans le `li` du niveau qui le précède, donc sur sa ligne, après le libellé :
-  // aucune ligne ne commence par « > ». Le dernier niveau n'en a pas.
+  // Chaque « > » ouvre le `li` du niveau qui le suit (`::before`) : à un retour à la ligne il part
+  // avec ce niveau, donc sur sa ligne, avant le libellé. Le premier niveau n'en a pas.
   const levels = await nav.locator('ol').evaluate((ol) =>
     [...ol.children].map((li) => {
       const box = li.getBoundingClientRect();
       const label = li.firstElementChild!.getBoundingClientRect();
-      const after = getComputedStyle(li, '::after');
+      const before = getComputedStyle(li, '::before');
       return {
         top: Math.round(box.top),
-        display: after.display,
-        content: after.content,
-        // Le séparateur suit le libellé, sur la même ligne.
+        display: before.display,
+        content: before.content,
+        // Le séparateur précède le libellé, sur la même ligne.
         glued:
-          label.right <= box.right - parseFloat(after.width) &&
+          box.left + parseFloat(before.width) <= label.left &&
           label.top < box.bottom &&
           label.bottom > box.top,
       };
@@ -403,7 +403,7 @@ test('SharePoint : fil d’Ariane à 390 px, séparateurs et liens par niveau', 
   // À 390 px, le chemin à trois niveaux du jeu de démo ne tient pas sur une ligne.
   expect(new Set(levels.map((l) => l.top)).size).toBeGreaterThan(1);
   for (const [i, level] of levels.entries()) {
-    if (i === levels.length - 1) {
+    if (i === 0) {
       expect(level.display).toBe('none');
       continue;
     }
