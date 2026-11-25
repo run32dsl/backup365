@@ -879,9 +879,19 @@ export const SCREENS = [
     prepare: async (page) => {
       // Nom déjà pris et périmètre vide : les deux erreurs, le focus sur le nom.
       await page.getByLabel('Nom du plan').fill('Messagerie Direction');
-      await page.getByRole('radio', { name: 'Boîtes et comptes choisis' }).check();
+      await page.getByRole('radio', { name: 'Boîtes, comptes et sites choisis' }).check();
       await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByText('Ce nom est déjà utilisé. Choisissez-en un autre.').waitFor();
+    },
+  },
+  {
+    // Périmètre choisi : un groupe par service coché, dont les sites SharePoint.
+    name: 'plans-creation-perimetre',
+    hash: '#/plans/nouveau',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('radio', { name: 'Boîtes, comptes et sites choisis' }).check();
+      await page.getByRole('group', { name: 'Sites SharePoint' }).waitFor();
     },
   },
   {
