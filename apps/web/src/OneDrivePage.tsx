@@ -29,6 +29,7 @@ import {
   COPY_CONSEQUENCE,
   REPLACE_WARNING_TITLE,
   replaceWarningOf,
+  restoredSummary,
   type DriveEntry,
   type DriveJob,
   type DriveMode,
@@ -745,7 +746,7 @@ export function TrackStep({
     body = (
       <>
         <Alert tone="success">
-          Restauration terminée en {formatDuration(job.durationMs ?? 0)}.
+          {restoredSummary(job.kind, formatDuration(job.durationMs ?? 0))}
         </Alert>
         {items}
         <WizardActions

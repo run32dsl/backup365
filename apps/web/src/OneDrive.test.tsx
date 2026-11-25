@@ -10,6 +10,7 @@ import {
   fetchEntries,
   fetchSnapshots,
   isOutcomeUncertain,
+  restoredSummary,
   oneDriveHash,
   parseOneDriveHash,
   restoreBlocked,
@@ -456,5 +457,12 @@ describe('OneDrive choose step without selection', () => {
     const help = /<p id="([^"]+)" class="field-help">Cochez un fichier ou un dossier/.exec(out);
     const button = /<button[^>]*>Continuer<\/button>/.exec(out)?.[0] ?? '';
     expect(button).toContain(`aria-describedby="${help?.[1] ?? ''} `);
+  });
+});
+
+describe('restoredSummary', () => {
+  it('says what was restored, never the title of the box', () => {
+    expect(restoredSummary('file', '2 s')).toBe('1 fichier restauré en 2 s.');
+    expect(restoredSummary('folder', '2 s')).toBe('Dossier restauré en 2 s.');
   });
 });

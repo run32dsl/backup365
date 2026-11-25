@@ -287,3 +287,8 @@ export async function startDriveRestore(
     return { ok: false, message: UNREACHABLE };
   }
 }
+
+/** Ce qui a été restauré, sans répéter le titre « Restauration terminée » de la boîte. */
+export function restoredSummary(kind: DriveKind, duration: string): string {
+  return `${kind === 'folder' ? 'Dossier restauré' : '1 fichier restauré'} en ${duration}.`;
+}
