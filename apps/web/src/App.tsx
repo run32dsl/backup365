@@ -145,6 +145,19 @@ const goHome = () => {
   window.location.hash = '#/';
 };
 
+/** Identifier that wraps only after « @ » (browsers also break at a hyphen), never inside a word. */
+export function AccountId({ username }: { username: string }) {
+  const at = username.indexOf('@');
+  if (at < 0) return <span>{username}</span>;
+  return (
+    <span>
+      {username.slice(0, at + 1)}
+      <wbr />
+      {username.slice(at + 1)}
+    </span>
+  );
+}
+
 /** Page des comptes refusée à un opérateur. */
 export function ForbiddenView() {
   return (
@@ -261,7 +274,10 @@ export function ConsoleView({
               </ul>
             </nav>
             <div className="sidebar-footer">
-              <span>{`${user.username} (${ROLE_LABELS[user.role].toLowerCase()})`}</span>
+              <span className="sidebar-account">
+                <AccountId username={user.username} />
+                <span className="sidebar-role">{`(${ROLE_LABELS[user.role].toLowerCase()})`}</span>
+              </span>
               {!user.oidc && (
                 <a href="#/password" aria-current={passwordCurrent ? 'page' : undefined}>
                   Mot de passe

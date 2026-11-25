@@ -1,6 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { Console, ForbiddenView, screenFor, screenOf } from './App.js';
+import { AccountId, Console, ForbiddenView, screenFor, screenOf } from './App.js';
 import { AccountsPage, AccountsView, CreateAccountForm } from './AccountsPage.js';
 import { AuditPage } from './AuditPage.js';
 import { CredentialsView, ErrorView, Field, PasswordPage, PasswordView } from './LoginPage.js';
@@ -562,8 +562,16 @@ describe('textes restants de la maquette de #22', () => {
     vi.stubGlobal('window', { location: { hash: '' }, addEventListener: () => undefined });
     const html = renderToString(<Console user={user} onLogout={() => undefined} />);
     vi.unstubAllGlobals();
-    expect(html).toContain('marie (opérateur)');
+    expect(html).toContain('<span>marie</span>');
+    expect(html).toContain('>(opérateur)</span>');
+    expect(html).not.toContain('<wbr');
     expect(html).toContain('>Se déconnecter</button>');
+  });
+
+  it('inserts a break point after the « @ » of an address-like identifier only', () => {
+    const mail = renderToString(<AccountId username="compte-microsoft@exemple.fr" />);
+    expect(mail).toContain('compte-microsoft@<wbr/>exemple.fr');
+    expect(renderToString(<AccountId username="admin-demo" />)).not.toContain('<wbr');
   });
 
   it('passes the health response to the footer and shows nothing on #/composants while it is unknown', () => {
