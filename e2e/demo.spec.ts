@@ -128,7 +128,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   await page.getByRole('link', { name: 'Restaurer', exact: true }).click();
   await page.getByRole('link', { name: 'Fichiers OneDrive' }).click();
   await expect(page.getByRole('heading', { name: 'Restaurer depuis OneDrive' })).toBeVisible();
-  await expect(page.getByText('Étape 1 sur 3 : Choisir')).toBeVisible();
+  await expect(page.getByText('Étape 1 sur 3')).toBeVisible();
   await expect(
     page.getByText(/Chaque consultation, export ou restauration est inscrite/),
   ).toBeVisible();
@@ -168,7 +168,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   await expect(page.getByText(/Sélection : budget\.xlsx, version du /)).toBeVisible();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page.getByRole('heading', { name: 'Restaurer depuis OneDrive' })).toBeVisible();
-  await expect(page.getByText(/Étape 2 sur 3 : Motif/)).toBeVisible();
+  await expect(page.getByText(/Étape 2 sur 3/)).toBeVisible();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page.getByText('Indiquez un motif pour continuer.')).toBeVisible();
   await expect(page.getByLabel(RESTORE_REASON_LABEL)).toHaveAttribute('aria-invalid', 'true');
@@ -176,7 +176,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   await page.getByRole('button', { name: 'Continuer' }).click();
 
   // Confirmation : récapitulatif ; remplacer exige une confirmation explicite.
-  await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
+  await expect(page.getByText('Étape 3 sur 3')).toBeVisible();
   for (const term of ['Sauvegarde du \\(UTC\\)', 'Version du \\(UTC\\)']) {
     await expect(
       page
@@ -232,7 +232,7 @@ test('OneDrive : un échec propose de réessayer, rien n’est modifié', async 
   await expect(failed).toBeVisible();
   await expect(page.getByText(/Rien n’a été modifié/)).toBeVisible();
   await page.getByRole('button', { name: 'Réessayer' }).click();
-  await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
+  await expect(page.getByText('Étape 3 sur 3')).toBeVisible();
 });
 
 test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et journal', async ({
@@ -245,7 +245,7 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   await page.getByRole('link', { name: 'Restaurer', exact: true }).click();
   await page.getByRole('link', { name: 'Sites SharePoint' }).click();
   await expect(page.getByRole('heading', { name: 'Restaurer depuis SharePoint' })).toBeVisible();
-  await expect(page.getByText(/Étape 1 sur 3 : Choisir/)).toBeVisible();
+  await expect(page.getByText(/Étape 1 sur 3/)).toBeVisible();
   await expect(
     page.getByText(/Chaque consultation, export ou restauration est inscrite/),
   ).toBeVisible();
@@ -274,7 +274,7 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   await page.getByRole('button', { name: 'Continuer' }).click();
 
   // Récapitulatif en langage clair, sans écrasement.
-  await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
+  await expect(page.getByText('Étape 3 sur 3')).toBeVisible();
   await expect(page.getByText('Bibliothèque : Documents partagés', { exact: true })).toBeVisible();
   await expect(page.getByText(/Fichiers déjà présents/)).toBeVisible();
   await expect(page.getByText('Ticket #9 : essai trimestriel', { exact: true })).toBeVisible();
@@ -336,7 +336,7 @@ test('SharePoint : un accès direct au site entier est refusé à un opérateur'
   await expect(
     page.getByText(/Vous n’avez pas le droit de restaurer le site « Ressources humaines »/),
   ).toBeVisible();
-  await expect(page.getByText(/Étape 1 sur 3 : Choisir/)).toBeVisible();
+  await expect(page.getByText(/Étape 1 sur 3/)).toBeVisible();
   await expect(page.getByRole('link', { name: 'Choisir un autre site' })).toBeVisible();
   await expect(page.locator('.alert-error')).toHaveCount(0);
 });
@@ -360,7 +360,7 @@ test('SharePoint : un échec affiche le résultat partiel et propose de réessay
   await expect(page.getByText('Éléments en erreur', { exact: true })).toBeVisible();
   // Réessayer ramène au récapitulatif, motif et choix conservés.
   await page.getByRole('button', { name: 'Réessayer' }).click();
-  await expect(page.getByText('Étape 3 sur 3 : Confirmation')).toBeVisible();
+  await expect(page.getByText('Étape 3 sur 3')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Restaurer', exact: true })).toBeVisible();
 });
 
@@ -458,7 +458,7 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await expect(page.getByText('Messagerie Direction', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Créer un plan' }).click();
-  await expect(page.getByText('Étape 1 sur 3 : Quoi protéger')).toBeVisible();
+  await expect(page.getByText('Étape 1 sur 3')).toBeVisible();
   // Étape 1 : un nom est exigé.
   await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page.getByText('Saisissez un nom pour le plan.')).toBeVisible();
@@ -466,7 +466,7 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await page.getByRole('button', { name: 'Continuer' }).click();
 
   // Étape 2 : le titre prend le focus ; la justification est obligatoire.
-  await expect(page.getByText('Étape 2 sur 3 : Objectifs')).toBeFocused();
+  await expect(page.getByText('Étape 2 sur 3')).toBeFocused();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page.getByText('Indiquez pourquoi cette durée est nécessaire.')).toBeVisible();
   await page.getByRole('group', { name: 'Durée de conservation' }).getByLabel('3 ans').check();
@@ -474,8 +474,7 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await page.getByRole('button', { name: 'Continuer' }).click();
 
   // Étape 3 : récapitulatif en langage clair, puis création.
-  await expect(page.getByText('Étape 3 sur 3 : Récapitulatif')).toBeFocused();
-  await expect(page.getByRole('heading', { name: 'Récapitulatif' })).toBeVisible();
+  await expect(page.getByText('Étape 3 sur 3')).toBeFocused();
   await expect(page.locator('dd', { hasText: 'Contacts Exemple' })).toBeVisible();
   await expect(page.locator('dd', { hasText: '3 ans' }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Créer le plan' }).click();

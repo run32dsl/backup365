@@ -398,7 +398,6 @@ export function PlanWizard({
 
       {step === 3 && (
         <>
-          <h2>Récapitulatif</h2>
           <ResultList rows={recapRows(form, [...mailboxes, ...sites])} />
         </>
       )}

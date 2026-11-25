@@ -21,17 +21,17 @@ for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 800 });
       await signInAs(context, baseURL!, 'admin');
       await page.goto('/#/plans/nouveau');
-      await expect(page.getByText('Étape 1 sur 3 : Quoi protéger')).toBeVisible();
+      await expect(page.getByText('Étape 1 sur 3')).toBeVisible();
     });
 
     test('parcours complet : plan visible dans la liste et confirmation', async ({ page }) => {
       const name = `Plan e2e ${width}`;
       await page.getByLabel('Nom du plan').fill(name);
       await page.getByRole('button', { name: 'Continuer' }).click();
-      await expect(page.getByText('Étape 2 sur 3 : Objectifs')).toBeVisible();
+      await expect(page.getByText('Étape 2 sur 3')).toBeVisible();
       await page.getByLabel(JUSTIFICATION).fill('Obligation légale');
       await page.getByRole('button', { name: 'Continuer' }).click();
-      await expect(page.getByText('Étape 3 sur 3 : Récapitulatif')).toBeVisible();
+      await expect(page.getByText('Étape 3 sur 3')).toBeVisible();
       const create = page.getByRole('button', { name: 'Créer le plan' });
       await create.scrollIntoViewIfNeeded();
       await inViewport(page, 'button:has-text("Créer le plan")');
@@ -101,7 +101,7 @@ for (const width of WIDTHS) {
       await page.getByRole('button', { name: 'Continuer' }).click();
       await expect(page.getByText(TAKEN)).toBeVisible();
       await expect(field).toBeFocused();
-      await expect(page.getByText('Étape 1 sur 3 : Quoi protéger')).toBeVisible();
+      await expect(page.getByText('Étape 1 sur 3')).toBeVisible();
       await inViewport(page, 'input[aria-invalid="true"]');
     });
 
@@ -141,7 +141,7 @@ for (const width of WIDTHS) {
           : route.fallback(),
       );
       await page.getByRole('button', { name: 'Créer le plan' }).click();
-      await expect(page.getByText('Étape 1 sur 3 : Quoi protéger')).toBeVisible();
+      await expect(page.getByText('Étape 1 sur 3')).toBeVisible();
       await expect(page.getByText(TAKEN)).toBeVisible();
       await expect(page.getByLabel('Nom du plan')).toBeFocused();
     });

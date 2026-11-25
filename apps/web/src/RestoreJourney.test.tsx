@@ -24,7 +24,7 @@ const SCREENS = ['OneDrivePage.tsx', 'SharePointPage.tsx', 'RestoreAction.tsx'];
 
 describe('restore journey', () => {
   it('uses the same three steps, all finished once the tracking starts', () => {
-    expect(RESTORE_STEPS).toEqual(['Choisir', 'Motif', 'Confirmation']);
+    expect(RESTORE_STEPS).toEqual(['Choisir', 'Motif', 'Récapitulatif']);
     expect([1, 2, 3, 4, 5].map(stepOf)).toEqual([1, 2, 3, 4, 4]);
   });
 

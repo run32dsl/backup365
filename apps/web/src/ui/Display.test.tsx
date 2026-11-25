@@ -1,3 +1,4 @@
+import { createRef } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { Alert, alertRole } from './Alert.js';
@@ -57,8 +58,17 @@ describe('Steps', () => {
     const html = renderToStaticMarkup(<Steps steps={steps} current={2} />);
     expect(html).toContain('<ol>');
     expect(html.match(/aria-current="step"/g)).toHaveLength(1);
-    expect(html).toContain('Étape 2 sur 3 : Vérifier');
-    expect(html).toMatch(/aria-current="step"[^>]*><span aria-hidden="true">●<\/span> Vérifier/);
+    expect(html).toContain('Étape 2 sur 3');
+    expect(html).toMatch(
+      /aria-current="step"[^>]*><span aria-hidden="true">●<\/span> <strong>Vérifier<\/strong>/,
+    );
+  });
+
+  it('titles the step by its number only and makes the title focusable with a ref', () => {
+    const html = renderToStaticMarkup(<Steps steps={steps} current={2} titleRef={createRef()} />);
+    expect(html).toMatch(/<p[^>]*tabindex="-1"[^>]*>Étape 2 sur 3<\/p>/);
+    expect(html).not.toContain('Étape 2 sur 3 :');
+    expect(renderToStaticMarkup(<Steps steps={steps} current={2} />)).not.toContain('tabindex');
   });
 
   it('marks finished steps with an icon and a text for screen readers', () => {

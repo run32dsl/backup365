@@ -345,10 +345,10 @@ describe('SharePoint wording', () => {
         onStarted={() => undefined}
       />,
     );
+    expect(html).not.toContain('<h2>Récapitulatif</h2>');
     expect(html).not.toContain('Vous allez restaurer');
     expect(html).not.toContain('Motif : ');
     const order = [
-      '<h2>Récapitulatif</h2>',
       '<dt>Motif</dt><dd>Reprise après incident</dd>',
       'Restauration du site entier',
       'du site Équipe commerciale seront recréés.',

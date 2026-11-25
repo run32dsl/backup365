@@ -76,14 +76,14 @@ export async function openDrive(page, folder = '/Documents/Budget') {
 export async function chooseDriveFile(page, name) {
   await page.getByRole('radio', { name, exact: true }).check();
   await page.getByRole('button', { name: 'Continuer' }).click();
-  await page.getByText('Étape 2 sur 3 : Motif').waitFor();
+  await page.getByText('Étape 2 sur 3').waitFor();
 }
 
-/** Saisit le motif et passe à l'étape « Confirmation ». */
+/** Saisit le motif et passe à l'étape « Récapitulatif ». */
 export async function giveDriveReason(page) {
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Suppression accidentelle par l’utilisateur');
   await page.getByRole('button', { name: 'Continuer' }).click();
-  await page.getByText('Étape 3 sur 3 : Confirmation').waitFor();
+  await page.getByText('Étape 3 sur 3').waitFor();
 }
 
 /** Saisit un motif, confirme et lance la restauration. */
@@ -133,7 +133,7 @@ export async function continueStep(page) {
 
 /** Étape « Motif » : liste par défaut et précision saisie. */
 export async function giveSiteReason(page) {
-  await page.getByText('Étape 2 sur 3 : Motif').waitFor();
+  await page.getByText('Étape 2 sur 3').waitFor();
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Dossier supprimé par erreur');
 }
 
@@ -144,7 +144,7 @@ export async function reachSiteSummary(page, site, scope, ...names) {
   await continueStep(page);
   await giveSiteReason(page);
   await continueStep(page);
-  await page.getByText('Étape 3 sur 3 : Confirmation').waitFor();
+  await page.getByText('Étape 3 sur 3').waitFor();
 }
 
 /**
@@ -834,7 +834,7 @@ export const SCREENS = [
     prepare: async (page) => {
       await page.getByLabel('Nom du plan').fill('Plan de démonstration');
       await page.getByRole('button', { name: 'Continuer' }).click();
-      await page.getByText('Étape 2 sur 3 : Objectifs').waitFor();
+      await page.getByText('Étape 2 sur 3').waitFor();
     },
   },
   {
@@ -847,7 +847,7 @@ export const SCREENS = [
       await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByLabel('Justification de cette durée (obligatoire)').fill('Obligation légale');
       await page.getByRole('button', { name: 'Continuer' }).click();
-      await page.getByText('Étape 3 sur 3 : Récapitulatif').waitFor();
+      await page.getByText('Étape 3 sur 3').waitFor();
     },
   },
   {
@@ -857,7 +857,7 @@ export const SCREENS = [
     prepare: async (page) => {
       await page.getByLabel('Nom du plan').fill('Plan de démonstration');
       await page.getByRole('button', { name: 'Continuer' }).click();
-      await page.getByText('Étape 2 sur 3 : Objectifs').waitFor();
+      await page.getByText('Étape 2 sur 3').waitFor();
     },
   },
   {
@@ -869,7 +869,7 @@ export const SCREENS = [
       await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByLabel('Justification de cette durée (obligatoire)').fill('Obligation légale');
       await page.getByRole('button', { name: 'Continuer' }).click();
-      await page.getByText('Étape 3 sur 3 : Récapitulatif').waitFor();
+      await page.getByText('Étape 3 sur 3').waitFor();
     },
   },
   {

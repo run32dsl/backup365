@@ -291,8 +291,7 @@ describe('OneDrive replace confirmation', () => {
     expect(out).not.toContain('Vous allez restaurer');
     expect(out).not.toContain('Motif : ');
     expect(out).toContain('<dt>Motif</dt><dd>Ticket #1 : essai</dd>');
-    expect(out.indexOf('Mode')).toBeLessThan(out.indexOf('<h2>Récapitulatif</h2>'));
-    expect(out.indexOf('<h2>Récapitulatif</h2>')).toBeLessThan(out.indexOf('<dt>Compte</dt>'));
+    expect(out).not.toContain('<h2>Récapitulatif</h2>');
     expect(out).toContain('Aucun fichier existant ne sera modifié.');
   });
 });
