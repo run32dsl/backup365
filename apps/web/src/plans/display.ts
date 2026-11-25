@@ -1,5 +1,6 @@
 import {
   DATA_TYPES,
+  chargeScope,
   effectiveState,
   isNightPlan,
   nextRunAt,
@@ -150,6 +151,7 @@ export function lateSourcesNote(
     dataTypes?: readonly DataType[];
     scope?: PlanScope;
     selection?: readonly string[];
+    selectionTypes?: readonly DataType[];
     lastSuccessAt: string | null;
   },
   report: SourcesReport | null | undefined,
@@ -161,10 +163,13 @@ export function lateSourcesNote(
   // Un périmètre restreint ne compte que ses sources ; sans la sélection (opérateur), on ne
   // devine pas : la note d'origine reste.
   if (plan.scope === 'selection' && plan.selection === undefined) return undefined;
-  const picked = plan.scope === 'selection' ? new Set(plan.selection) : null;
-  const own = report.rows.filter(
-    (r) => types.includes(serviceOf(r)) && (picked === null || picked.has(r.sourceId)),
-  );
+  const picked = new Set(plan.selection);
+  const own = report.rows.filter((r) => {
+    const service = serviceOf(r);
+    return (
+      types.includes(service) && (chargeScope(plan, service) === 'all' || picked.has(r.sourceId))
+    );
+  });
   const late = own.filter((r) => effectiveState(r) !== 'ok');
   const [first] = late;
   if (!first) return undefined;

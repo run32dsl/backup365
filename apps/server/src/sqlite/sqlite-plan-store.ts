@@ -30,6 +30,8 @@ export interface StoredRun {
   error: string | null;
   /** Succès sans point de restauration : la ressource était vide. `null` sinon. */
   noSnapshotReason: NoSnapshotReason | null;
+  /** Élément apparu dans le tenant après le plan, pris d'office par cette exécution (issue #545). */
+  autoAdded: boolean;
 }
 
 interface RunRow {
@@ -42,6 +44,28 @@ interface RunRow {
   duration_ms: number | null;
   error: string | null;
   no_snapshot_reason: NoSnapshotReason | null;
+  auto_added: number;
+}
+
+function toRun(r: RunRow): StoredRun {
+  return {
+    id: r.id,
+    planId: r.plan_id,
+    itemId: r.item_id,
+    startedAt: r.started_at,
+    finishedAt: r.finished_at,
+    status: r.status,
+    durationMs: r.duration_ms,
+    error: r.error,
+    noSnapshotReason: r.no_snapshot_reason,
+    autoAdded: r.auto_added === 1,
+  };
+}
+
+/** Charges limitées à la sélection, en base ; absentes de l'entrée, toutes suivent `scope`. */
+function selectionTypesOf(input: ProtectionPlanInput): string {
+  if (input.scope !== 'selection') return '';
+  return (input.selectionTypes ?? input.dataTypes).join(',');
 }
 
 /** Un autre plan porte déjà ce nom (casse ignorée). */
@@ -52,6 +76,7 @@ interface Row {
   name: string;
   scope: PlanScope;
   data_types: string;
+  selection_types: string;
   rpo_hours: RpoHours;
   rto_hours: number | null;
   retention_days: number;
@@ -86,6 +111,7 @@ export class SqlitePlanStore {
       scope: row.scope,
       dataTypes: DATA_TYPES.filter((t): t is DataType => row.data_types.split(',').includes(t)),
       selection: this.selection(row.id),
+      selectionTypes: DATA_TYPES.filter((t) => row.selection_types.split(',').includes(t)),
       rpoHours: row.rpo_hours,
       rtoHours: row.rto_hours,
       retentionDays: row.retention_days,
@@ -113,14 +139,15 @@ export class SqlitePlanStore {
     this.write(() => {
       this.db
         .prepare(
-          `INSERT INTO plans (id, name, scope, data_types, rpo_hours, rto_hours, retention_days, gdpr_justification, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO plans (id, name, scope, data_types, selection_types, rpo_hours, rto_hours, retention_days, gdpr_justification, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           id,
           input.name,
           input.scope,
           input.dataTypes.join(','),
+          selectionTypesOf(input),
           input.rpoHours,
           input.rtoHours,
           input.retentionDays,
@@ -137,13 +164,14 @@ export class SqlitePlanStore {
     const found = this.write(() => {
       const result = this.db
         .prepare(
-          `UPDATE plans SET name = ?, scope = ?, data_types = ?, rpo_hours = ?, rto_hours = ?,
-             retention_days = ?, gdpr_justification = ? WHERE id = ?`,
+          `UPDATE plans SET name = ?, scope = ?, data_types = ?, selection_types = ?, rpo_hours = ?,
+             rto_hours = ?, retention_days = ?, gdpr_justification = ? WHERE id = ?`,
         )
         .run(
           input.name,
           input.scope,
           input.dataTypes.join(','),
+          selectionTypesOf(input),
           input.rpoHours,
           input.rtoHours,
           input.retentionDays,
@@ -165,15 +193,21 @@ export class SqlitePlanStore {
 
   /**
    * Ouvre une exécution `running`. `undefined` si l'élément a déjà une exécution en cours (index
-   * unique de la base : valable aussi entre processus) ou si le plan n'existe plus.
+   * unique de la base : valable aussi entre processus) ou si le plan n'existe plus. `autoAdded` :
+   * l'élément est apparu dans le tenant après le plan (issue #545).
    */
-  startRun(planId: string, itemId: string, startedAt: string): number | undefined {
+  startRun(
+    planId: string,
+    itemId: string,
+    startedAt: string,
+    autoAdded = false,
+  ): number | undefined {
     try {
       const result = this.db
         .prepare(
-          "INSERT INTO plan_runs (plan_id, item_id, started_at, status) VALUES (?, ?, ?, 'running')",
+          "INSERT INTO plan_runs (plan_id, item_id, started_at, status, auto_added) VALUES (?, ?, ?, 'running', ?)",
         )
-        .run(planId, itemId, startedAt);
+        .run(planId, itemId, startedAt, autoAdded ? 1 : 0);
       return Number(result.lastInsertRowid);
     } catch (err) {
       if (/UNIQUE|FOREIGN KEY/i.test((err as Error).message)) return undefined;
@@ -229,6 +263,39 @@ export class SqlitePlanStore {
     );
   }
 
+  /** Le plan a-t-il une exécution commencée avant `before` (un créneau antérieur) ? */
+  hasRunBefore(planId: string, before: string): boolean {
+    return (
+      this.db
+        .prepare('SELECT 1 FROM plan_runs WHERE plan_id = ? AND started_at < ? LIMIT 1')
+        .get(planId, before) !== undefined
+    );
+  }
+
+  /**
+   * Exécutions récentes qui ont pris un élément d'office, plus la plus récente du plan (qui date
+   * sa dernière exécution) : la page Sources n'a pas à relire tout l'historique d'un grand tenant.
+   */
+  listAutoAddedRuns(planId: string, limit: number): StoredRun[] {
+    const added = this.db
+      .prepare(
+        'SELECT * FROM plan_runs WHERE plan_id = ? AND auto_added = 1 ORDER BY started_at DESC, id DESC LIMIT ?',
+      )
+      .all(planId, limit) as unknown as RunRow[];
+    return [...this.listRuns(planId, 1), ...added.map(toRun)];
+  }
+
+  /** Le plan a-t-il déjà une exécution, sur cet élément s'il est donné ? */
+  hasAnyRun(planId: string, itemId?: string): boolean {
+    const row =
+      itemId === undefined
+        ? this.db.prepare('SELECT 1 FROM plan_runs WHERE plan_id = ? LIMIT 1').get(planId)
+        : this.db
+            .prepare('SELECT 1 FROM plan_runs WHERE plan_id = ? AND item_id = ? LIMIT 1')
+            .get(planId, itemId);
+    return row !== undefined;
+  }
+
   /** Vrai si une exécution réussie de l'élément a commencé à `since` ou après. */
   hasSuccessSince(planId: string, itemId: string, since: string): boolean {
     return (
@@ -261,17 +328,7 @@ export class SqlitePlanStore {
         'SELECT * FROM plan_runs WHERE plan_id = ? ORDER BY started_at DESC, id DESC LIMIT ?',
       )
       .all(planId, limit) as unknown as RunRow[];
-    return rows.map((r) => ({
-      id: r.id,
-      planId: r.plan_id,
-      itemId: r.item_id,
-      startedAt: r.started_at,
-      finishedAt: r.finished_at,
-      status: r.status,
-      durationMs: r.duration_ms,
-      error: r.error,
-      noSnapshotReason: r.no_snapshot_reason,
-    }));
+    return rows.map(toRun);
   }
 
   private setSelection(id: string, items: readonly string[]): void {

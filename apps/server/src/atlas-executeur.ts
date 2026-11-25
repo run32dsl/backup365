@@ -1,6 +1,7 @@
 import { createAtlasInstance, type AtlasInstanceConfig } from '@wisecom/atlas-sdk';
 import type { DataType } from '@backup365/core';
 import type { M365Config, StorageConfig } from './config.js';
+import type { TenantDirectory } from './plan-items.js';
 import type { Executeur, ExecutionResult, ExecutionTarget } from './plan-scheduler.js';
 
 /** Ce que l'exécuteur lit d'un résultat du SDK : l'interruption et la santé du résumé. */
@@ -19,12 +20,56 @@ export interface DriveOutcome {
 }
 type BackupOutcome = MailOutcome | DriveOutcome;
 
-/** Ce que l'exécuteur appelle du SDK : les trois sauvegardes, plus de quoi libérer l'instance. */
+/** Boîte du tenant selon Graph : seuls les champs qui décident si elle se sauvegarde. */
+export interface TenantMailbox {
+  readonly userId: string;
+  readonly hasExchangeLicense: boolean;
+  readonly mailboxPurpose?: string | undefined;
+}
+/** Site du tenant selon Graph ; `file_storage_container` n'est pas un site à sauvegarder. */
+export interface TenantSite {
+  readonly siteId: string;
+  readonly kind: string;
+}
+
+/**
+ * Ce que l'exécuteur appelle du SDK : les trois sauvegardes, plus de quoi libérer l'instance. La
+ * découverte (facultative ici pour les doubles de test) liste ce qui existe dans le tenant.
+ */
 export interface AtlasBackupApi {
-  outlook: { backup(mailboxId: string): Promise<MailOutcome> };
+  outlook: {
+    backup(mailboxId: string): Promise<MailOutcome>;
+    listAvailableMailboxes?(): Promise<readonly TenantMailbox[]>;
+  };
   onedrive: { backup(ownerId: string): Promise<DriveOutcome> };
-  sharepoint: { backup(siteId: string): Promise<readonly DriveOutcome[]> };
+  sharepoint: {
+    backup(siteId: string): Promise<readonly DriveOutcome[]>;
+    listSites?(): Promise<readonly TenantSite[]>;
+  };
   dispose(): Promise<void>;
+}
+
+/**
+ * Annuaire du tenant tiré de l'instance de sauvegarde (identifiants Graph réels). Même règle que
+ * la sauvegarde du tenant du SDK : une boîte se sauvegarde si elle a une licence Exchange ou si
+ * c'est une boîte partagée ; les autres comptes sont ignorés. `undefined` si l'instance n'a pas
+ * de découverte.
+ */
+export function tenantDirectory(api: AtlasBackupApi): TenantDirectory | undefined {
+  const { listAvailableMailboxes } = api.outlook;
+  const { listSites } = api.sharepoint;
+  if (!listAvailableMailboxes || !listSites) return undefined;
+  return {
+    listOwners: async () =>
+      (await listAvailableMailboxes.call(api.outlook))
+        .filter((m) => m.hasExchangeLicense || m.mailboxPurpose === 'shared')
+        // Une boîte partagée n'a pas de OneDrive : seule sa messagerie est sauvegardée.
+        .map((m) => (m.hasExchangeLicense ? { id: m.userId } : { id: m.userId, mailOnly: true })),
+    listSites: async () =>
+      (await listSites.call(api.sharepoint))
+        .filter((s) => s.kind === 'site')
+        .map((s) => ({ id: s.siteId })),
+  };
 }
 
 export type BackupFactory = (config: AtlasInstanceConfig) => AtlasBackupApi;
@@ -78,7 +123,8 @@ export class AtlasExecuteur implements Executeur {
   async execute(target: ExecutionTarget): Promise<ExecutionResult> {
     const { api, isSite } = this.options;
     const wanted = (type: DataType): boolean => target.dataTypes.includes(type);
-    if (await isSite(target.itemId)) {
+    // Un élément venu de l'annuaire porte sa nature ; un élément choisi se juge sur le catalogue.
+    if (target.kind ? target.kind === 'site' : await isSite(target.itemId)) {
       // Un site n'est sauvegardé que si le plan protège SharePoint : rien à faire sinon.
       if (!wanted('sharepoint')) return NO_CONTENT;
       return check(await api.sharepoint.backup(target.itemId)) ? NO_CONTENT : {};

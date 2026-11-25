@@ -673,6 +673,16 @@ export const SCREENS = [
     },
   },
   {
+    // Issue #545 : le compte et le site qu'un plan « toute l'organisation » a pris d'office à sa
+    // dernière exécution (données de la démo).
+    name: 'sources-ajoutes-automatiquement',
+    hash: '#/sources',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('region', { name: 'Ajoutés automatiquement' }).waitFor();
+    },
+  },
+  {
     // En démo chaque service a un plan : la réponse est modifiée pour montrer la ligne grisée
     // « Aucun plan » et son lien « Créer un plan ».
     name: 'sources-sans-plan',
@@ -881,19 +891,40 @@ export const SCREENS = [
     prepare: async (page) => {
       // Nom déjà pris et périmètre vide : les deux erreurs, le focus sur le nom.
       await page.getByLabel('Nom du plan').fill('Messagerie Direction');
-      await page.getByRole('radio', { name: 'Boîtes, comptes et sites choisis' }).check();
+      await page.getByRole('radio', { name: 'Boîtes choisies' }).check();
       await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByText('Ce nom est déjà utilisé. Choisissez-en un autre.').waitFor();
     },
   },
   {
-    // Périmètre choisi : un groupe par service coché, dont les sites SharePoint.
+    // Périmètre par donnée (issue #545) : messagerie et SharePoint sur une sélection, OneDrive
+    // sur toute l'organisation ; un groupe de choix par sélection, dont les sites SharePoint.
     name: 'plans-creation-perimetre',
     hash: '#/plans/nouveau',
     role: 'admin',
     prepare: async (page) => {
-      await page.getByRole('radio', { name: 'Boîtes, comptes et sites choisis' }).check();
+      await page.getByRole('radio', { name: 'Boîtes choisies' }).check();
+      await page.getByRole('radio', { name: 'Sites choisis' }).check();
       await page.getByRole('group', { name: 'Sites SharePoint' }).waitFor();
+    },
+  },
+  {
+    // Récapitulatif d'un plan mixte : chaque donnée dit son périmètre, en clair.
+    name: 'plans-creation-recap-mixte',
+    hash: '#/plans/nouveau',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Nom du plan').fill('Plan mixte');
+      await page.getByRole('radio', { name: 'Boîtes choisies' }).check();
+      await page
+        .getByRole('group', { name: 'Boîtes et comptes' })
+        .getByRole('checkbox')
+        .first()
+        .check();
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await page.getByLabel('Justification de cette durée (obligatoire)').fill('Obligation légale');
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await page.getByText('Étape 3 sur 3').waitFor();
     },
   },
   {

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   AtlasExecuteur,
+  tenantDirectory,
   toBackupConfig,
   type AtlasBackupApi,
   type DriveOutcome,
@@ -77,6 +78,43 @@ describe('AtlasExecuteur', () => {
     const { calls, executeur } = fakeApi();
     await executeur.execute({ planId: 'p', itemId: 'site-1', dataTypes: ALL });
     expect(calls).toEqual(['sharepoint:site-1']);
+  });
+
+  it('trusts the kind given by the tenant directory for a site never backed up', async () => {
+    const { calls, executeur } = fakeApi();
+    await executeur.execute({ planId: 'p', itemId: 'new-site', dataTypes: ALL, kind: 'site' });
+    await executeur.execute({ planId: 'p', itemId: 'site-1', dataTypes: ALL, kind: 'owner' });
+    expect(calls).toEqual(['sharepoint:new-site', 'mail:site-1', 'onedrive:site-1']);
+  });
+
+  it('lists the tenant like the SDK tenant backup: licensed or shared mailboxes, real sites', async () => {
+    const { api } = fakeApi();
+    const directory = tenantDirectory({
+      ...api,
+      outlook: {
+        ...api.outlook,
+        listAvailableMailboxes: () =>
+          Promise.resolve([
+            { userId: 'licensed', hasExchangeLicense: true },
+            { userId: 'shared', hasExchangeLicense: false, mailboxPurpose: 'shared' },
+            { userId: 'unlicensed', hasExchangeLicense: false, mailboxPurpose: 'user' },
+          ]),
+      },
+      sharepoint: {
+        ...api.sharepoint,
+        listSites: () =>
+          Promise.resolve([
+            { siteId: 'team', kind: 'site' },
+            { siteId: 'container', kind: 'file_storage_container' },
+          ]),
+      },
+    });
+    expect(await directory?.listOwners()).toEqual([
+      { id: 'licensed' },
+      { id: 'shared', mailOnly: true },
+    ]);
+    expect(await directory?.listSites()).toEqual([{ id: 'team' }]);
+    expect(tenantDirectory(api)).toBeUndefined();
   });
 
   it('fails the run without calling the SDK when the catalog lookup throws', async () => {

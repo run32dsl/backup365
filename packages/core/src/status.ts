@@ -1,5 +1,7 @@
+import type { AutoAddedEntry } from './auto-added.js';
 import type { BackupCatalog, Workload } from './catalog.js';
 import {
+  chargeScope,
   nextRunAt,
   type PlanComplianceReport,
   type SourceFailure,
@@ -45,6 +47,11 @@ export interface StatusReport {
   plans?: PlanComplianceReport | null;
   /** Ajouté par `GET /api/status` pour les administrateurs : une ligne par service ; `null` si la base des plans ne répond pas. */
   services?: ServiceSummary[] | null;
+  /**
+   * Ajouté par `GET /api/status` pour les administrateurs : éléments que les plans « tout le
+   * tenant » ont pris d'office à leur dernière exécution ; `null` si la base des plans ne répond pas.
+   */
+  autoAdded?: AutoAddedEntry[] | null;
 }
 
 /**
@@ -154,7 +161,7 @@ export interface ServiceSummary {
 
 type PlanFacts = Pick<
   ProtectionPlanInput,
-  'dataTypes' | 'scope' | 'selection' | 'retentionDays' | 'rpoHours'
+  'dataTypes' | 'scope' | 'selection' | 'selectionTypes' | 'retentionDays' | 'rpoHours'
 > & { id: string; createdAt: string };
 
 /** Vrai tant que la première exécution prévue après la création du plan n'est pas échue. */
@@ -182,11 +189,12 @@ export function buildServiceSummaries(
       own.flatMap((r) => (r.lastSnapshotAt === null ? [] : [{ createdAt: r.lastSnapshotAt }])),
     );
     const state = WORST_FIRST.find((s) => own.some((r) => effectiveState(r) === s)) ?? 'missing';
-    const selected = new Set(covering.flatMap((p) => (p.scope === 'selection' ? p.selection : [])));
+    const limited = (p: PlanFacts) => chargeScope(p, service) === 'selection';
+    const selected = new Set(covering.flatMap((p) => (limited(p) ? p.selection : [])));
     const scope: ServiceSummary['scope'] =
       covering.length === 0
         ? null
-        : covering.some((p) => p.scope === 'all')
+        : covering.some((p) => !limited(p))
           ? { kind: 'all' }
           : { kind: 'selection', count: selected.size };
     return {

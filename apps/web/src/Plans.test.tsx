@@ -27,6 +27,7 @@ import {
   runReasonError,
   OBJECTIVE_LABELS,
   recapRows,
+  setChargeScope,
   errorSummary,
   validateStep,
   JUSTIFICATION_PLACEHOLDER,
@@ -95,11 +96,35 @@ describe('plan form', () => {
       scope: 'all',
       dataTypes: ['mail', 'onedrive', 'sharepoint'],
       selection: [],
+      selectionTypes: [],
       rpoHours: 12,
       rtoHours: 24,
       retentionDays: 365,
       gdprJustification: 'Obligation légale',
     });
+  });
+
+  it('chooses « all » or a selection per charge, and the recap says it plainly (issue #545)', () => {
+    const base = { ...emptyForm(), name: 'Mixte', justification: 'Obligation légale' };
+    const mixed = { ...base, ...setChargeScope(base, 'mail', 'selection'), selection: ['a'] };
+    expect(payloadOf(mixed)).toMatchObject({
+      scope: 'selection',
+      selection: ['a'],
+      selectionTypes: ['mail'],
+    });
+    const names = [{ id: 'a', displayName: 'Claire Durand' }];
+    expect(Object.fromEntries(recapRows(mixed, names))['Périmètre']).toBe(
+      'Messagerie : Claire Durand ; OneDrive et SharePoint : toute l’organisation, nouveaux comptes et sites compris',
+    );
+    expect(
+      planSummary({ ...mixed, dataTypes: ['mail', 'onedrive'], selectionTypes: ['mail'] }, names),
+    ).toContain('Messagerie : Claire Durand ; OneDrive : toute l’organisation');
+    // Revenir à « tout » sur la seule charge limitée rend le plan « toute l'organisation ».
+    const back = { ...mixed, ...setChargeScope(mixed, 'mail', 'all') };
+    expect(payloadOf(back)).toMatchObject({ scope: 'all', selection: [], selectionTypes: [] });
+    expect(validateStep({ ...mixed, selection: [] }, 1).selection).toBe(
+      'Choisissez au moins un élément à protéger.',
+    );
   });
 
   it('refuses a missing name, no data type, an empty selection and a missing justification', () => {
@@ -170,7 +195,7 @@ describe('plan form', () => {
     expect(rows).toEqual([
       ['Nom du plan', 'Messagerie Direction'],
       ['Données', 'Messagerie, OneDrive, SharePoint'],
-      ['Périmètre', 'Toute l’organisation'],
+      ['Périmètre', 'Toute l’organisation, nouveaux comptes et sites compris'],
       [
         'Perte de données acceptable',
         '12\u00a0heures au plus (une sauvegarde toutes les 12\u00a0heures)',
@@ -568,7 +593,12 @@ describe('PlanWizard', () => {
     expect(all).toContain('<legend>Sites SharePoint</legend>');
     expect(all).toContain('Équipe commerciale');
     expect(all).toContain('<legend>Boîtes et comptes</legend>');
-    expect(all).toContain('Boîtes, comptes et sites choisis');
+    // Un choix par donnée : « Toute l'organisation » ou les éléments choisis.
+    expect(all).toContain('Boîtes choisies');
+    expect(all).toContain('Comptes choisis');
+    expect(all).toContain('Sites choisis');
+    expect(all.match(/<span>Toute l’organisation/g)).toHaveLength(3);
+    expect(all).toContain('les comptes et les sites créés après le plan');
     const noSites = render(['mail']);
     expect(noSites).not.toContain('Sites SharePoint');
     expect(noSites).not.toContain('Équipe commerciale');

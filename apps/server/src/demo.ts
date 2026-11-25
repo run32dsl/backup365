@@ -619,6 +619,19 @@ function seedDemoPlans(plans: SqlitePlanStore, now: number): void {
     gdprJustification: 'Besoin métier : archives de projets',
   });
   const done = new Date(now - ONEDRIVE_SNAPSHOT_AGE_HOURS * HOUR).toISOString();
-  const filesRun = plans.startRun(files.id, first!.id, done);
-  if (filesRun !== undefined) plans.finishRun(filesRun, 'success', done);
+  const previous = new Date(now - (ONEDRIVE_SNAPSHOT_AGE_HOURS + 24) * HOUR).toISOString();
+  const earlier = plans.startRun(files.id, first!.id, previous);
+  if (earlier !== undefined) plans.finishRun(earlier, 'success', previous);
+  // Ce plan couvre tout le tenant : à sa dernière exécution, un compte et un site apparus depuis
+  // la précédente ont été pris d'office (issue #545), ce que la page Sources affiche.
+  const third = DEMO_MAILBOXES[2]!.id;
+  const atelier = DEMO_SITES[2].id;
+  for (const [item, autoAdded] of [
+    [first!.id, false],
+    [third, true],
+    [atelier, true],
+  ] as const) {
+    const run = plans.startRun(files.id, item, done, autoAdded);
+    if (run !== undefined) plans.finishRun(run, 'success', done);
+  }
 }
