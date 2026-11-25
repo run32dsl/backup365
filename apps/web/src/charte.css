@@ -336,6 +336,17 @@ th {
   margin: 0 0 var(--space-3);
   color: var(--muted);
 }
+/* Aide du périmètre des plans : détachée du premier choix de donnée qui la suit. */
+.field-help.scope-help {
+  margin: 0 0 var(--space-3);
+}
+/* Éléments ajoutés automatiquement (Sources) : une ligne chacun, sans puce. */
+.added-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
 .backups .ok-toggle {
   display: none;
 }

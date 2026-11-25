@@ -150,11 +150,9 @@ true }` (ADR 0017).
   ou `{ configured: false, label: 'sauvegarde non configurée', retention: 'not_enforced' }` ; `POST /api/plans/:id/run` répond
   503 `backup_not_configured`. Le mode démo garde l'exécuteur simulé.
 - Statut, début, fin et durée de chaque exécution sont ceux de `plan_runs` (issue #62).
-- **Limite** : avec le périmètre `all`, les éléments viennent du catalogue (boîtes déjà
-  sauvegardées) ; une première sauvegarde d'un propriétaire inconnu du catalogue passe par une
-  sélection. La découverte des boîtes du tenant (`outlook.listAvailableMailboxes`) n'est pas faite.
-  De même, un site SharePoint jamais sauvegardé (ou absent du cache du catalogue) est traité comme
-  une boîte et l'exécution échoue avec un code du SDK.
+- **Limite levée par l'ADR 0020 (issue #545)** : une charge « toute l'organisation » prend ses
+  éléments dans l'annuaire du tenant (`outlook.listAvailableMailboxes`, `sharepoint.listSites`),
+  donc aussi les comptes et sites jamais sauvegardés ; le catalogue ne sert plus que de repli.
 - **Conservation non appliquée** : le SDK 6.2.0 n'a pas de purge par âge (seulement
   `deleteSnapshot` à l'unité, et `objectLockRequest` qui protège contre la suppression sans
   jamais supprimer). La durée du plan reste saisie, avec sa justification RGPD, car c'est un

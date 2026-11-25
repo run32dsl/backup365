@@ -1,5 +1,6 @@
 import type { StatusReport } from '@backup365/core';
 import { Alert, EmptyState } from './ui/index.js';
+import { AutoAdded } from './status/AutoAdded.js';
 import { Backups } from './status/Backups.js';
 import { PlansCompliance } from './status/PlansCompliance.js';
 import { Services } from './status/Services.js';
@@ -27,6 +28,7 @@ export function StatusView({ state }: { state: StatusState }) {
       <Summary report={state} />
       <Services report={state} />
       <PlansCompliance report={state} />
+      <AutoAdded report={state} />
       <Backups report={state} />
     </>
   );

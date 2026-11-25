@@ -20,6 +20,8 @@ export interface PlanItem {
   scope: PlanScope;
   dataTypes: DataType[];
   selection?: string[];
+  /** Charges limitées à la sélection ; les autres couvrent tout le tenant (issue #545). */
+  selectionTypes?: DataType[];
   rpoHours: RpoHours;
   rtoHours?: number | null;
   retentionDays: number;

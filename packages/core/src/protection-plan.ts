@@ -21,6 +21,12 @@ export interface ProtectionPlanInput {
   dataTypes: DataType[];
   /** Identifiants des éléments (boîtes, sites) ; vide si `scope` vaut `all`. */
   selection: string[];
+  /**
+   * Charges limitées à la sélection ; les autres charges choisies couvrent tout le tenant, comptes
+   * et sites créés après le plan compris (issue #545). Absent : toutes suivent `scope`. Le
+   * périmètre vaut `selection` dès qu'une charge est limitée.
+   */
+  selectionTypes?: DataType[];
   rpoHours: RpoHours;
   /** RTO cible, en heures : indicatif, jamais mesuré ni garanti. `null` si non renseigné. */
   rtoHours: number | null;
@@ -92,6 +98,20 @@ export function parseProtectionPlanInput(raw: unknown): PlanParseResult {
     }
   }
 
+  // Charges limitées à la sélection : par défaut toutes (périmètre « selection ») ou aucune.
+  let selectionTypes: DataType[] = scope === 'selection' ? dataTypes : [];
+  if (raw.selectionTypes !== undefined) {
+    const given = raw.selectionTypes;
+    if (Array.isArray(given) && given.every((t) => dataTypes.some((d) => d === t))) {
+      selectionTypes = dataTypes.filter((d) => given.includes(d));
+      if (selectionTypes.length > 0 !== (scope === 'selection')) {
+        errors.push('Le périmètre vaut « selection » si et seulement si une charge est limitée.');
+      }
+    } else {
+      errors.push('Les charges limitées à la sélection doivent être des charges du plan.');
+    }
+  }
+
   const rpo = raw.rpoHours === undefined ? DEFAULT_RPO_HOURS : raw.rpoHours;
   if (!RPO_HOURS.some((h) => h === rpo)) {
     errors.push('Le RPO doit valoir ' + RPO_HOURS.join(', ') + ' heures.');
@@ -122,6 +142,7 @@ export function parseProtectionPlanInput(raw: unknown): PlanParseResult {
       scope: scope as PlanScope,
       dataTypes,
       selection,
+      selectionTypes,
       rpoHours: rpo as RpoHours,
       rtoHours: rto as number | null,
       retentionDays: raw.retentionDays as number,
@@ -316,7 +337,16 @@ type CoverageFacts = {
   dataTypes?: readonly DataType[];
   scope?: PlanScope;
   selection?: readonly string[];
+  selectionTypes?: readonly DataType[];
 };
+
+/** Périmètre d'une charge du plan : `all` (tout le tenant) ou `selection` (issue #545). */
+export function chargeScope(plan: Omit<CoverageFacts, 'selection'>, type: DataType): PlanScope {
+  if (plan.scope !== 'selection') return 'all';
+  return plan.selectionTypes === undefined || plan.selectionTypes.includes(type)
+    ? 'selection'
+    : 'all';
+}
 
 /** Lignes de la page « Sources » que couvre un plan : ses services et, en sélection, ses sources. */
 function coveredRows(plan: CoverageFacts, rows: readonly StatusRow[]): StatusRow[] {
@@ -325,7 +355,7 @@ function coveredRows(plan: CoverageFacts, rows: readonly StatusRow[]): StatusRow
       r.kind === 'site' ? 'sharepoint' : r.workload === 'onedrive' ? 'onedrive' : 'mail';
     return (
       (plan.dataTypes ?? []).includes(service) &&
-      (plan.scope !== 'selection' || (plan.selection ?? []).includes(r.sourceId))
+      (chargeScope(plan, service) === 'all' || (plan.selection ?? []).includes(r.sourceId))
     );
   });
 }
@@ -354,6 +384,7 @@ export function annotateFailures(
     dataTypes?: readonly DataType[];
     scope?: PlanScope;
     selection?: readonly string[];
+    selectionTypes?: readonly DataType[];
   }[],
   runsOf: (planId: string) => readonly PlanRun[],
 ): StatusRow[] {
@@ -475,6 +506,7 @@ export function buildPlanComplianceReport(
     dataTypes?: readonly DataType[];
     scope?: PlanScope;
     selection?: readonly string[];
+    selectionTypes?: readonly DataType[];
   }[],
   runsOf: (planId: string) => readonly PlanRun[],
   now: Date,

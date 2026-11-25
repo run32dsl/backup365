@@ -160,6 +160,23 @@ describe('PLAN_MIGRATIONS', () => {
     ]);
   });
 
+  it('migration 6 keeps an existing selection plan limited on every charge', () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db, PLAN_MIGRATIONS.slice(0, 5));
+    insert(db, { id: 'sel', name: 'Choisis', scope: 'selection' });
+    insert(db, { id: 'all', name: 'Tout' });
+    db.exec("UPDATE plans SET data_types = 'mail,sharepoint'");
+    migrate(db, PLAN_MIGRATIONS);
+    expect(db.prepare('SELECT id, selection_types AS t FROM plans ORDER BY id').all()).toEqual([
+      { id: 'all', t: '' },
+      { id: 'sel', t: 'mail,sharepoint' },
+    ]);
+    const run = db.prepare(
+      "INSERT INTO plan_runs (plan_id, item_id, started_at, status, auto_added) VALUES ('all', 'i', 's', 'success', ?)",
+    );
+    expect(() => run.run(2)).toThrow();
+  });
+
   it('refuses a run with an unknown status or a long error', () => {
     const db = open();
     insert(db);

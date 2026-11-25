@@ -25,6 +25,7 @@ import { PlanScheduler, executeurSimule } from './plan-scheduler.js';
 import {
   AtlasExecuteur,
   createBackupInstance,
+  tenantDirectory,
   toBackupConfig,
   type AtlasBackupApi,
   type BackupFactory,
@@ -170,12 +171,22 @@ export function createServer(
   // Sans identifiants Microsoft 365 (hors démo), pas de planificateur : aucune exécution.
   const catalogForPlans = startup.status === 'ready' ? startup.atlas.catalog : undefined;
   const executeur = demo ? executeurSimule : backup?.executeur;
+  // Le SDK 7.2.0 a la découverte ; sans elle, « toute l'organisation » retombe sur le catalogue.
+  const backupDirectory = backup && tenantDirectory(backup.api);
   const planScheduler =
     openedPlans.store && openedAudit.audit && executeur
       ? new PlanScheduler({
           plans: openedPlans.store,
           executeur,
-          listItems: (plan) => listPlanItems(plan, catalogForPlans),
+          // Charges « tout le tenant » : l'annuaire Graph de l'instance de sauvegarde fait entrer
+          // les comptes et sites apparus depuis (issue #545) ; le catalogue le remplace en démo.
+          listItems: (plan) =>
+            listPlanItems(plan, {
+              catalog: catalogForPlans,
+              directory: backupDirectory,
+              onDirectoryError: (code) =>
+                app.log.error({ code }, 'annuaire du tenant illisible : catalogue utilisé'),
+            }),
           // `app` existe quand le planificateur démarre (hook onReady).
           logger: {
             info: (obj, msg) => app.log.info(obj, msg),

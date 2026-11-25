@@ -1,5 +1,6 @@
 import {
   annotateFailures,
+  autoAddedAtLastRun,
   buildPlanComplianceReport,
   buildServiceSummaries,
   type StatusRow,
@@ -14,6 +15,8 @@ import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 
 /** Exécutions relues par plan : assez pour retrouver la dernière réussite après une série d'échecs. */
 const COMPLIANCE_RUNS_LIMIT = 500;
+/** Éléments ajoutés d'office relus par plan : bien plus qu'un créneau n'en voit apparaître. */
+const AUTO_ADDED_LIMIT = 1000;
 
 export interface StatusOptions {
   maxAgeHours: number;
@@ -53,6 +56,24 @@ function withFailures(
   } catch (err) {
     log.warn({ code: (err as NodeJS.ErrnoException).code }, 'échecs des plans indisponibles');
     return rows;
+  }
+}
+
+/** Éléments ajoutés d'office à la dernière exécution des plans ; `null` si leur base ne répond pas. */
+function autoAdded(
+  store: SqlitePlanStore,
+  rows: readonly StatusRow[],
+  log: { warn(obj: object, msg: string): void },
+) {
+  try {
+    return autoAddedAtLastRun(
+      store.list(),
+      (id) => store.listAutoAddedRuns(id, AUTO_ADDED_LIMIT),
+      rows,
+    );
+  } catch (err) {
+    log.warn({ code: (err as NodeJS.ErrnoException).code }, 'éléments ajoutés indisponibles');
+    return null;
   }
 }
 
@@ -99,6 +120,7 @@ export function registerStatusRoutes(
           rows,
           plans: planCompliance(store, catalogReport.rows, req.log),
           services: serviceSummaries(store, rows, options.maxAgeHours, req.log),
+          autoAdded: autoAdded(store, rows, req.log),
         }
       : catalogReport;
     const report = options.auditAnchor

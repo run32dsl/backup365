@@ -2,12 +2,25 @@ import { DATA_TYPES, type DataType } from '@backup365/core';
 import {
   DATA_TYPE_LABELS,
   MAIL_HELP,
+  limitedTypes,
+  setChargeScope,
   type FormErrors,
   type Mailbox,
   type PlanForm,
 } from '../../plans.js';
 import { ChoiceGroup, FormField } from '../../ui/index.js';
 import { ErrorText } from '../ErrorText.js';
+
+/** Aide du périmètre : ce que « Toute l'organisation » veut dire à chaque exécution (issue #545). */
+export const SCOPE_HELP =
+  'Pour chaque donnée, « Toute l’organisation » prend aussi, à chaque sauvegarde, les comptes et les sites créés après le plan.';
+
+/** Second choix de chaque donnée : ce que l'on choisit un par un. */
+const PICKED_LABELS: Record<DataType, string> = {
+  mail: 'Boîtes choisies',
+  onedrive: 'Comptes choisis',
+  sharepoint: 'Sites choisis',
+};
 
 function toggle<T>(list: T[], item: T): T[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
@@ -69,6 +82,15 @@ export function StepWhat({
   patch: (change: Partial<PlanForm>) => void;
 }) {
   const invalid = (key: keyof FormErrors) => (errors[key] ? true : undefined);
+  const limited = limitedTypes(form);
+  // Un groupe de choix qui disparaît emporte ses choix ; les ids inconnus du catalogue restent.
+  const prune = (selectionTypes: readonly DataType[]): string[] => {
+    const hidden = new Set<string>([
+      ...(selectionTypes.some((d) => d !== 'sharepoint') ? [] : mailboxes).map((m) => m.id),
+      ...(selectionTypes.includes('sharepoint') ? [] : sites).map((s) => s.id),
+    ]);
+    return form.selection.filter((id) => !hidden.has(id));
+  };
   return (
     <>
       <FormField
@@ -103,16 +125,14 @@ export function StepWhat({
                 checked={form.dataTypes.includes(t)}
                 onChange={() => {
                   const dataTypes = DATA_TYPES.filter((d) => toggle(form.dataTypes, t).includes(d));
-                  // Un groupe qui disparaît emporte ses choix ; les ids inconnus du catalogue restent.
-                  const hidden = new Set<string>([
-                    ...(dataTypes.some((d) => d !== 'sharepoint') ? [] : mailboxes).map(
-                      (m) => m.id,
-                    ),
-                    ...(dataTypes.includes('sharepoint') ? [] : sites).map((s) => s.id),
-                  ]);
+                  // Une donnée ajoutée couvre toute l'organisation (par défaut) ; une donnée
+                  // retirée emporte son périmètre.
+                  const selectionTypes = limited.filter((d) => dataTypes.includes(d));
                   patch({
                     dataTypes,
-                    selection: form.selection.filter((id) => !hidden.has(id)),
+                    selectionTypes,
+                    scope: selectionTypes.length > 0 ? 'selection' : 'all',
+                    selection: prune(selectionTypes),
                   });
                 }}
               />
@@ -127,21 +147,33 @@ export function StepWhat({
         </div>
         <ErrorText id="data-types-error">{errors.dataTypes}</ErrorText>
       </fieldset>
-      <ChoiceGroup
-        legend="Périmètre"
-        name="scope"
-        value={form.scope}
-        options={[
-          { value: 'all', label: 'Toute l’organisation' },
-          { value: 'selection', label: 'Boîtes, comptes et sites choisis' },
-        ]}
-        onChange={(scope) => {
-          patch({ scope });
-        }}
-      />
-      {form.scope === 'selection' && (
+      {form.dataTypes.length > 0 && (
+        <fieldset className="choices" aria-describedby="scope-help">
+          <legend>Périmètre</legend>
+          <p id="scope-help" className="field-help scope-help">
+            {SCOPE_HELP}
+          </p>
+          {DATA_TYPES.filter((t) => form.dataTypes.includes(t)).map((t) => (
+            <ChoiceGroup
+              key={t}
+              legend={DATA_TYPE_LABELS[t]}
+              name={`scope-${t}`}
+              value={limited.includes(t) ? 'selection' : 'all'}
+              options={[
+                { value: 'all', label: 'Toute l’organisation' },
+                { value: 'selection', label: PICKED_LABELS[t] },
+              ]}
+              onChange={(scope) => {
+                const change = setChargeScope(form, t, scope);
+                patch({ ...change, selection: prune(change.selectionTypes ?? []) });
+              }}
+            />
+          ))}
+        </fieldset>
+      )}
+      {limited.length > 0 && (
         <>
-          {form.dataTypes.some((t) => t !== 'sharepoint') && (
+          {limited.some((t) => t !== 'sharepoint') && (
             <SelectionGroup
               legend="Boîtes et comptes"
               empty="Aucune boîte à choisir pour l’instant."
@@ -153,7 +185,7 @@ export function StepWhat({
               }}
             />
           )}
-          {form.dataTypes.includes('sharepoint') && (
+          {limited.includes('sharepoint') && (
             <SelectionGroup
               legend="Sites SharePoint"
               empty="Aucun site à choisir pour l’instant."

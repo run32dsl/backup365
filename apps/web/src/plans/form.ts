@@ -1,4 +1,10 @@
-import { DATA_TYPES, type DataType, type PlanScope, type RpoHours } from '@backup365/core';
+import {
+  DATA_TYPES,
+  chargeScope,
+  type DataType,
+  type PlanScope,
+  type RpoHours,
+} from '@backup365/core';
 import {
   DATA_TYPE_LABELS,
   MESSAGES,
@@ -16,10 +22,35 @@ export interface PlanForm {
   dataTypes: DataType[];
   scope: PlanScope;
   selection: string[];
+  /**
+   * Charges limitées à la sélection ; les autres couvrent tout le tenant (issue #545). Absent :
+   * toutes suivent `scope`. `setChargeScope` tient les deux d'accord.
+   */
+  selectionTypes?: DataType[];
   rpoHours: RpoHours;
   rtoHours: number;
   retentionDays: number;
   justification: string;
+}
+
+/** Charges du formulaire limitées à la sélection, dans l'ordre de `DATA_TYPES`. */
+export function limitedTypes(form: Pick<PlanForm, 'dataTypes' | 'scope' | 'selectionTypes'>) {
+  return DATA_TYPES.filter(
+    (t) => form.dataTypes.includes(t) && chargeScope(form, t) === 'selection',
+  );
+}
+
+/** Change le périmètre d'une charge ; le périmètre du plan suit (sélection si une est limitée). */
+export function setChargeScope(
+  form: PlanForm,
+  type: DataType,
+  scope: PlanScope,
+): Partial<PlanForm> {
+  const others = limitedTypes(form).filter((t) => t !== type);
+  const selectionTypes = DATA_TYPES.filter(
+    (t) => others.includes(t) || (t === type && scope === 'selection'),
+  );
+  return { selectionTypes, scope: selectionTypes.length > 0 ? 'selection' : 'all' };
 }
 
 /** Valeurs par défaut sûres : tout protégé, 12 h, 24 h, 1 an. */
@@ -42,6 +73,7 @@ export function formFromPlan(plan: PlanItem): PlanForm {
     dataTypes: plan.dataTypes,
     scope: plan.scope,
     selection: plan.selection ?? [],
+    ...(plan.selectionTypes && { selectionTypes: plan.selectionTypes }),
     rpoHours: plan.rpoHours,
     rtoHours: plan.rtoHours ?? 24,
     retentionDays: plan.retentionDays,
@@ -51,11 +83,13 @@ export function formFromPlan(plan: PlanItem): PlanForm {
 
 /** Corps de `POST /api/plans` et `PUT /api/plans/:id`. */
 export function payloadOf(form: PlanForm) {
+  const limited = limitedTypes(form);
   return {
     name: form.name.trim(),
-    scope: form.scope,
+    scope: limited.length > 0 ? ('selection' as const) : ('all' as const),
     dataTypes: form.dataTypes,
-    selection: form.scope === 'selection' ? form.selection : [],
+    selection: limited.length > 0 ? form.selection : [],
+    selectionTypes: limited,
     rpoHours: form.rpoHours,
     rtoHours: form.rtoHours,
     retentionDays: form.retentionDays,
@@ -82,7 +116,7 @@ export function validateStep(
       errors.name = MESSAGES.nameTaken;
     }
     if (form.dataTypes.length === 0) errors.dataTypes = MESSAGES.dataTypes;
-    if (form.scope === 'selection' && form.selection.length === 0) {
+    if (limitedTypes(form).length > 0 && form.selection.length === 0) {
       errors.selection = MESSAGES.selection;
     }
   } else if (form.justification.trim() === '') {
@@ -91,9 +125,32 @@ export function validateStep(
   return errors;
 }
 
-/** Périmètre du plan, en clair. */
+/** « nouveaux comptes et sites compris » selon les charges qui couvrent tout le tenant. */
+export function newcomersLabel(types: readonly DataType[]): string {
+  const accounts = types.some((t) => t !== 'sharepoint');
+  const sites = types.includes('sharepoint');
+  return `nouveaux ${[accounts ? 'comptes' : '', sites ? 'sites' : ''].filter(Boolean).join(' et ')} compris`;
+}
+
+/** Libellés des charges, « Messagerie et OneDrive ». */
+export const chargesLabel = (types: readonly DataType[]): string =>
+  enumerate(types.map((t) => DATA_TYPE_LABELS[t]));
+
+/**
+ * Périmètre du plan, en clair, charge par charge quand elles diffèrent : « Messagerie : Claire
+ * Durand ; OneDrive : toute l'organisation, nouveaux comptes compris ».
+ */
 function scopeLabel(form: PlanForm, names: readonly Mailbox[]): string {
-  if (form.scope === 'all') return 'Toute l’organisation';
+  const limited = limitedTypes(form);
+  const all = DATA_TYPES.filter((t) => form.dataTypes.includes(t) && !limited.includes(t));
+  const whole = `toute l’organisation, ${newcomersLabel(all)}`;
+  if (limited.length === 0) return whole.charAt(0).toUpperCase() + whole.slice(1);
+  const picked = selectionScopeLabel(form, names);
+  if (all.length === 0) return picked;
+  return `${chargesLabel(limited)} : ${picked} ; ${chargesLabel(all)} : ${whole}`;
+}
+
+function selectionScopeLabel(form: PlanForm, names: readonly Mailbox[]): string {
   const n = form.selection.length;
   if (n === 0) return 'Aucune boîte, compte ou site choisi';
   // Les noms connus sont dits tels quels, dans l'ordre du catalogue ; sinon les éléments sont comptés.
@@ -158,14 +215,23 @@ function enumerate(items: string[]): string {
  * « Messagerie, OneDrive et SharePoint · toute l'organisation · toutes les 12 h · conservés 1 an ».
  */
 export function planSummary(
-  plan: Pick<PlanItem, 'dataTypes' | 'scope' | 'selection' | 'rpoHours' | 'retentionDays'>,
+  plan: Pick<PlanItem, 'dataTypes' | 'scope' | 'selection' | 'rpoHours' | 'retentionDays'> &
+    Partial<Pick<PlanItem, 'selectionTypes'>>,
   mailboxes: readonly Mailbox[] = [],
 ): string {
   const what = enumerate(
     DATA_TYPES.filter((t) => plan.dataTypes.includes(t)).map((t) => DATA_TYPE_LABELS[t]),
   );
+  // Charges mêlées : chaque groupe dit son périmètre (« Messagerie : Claire Durand ; … »).
+  const limited = limitedTypes(plan);
+  const all = DATA_TYPES.filter((t) => plan.dataTypes.includes(t) && !limited.includes(t));
+  const picked = selectionLabel(plan.selection, mailboxes);
   const where =
-    plan.scope === 'all' ? 'toute l’organisation' : selectionLabel(plan.selection, mailboxes);
+    limited.length === 0
+      ? 'toute l’organisation'
+      : all.length === 0
+        ? picked
+        : `${chargesLabel(limited)} : ${picked} ; ${chargesLabel(all)} : toute l’organisation`;
   return [
     what.charAt(0).toUpperCase() + what.slice(1),
     where,

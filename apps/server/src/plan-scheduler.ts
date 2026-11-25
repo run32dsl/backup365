@@ -1,4 +1,5 @@
 import {
+  chargeScope,
   NIGHT_SLOT_GAP,
   currentRunSlot,
   nightWindowStart,
@@ -6,14 +7,22 @@ import {
   type DataType,
   type NoSnapshotReason,
 } from '@backup365/core';
+import type { PlanTarget } from './plan-items.js';
 import type { SqlitePlanStore, StoredPlan } from './sqlite/sqlite-plan-store.js';
+
+/** Élément prêt à exécuter ; `autoAdded` : apparu dans le tenant après le plan (issue #545). */
+interface Target extends PlanTarget {
+  autoAdded: boolean;
+}
 
 /** Ce que le planificateur demande à l'exécuteur : un plan sur un élément, rien d'autre. */
 export interface ExecutionTarget {
   planId: string;
   itemId: string;
-  /** Charges que le plan protège : l'exécuteur ne sauvegarde que celles-là. */
+  /** Charges que le plan protège sur cet élément : l'exécuteur ne sauvegarde que celles-là. */
   dataTypes: readonly DataType[];
+  /** Nature de l'élément quand l'annuaire la donne ; absente, l'exécuteur la déduit du catalogue. */
+  kind?: 'owner' | 'site';
 }
 
 /**
@@ -40,8 +49,11 @@ export interface SchedulerLogger {
 export interface SchedulerOptions {
   plans: SqlitePlanStore;
   executeur: Executeur;
-  /** Éléments d'un plan : sa sélection, ou toutes les boîtes si son périmètre est `all`. */
-  listItems: (plan: StoredPlan) => Promise<string[]>;
+  /**
+   * Éléments d'un plan (`listPlanItems`) : sa sélection et, pour une charge « tout », ce que
+   * l'annuaire du tenant connaît. Un identifiant seul vaut toutes les charges du plan.
+   */
+  listItems: (plan: StoredPlan) => Promise<readonly (string | PlanTarget)[]>;
   logger: SchedulerLogger;
   /** Horloge injectable (tests). */
   now?: () => Date;
@@ -165,19 +177,23 @@ export class PlanScheduler {
         const successSince = new Date(
           new Date(slot).getTime() - NIGHT_SLOT_GAP * 60_000,
         ).toISOString();
-        // Lister les boîtes interroge le stockage : on ne le refait pas pour un créneau déjà traité.
-        // Une boîte apparue en cours de créneau est donc prise au créneau suivant.
-        const memo = plan.scope === 'all';
+        // Lister les boîtes interroge l'annuaire du tenant : on ne le refait pas pour un créneau
+        // déjà traité. Un compte apparu en cours de créneau est donc pris au créneau suivant.
+        const memo = plan.dataTypes.some((t) => chargeScope(plan, t) === 'all');
         if (memo && this.settledSlot.get(plan.id) === slot) continue;
-        let items: string[];
+        let items: Target[];
+        let degraded: boolean;
         try {
-          items = await this.options.listItems(plan);
+          ({ items, degraded } = await this.targets(plan));
         } catch (err) {
           logger.error({ planId: plan.id, code: errorCode(err) }, 'éléments du plan illisibles');
           continue;
         }
-        let settled = true;
-        for (const itemId of items) {
+        // Annuaire injoignable : le catalogue a servi, le créneau reste à reprendre au passage
+        // suivant pour ne pas faire attendre les nouveaux comptes jusqu'au créneau d'après.
+        let settled = !degraded;
+        for (const target of items) {
+          const { itemId } = target;
           if (this.stopped) return;
           const due = (): boolean =>
             !plans.hasRunSince(plan.id, itemId, slot) &&
@@ -187,9 +203,14 @@ export class PlanScheduler {
             // Revérifié à son tour : un lancement manuel a pu sauvegarder l'élément entre-temps.
             if (this.stopped) return false;
             if (!due()) return true;
-            const runId = plans.startRun(plan.id, itemId, this.now().toISOString());
+            const runId = plans.startRun(
+              plan.id,
+              itemId,
+              this.now().toISOString(),
+              target.autoAdded,
+            );
             if (runId === undefined) return false;
-            await this.execute(plan, itemId, runId);
+            await this.execute(plan, target, runId);
             return true;
           });
           if (!opened) settled = false;
@@ -208,7 +229,7 @@ export class PlanScheduler {
    * exécution en cours. Sinon les exécutions sont ouvertes avant le retour.
    */
   async runNow(plan: StoredPlan): Promise<ManualRunResult> {
-    const items = await this.options.listItems(plan);
+    const { items } = await this.targets(plan);
     if (items.length === 0) {
       return { started: 0, skipped: 0, queued: false, done: Promise.resolve() };
     }
@@ -217,13 +238,14 @@ export class PlanScheduler {
       return { started: 0, skipped: 0, queued: true, done: Promise.resolve() };
     }
     const queued = this.waiting > 0;
-    const opened: { itemId: string; runId: number }[] = [];
+    const opened: { target: Target; runId: number }[] = [];
     const open = (): void => {
       const startedAt = this.now().toISOString();
       try {
-        for (const itemId of items) {
-          const runId = this.options.plans.startRun(plan.id, itemId, startedAt);
-          if (runId !== undefined) opened.push({ itemId, runId });
+        for (const target of items) {
+          const { plans } = this.options;
+          const runId = plans.startRun(plan.id, target.itemId, startedAt, target.autoAdded);
+          if (runId !== undefined) opened.push({ target, runId });
         }
       } catch (err) {
         // Ne laisse aucune exécution ouverte sans suite : elle bloquerait son élément.
@@ -244,7 +266,7 @@ export class PlanScheduler {
       }
       for (const run of opened) {
         if (this.stopped) this.closeInterrupted([run], 'interrupted');
-        else await this.execute(plan, run.itemId, run.runId);
+        else await this.execute(plan, run.target, run.runId);
       }
     })
       .catch((err: unknown) => {
@@ -274,11 +296,35 @@ export class PlanScheduler {
     }
   }
 
-  private async execute(plan: StoredPlan, itemId: string, runId: number): Promise<void> {
+  /**
+   * Éléments du plan, chacun avec ses charges. Un élément pris d'office (charge « tout ») qui n'a
+   * jamais été sauvegardé par ce plan, alors que le plan a déjà tourné à un créneau antérieur, est
+   * apparu depuis : il est noté `autoAdded` pour la page Sources. Rien n'est « ajouté » pendant le
+   * premier créneau du plan, même repris après une interruption. `degraded` : l'annuaire n'a pas
+   * répondu, la liste vient du catalogue (le créneau sera retenté).
+   */
+  private async targets(plan: StoredPlan): Promise<{ items: Target[]; degraded: boolean }> {
+    const { plans } = this.options;
+    const listed = await this.options.listItems(plan);
+    const slot = currentRunSlot(plan, this.now()).toISOString();
+    const ranBefore = plans.hasRunBefore(plan.id, slot);
+    const items = listed.map((item) => {
+      const target: PlanTarget =
+        typeof item === 'string'
+          ? { itemId: item, dataTypes: [...plan.dataTypes], discovered: false }
+          : item;
+      const autoAdded = target.discovered && ranBefore && !plans.hasAnyRun(plan.id, target.itemId);
+      return { ...target, autoAdded };
+    });
+    return { items, degraded: (listed as { degraded?: boolean }).degraded === true };
+  }
+
+  private async execute(plan: StoredPlan, target: PlanTarget, runId: number): Promise<void> {
     const { plans, executeur, logger } = this.options;
     const planId = plan.id;
+    const { itemId, dataTypes, kind } = target;
     try {
-      const result = await executeur.execute({ planId, itemId, dataTypes: plan.dataTypes });
+      const result = await executeur.execute({ planId, itemId, dataTypes, ...(kind && { kind }) });
       plans.finishRun(
         runId,
         'success',

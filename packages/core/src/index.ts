@@ -123,5 +123,7 @@ export {
   alignCompliance,
   alignRunEnd,
   annotateFailures,
+  chargeScope,
   type SourceFailure,
 } from './protection-plan.js';
+export { autoAddedAtLastRun, type AutoAddedEntry } from './auto-added.js';

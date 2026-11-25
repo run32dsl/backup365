@@ -100,6 +100,25 @@ describe('GET /api/status', () => {
       expect(Date.parse(late?.lastRun?.finishedAt ?? '')).toBe(Date.parse(latest ?? ''));
     });
 
+    it('lists the items a whole-tenant plan added at its last run, for administrators only', async () => {
+      const plans = SqlitePlanStore.open(':memory:');
+      const plan = plans.create(input('Tout', 'all'));
+      const at = hoursAgo(1);
+      for (const [item, added] of [
+        ['item', false],
+        ['newcomer', true],
+      ] as const) {
+        const id = plans.startRun(plan.id, item, at, added);
+        plans.finishRun(id!, 'success', at);
+      }
+      const report = await get(plans);
+      expect(report.autoAdded).toEqual([
+        { planId: plan.id, plan: 'Tout', at, items: [{ id: 'newcomer', name: null }] },
+      ]);
+      const operator = await get(plans, 'operator');
+      expect(operator).not.toHaveProperty('autoAdded');
+    });
+
     it.each(ROLES.filter((role) => role !== 'admin'))(
       'hides plan counts and names from the %s role (PO decision, pending PM)',
       async (role) => {

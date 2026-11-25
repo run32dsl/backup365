@@ -119,6 +119,8 @@ describe('API des plans', () => {
       'running',
       'scope',
       'selection',
+      // Charges limitées à la sélection : la synthèse dit « tout le tenant » pour les autres.
+      'selectionTypes',
     ]);
     expect((await send(app, 'GET', `/api/plans/${plan.id}/runs`)).statusCode).toBe(403);
     expect((await send(app, 'POST', `/api/plans/${plan.id}/run`, { reason: 'x' })).statusCode).toBe(
@@ -378,6 +380,33 @@ describe('API des plans', () => {
 
     const entries = await log(audit);
     expect(entries[1]?.reason).toContain('dataTypes');
+  });
+
+  it('stores a scope per charge, and an old client PUT without it limits every charge', async () => {
+    const { app, plans } = setup();
+    const mixed = {
+      ...valid,
+      scope: 'selection',
+      dataTypes: ['mail', 'onedrive'],
+      selection: ['a'],
+      selectionTypes: ['mail'],
+    };
+    const created = await send(app, 'POST', '/api/plans', mixed);
+    expect(created.statusCode).toBe(201);
+    const id = created.json<{ id: string }>().id;
+    expect(created.json()).toMatchObject({ selectionTypes: ['mail'] });
+    expect(plans.get(id)?.selectionTypes).toEqual(['mail']);
+    // Client antérieur à #545 : sans `selectionTypes`, la sélection vaut pour toutes les charges.
+    const old: Partial<typeof mixed> = { ...mixed };
+    delete old.selectionTypes;
+    expect((await send(app, 'PUT', `/api/plans/${id}`, old)).statusCode).toBe(200);
+    expect(plans.get(id)?.selectionTypes).toEqual(['mail', 'onedrive']);
+    const bad = await send(app, 'POST', '/api/plans', {
+      ...mixed,
+      name: 'Autre',
+      selectionTypes: ['sharepoint'],
+    });
+    expect(bad.statusCode).toBe(400);
   });
 
   it('refuses an empty or unknown dataTypes list (400)', async () => {

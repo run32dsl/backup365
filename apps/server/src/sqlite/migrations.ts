@@ -175,6 +175,18 @@ export const PLAN_MIGRATIONS: readonly Migration[] = [
       (CASE WHEN (',' || data_types || ',') LIKE '%,files,%' THEN 'onedrive,sharepoint,' ELSE '' END),
     ','), ''), 'mail,onedrive,sharepoint');`,
   },
+  {
+    version: 6,
+    name: 'plan-scope-per-workload',
+    // Charges limitées à la sélection (vide : tout le tenant), et éléments qu'une exécution a
+    // pris d'office parce qu'ils sont apparus dans le tenant après le plan (issue #545). Un plan
+    // existant en sélection garde toutes ses charges limitées à sa sélection.
+    sql: `
+      ALTER TABLE plans ADD COLUMN selection_types TEXT NOT NULL DEFAULT '';
+      UPDATE plans SET selection_types = data_types WHERE scope = 'selection';
+      ALTER TABLE plan_runs ADD COLUMN auto_added INTEGER NOT NULL DEFAULT 0 CHECK (auto_added IN (0, 1));
+    `,
+  },
 ];
 
 /** Applique les migrations manquantes, chacune dans une transaction. */
