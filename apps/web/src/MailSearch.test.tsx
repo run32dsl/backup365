@@ -251,7 +251,7 @@ describe('MailPage', () => {
   it('shows no reason field nor disabled button on the sheet, only the closed export action', () => {
     const html = renderToString(<ExportSection mail={mail} />);
     expect(html).toContain('Télécharge une copie du mail au format .eml, lisible par Outlook.');
-    expect(html).toContain('>Exporter</h2>');
+    expect(html).toContain('>Exporter</h3>');
     expect(html).not.toContain('EML');
     expect(html).not.toContain('disabled');
     expect(html).not.toContain('<input');
@@ -275,9 +275,17 @@ describe('MailPage', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the generic title while the sheet is loading', () => {
+  it('opens on the section h1, then the SubNav, the back link and the subject as h2', () => {
     const html = renderToString(<MailPage mailboxId="mbx-1" messageId="m1" />);
-    expect(html).toContain('<h1>Fiche d’un mail</h1>');
+    const h1 = html.indexOf('<h1>Restaurer depuis la messagerie</h1>');
+    const nav = html.indexOf('<nav');
+    const back = html.indexOf('Retour à la recherche');
+    const h2 = html.indexOf('<h2>Fiche d’un mail</h2>');
+    expect(h1).toBeGreaterThanOrEqual(0);
+    expect(nav).toBeGreaterThan(h1);
+    expect(back).toBeGreaterThan(nav);
+    expect(h2).toBeGreaterThan(back);
+    expect(html.match(/<h1/g)).toHaveLength(1);
   });
 
   it('shows loading and error states, and the export form only once the sheet is loaded', () => {
@@ -307,6 +315,7 @@ describe('mail helpers', () => {
     expect(off).toContain('Prévenez un administrateur.</span>');
     expect(off).not.toContain('<button');
     expect(off).not.toContain('Restaurer Facture');
+    expect(off).toContain('>Restaurer dans la boîte d’origine</h3>');
     const on = renderToString(<RestoreSectionView mail={mail} configured last={null} />);
     expect(on).toContain('Restaurer Facture 1');
     expect(on).not.toContain('role="alert"');
