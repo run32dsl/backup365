@@ -275,6 +275,8 @@ export const SCREENS = [
   // Accueil : la démo inscrit un plan en échec (état réel, sans simulation) ; les deux autres états
   // sont simulés par la réponse de GET /api/overview.
   { name: 'accueil-en-echec', hash: '#/', role: 'admin' },
+  // Bloc « Couverture du tenant », « Prochaine sauvegarde » et « Derniers événements ».
+  { name: 'accueil-couverture', hash: '#/', role: 'admin' },
   { name: 'accueil-en-echec-sombre', hash: '#/', role: 'admin', scheme: 'dark' },
   {
     name: 'accueil-operationnelle',
