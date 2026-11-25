@@ -38,6 +38,7 @@ import {
   type OneDriveRoute,
 } from './onedrive.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
+import { selectionLabel } from './selection.js';
 import {
   AuditReminder,
   REASON,
@@ -323,6 +324,7 @@ export function BrowseStep({
   const [attempt, setAttempt] = useState(0);
   const versionsButton = useRef<HTMLButtonElement | null>(null);
   const hintId = useId();
+  const chooseHintId = useId();
   const path = route.path;
 
   useEffect(() => {
@@ -430,13 +432,25 @@ export function BrowseStep({
 
       <p aria-live="polite">
         {chosen
-          ? `Sélection : ${chosen.name}${pickedVersion ? `, version du ${dateTimeOf(pickedVersion.at)} UTC` : ''}`
+          ? selectionLabel({
+              name: chosen.name,
+              kind: chosen.kind,
+              versionAt: pickedVersion ? dateTimeOf(pickedVersion.at) : null,
+            })
           : null}
       </p>
+      {!chosen && (
+        <p id={chooseHintId} className="field-help">
+          Cochez un fichier ou un dossier pour continuer.
+        </p>
+      )}
       <WizardActions>
         <Button
           aria-disabled={!configured || !chosen || undefined}
-          aria-describedby={!configured ? hintId : undefined}
+          className={!configured || !chosen ? 'is-inactive' : undefined}
+          aria-describedby={
+            [!chosen && chooseHintId, !configured && hintId].filter(Boolean).join(' ') || undefined
+          }
           onClick={() => {
             if (configured && chosen)
               onChoose(

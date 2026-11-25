@@ -412,3 +412,47 @@ describe('OneDrive breadcrumb', () => {
     expect(nav).not.toContain('Accueil');
   });
 });
+
+describe('OneDrive choose step without selection', () => {
+  it('explains the inactive « Continuer » and links it by aria-describedby', () => {
+    const out = renderToString(
+      <BrowseStep
+        route={{ account: 'u1', path: '/' }}
+        account="u1"
+        accounts={[{ id: 'u1', displayName: 'claire.durand@exemple.fr' }]}
+        snapshots={[]}
+        snapshotId=""
+        onSnapshot={() => undefined}
+        configured
+        onChoose={() => undefined}
+      />,
+    );
+    const help =
+      /<p id="([^"]+)" class="field-help">Cochez un fichier ou un dossier pour continuer\./.exec(
+        out,
+      );
+    expect(help).not.toBeNull();
+    const button = /<button[^>]*>Continuer<\/button>/.exec(out)?.[0] ?? '';
+    expect(button).toContain(`aria-describedby="${help?.[1] ?? ''}"`);
+    expect(button).toContain('is-inactive');
+    expect(button).toContain('aria-disabled="true"');
+  });
+
+  it('still references the choose hint when the storage is not configured', () => {
+    const out = renderToString(
+      <BrowseStep
+        route={{ account: 'u1', path: '/' }}
+        account="u1"
+        accounts={[{ id: 'u1', displayName: 'claire.durand@exemple.fr' }]}
+        snapshots={[]}
+        snapshotId=""
+        onSnapshot={() => undefined}
+        configured={false}
+        onChoose={() => undefined}
+      />,
+    );
+    const help = /<p id="([^"]+)" class="field-help">Cochez un fichier ou un dossier/.exec(out);
+    const button = /<button[^>]*>Continuer<\/button>/.exec(out)?.[0] ?? '';
+    expect(button).toContain(`aria-describedby="${help?.[1] ?? ''} `);
+  });
+});

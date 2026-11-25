@@ -1091,7 +1091,16 @@ export const SCREENS = [
       const panel = page.getByRole('dialog', { name: 'Versions de budget.xlsx' });
       await panel.getByRole('radio').nth(1).check();
       await panel.getByRole('button', { name: 'Choisir cette version' }).click();
-      await page.getByText(/Sélection : budget\.xlsx, version du /).waitFor();
+      await page.getByText(/Sélection : fichier « budget\.xlsx », version du /).waitFor();
+    },
+  },
+  {
+    name: 'onedrive-sans-selection',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await openDrive(page);
+      await page.getByText('Cochez un fichier ou un dossier pour continuer.').waitFor();
     },
   },
   {
