@@ -216,6 +216,7 @@ describe('SharePoint breadcrumb', () => {
     expect(html).toContain('href="#/sharepoint/a%2Cb/item"');
     expect(html).toContain('href="#/sharepoint/a%2Cb/item/Documents"');
     expect(html).toContain('<span aria-current="location">Plans 2024</span>');
+    expect(html.match(/aria-current/g)).toHaveLength(1);
   });
 
   it('navigates in the page on a plain click', () => {

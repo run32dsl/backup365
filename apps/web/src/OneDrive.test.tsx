@@ -410,6 +410,8 @@ describe('OneDrive breadcrumb', () => {
     const nav = out.slice(out.indexOf('<nav'), out.indexOf('</nav>'));
     expect(nav).toMatch(/<a href="#\/onedrive\/u1">claire\.durand@exemple\.fr<\/a>/);
     expect(nav).not.toContain('Accueil');
+    expect(nav).toContain('<span aria-current="location">Budget</span>');
+    expect(nav.match(/aria-current/g)).toHaveLength(1);
   });
 });
 

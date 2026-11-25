@@ -1536,7 +1536,6 @@ a.btn-secondary {
 .breadcrumb li {
   display: inline-flex;
   align-items: center;
-  min-height: 2.75rem;
   min-width: 0;
   overflow-wrap: anywhere; /* une adresse de compte longue ne déborde pas à 390 px */
 }
@@ -1558,11 +1557,26 @@ a.btn-secondary {
   margin-right: var(--space-1);
   text-align: center;
 }
-.breadcrumb a,
 .drive-list .data-table td a {
   display: inline-flex;
   align-items: center;
   min-height: 2.75rem;
+}
+/* Cible tactile de 44 px sans gonfler la ligne : le fil reste compact quand il passe à la ligne. */
+.breadcrumb a {
+  position: relative;
+}
+.breadcrumb a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2.75rem;
+  transform: translateY(-50%);
+}
+.breadcrumb [aria-current='location'] {
+  font-weight: 700;
 }
 .drive-list .data-table input[type='radio'] {
   width: 1.5rem;
