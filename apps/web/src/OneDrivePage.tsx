@@ -574,7 +574,6 @@ export function ConfirmStep({
           }
         }}
       />
-      <h2>Récapitulatif</h2>
       <ResultList
         rows={confirmRowsOf({
           account,

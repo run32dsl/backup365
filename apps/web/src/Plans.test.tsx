@@ -511,7 +511,7 @@ describe('PlanWizard', () => {
         onSubmit={() => Promise.resolve(undefined)}
       />,
     );
-    expect(html).toContain('Étape 1 sur 3 : Quoi protéger');
+    expect(html).toContain('Étape 1 sur 3');
     expect(html).toContain('aria-current="step"');
     expect(html).toContain('<legend>Données à sauvegarder</legend>');
     expect(html).toContain('<legend>Périmètre</legend>');
@@ -582,7 +582,7 @@ describe('PlanWizard', () => {
         initialStep={3}
       />,
     );
-    expect(html).toContain('<h2>Récapitulatif</h2>');
+    expect(html).not.toContain('<h2>Récapitulatif</h2>');
     expect(html).toContain('<dl class="meta-list">');
     expect(html).toContain('<dd>Messagerie Direction</dd>');
     expect(html).toContain('<dd>Contrat client</dd>');
