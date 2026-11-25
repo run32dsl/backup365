@@ -12,7 +12,7 @@ test('401 en cours de navigation : #/connexion avec message, puis retour à la p
 }) => {
   await signInAs(context, baseURL!, 'admin');
   await page.goto('/#/');
-  await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Accueil' })).toBeVisible();
 
   // La session disparaît côté serveur : la prochaine requête protégée reçoit un 401.
   await context.clearCookies();
@@ -25,7 +25,7 @@ test('401 en cours de navigation : #/connexion avec message, puis retour à la p
   await page.getByLabel('Mot de passe', { exact: true }).fill(DEMO_LOGINS.admin.password);
   await page.getByRole('button', { name: 'Se connecter' }).click();
   await expect(page).toHaveURL(/#\/audit$/);
-  await expect(page.getByRole('heading', { name: 'Journal d’audit' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Activités' })).toBeVisible();
   await expect(page.getByText(EXPIRED)).toHaveCount(0);
 });
 
@@ -62,7 +62,7 @@ test('changement volontaire du mot de passe : la page reste affichée, formulair
   await expect(saved).toHaveCount(0);
 });
 
-test('changement imposé du mot de passe : même retour au tableau de bord, avec confirmation qui disparaît après 8 s', async ({
+test('changement imposé du mot de passe : même retour à l’accueil, avec confirmation qui disparaît après 8 s', async ({
   page,
   context,
   baseURL,
@@ -92,7 +92,7 @@ test('changement imposé du mot de passe : même retour au tableau de bord, avec
   await page.getByRole('button', { name: 'Enregistrer et continuer' }).click();
 
   await expect(page).toHaveURL(/#\/$/);
-  await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Accueil' })).toBeVisible();
   const status = page.getByRole('status').filter({ hasText: 'Mot de passe modifié.' }).first();
   await expect(status).toBeVisible();
   await expect(page.getByLabel('Mot de passe actuel', { exact: true })).toHaveCount(0);
@@ -107,7 +107,7 @@ test('connexion Microsoft (fournisseur simulé de la démo) : le bouton ouvre la
 }) => {
   await page.goto('/');
   await page.getByRole('link', { name: 'Se connecter avec un compte Microsoft' }).click();
-  await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Accueil' })).toBeVisible();
   await expect(page.getByText('compte-microsoft@exemple.fr').first()).toBeVisible();
 });
 

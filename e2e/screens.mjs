@@ -211,7 +211,7 @@ export const SCREENS = [
     role: null,
     prepare: async (page) => {
       await page.getByRole('link', { name: 'Se connecter avec un compte Microsoft' }).click();
-      await page.getByRole('heading', { name: 'Tableau de bord' }).waitFor();
+      await page.getByRole('heading', { name: 'Accueil' }).waitFor();
       // Sur mobile, ouvre le menu pour montrer l'identifiant du compte en bas de la barre.
       const menu = page.getByRole('button', { name: 'Menu' });
       if (await menu.isVisible()) await menu.click();

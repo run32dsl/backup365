@@ -111,7 +111,7 @@ describe('OverviewView, late backups', () => {
 describe('Home', () => {
   it('shows a loading state, with no figure, before the answer', () => {
     const html = renderToString(<Home />);
-    expect(html).toContain('Tableau de bord');
+    expect(html).toContain('Accueil');
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('Chargement…');
     expect(html).not.toContain('Serveur');
@@ -315,7 +315,7 @@ describe('retry after an error', () => {
     focusAfterRetry({ querySelector: (q) => (q === 'h1' ? el('h1') : null) });
     expect(focused).toEqual(['card', 'h1']);
     expect(render(operational)).toContain('<h2 id="overview-backup" tabindex="-1">Sauvegarde</h2>');
-    expect(renderToStaticMarkup(<Home />)).toContain('<h1 tabindex="-1">Tableau de bord</h1>');
+    expect(renderToStaticMarkup(<Home />)).toContain('<h1 tabindex="-1">Accueil</h1>');
   });
 });
 

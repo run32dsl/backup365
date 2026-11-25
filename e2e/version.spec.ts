@@ -43,7 +43,7 @@ test.describe('serveur lancé avec le commit d’une image', () => {
     await page.getByLabel('Identifiant').fill(DEMO_LOGINS.operator.username);
     await page.getByLabel('Mot de passe', { exact: true }).fill(DEMO_LOGINS.operator.password);
     await page.getByRole('button', { name: 'Se connecter' }).click();
-    await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Accueil' })).toBeVisible();
     await expect(footer).toContainText(`Version ${expected}`);
     await expect(footer.getByRole('link', { name: 'Composants' })).toBeVisible();
   });
