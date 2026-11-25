@@ -257,8 +257,34 @@ describe('list labels', () => {
     expect(complianceView({ ...plan, compliance: empty, lastRun: emptyRun })).toEqual({
       status: 'pending',
       label: 'En attente',
-      note: 'Rien à sauvegarder dans le périmètre : vérifiez la boîte, le compte ou le site choisi.',
+      note: 'Aucune source trouvée dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.',
     });
+    // Le conseil dépend du périmètre et des services du plan.
+    const none = { ...plan.compliance, lastRestorePointAt: null };
+    const note = (p: Partial<PlanItem>, boxes: { id: string; displayName: string }[] = []) =>
+      complianceView({ ...plan, compliance: none, ...p }, undefined, null, boxes).note;
+    const box = { id: 'a', displayName: 'marc.lefevre@exemple.fr' };
+    expect(note({ scope: 'selection', dataTypes: ['mail'], selection: ['a'] }, [box])).toBe(
+      'Rien à sauvegarder dans marc.lefevre@exemple.fr : vérifiez que cette boîte existe et contient des mails.',
+    );
+    expect(note({ scope: 'selection', dataTypes: ['mail'], selection: ['a', 'b'] }, [box])).toBe(
+      'Rien à sauvegarder dans les 2 boîtes choisies : vérifiez que ces boîtes existent et contiennent des mails.',
+    );
+    expect(note({ scope: 'all', dataTypes: ['mail'] })).toBe(
+      'Aucune boîte trouvée dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.',
+    );
+    expect(note({ scope: 'selection', dataTypes: ['mail'], selection: ['a'] })).toBe(
+      'Rien à sauvegarder dans la boîte choisie : vérifiez qu’elle existe et contient des mails.',
+    );
+    expect(note({ scope: 'all', dataTypes: ['onedrive'] })).toBe(
+      'Aucun compte OneDrive trouvé dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.',
+    );
+    expect(note({ scope: 'selection', dataTypes: ['sharepoint'], selection: ['s'] })).toBe(
+      'Rien à sauvegarder dans l’élément choisi : vérifiez qu’il existe (site SharePoint) et contient des données.',
+    );
+    expect(note({ scope: 'all', dataTypes: ['onedrive', 'sharepoint'] })).toBe(
+      'Aucun compte OneDrive ni site SharePoint trouvé dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.',
+    );
     // En cours ou en file : la colonne garde le dernier résultat terminé.
     expect(lastRunLabel({ ...plan, running: true })).toBe(lastRunLabel(plan));
     expect(lastRunLabel({ ...plan, queued: true })).toBe(lastRunLabel(plan));
@@ -322,7 +348,7 @@ describe('PlansListView', () => {
     const html = list([empty], false);
     expect(html).toContain('◷</span> En attente');
     expect(html).toContain(
-      '<small class="state-note">Rien à sauvegarder dans le périmètre : vérifiez la boîte, le compte ou le site choisi.</small>',
+      '<small class="state-note">Aucune source trouvée dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.</small>',
     );
     expect(html).not.toContain('À jour');
     expect(html).not.toContain('rien à sauvegarder)');

@@ -704,7 +704,7 @@ function planColumns(
       header: 'État',
       className: 'compliance-cell card-nolabel',
       cell: (p) => {
-        const view = complianceView(p, runningName, sources);
+        const view = complianceView(p, runningName, sources, mailboxes);
         return (
           <div>
             <StatusPill status={view.status} label={view.label} />
