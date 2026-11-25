@@ -1,5 +1,6 @@
 import { CatalogUnavailableError, NoBackupFoundError } from '@backup365/core';
 import { CONTRACT_FIXTURE, backupCatalogContract } from '@backup365/core/testing';
+import { NotFoundError } from '@wisecom/atlas-sdk';
 import { describe, expect, it, vi } from 'vitest';
 import { AtlasSdkCatalog, type AtlasSdkReader } from './atlas-catalog.js';
 
@@ -255,6 +256,15 @@ describe('AtlasSdkCatalog', () => {
       expect(err).toBeInstanceOf(NoBackupFoundError);
       expect(err).toBeInstanceOf(CatalogUnavailableError);
       expect((err as Error).message).not.toContain('secret');
+    });
+
+    it('recognises the SDK 7.2 NotFoundError thrown without a cause', async () => {
+      // `create_storage_only` (SDK 7.2) lève l'erreur réelle sans `NoSuchBucket` en `cause`.
+      const notFound = new NotFoundError('No backups found for tenant secret-tenant');
+      const catalog = new AtlasSdkCatalog(
+        fakeAtlas({ listMailboxes: () => Promise.reject(notFound) }),
+      );
+      await expect(catalog.listMailboxes()).rejects.toBeInstanceOf(NoBackupFoundError);
     });
 
     it('also recognises a raw NoSuchBucket, on the sites path too', async () => {
