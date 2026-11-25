@@ -201,7 +201,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   await replaceGo.click();
 
   await expect(page.getByRole('progressbar')).toBeVisible();
-  await expect(page.getByRole('status').getByText('Restauration en cours')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Restauration en cours' })).toBeVisible();
   await expect(page.getByText(/(fichier|Dossier) restauré en \d+ s\./)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Restauration terminée' })).toBeVisible();
   await expect(page.getByText('Emplacement', { exact: true })).toBeVisible();
