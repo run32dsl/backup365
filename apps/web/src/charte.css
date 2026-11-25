@@ -1613,20 +1613,43 @@ a.btn-secondary {
 .meta-list {
   margin: 0 0 var(--space-4);
 }
+/* Les lignes disparaissent de la grille : libellés et valeurs forment deux colonnes communes, la
+   colonne des libellés prenant la largeur du plus long. Sous 40 rem : libellé au-dessus. */
 .meta-row {
-  display: grid;
-  grid-template-columns: 11rem 1fr;
-  gap: var(--space-2);
-  padding: var(--space-1) 0;
+  display: contents;
 }
 .meta-row dt {
+  padding-top: var(--space-1);
   color: var(--muted);
   font-weight: 700;
 }
 .meta-row dd {
   margin: 0;
+  padding-bottom: var(--space-1);
   color: var(--text);
   overflow-wrap: anywhere;
+}
+@media (min-width: 40rem) {
+  .meta-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: var(--space-2);
+  }
+  .meta-row dt,
+  .meta-row dd {
+    padding: var(--space-1) 0;
+  }
+  /* Boîte de dialogue trop étroite pour deux colonnes : libellé au-dessus de la valeur. */
+  .dialog .meta-list,
+  .dialog .meta-row {
+    display: block;
+  }
+  .dialog .meta-row dt {
+    padding: var(--space-1) 0 0;
+  }
+  .dialog .meta-row dd {
+    padding: 0 0 var(--space-1);
+  }
 }
 .restore-unavailable {
   margin-top: var(--space-3);
@@ -1644,12 +1667,6 @@ a.btn-secondary {
     display: flex;
     width: 100%;
     min-height: 2.75rem;
-  }
-}
-@media (max-width: 40rem) {
-  .meta-row {
-    grid-template-columns: 1fr;
-    gap: 0;
   }
 }
 

@@ -55,18 +55,7 @@ export function MailView({ state }: { state: MailState }) {
     ['Taille', sizeOf(state.size)],
     ['Pièces jointes', state.attachments.length === 0 ? 'aucune' : state.attachments.join(', ')],
   ];
-  return (
-    <dl className="meta-list">
-      {rows
-        .filter(([, value]) => value.trim() !== '')
-        .map(([label, value]) => (
-          <div key={label} className="meta-row">
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-    </dl>
-  );
+  return <ResultList rows={rows.filter(([, value]) => value.trim() !== '')} />;
 }
 
 /** Issue d'une demande d'export : motif refusé, fichier remis, ou export refusé par le serveur. */

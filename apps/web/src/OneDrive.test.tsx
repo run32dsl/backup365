@@ -337,7 +337,7 @@ describe('OneDrive result list', () => {
       />,
     );
     expect(out).toContain('<dt>Compte</dt><dd>a@exemple.fr</dd>');
-    expect(out).toContain('<dt>Date de la version (UTC)</dt><dd>10/11/2026 18:30</dd>');
+    expect(out).toContain('<dt>Date de la version (UTC)</dt><dd>10/11/2026\u00a018:30</dd>');
     const label = status === 'succeeded' ? 'Élément restauré' : 'Élément';
     const at = [
       'Compte',
@@ -379,7 +379,7 @@ describe('OneDrive result list', () => {
       snapshotId: 's1',
       version: { versionId: 'v1', at: '2026-10-01T08:00:00.000Z' },
     });
-    expect(out).toContain('<dt>Date de la version (UTC)</dt><dd>01/10/2026 08:00</dd>');
+    expect(out).toContain('<dt>Date de la version (UTC)</dt><dd>01/10/2026\u00a008:00</dd>');
   });
 
   it('omits the version row when no version date is known', () => {

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { keepDateTogether } from '../format.js';
 
 /** Récapitulatif libellé (restaurations, plans), comme la fiche d'un mail. */
 export function ResultList({ rows }: { rows: [string, ReactNode][] }) {
@@ -7,7 +8,7 @@ export function ResultList({ rows }: { rows: [string, ReactNode][] }) {
       {rows.map(([label, value]) => (
         <div key={label} className="meta-row">
           <dt>{label}</dt>
-          <dd>{value}</dd>
+          <dd>{typeof value === 'string' ? keepDateTogether(value) : value}</dd>
         </div>
       ))}
     </dl>
