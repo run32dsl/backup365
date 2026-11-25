@@ -19,7 +19,7 @@ const operational = {
 };
 
 describe('Home without configuration block', () => {
-  it('has no « Configuration » title nor loose paragraph, for an administrator', () => {
+  it('has no «\u202FConfiguration\u202F» title nor loose paragraph, for an administrator', () => {
     const html = renderToStaticMarkup(<Home admin />);
     expect(html).not.toContain('Configuration');
     expect(html).not.toContain('Lecture seule');

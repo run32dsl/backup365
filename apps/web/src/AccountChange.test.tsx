@@ -57,7 +57,7 @@ describe('AccountChangeForm', () => {
   it('states the consequence of a deactivation', () => {
     const change = { ...operator, kind: 'disable' as const };
     const html = renderToString(<AccountChangeForm change={change} role="operator" />);
-    expect(changeTitle(change)).toBe('Désactiver operateur-demo ?');
+    expect(changeTitle(change)).toBe('Désactiver operateur-demo\u202F?');
     expect(html.replaceAll('<!-- -->', '')).toContain('operateur-demo ne pourra plus se connecter');
     expect(html).toContain('Motif de la désactivation (obligatoire)');
     expect(html).not.toContain('type="radio"');

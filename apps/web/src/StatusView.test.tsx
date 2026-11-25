@@ -137,7 +137,7 @@ describe('StatusView', () => {
     }
   });
 
-  describe('services (page « Sources »)', () => {
+  describe('services (page «\u202FSources\u202F»)', () => {
     type Entry = NonNullable<StatusReport['services']>[number];
     const entry = (over: Partial<Entry> = {}): Entry => ({
       service: 'mail',
@@ -160,7 +160,7 @@ describe('StatusView', () => {
       scope: null,
       awaitingFirstRun: false,
     });
-    /** Ligne du tableau « Sources » qui porte ce service. */
+    /** Ligne du tableau «\u202FSources\u202F» qui porte ce service. */
     const line = (services: Entry[], label: string): string => {
       const html = renderToString(<StatusView state={{ ...report, rows: [], services }} />);
       const table = html.slice(html.indexOf('services-title'), html.indexOf('backups-title'));
@@ -186,7 +186,7 @@ describe('StatusView', () => {
       expect(table).not.toContain('24/11/2026 19:00');
     });
 
-    it('says « Non protégé » with a link to create one, and nothing to read in the journal', () => {
+    it('says «\u202FNon protégé\u202F» with a link to create one, and nothing to read in the journal', () => {
       const tr = line([noPlan], 'OneDrive');
       expect(tr).toContain('row-muted');
       expect(tr).toContain('Non protégé');
@@ -268,7 +268,7 @@ describe('StatusView', () => {
           />,
         );
 
-      it('shows no « À jour » line for it in Sauvegardes, and names it in the banner', () => {
+      it('shows no «\u202FÀ jour\u202F» line for it in Sauvegardes, and names it in the banner', () => {
         const html = view(false, [site(1, 'ok'), site(2, 'stale')]);
         const backups = html.slice(html.indexOf('backups-title'));
         expect(backups).not.toContain('Site 1');
@@ -323,7 +323,7 @@ describe('StatusView', () => {
       expect(tr).toContain('<small class="state-note">12/11/2026 06:00 UTC</small></time>');
     });
 
-    it('says « Jamais » without a readable date, never an empty date', () => {
+    it('says «\u202FJamais\u202F» without a readable date, never an empty date', () => {
       for (const over of [{ lastSnapshotAt: 'pas une date' }, { ageHours: null }]) {
         const tr = line([entry(over)], 'Messagerie');
         expect(tr).toContain('Jamais');
@@ -342,7 +342,7 @@ describe('StatusView', () => {
       expect(tr).not.toContain('row-muted');
     });
 
-    it('shows a plan without backup as « En attente » until its first run is due', () => {
+    it('shows a plan without backup as «\u202FEn attente\u202F» until its first run is due', () => {
       const tr = line([entry({ ...noBackup, awaitingFirstRun: true })], 'Messagerie');
       expect(tr).toMatch(/<span aria-hidden="true">◷<\/span> (<!-- -->)?En attente/u);
       expect(tr).not.toContain('En échec');
@@ -350,7 +350,7 @@ describe('StatusView', () => {
       expect(tr).not.toContain('row-muted');
     });
 
-    it('takes the latest date and the state from the catalogue rows listed below, never « Jamais » or « En attente »', () => {
+    it('takes the latest date and the state from the catalogue rows listed below, never «\u202FJamais\u202F» or «\u202FEn attente\u202F»', () => {
       const od = (id: string, at: string, ageHours: number, state: 'ok' | 'stale') => ({
         kind: 'mailbox' as const,
         sourceId: id,
@@ -389,7 +389,7 @@ describe('StatusView', () => {
       expect(table).not.toContain('En attente');
     });
 
-    it('names the state of a listed plan that covers the service, without « Non protégé »', () => {
+    it('names the state of a listed plan that covers the service, without «\u202FNon protégé\u202F»', () => {
       const plan = {
         id: 'p',
         name: 'OneDrive et SharePoint Services',
@@ -421,7 +421,7 @@ describe('StatusView', () => {
       expect(html).not.toContain('sans plan');
     });
 
-    it('does not claim « Aucune sauvegarde réussie » for a plan whose scope has backups', () => {
+    it('does not claim «\u202FAucune sauvegarde réussie\u202F» for a plan whose scope has backups', () => {
       const plan = {
         id: 'p',
         name: 'OneDrive et SharePoint Services',
@@ -515,7 +515,7 @@ describe('StatusView', () => {
       lastSuccessAt: null,
       lastRun: null,
     });
-    /** Tableau « Sources » d'un SharePoint sans sauvegarde, avec ces lignes et ces plans listés. */
+    /** Tableau «\u202FSources\u202F» d'un SharePoint sans sauvegarde, avec ces lignes et ces plans listés. */
     const sharepoint = (
       over: Partial<Entry>,
       rows: StatusReport['rows'],
@@ -544,8 +544,8 @@ describe('StatusView', () => {
     });
 
     // Ce que le serveur rend pour un plan tout juste créé : une ligne par source, sans aucune
-    // sauvegarde. Ces lignes ne prouvent rien contre « Jamais · En attente ».
-    it('keeps « Jamais » and « En attente » when the catalogue rows carry no backup at all', () => {
+    // sauvegarde. Ces lignes ne prouvent rien contre «\u202FJamais · En attente\u202F».
+    it('keeps «\u202FJamais\u202F» and «\u202FEn attente\u202F» when the catalogue rows carry no backup at all', () => {
       const table = sharepoint({ awaitingFirstRun: true }, neverBackedUp(3), []);
       expect(table).toContain('Jamais');
       expect(table).toMatch(/◷<\/span> (<!-- -->)?En attente/u);
@@ -553,9 +553,9 @@ describe('StatusView', () => {
       expect(table).not.toContain('#/audit');
     });
 
-    // Règle documentée (docs/installation.md). Le plan listé « En retard » avant sa première
+    // Règle documentée (docs/installation.md). Le plan listé «\u202FEn retard\u202F» avant sa première
     // échéance est une question posée au PO dans la PR, pas un choix de cet écran.
-    it('keeps « En attente » until the first run is due, even when the plan is already listed', () => {
+    it('keeps «\u202FEn attente\u202F» until the first run is due, even when the plan is already listed', () => {
       const table = sharepoint({ awaitingFirstRun: true }, neverBackedUp(2), [listed('a', 'late')]);
       expect(table).toMatch(/◷<\/span> (<!-- -->)?En attente/u);
       expect(table).not.toContain('Non protégé');

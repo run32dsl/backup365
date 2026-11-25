@@ -98,7 +98,7 @@ describe('failure cause on the plans list', () => {
     };
     const html = list([okPlan, plan], true);
     expect(html).toContain('role="alert"');
-    expect(html).toContain('Échec de « Plan en échec » le 19/11/2026 17:55 UTC');
+    expect(html).toContain('Échec de «\u202FPlan en échec\u202F» le 19/11/2026 17:55 UTC');
     expect(html).toContain(`${label}.`);
     expect(html).toContain('Ces données ne sont pas encore protégées.');
     expect(html).toContain('prévenez l’exploitant du serveur');

@@ -24,11 +24,11 @@ export const API_ERRORS: Record<string, string> = {
   restore_unavailable:
     'Restauration indisponible : la console n’a pas encore le droit d’écrire dans Microsoft 365. Prévenez un administrateur.',
   index_unavailable: 'Index indisponible. Réessayez dans quelques minutes.',
-  internal_error: 'Erreur du serveur. Réessayez ; si elle persiste, prévenez un administrateur.',
+  internal_error: 'Erreur du serveur. Réessayez ; si elle persiste, prévenez un administrateur.',
 };
 
 /** Conduite à tenir d'un administrateur devant une panne : c'est lui qui peut la corriger. */
-export const ADMIN_RETRY = 'Réessayez ; si la panne persiste, prévenez l’exploitant du serveur.';
+export const ADMIN_RETRY = 'Réessayez ; si la panne persiste, prévenez l’exploitant du serveur.';
 
 /**
  * Variante administrateur des codes dont le message dit « Prévenez un administrateur » : on ne
@@ -80,7 +80,7 @@ export type Problem = { message: string; code?: string; requestId?: string };
 
 /** Texte de repli : jamais un numéro d'erreur seul. */
 export function fallbackMessage(status: number): string {
-  return `La demande a échoué (HTTP ${status}). Réessayez ; si l’erreur persiste, prévenez un administrateur en lui donnant l’identifiant de requête.`;
+  return `La demande a échoué (HTTP ${status}). Réessayez\u202F; si l’erreur persiste, prévenez un administrateur en lui donnant l’identifiant de requête.`;
 }
 
 /** Échec d'une lecture : porte l'identifiant de la requête pour l'afficher à l'écran. */

@@ -62,7 +62,7 @@ export function ConfigurationNotice({ config }: { config: ConfigurationState }) 
   if (config === 'error') {
     return (
       <Alert tone="error">
-        Configuration indisponible. Réessayez ; si l’erreur persiste, consultez le journal du
+        Configuration indisponible. Réessayez&#x202F;; si l’erreur persiste, consultez le journal du
         serveur.
       </Alert>
     );

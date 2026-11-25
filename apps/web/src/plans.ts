@@ -12,7 +12,7 @@ import {
   type StatusReport,
 } from '@backup365/core';
 import { readFailure, requestError } from './apiError.js';
-import { dateTimeOf, plural, workloadLabel } from './format.js';
+import { dateTimeOf, plural, quoted, workloadLabel } from './format.js';
 import { UNREACHABLE, type Outcome } from './session.js';
 import type { PillStatus } from './ui/index.js';
 
@@ -332,7 +332,7 @@ export function complianceView(
     return {
       status: 'pending',
       label: MESSAGES.queued,
-      ...(runningName && { note: `Démarrera après « ${runningName} »` }),
+      ...(runningName && { note: `Démarrera après ${quoted(runningName)}` }),
     };
   }
   const { state, lastSuccessAt, lastRestorePointAt } = plan.compliance;
@@ -453,8 +453,8 @@ export const isFailed = (plan: PlanItem): boolean =>
 
 /** Confirmation d'un lancement mis en file : le plan lancé et celui qui le précède. */
 export const queuedMessage = (plan: string, running?: string): string =>
-  `Sauvegarde de « ${plan} » mise en file : elle démarrera à la fin de ${
-    running ? `« ${running} »` : 'la sauvegarde en cours'
+  `Sauvegarde de ${quoted(plan)} mise en file : elle démarrera à la fin de ${
+    running ? quoted(running) : 'la sauvegarde en cours'
   }.`;
 
 /** Message affiché après l'envoi d'un lancement : mis en file (deux plans nommés) ou démarré. */
@@ -491,7 +491,7 @@ export function failureBanner(
   const run = plan.lastRun;
   const at = run?.status === 'failed' ? dateTimeOf(run.finishedAt ?? run.startedAt) : '';
   return {
-    title: `Échec de « ${plan.name} »${at && ` le ${at} UTC`}`,
+    title: `Échec de ${quoted(plan.name)}${at && ` le ${at} UTC`}`,
     cause: `${FAILURE_LABELS[run?.failureCause ?? 'unknown']}.`,
     ...(plan.compliance.lastSuccessAt === null && {
       consequence: 'Ces données ne sont pas encore protégées.',
@@ -509,7 +509,7 @@ export function createdMessage(
   plan: { id: string; name: string; rpoHours: RpoHours },
   now = new Date(),
 ): string {
-  const head = `Le plan « ${plan.name} » a été créé.`;
+  const head = `Le plan ${quoted(plan.name)} a été créé.`;
   // Plan de nuit : le créneau suit le fuseau du serveur, que le navigateur ne connaît pas.
   if (isNightPlan(plan.rpoHours)) return `${head} Première sauvegarde prévue cette nuit.`;
   return `${head} Première sauvegarde prévue à ${timeOf(nextRunAt(plan, now))}.`;

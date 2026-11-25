@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ConfigurationNotice, connectionLine, useConfiguration } from './ConfigurationBlock.js';
-import { dateTimeOf, workloadLabel } from './format.js';
+import { dateTimeOf, quoted, workloadLabel } from './format.js';
 import { fetchOverview, type Overview } from './overview.js';
 import {
   FAILED_PLANS_HASH,
@@ -25,7 +25,7 @@ export function backupMessage(state: Overview): string {
   const failure = state.lastFailure;
   if (state.state === 'failed' && failure) {
     const at = dateTimeOf(failure.at);
-    return `Échec de « ${failure.plan} »${at && ` le ${at} UTC`}.`;
+    return `Échec de ${quoted(failure.plan)}${at && ` le ${at} UTC`}.`;
   }
   return MESSAGES[state.state];
 }

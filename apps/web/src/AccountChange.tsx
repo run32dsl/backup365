@@ -16,7 +16,7 @@ export interface AccountChange {
 
 /** Titre de la boîte : il nomme le compte. */
 export const changeTitle = (c: AccountChange): string =>
-  c.kind === 'role' ? `Modifier le rôle de ${c.username}` : `Désactiver ${c.username} ?`;
+  c.kind === 'role' ? `Modifier le rôle de ${c.username}` : `Désactiver ${c.username}\u202F?`;
 
 /** Phrase de succès du bandeau : elle nomme le compte. */
 export const changeDone = (c: AccountChange, role: Role): string =>
@@ -60,7 +60,7 @@ export function AccountChangeForm({
       </p>
       {disable ? (
         <p>
-          {change.username} ne pourra plus se connecter ; ses actions restent dans le journal
+          {change.username} ne pourra plus se connecter&#x202F;; ses actions restent dans le journal
           d’audit.
         </p>
       ) : (

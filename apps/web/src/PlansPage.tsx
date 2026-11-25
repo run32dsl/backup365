@@ -50,6 +50,7 @@ import { problemMessage, splitTitle, type Problem } from './apiError.js';
 import { fetchSites } from './sharepoint.js';
 import { useAdmin } from './role.js';
 import { MAX_REASON_LENGTH } from './mail.js';
+import { quoted } from './format.js';
 import { REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
 import {
   Alert,
@@ -527,7 +528,7 @@ function RunDialog({
   return (
     <Dialog
       open={plan !== null}
-      title={blocked ? 'Lancement impossible' : `Lancer « ${plan?.name ?? ''} » maintenant`}
+      title={blocked ? 'Lancement impossible' : `Lancer ${quoted(plan?.name ?? '')} maintenant`}
       onClose={onClose}
     >
       {blocked ? (
@@ -647,7 +648,11 @@ function DeleteDialog({
     setBusy(false);
   }, [plan]);
   return (
-    <Dialog open={plan !== null} title={`Supprimer « ${plan?.name ?? ''} » ?`} onClose={onClose}>
+    <Dialog
+      open={plan !== null}
+      title={`Supprimer ${quoted(plan?.name ?? '')}\u202F?`}
+      onClose={onClose}
+    >
       {plan && (
         <DeleteForm
           key={plan.id}

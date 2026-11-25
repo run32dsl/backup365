@@ -1,9 +1,9 @@
 import { Alert } from './ui/index.js';
-import { dateTimeOf } from './format.js';
+import { dateTimeOf, quoted } from './format.js';
 
 /** Conduite à tenir après l'échec d'une restauration : la même pour la messagerie, OneDrive et SharePoint. */
 export const RESTORE_FAILURE_ADVICE =
-  'Réessayez ; si l’échec se répète, prévenez l’exploitant du serveur avec l’heure ci-dessus.';
+  'Réessayez ; si l’échec se répète, prévenez l’exploitant du serveur avec l’heure ci-dessus.';
 
 export interface RestoreFailureBanner {
   title: string;
@@ -32,7 +32,7 @@ export function restoreFailureBanner(input: {
     ? `Une fois l’état vérifié, réessayez${RESTORE_FAILURE_ADVICE.slice('Réessayez'.length)}`
     : RESTORE_FAILURE_ADVICE;
   return {
-    title: `Échec de la restauration de « ${input.item} »${when && ` le ${when} UTC`}`,
+    title: `Échec de la restauration de ${quoted(input.item)}${when && ` le ${when} UTC`}`,
     cause: sentence(input.cause),
     consequence: sentence(input.consequence),
     advice: when ? advice : advice.replace(' avec l’heure ci-dessus', ''),

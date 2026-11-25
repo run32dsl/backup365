@@ -4,7 +4,7 @@ import { RESTORE_LABELS } from './restoreLabels.js';
 import type { DriveSnapshot, SiteEntry, SiteScope, SiteScopeSummary } from '@backup365/core';
 import { dayOf, dateTimeOf, sizeOf, type Loaded } from './onedrive.js';
 import { UNREACHABLE } from './session.js';
-import { elementsInError, elementsWhich } from './format.js';
+import { elementsInError, elementsWhich, quoted } from './format.js';
 
 export type { SiteEntry, SiteScope, SiteScopeSummary };
 export { dayOf, dateTimeOf, sizeOf };
@@ -44,7 +44,7 @@ export const SHAREPOINT_MESSAGES = {
   readError: 'La sauvegarde n’a pas pu être lue.',
   forbidden: 'Vous n’avez pas le droit de restaurer ce site. Contactez un administrateur.',
   forbiddenSite: (name: string) =>
-    `Vous n’avez pas le droit de restaurer le site « ${name} ». Demandez à un administrateur ou choisissez un autre site.`,
+    `Vous n’avez pas le droit de restaurer le site ${quoted(name)}. Demandez à un administrateur ou choisissez un autre site.`,
   chooseOther: 'Choisir un autre site',
   reasonError: REASON.error,
   nameError: 'Le nom saisi ne correspond pas au site.',

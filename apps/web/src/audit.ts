@@ -47,7 +47,7 @@ export const FILTER_NOT_APPLIED =
   'Filtre non appliqué : corrigez la date pour filtrer. La liste affichée n’est pas filtrée.';
 
 /** Message sous « Au » quand « Du » est postérieur. */
-export const RANGE_ERROR = 'La date « Au » doit être égale ou postérieure à « Du »';
+export const RANGE_ERROR = 'La date « Au » doit être égale ou postérieure à « Du »';
 
 /** Exemple de format sous « Du (UTC) » et « Au (UTC) » ; le fuseau est dans le libellé. */
 export const DATE_HELP = 'jj/mm/aaaa';

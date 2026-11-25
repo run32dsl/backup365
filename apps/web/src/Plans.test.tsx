@@ -193,10 +193,10 @@ describe('plan form', () => {
 
   it('announces the first planned backup', () => {
     expect(createdMessage({ id: 'p1', name: 'Direction', rpoHours: 12 })).toMatch(
-      /^Le plan « Direction » a été créé\. Première sauvegarde prévue à \d\d:\d\d\.$/,
+      /^Le plan «\u202FDirection\u202F» a été créé\. Première sauvegarde prévue à \d\d:\d\d\.$/,
     );
     expect(createdMessage({ id: 'p1', name: 'Direction', rpoHours: 24 })).toBe(
-      'Le plan « Direction » a été créé. Première sauvegarde prévue cette nuit.',
+      'Le plan «\u202FDirection\u202F» a été créé. Première sauvegarde prévue cette nuit.',
     );
   });
 });
@@ -248,7 +248,7 @@ describe('list labels', () => {
     expect(lastRunLabel({ ...plan, lastRun: { ...plan.lastRun!, status: 'failed' } })).toBe(
       'Échec, 14/11/2026 06:00',
     );
-    // Rien copié : jamais « Réussie ».
+    // Rien copié : jamais «\u202FRéussie\u202F».
     const empty = { ...plan.compliance, lastRestorePointAt: null };
     const emptyRun = { ...plan.lastRun!, noSnapshotReason: 'no_content' as const };
     expect(lastRunLabel({ ...plan, lastRun: emptyRun })).toBe('Rien copié, 14/11/2026 06:00');
@@ -269,7 +269,7 @@ describe('list labels', () => {
     expect(complianceView({ ...plan, queued: true }, 'Boîte direction')).toEqual({
       status: 'pending',
       label: 'En file d’attente',
-      note: 'Démarrera après « Boîte direction »',
+      note: 'Démarrera après «\u202FBoîte direction\u202F»',
     });
     expect(lastRunLabel({ ...plan, lastRun: null })).toBe('Pas encore sauvegardé');
   });
@@ -409,7 +409,7 @@ describe('PlansListView', () => {
     expect(html).toContain('Lecture seule : seul un administrateur peut modifier les plans.');
   });
 
-  it('disables « Lancer maintenant » while a run is in progress', () => {
+  it('disables «\u202FLancer maintenant\u202F» while a run is in progress', () => {
     const html = list([{ ...plan, running: true }], true);
     expect(html).toContain('En cours');
     expect(html).not.toContain('En échec');
@@ -434,7 +434,7 @@ describe('PlansListView', () => {
     const other = { ...plan, id: 'p2', name: 'Boîte direction', running: true };
     const html = list([other, { ...plan, queued: true }], true);
     expect(html).toContain('En file d’attente');
-    expect(html).toContain('Démarrera après « Boîte direction »');
+    expect(html).toContain('Démarrera après «\u202FBoîte direction\u202F»');
     expect(html).toContain('Déjà en file d’attente');
   });
 
@@ -444,14 +444,14 @@ describe('PlansListView', () => {
       label: 'En file d’attente',
     });
     expect(queuedMessage('Boîtes mail')).toBe(
-      'Sauvegarde de « Boîtes mail » mise en file : elle démarrera à la fin de la sauvegarde en cours.',
+      'Sauvegarde de «\u202FBoîtes mail\u202F» mise en file : elle démarrera à la fin de la sauvegarde en cours.',
     );
     expect(list([{ ...plan, queued: true }], true)).toContain('Déjà en file d’attente');
   });
 
   it('names both plans in the queued confirmation', () => {
     expect(queuedMessage('Boîtes mail', 'Boîte direction')).toBe(
-      'Sauvegarde de « Boîtes mail » mise en file : elle démarrera à la fin de « Boîte direction ».',
+      'Sauvegarde de «\u202FBoîtes mail\u202F» mise en file : elle démarrera à la fin de «\u202FBoîte direction\u202F».',
     );
   });
 
@@ -471,8 +471,8 @@ describe('PlansListView', () => {
       <Alert tone="success">{runFlashText(true, 'Boîtes mail', [current, plan])}</Alert>,
     );
     expect(html).toContain('role="status"');
-    expect(html).toContain('« Boîtes mail »');
-    expect(html).toContain('« Boîte direction »');
+    expect(html).toContain('«\u202FBoîtes mail\u202F»');
+    expect(html).toContain('«\u202FBoîte direction\u202F»');
   });
 
   it('handles loading, error and empty states', () => {

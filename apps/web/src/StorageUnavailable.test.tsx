@@ -39,7 +39,7 @@ describe.each(pages)('%s, storage unavailable', (_name, Problem) => {
     expect(html).not.toContain('<a');
   });
 
-  it('offers one secondary « Réessayer » button after the alert', () => {
+  it('offers one secondary «\u202FRéessayer\u202F» button after the alert', () => {
     const html = renderToStaticMarkup(<Problem status="unconfigured" onRetry={() => undefined} />);
     expect(html.match(/<button/g)).toHaveLength(1);
     expect(html).toContain('btn-secondary');
@@ -47,7 +47,7 @@ describe.each(pages)('%s, storage unavailable', (_name, Problem) => {
     expect(html).toContain('Réessayer');
   });
 
-  it('reloads the list when « Réessayer » is clicked', () => {
+  it('reloads the list when «\u202FRéessayer\u202F» is clicked', () => {
     const onRetry = vi.fn();
     const wired = Problem({ status: 'unconfigured', onRetry }) as ReactElement<{
       onRetry: () => void;
@@ -59,7 +59,7 @@ describe.each(pages)('%s, storage unavailable', (_name, Problem) => {
 });
 
 describe('StorageUnavailable layout hook', () => {
-  it('keeps « Réessayer » a direct child of .storage-unavailable (full width on mobile)', () => {
+  it('keeps «\u202FRéessayer\u202F» a direct child of .storage-unavailable (full width on mobile)', () => {
     const html = renderToStaticMarkup(StorageUnavailable({ onRetry: () => undefined }));
     expect(html).toMatch(
       /^<div class="storage-unavailable">.*<button[^>]*>Réessayer<\/button><\/div>$/s,

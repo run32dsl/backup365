@@ -92,7 +92,7 @@ describe('SharePoint result', () => {
     const html = render({ status: 'failed', restored: 0, errors: 1, error: 'restore_error' });
     expect(html).toContain('Le service de restauration a signalé une erreur.');
     expect(html).toContain('Rien n’a été modifié.');
-    expect(html).toContain('Réessayez ; si l’échec se répète');
+    expect(html).toContain('Réessayez\u202F; si l’échec se répète');
     expect(html).not.toContain('Élément restauré');
     expect(html).not.toContain('Éléments restaurés');
   });

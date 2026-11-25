@@ -3,7 +3,7 @@ import { type Problem as FailureProblem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { AccessDenied } from './AccessDenied.js';
 import { StorageUnavailable } from './StorageUnavailable.js';
-import { cardSummary, dateTimeOrDash } from './format.js';
+import { cardSummary, dateTimeOrDash, quoted } from './format.js';
 import { RestoreFailureAlert, restoreFailureBanner } from './restoreFailure.js';
 import { RESTORE_LABELS } from './restoreLabels.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
@@ -366,7 +366,7 @@ export function ChooseStep({
       )}
 
       {whole ? (
-        <p>Tout le contenu de « {site.displayName} » sera concerné.</p>
+        <p>Tout le contenu de {quoted(site.displayName)} sera concerné.</p>
       ) : (
         <ContentTree
           key={snapshotId}
