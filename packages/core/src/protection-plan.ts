@@ -330,6 +330,70 @@ function coveredRows(plan: CoverageFacts, rows: readonly StatusRow[]): StatusRow
   });
 }
 
+/** Échec d'un plan sur une source, et l'autre plan qui la sauvegarde avec succès s'il y en a un. */
+export interface SourceFailure {
+  planId: string;
+  /** Nom du plan dont la dernière exécution a échoué. */
+  plan: string;
+  /** Fin (ou début) de cette exécution, UTC ISO 8601. */
+  at: string;
+  /** Autre plan couvrant la source, dont la dernière exécution a réussi ; absent sinon. */
+  coveredBy?: { plan: string; at: string };
+}
+
+/**
+ * Rattache à chaque source l'échec du plan qui la couvre quand la dernière exécution terminée de
+ * ce plan a échoué (le plus récent si plusieurs), et l'autre plan qui la sauvegarde avec succès.
+ * Une source couverte par un plan en échec n'est jamais « à jour » : le champ `failure` fait foi.
+ */
+export function annotateFailures(
+  rows: readonly StatusRow[],
+  plans: readonly {
+    id: string;
+    name: string;
+    dataTypes?: readonly DataType[];
+    scope?: PlanScope;
+    selection?: readonly string[];
+  }[],
+  runsOf: (planId: string) => readonly PlanRun[],
+): StatusRow[] {
+  const finished = (planId: string): PlanRun | undefined =>
+    runsOf(planId)
+      .filter((r) => r.status !== 'running' && !Number.isNaN(Date.parse(r.startedAt)))
+      .sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))[0];
+  const last = new Map(plans.map((p) => [p.id, finished(p.id)] as const));
+  const ms = (run: PlanRun) => Date.parse(run.finishedAt ?? run.startedAt);
+  return rows.map((row) => {
+    const covering = plans.filter((p) => coveredRows(p, [row]).length > 0);
+    const failed = covering
+      .flatMap((p) => {
+        const run = last.get(p.id);
+        return run?.status === 'failed' ? [{ p, run }] : [];
+      })
+      .sort((a, b) => ms(b.run) - ms(a.run))[0];
+    if (!failed) return row;
+    const success = covering
+      .flatMap((p) => {
+        const run = last.get(p.id);
+        return p.id !== failed.p.id && run?.status === 'success' && run.finishedAt !== null
+          ? [{ p, run }]
+          : [];
+      })
+      .sort((a, b) => ms(b.run) - ms(a.run))[0];
+    return {
+      ...row,
+      failure: {
+        planId: failed.p.id,
+        plan: failed.p.name,
+        at: failed.run.finishedAt ?? failed.run.startedAt,
+        ...(success && {
+          coveredBy: { plan: success.p.name, at: cap(success.run.finishedAt ?? '', [row]) },
+        }),
+      },
+    };
+  });
+}
+
 /** Plus récente sauvegarde datée des sources couvertes ; `null` si aucune. */
 function latestSnapshotMs(covered: readonly StatusRow[]): number | null {
   const times = covered.flatMap((r) =>

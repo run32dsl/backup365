@@ -16,6 +16,7 @@ export {
   backupState,
   buildServiceSummaries,
   buildStatusReport,
+  effectiveState,
   lateBackups,
   type BackupState,
   type LateBackup,
@@ -121,4 +122,6 @@ export {
   type RunStatus,
   alignCompliance,
   alignRunEnd,
+  annotateFailures,
+  type SourceFailure,
 } from './protection-plan.js';
