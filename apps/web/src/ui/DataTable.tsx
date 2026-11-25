@@ -6,7 +6,7 @@ export interface Column<T> {
   key?: string;
   header: string;
   cell: (row: T) => ReactNode;
-  /** Classe CSS ajoutée à l'en-tête et à chaque cellule de la colonne (`nowrap`, `keep-words`, `address`, `num`, `col-reason`, `card-hidden`, `card-wide`, `card-action`, `card-title`, `card-only`, `card-nolabel`, `col-mailbox`). */
+  /** Classe CSS ajoutée à l'en-tête et à chaque cellule de la colonne (`nowrap`, `keep-words`, `address`, `num`, `card-hidden`, `card-wide`, `card-action`, `card-title`, `card-only`, `card-nolabel`, `col-mailbox`). */
   className?: string;
   /** La cellule nomme la ligne : `<th scope="row">` au lieu de `<td>`. */
   rowHeader?: boolean;

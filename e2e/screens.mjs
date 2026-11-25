@@ -485,6 +485,18 @@ export const SCREENS = [
     },
   },
   {
+    // Les connexions des captures repoussent les exports hors de la première page : filtre sur l'export.
+    name: 'journal-audit-export',
+    hash: '#/audit',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+      await page.getByLabel('Action', { exact: true }).selectOption({ label: 'Export' });
+      await page.getByRole('button', { name: 'Filtrer' }).click();
+      await page.getByText('Motif : Ticket INC-10001').first().waitFor();
+    },
+  },
+  {
     name: 'journal-audit-date-invalide',
     hash: '#/audit',
     role: 'admin',

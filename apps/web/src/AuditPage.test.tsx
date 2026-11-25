@@ -51,34 +51,74 @@ describe('AuditView', () => {
     expect(html).not.toContain('data-table-compact');
   });
 
-  it('leaves the target, count and reason cells empty when there is no value', () => {
-    const base = { ...entry, target: undefined };
-    const html = renderToString(
+  const render = (items: object[]) =>
+    renderToString(
       <AuditView
-        state={{
-          total: 1,
-          limit: 50,
-          offset: 0,
-          items: [{ ...base, action: 'auth.login' as const, resource: 'session' }],
-        }}
+        state={{ total: items.length, limit: 50, offset: 0, items: items as (typeof entry)[] }}
       />,
     );
-    for (const label of ['Cible', 'Éléments', 'Motif']) {
-      expect(html).toMatch(new RegExp(`<td[^>]*data-label="${label}"[^>]*></td>`));
-    }
+
+  it('has five columns, without Éléments or Motif', () => {
+    const html = render([entry]);
+    const headers = [...html.matchAll(/<th[^>]*scope="col"[^>]*>([^<]*)</g)].map((m) => m[1]);
+    expect(headers).toEqual(['N°', 'Date (UTC)', 'Acteur', 'Action', 'Cible']);
+  });
+
+  it('leaves the target cell empty and shows no reason for a login', () => {
+    const html = render([
+      { ...entry, target: undefined, action: 'auth.login', resource: 'session' },
+    ]);
+    expect(html).toMatch(/<td[^>]*data-label="Cible"[^>]*><\/td>/);
+    expect(html).not.toContain('Motif');
     expect(html).not.toContain('>—<');
   });
 
-  it('gives the reason, target and count columns their layout classes', () => {
-    const html = renderToString(
-      <AuditView state={{ total: 1, limit: 50, offset: 0, items: [entry] }} />,
-    );
+  it('shows the count with its unit in the target secondary line, never a bare number', () => {
+    const list = { ...entry, action: 'list.view', resource: 'mail.search', target: '*' };
+    const html = render([
+      { ...list, count: 13 },
+      { ...list, seq: 3, count: 0, target: undefined },
+      { ...list, seq: 4, count: 1 },
+    ]);
+    expect(html).toContain('toutes les boîtes');
+    expect(html).toContain(' · ');
+    expect(html).toContain('13 mails');
+    expect(html).toContain('0 mail<');
+    expect(html).toContain('1 mail<');
+    // Seul le N° (colonne masquée en carte) est un nombre nu.
+    expect(html.replace(/<td[^>]*data-label="N°".*?<\/td>/g, '')).not.toMatch(/>\s*\d+\s*</);
+    expect(render([entry])).not.toMatch(/\d+ (mails?|éléments?)/);
+  });
+
+  it('counts audit entries and keeps the system detail next to the typed reason', () => {
+    const html = render([
+      { ...entry, action: 'list.view', resource: 'audit', target: undefined, count: 25 },
+      {
+        ...entry,
+        action: 'restore.result',
+        resource: 'mail.restore',
+        reason: 'outcome=succeeded;duration_ms=5;reason=Ticket #7',
+      },
+    ]);
+    expect(html).toContain('25 entrées');
+    expect(html).toContain('Réussie');
+    expect(html).toContain('Motif : Ticket #7');
+  });
+
+  it('shows the typed reason under the action, and nothing without one', () => {
+    const withReason = render([
+      { ...entry, action: 'item.export', resource: 'mail', reason: 'Ticket INC-12345' },
+    ]);
+    expect(withReason).toContain('Motif : Ticket INC-12345');
+    expect(render([entry])).not.toContain('Motif');
+    expect(render([{ ...entry, reason: 'forbidden' }])).not.toContain('Motif');
+  });
+
+  it('gives the target column its layout classes', () => {
+    const html = render([entry]);
     const cls = (label: string) =>
       new RegExp(`<td[^>]*data-label="${label}"[^>]*class="([^"]*)"`).exec(html)?.[1] ?? '';
-    expect(cls('Motif').split(' ')).toEqual(expect.arrayContaining(['keep-words', 'col-reason']));
     expect(cls('Cible').split(' ')).toEqual(expect.arrayContaining(['keep-words', 'address']));
-    expect(cls('Éléments').split(' ')).toContain('num');
-    expect(html).toMatch(/<th[^>]*class="[^"]*col-reason[^"]*"[^>]*>Motif/);
   });
 
   it('lays the mobile card out as action, target, then actor and date', () => {
@@ -91,7 +131,6 @@ describe('AuditView', () => {
     expect(cls('Cible').split(' ')).toContain('card-nolabel');
     expect(cls('Acteur').split(' ')).toContain('audit-actor');
     expect(cls('Date \\(UTC\\)').split(' ')).toContain('audit-date');
-    expect(html).toMatch(/<td[^>]*data-label="Motif"/);
   });
 
   it('shows an empty state, loading and error', () => {

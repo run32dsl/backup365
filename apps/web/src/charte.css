@@ -767,13 +767,9 @@ select[aria-disabled='true'] {
     padding-inline: 0.625rem;
   }
 
-  /* Nombre aligné à droite ; la colonne `col-reason` qui suit en est séparée d'au moins `--space-3`. */
+  /* Nombre aligné à droite. */
   .data-table .num {
     text-align: right;
-  }
-  .data-table .col-reason {
-    min-width: 12rem;
-    padding-inline-start: var(--space-3);
   }
 
   /*
@@ -932,6 +928,9 @@ select[aria-disabled='true'] {
   /* Synthèse et fenêtre de planification sur un même paragraphe, pour gagner une ligne. */
   .data-table td.card-title .nowrap-wide {
     display: block;
+  }
+  .data-table td.card-title .cell-secondary {
+    font-weight: 400;
   }
   .data-table td.card-title .plan-summary:not(:only-of-type) {
     display: inline;

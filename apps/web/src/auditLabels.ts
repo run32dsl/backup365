@@ -1,5 +1,5 @@
 import type { AuditAction } from '@backup365/core';
-import { dateTimeOf, dayOf, elementsInError, elementsWhich } from './format.js';
+import { dateTimeOf, dayOf, elementsInError, elementsWhich, plural } from './format.js';
 
 export const ACTION_LABELS: Record<AuditAction, string> = {
   'list.view': 'Consultation d’une liste',
@@ -237,6 +237,13 @@ export function targetView(
   }
   // Seul l'identifiant de connexion d'un compte se lit tel quel.
   return { name: e.resource === 'account' ? e.target : NO_TARGET };
+}
+
+/** Nombre d'éléments d'une entrée avec son unité accordée (« 13 mails », « 0 mail ») ; vide sans nombre. */
+export function countLabel(resource: string, count: number | undefined): string {
+  if (count === undefined) return '';
+  if (resource === 'audit') return plural(count, 'entrée');
+  return resource.startsWith('mail') ? plural(count, 'mail') : plural(count, 'élément');
 }
 
 /** Acteur lisible : l'auteur d'une requête sans session s'écrit « Inconnu ». */
