@@ -312,6 +312,45 @@ const pad = (n: number): string => String(n).padStart(2, '0');
 export const timeOf = (date: Date): string => `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 
 /**
+ * Note d'un plan qui n'a rien copié, selon son périmètre et ses services : un périmètre choisi
+ * nomme l'élément (ou le nombre d'éléments) ; « toute l'organisation » renvoie à la connexion,
+ * puisque rien n'y a été choisi.
+ */
+function emptyNote(
+  plan: Pick<PlanItem, 'dataTypes' | 'scope' | 'selection'>,
+  mailboxes: readonly Mailbox[],
+): string {
+  const types = DATA_TYPES.filter((t) => plan.dataTypes.includes(t));
+  const mailOnly = types.length === 1 && types[0] === 'mail';
+  if (plan.scope === 'all') {
+    const found = (what: string, feminine: boolean) =>
+      `${what} trouvé${feminine ? 'e' : ''} dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.`;
+    if (mailOnly) return found('Aucune boîte', true);
+    if (types.includes('mail')) return found('Aucune source', true);
+    const nouns = types.map((t) => (t === 'onedrive' ? 'compte OneDrive' : 'site SharePoint'));
+    return found(`Aucun ${nouns.join(' ni ')}`, false);
+  }
+  const ids = plan.selection ?? [];
+  if (ids.length === 1 && mailOnly) {
+    const name = mailboxes.find((m) => m.id === ids[0])?.displayName;
+    if (name) {
+      return `Rien à sauvegarder dans ${name} : vérifiez que cette boîte existe et contient des mails.`;
+    }
+  }
+  if (mailOnly) {
+    return ids.length > 1
+      ? `Rien à sauvegarder dans les ${ids.length} boîtes choisies : vérifiez que ces boîtes existent et contiennent des mails.`
+      : 'Rien à sauvegarder dans la boîte choisie : vérifiez qu’elle existe et contient des mails.';
+  }
+  const nouns = types
+    .map((t) => (t === 'mail' ? 'boîte' : t === 'onedrive' ? 'compte OneDrive' : 'site SharePoint'))
+    .join(', ');
+  return ids.length > 1
+    ? `Rien à sauvegarder dans les ${ids.length} éléments choisis : vérifiez qu’ils existent (${nouns}) et contiennent des données.`
+    : `Rien à sauvegarder dans l’élément choisi : vérifiez qu’il existe (${nouns}) et contient des données.`;
+}
+
+/**
  * État du plan : le libellé court de la charte (celui du tableau de bord) et, si elle apporte
  * plus que la colonne « Dernière exécution », une explication en texte secondaire.
  */
@@ -319,6 +358,7 @@ export function complianceView(
   plan: PlanItem,
   runningName?: string,
   sources?: SourcesReport | null,
+  mailboxes: readonly Mailbox[] = [],
 ): {
   status: PillStatus;
   label: string;
@@ -344,7 +384,7 @@ export function complianceView(
       return {
         status: 'pending',
         label: 'En attente',
-        note: 'Rien à sauvegarder dans le périmètre : vérifiez la boîte, le compte ou le site choisi.',
+        note: emptyNote(plan, mailboxes),
       };
     }
     // Une réussite récente, puis un échec : la cause reste dite (le plan est dans « en échec »).
