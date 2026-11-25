@@ -244,10 +244,14 @@ export function EntriesTable({
             ),
         },
         {
-          header: 'Version du (UTC)',
+          header: RESTORE_LABELS.versionAt,
           className: 'card-hidden',
           cell: (e) =>
-            dateTimeOrDash(pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt),
+            e.kind === 'folder'
+              ? '—'
+              : dateTimeOrDash(
+                  pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt,
+                ),
         },
         {
           header: 'Taille',
@@ -262,10 +266,12 @@ export function EntriesTable({
           header: 'Détail',
           className: 'card-only',
           cell: (e) =>
-            cardSummary(
-              pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt,
-              pickedVersion && selected === e.path ? pickedVersion.sizeBytes : e.sizeBytes,
-            ),
+            e.kind === 'folder'
+              ? null
+              : cardSummary(
+                  pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt,
+                  pickedVersion && selected === e.path ? pickedVersion.sizeBytes : e.sizeBytes,
+                ),
         },
         {
           header: 'Versions',
@@ -695,7 +701,7 @@ export function TrackStep({
         job.status === 'succeeded'
           ? [RESTORE_LABELS.itemRestored, `${choice.entry.name} → ${target}`]
           : [RESTORE_LABELS.item, choice.entry.name],
-        [RESTORE_LABELS.backupAt, dateTimeOf(backupAt)],
+        [RESTORE_LABELS.backupDate, dateTimeOf(backupAt)],
         ...(versionAt
           ? [[RESTORE_LABELS.versionAt, dateTimeOf(versionAt)] as [string, string]]
           : []),

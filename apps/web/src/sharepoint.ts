@@ -246,7 +246,7 @@ export function confirmRowsOf(input: {
   const rows: [string, string][] = [
     ['Site', input.siteName],
     [RESTORE_LABELS.item, restoredContentLabel(input.scope, input.path)],
-    [RESTORE_LABELS.backupAt, dateTimeOf(input.pointAt)],
+    [RESTORE_LABELS.backupDate, dateTimeOf(input.pointAt)],
     ...placementRows(input.scope, input.siteName, input.path),
   ];
   if (input.summary) {

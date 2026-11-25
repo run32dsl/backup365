@@ -114,10 +114,16 @@ describe('SharePoint entries table', () => {
       name: 'Documents',
       path: '/Documents',
       kind: 'library' as const,
-      versionAt: null,
+      versionAt: '2026-11-19T09:34:00.000Z',
       sizeBytes: null,
     },
-    { name: 'Plans', path: '/Plans', kind: 'folder' as const, versionAt: null, sizeBytes: null },
+    {
+      name: 'Plans',
+      path: '/Plans',
+      kind: 'folder' as const,
+      versionAt: '2026-11-19T09:34:00.000Z',
+      sizeBytes: null,
+    },
     {
       name: 'plan-a.pdf',
       path: '/plan-a.pdf',
@@ -146,13 +152,15 @@ describe('SharePoint entries table', () => {
 
   it('is a table with the same columns as OneDrive, and no emoji', () => {
     const html = render(null);
-    for (const h of ['Nom', 'Version du (UTC)', 'Taille']) {
+    for (const h of ['Nom', 'Date de la version (UTC)', 'Taille']) {
       expect(html).toContain(`scope="col"`);
       expect(html).toContain(`>${h}</th>`);
     }
     expect(html).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
     expect(html).toContain('>bibliothèque</span>');
     expect(html).toContain('>dossier</span>');
+    // Library and folder carry a version date in the data; the table shows « — » like their size.
+    expect(html).not.toContain('19/11/2026');
     expect(html).toContain('href="#/sharepoint/s/item/Plans"');
   });
 
@@ -293,7 +301,7 @@ describe('SharePoint wording', () => {
     expect(confirmRowsOf(input)).toEqual([
       ['Site', 'Site Urbanisme (exemple)'],
       ['Élément', 'Bibliothèque : Documents partagés'],
-      ['Sauvegarde du (UTC)', '12/11/2026 02:00'],
+      ['Date de la sauvegarde (UTC)', '12/11/2026 02:00'],
       ['Emplacement', 'Site Urbanisme (exemple) > Documents partagés (emplacement d’origine)'],
       ['Fichiers déjà présents', 'conservés, non remplacés'],
       ['Volume', '1 240 éléments, 3,2 Go'],

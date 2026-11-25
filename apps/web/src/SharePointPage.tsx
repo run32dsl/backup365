@@ -167,9 +167,9 @@ export function SiteEntriesTable({
             ),
           },
           {
-            header: 'Version du (UTC)',
+            header: RESTORE_LABELS.versionAt,
             className: 'card-hidden',
-            cell: (e) => dateTimeOrDash(e.versionAt),
+            cell: (e) => (e.kind === 'file' ? dateTimeOrDash(e.versionAt) : '—'),
           },
           {
             header: 'Taille',
@@ -641,7 +641,7 @@ export function TrackStep({
       restoredContentLabel(job.scope, job.path),
     ],
   ];
-  if (pointAt) countRows.push([RESTORE_LABELS.backupAt, dateTimeOf(pointAt)]);
+  if (pointAt) countRows.push([RESTORE_LABELS.backupDate, dateTimeOf(pointAt)]);
   countRows.push(...placementRows(job.scope, siteName, job.path));
   if (job.status === 'failed' && job.restored > 0) {
     countRows.push(['Éléments restaurés', job.restored]);
