@@ -113,6 +113,10 @@ décorative (`aria-hidden`) au-dessus d'un libellé court, qui passe à la ligne
 Dessous, le menu repliable garde les mêmes entrées en ligne. Ce sont des `<a href>` natifs, dont
 l'active porte `aria-current="page"`, un trait et un fond plein.
 
+Le `h1` d'une rubrique commence par le libellé de son entrée : « Accueil », « Activités »
+(phrase d'introduction : « Journal d’audit : … », terme du vocabulaire de référence), « Réglages »
+(y compris la page réservée aux administrateurs). Le mot « tableau de bord » n'est pas affiché.
+
 Les vues d'une rubrique sont choisies par un sélecteur en tête de page (`SubNav`, `<nav>` de
 liens natifs, sans `role="tab"`, défilant horizontalement sous 900 px) :
 

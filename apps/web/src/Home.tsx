@@ -275,7 +275,7 @@ export function Home({ admin = false }: { admin?: boolean }) {
   }, [state]);
   return (
     <main tabIndex={-1}>
-      <h1 tabIndex={-1}>Tableau de bord</h1>
+      <h1 tabIndex={-1}>Accueil</h1>
       <div role="status" className="sr-only">
         {retried.current ? announcementOf(state) : ''}
       </div>

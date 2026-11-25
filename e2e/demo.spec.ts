@@ -13,7 +13,7 @@ test('connexion, puis retour à la page demandée', async ({ page }) => {
   await page.getByLabel('Identifiant').fill(DEMO_LOGINS.admin.username);
   await page.getByLabel('Mot de passe', { exact: true }).fill(DEMO_LOGINS.admin.password);
   await page.getByRole('button', { name: 'Se connecter' }).click();
-  await expect(page.getByRole('heading', { name: 'Journal d’audit' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Activités' })).toBeVisible();
   await expect(page).toHaveURL(/#\/audit$/);
 });
 
@@ -437,7 +437,7 @@ test('navigation au clavier du menu replié à 390 px', async ({ page, context, 
   await expect(page.getByRole('link', { name: 'Activités' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/audit$/);
-  await expect(page.getByRole('heading', { name: 'Journal d’audit' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Activités' })).toBeVisible();
   // Le menu se referme après la navigation.
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 

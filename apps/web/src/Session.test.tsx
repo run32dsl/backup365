@@ -175,7 +175,7 @@ describe('AccountsView', () => {
   });
 });
 
-describe('Administration page structure', () => {
+describe('Réglages page structure', () => {
   const account = (id: number, username: string) => ({
     id,
     username,
@@ -203,7 +203,7 @@ describe('Administration page structure', () => {
 
   it('keeps one filled button on the page, « + Créer un compte », on the intro line', () => {
     const page = renderToString(<AccountsPage />);
-    expect(page).toContain('<h1>Administration</h1><div class="view-intro">');
+    expect(page).toContain('<h1>Réglages</h1><div class="view-intro">');
     expect(page.match(/btn-primary/g)).toHaveLength(1);
     expect(page.replaceAll('<!-- -->', '')).toContain('+ </span>Créer un compte</button>');
   });
@@ -427,7 +427,7 @@ describe('maquette de l’issue #22', () => {
   });
 
   it('names the console in the accounts title and says the journal is audited', () => {
-    expect(renderToString(<AccountsPage />)).toContain('<h1>Administration</h1>');
+    expect(renderToString(<AccountsPage />)).toContain('<h1>Réglages</h1>');
     const accounts = renderToString(<AccountsView state={[]} />);
     expect(accounts).not.toContain('<h2>Comptes de la console</h2>');
     expect(accounts).toContain('<caption class="sr-only">Comptes de la console</caption>');
@@ -437,7 +437,7 @@ describe('maquette de l’issue #22', () => {
     expect(page.split(AUDIT_NOTICE)).toHaveLength(2);
     expect(renderToString(<CredentialsView mode="login" />)).toContain(AUDIT_NOTICE);
     expect(renderToString(<AuditPage />)).toContain(
-      'La consultation de ce journal est elle-même inscrite au journal d’audit.',
+      'Journal d’audit : la consultation de ce journal est elle-même inscrite au journal d’audit.',
     );
     expect(UNREACHABLE).toBe('Impossible de joindre la console. Réessayez.');
   });
@@ -463,10 +463,10 @@ describe('textes restants de la maquette de #22', () => {
   it('tells an operator that the accounts page is reserved, with a link home', () => {
     const html = renderToString(<ForbiddenView />);
     expect(html).toContain('Cette page est réservée aux administrateurs.');
-    expect(html).toContain('<h1>Administration</h1>');
+    expect(html).toContain('<h1>Réglages</h1>');
     expect(html).toContain('Demandez à un administrateur');
     expect(html).toContain('href="#/"');
-    expect(html).toContain('Retour au tableau de bord');
+    expect(html).toContain('Retour à l’accueil');
     expect(html).not.toContain('alert-error');
     expect(html).toMatch(/<div class="alert alert-warning" role="alert">/u);
     expect(html).toContain('<strong class="alert-title">Accès réservé</strong>');

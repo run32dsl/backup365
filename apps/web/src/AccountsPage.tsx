@@ -391,7 +391,7 @@ export function AccountsPage() {
   };
   return (
     <main tabIndex={-1}>
-      <h1>Administration</h1>
+      <h1>Réglages</h1>
       <div className="view-intro">
         <p>Comptes qui peuvent se connecter à la console. {AUDIT_NOTICE}</p>
         <Button
