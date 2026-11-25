@@ -203,12 +203,20 @@ export function buildApp({
     done();
   });
   void app.register((scope, _opts, done) => {
-    registerOverviewRoutes(scope, plans, planScheduler);
+    registerOverviewRoutes(scope, plans, planScheduler, {
+      catalog,
+      maxAgeHours: status.maxAgeHours,
+      workloads: status.workloads,
+    });
     registerConfigurationRoutes(scope, { backupConfigured, workloads: status.workloads });
     done();
   });
   void app.register((scope, _opts, done) => {
-    registerPlanRoutes(scope, plans, audit, planScheduler, backupConfigured);
+    registerPlanRoutes(scope, plans, audit, planScheduler, backupConfigured, {
+      catalog,
+      maxAgeHours: status.maxAgeHours,
+      workloads: status.workloads,
+    });
     done();
   });
   void app.register((scope, _opts, done) => {

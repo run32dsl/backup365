@@ -9,6 +9,7 @@ import {
   agoLabel,
   announcementOf,
   focusAfterRetry,
+  lateMessage,
   loadOverview,
   plansLabel,
   type OverviewState,
@@ -28,6 +29,7 @@ const operational: Overview = {
   lastBackupAt: '2026-11-18T14:02:00Z',
   lastBackupPlan: 'Boîtes mail, quotidien',
   lastFailure: null,
+  lateBackups: [],
 };
 const unconfigured: Overview = {
   state: 'unconfigured',
@@ -35,6 +37,7 @@ const unconfigured: Overview = {
   lastBackupAt: null,
   lastBackupPlan: null,
   lastFailure: null,
+  lateBackups: [],
 };
 const pending: Overview = {
   state: 'pending',
@@ -42,6 +45,7 @@ const pending: Overview = {
   lastBackupAt: null,
   lastBackupPlan: null,
   lastFailure: null,
+  lateBackups: [],
 };
 const failed: Overview = {
   state: 'failed',
@@ -49,12 +53,65 @@ const failed: Overview = {
   lastBackupAt: '2026-11-16T02:00:00Z',
   lastBackupPlan: 'Boîtes mail, quotidien',
   lastFailure: { plan: 'Boîte direction, quotidien', at: '2026-11-24T18:58:30Z' },
+  lateBackups: [],
 };
+
+describe('OverviewView, late backups', () => {
+  const oneDrive = {
+    service: 'onedrive' as const,
+    name: 'paul.moreau@exemple.fr',
+    lastSnapshotAt: '2026-11-15T18:19:00Z',
+  };
+
+  it('never says Opérationnelle with a late backup, and links to Sources', () => {
+    const html = render({ ...operational, lateBackups: [oneDrive] });
+    expect(html).toContain('En retard');
+    expect(html).not.toContain('Opérationnelle');
+    expect(html).toContain(
+      '1 sauvegarde en retard : OneDrive, paul.moreau@exemple.fr, dernière réussite le 15/11/2026 18:19 UTC.',
+    );
+    expect(html).toMatch(/<button[^>]*btn-secondary[^>]*>Voir les sources<\/button>/);
+  });
+
+  it('summarises several late backups by service', () => {
+    const late = [
+      oneDrive,
+      { ...oneDrive, name: 'x' },
+      { ...oneDrive, service: 'sharepoint' as const },
+    ];
+    expect(lateMessage(late)).toBe('3 sauvegardes en retard (OneDrive, SharePoint).');
+  });
+
+  it('keeps the failure first: failed pill, full Voir l’erreur, late line and outline button', () => {
+    const html = render({ ...failed, lateBackups: [oneDrive] });
+    expect(html).toContain('Échec de');
+    expect(html).toContain('1 sauvegarde en retard');
+    expect(html).toMatch(/<button(?![^>]*btn-secondary)[^>]*>Voir l’erreur<\/button>/);
+    expect(html).toMatch(/<button[^>]*btn-secondary[^>]*>Voir les sources<\/button>/);
+  });
+
+  it('counts the plan covering the late backup as late on the Plans card (#495)', () => {
+    const html = render({
+      ...operational,
+      plans: { total: 2, operational: 1, running: 0, queued: 0, failed: 0, late: 1 },
+      lateBackups: [oneDrive],
+    });
+    expect(html).not.toContain('2 plans à jour sur 2');
+    expect(html).toContain('1 plan à jour sur 2');
+    expect(html).toMatch(/plan-counts[\s\S]*En retard[\s\S]*<strong>1<\/strong>/);
+  });
+
+  it('shows Opérationnelle and no Voir les sources without late backups', () => {
+    const html = render(operational);
+    expect(html).toContain('Opérationnelle');
+    expect(html).not.toContain('Voir les sources');
+  });
+});
 
 describe('Home', () => {
   it('shows a loading state, with no figure, before the answer', () => {
     const html = renderToString(<Home />);
-    expect(html).toContain('Tableau de bord');
+    expect(html).toContain('Accueil');
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('Chargement…');
     expect(html).not.toContain('Serveur');
@@ -258,7 +315,7 @@ describe('retry after an error', () => {
     focusAfterRetry({ querySelector: (q) => (q === 'h1' ? el('h1') : null) });
     expect(focused).toEqual(['card', 'h1']);
     expect(render(operational)).toContain('<h2 id="overview-backup" tabindex="-1">Sauvegarde</h2>');
-    expect(renderToStaticMarkup(<Home />)).toContain('<h1 tabindex="-1">Tableau de bord</h1>');
+    expect(renderToStaticMarkup(<Home />)).toContain('<h1 tabindex="-1">Accueil</h1>');
   });
 });
 

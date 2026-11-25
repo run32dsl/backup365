@@ -2,6 +2,7 @@ import type { BackupCatalog, Workload } from './catalog.js';
 import {
   nextRunAt,
   type PlanComplianceReport,
+  type SourceFailure,
   type ProtectionPlanInput,
 } from './protection-plan.js';
 
@@ -25,6 +26,13 @@ export interface StatusRow {
   /** Âge en heures entières (arrondi à l'inférieur) ; `null` si absent. */
   ageHours: number | null;
   state: BackupState;
+  /** Ajouté par `GET /api/status` pour les administrateurs : un plan qui couvre la source a échoué. */
+  failure?: SourceFailure;
+}
+
+/** État affiché : une source dont un plan a échoué n'est jamais « à jour » (elle est en échec). */
+export function effectiveState(row: Pick<StatusRow, 'state' | 'failure'>): BackupState {
+  return row.state === 'ok' && row.failure ? 'missing' : row.state;
 }
 
 export interface StatusReport {
@@ -164,23 +172,16 @@ export function buildServiceSummaries(
   plans: readonly PlanFacts[],
   maxAgeHours: number,
   now: Date = new Date(),
-  /** Fin de la dernière exécution réussie d'un plan : l'heure de référence de l'accueil et de la liste des plans. */
-  lastSuccessOf: (planId: string) => string | null = () => null,
 ): ServiceSummary[] {
   return SERVICES.map((service) => {
     const own = rows.filter((r) => r.workload === service);
     const covering = plans.filter((p) => p.dataTypes.includes(service));
-    // Une exécution a une seule heure : la fin de la réussite des plans, sinon la date du catalogue.
-    const runEnds = covering.flatMap((p) => {
-      const at = lastSuccessOf(p.id);
-      return at === null ? [] : [{ createdAt: at }];
-    });
-    const last =
-      latest(runEnds) ??
-      latest(
-        own.flatMap((r) => (r.lastSnapshotAt === null ? [] : [{ createdAt: r.lastSnapshotAt }])),
-      );
-    const state = WORST_FIRST.find((s) => own.some((r) => r.state === s)) ?? 'missing';
+    // La date d'un service est celle de la plus récente sauvegarde que la page « Sources » liste
+    // pour lui : jamais l'heure d'une exécution de plan, qui peut ne rien avoir copié.
+    const last = latest(
+      own.flatMap((r) => (r.lastSnapshotAt === null ? [] : [{ createdAt: r.lastSnapshotAt }])),
+    );
+    const state = WORST_FIRST.find((s) => own.some((r) => effectiveState(r) === s)) ?? 'missing';
     const selected = new Set(covering.flatMap((p) => (p.scope === 'selection' ? p.selection : [])));
     const scope: ServiceSummary['scope'] =
       covering.length === 0
@@ -201,4 +202,29 @@ export function buildServiceSummaries(
         covering.length > 0 && last === null && covering.every((p) => firstRunPending(p, now)),
     };
   });
+}
+
+/** Une sauvegarde au-delà du seuil de retard, rattachée au service de la page « Sources ». */
+export interface LateBackup {
+  service: Service;
+  /** Nom de la boîte, du compte ou du site. */
+  name: string;
+  /** Date du dernier instantané (UTC, ISO 8601). */
+  lastSnapshotAt: string;
+}
+
+/**
+ * Sauvegardes en retard (`stale`), pour la carte « Sauvegarde » de l'accueil. Même définition que
+ * le bandeau et le compteur de « Sources », qui comptent les lignes `stale` de `GET /api/status` ;
+ * un test serveur garantit que les nombres restent égaux. Une source sans instantané (`missing`)
+ * n'en fait pas partie.
+ */
+export function lateBackups(rows: readonly StatusRow[]): LateBackup[] {
+  const serviceOf = (r: StatusRow): Service =>
+    r.kind === 'site' ? 'sharepoint' : r.workload === 'onedrive' ? 'onedrive' : 'mail';
+  return rows.flatMap((r) =>
+    r.state === 'stale' && r.lastSnapshotAt !== null
+      ? [{ service: serviceOf(r), name: r.displayName, lastSnapshotAt: r.lastSnapshotAt }]
+      : [],
+  );
 }

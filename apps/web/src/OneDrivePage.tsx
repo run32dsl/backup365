@@ -29,6 +29,7 @@ import {
   COPY_CONSEQUENCE,
   REPLACE_WARNING_TITLE,
   replaceWarningOf,
+  restoredSummary,
   type DriveEntry,
   type DriveJob,
   type DriveMode,
@@ -38,6 +39,7 @@ import {
   type OneDriveRoute,
 } from './onedrive.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
+import { selectionLabel } from './selection.js';
 import {
   AuditReminder,
   REASON,
@@ -244,10 +246,14 @@ export function EntriesTable({
             ),
         },
         {
-          header: 'Version du (UTC)',
+          header: RESTORE_LABELS.versionAt,
           className: 'card-hidden',
           cell: (e) =>
-            dateTimeOrDash(pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt),
+            e.kind === 'folder'
+              ? '—'
+              : dateTimeOrDash(
+                  pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt,
+                ),
         },
         {
           header: 'Taille',
@@ -262,10 +268,12 @@ export function EntriesTable({
           header: 'Détail',
           className: 'card-only',
           cell: (e) =>
-            cardSummary(
-              pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt,
-              pickedVersion && selected === e.path ? pickedVersion.sizeBytes : e.sizeBytes,
-            ),
+            e.kind === 'folder'
+              ? null
+              : cardSummary(
+                  pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt,
+                  pickedVersion && selected === e.path ? pickedVersion.sizeBytes : e.sizeBytes,
+                ),
         },
         {
           header: 'Versions',
@@ -291,7 +299,7 @@ export function EntriesTable({
 }
 
 /** Étape 1 : parcourir la sauvegarde et choisir un élément. */
-function BrowseStep({
+export function BrowseStep({
   route,
   account,
   accounts,
@@ -317,6 +325,7 @@ function BrowseStep({
   const [attempt, setAttempt] = useState(0);
   const versionsButton = useRef<HTMLButtonElement | null>(null);
   const hintId = useId();
+  const chooseHintId = useId();
   const path = route.path;
 
   useEffect(() => {
@@ -335,6 +344,9 @@ function BrowseStep({
   const rows = entries?.status === 'ok' ? entries.data : [];
   const chosen = rows.find((e) => e.path === selected);
   const snapshot = snapshots.find((s) => s.id === snapshotId);
+
+  const rootLabel = accounts.find((a) => a.id === account)?.displayName ?? account;
+  const crumbs = breadcrumbOf(path, rootLabel);
 
   return (
     <>
@@ -374,7 +386,7 @@ function BrowseStep({
       </div>
       <nav aria-label="Fil d'Ariane">
         <ol className="breadcrumb">
-          {breadcrumbOf(path).map((c, i, all) => (
+          {crumbs.map((c, i, all) => (
             <li key={c.path}>
               {i === all.length - 1 ? (
                 <span aria-current="location">{c.label}</span>
@@ -398,7 +410,7 @@ function BrowseStep({
         )}
         {entries?.status === 'ok' && (
           <fieldset className="choices drive-list">
-            <legend className="sr-only">Éléments de {breadcrumbOf(path).at(-1)?.label}</legend>
+            <legend className="sr-only">Éléments de {crumbs.at(-1)?.label}</legend>
             <EntriesTable
               account={account}
               rows={rows}
@@ -421,13 +433,25 @@ function BrowseStep({
 
       <p aria-live="polite">
         {chosen
-          ? `Sélection : ${chosen.name}${pickedVersion ? `, version du ${dateTimeOf(pickedVersion.at)} UTC` : ''}`
+          ? selectionLabel({
+              name: chosen.name,
+              kind: chosen.kind,
+              versionAt: pickedVersion ? dateTimeOf(pickedVersion.at) : null,
+            })
           : null}
       </p>
+      {!chosen && (
+        <p id={chooseHintId} className="field-help">
+          Cochez un fichier ou un dossier pour continuer.
+        </p>
+      )}
       <WizardActions>
         <Button
           aria-disabled={!configured || !chosen || undefined}
-          aria-describedby={!configured ? hintId : undefined}
+          className={!configured || !chosen ? 'is-inactive' : undefined}
+          aria-describedby={
+            [!chosen && chooseHintId, !configured && hintId].filter(Boolean).join(' ') || undefined
+          }
           onClick={() => {
             if (configured && chosen)
               onChoose(
@@ -574,7 +598,6 @@ export function ConfirmStep({
           }
         }}
       />
-      <h2>Récapitulatif</h2>
       <ResultList
         rows={confirmRowsOf({
           account,
@@ -696,7 +719,7 @@ export function TrackStep({
         job.status === 'succeeded'
           ? [RESTORE_LABELS.itemRestored, `${choice.entry.name} → ${target}`]
           : [RESTORE_LABELS.item, choice.entry.name],
-        [RESTORE_LABELS.backupAt, dateTimeOf(backupAt)],
+        [RESTORE_LABELS.backupDate, dateTimeOf(backupAt)],
         ...(versionAt
           ? [[RESTORE_LABELS.versionAt, dateTimeOf(versionAt)] as [string, string]]
           : []),
@@ -723,7 +746,7 @@ export function TrackStep({
     body = (
       <>
         <Alert tone="success">
-          Restauration terminée en {formatDuration(job.durationMs ?? 0)}.
+          {restoredSummary(job.kind, formatDuration(job.durationMs ?? 0))}
         </Alert>
         {items}
         <WizardActions

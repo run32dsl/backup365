@@ -65,16 +65,22 @@ export function recallRows(mail: RestorableMail): [string, string][] {
 }
 
 /** Dossier d'origine du mail et dossier de destination, nouveau dans la boîte. */
-export function folderRows(mail: RestorableMail, folder: string): [string, ReactNode][] {
+export function folderRows(
+  mail: RestorableMail,
+  folder: string,
+  failed = false,
+): [string, ReactNode][] {
   return [
     ['Dossier d’origine', folderLabel(mail.folder)],
-    [
-      'Restauré dans le dossier',
-      <>
-        {folder}
-        <span className="meta-note">nouveau dossier créé dans la boîte</span>
-      </>,
-    ],
+    failed
+      ? ['Dossier visé', folder]
+      : [
+          'Restauré dans le dossier',
+          <>
+            {folder}
+            <span className="meta-note">nouveau dossier créé dans la boîte</span>
+          </>,
+        ],
   ];
 }
 
@@ -155,7 +161,7 @@ export function RestoreOutcome({
           uncertain: isOutcomeUncertain(job.error),
         })}
       />
-      <ResultList rows={[...recall, ['Durée', formatDuration(job.durationMs ?? 0)]]} />
+      <ResultList rows={[...recall, ...folderRows(mail, job.folder, true)]} />
       <div className="button-row dialog-actions">
         <a className="btn btn-secondary" href="#/audit">
           {B.audit}

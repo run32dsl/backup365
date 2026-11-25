@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { scheduleWindowLabel } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
-import { DeleteForm, PlanWizard, PlansListView } from './PlansPage.js';
+import { DeleteForm, PlanRecap, PlanWizard, PlansListView } from './PlansPage.js';
 import { AUDIT_REMINDER } from './RestoreJourney.js';
 import { Alert } from './ui/index.js';
 import {
@@ -28,6 +28,7 @@ import {
   validateStep,
   JUSTIFICATION_PLACEHOLDER,
   type PlanItem,
+  hoursLabel,
 } from './plans.js';
 
 const plan: PlanItem = {
@@ -138,6 +139,25 @@ describe('plan form', () => {
     expect(payloadOf({ ...form, scope: 'selection' }).selection).toEqual(['a']);
   });
 
+  it('names the chosen mailboxes and sites in the recap and the list summary', () => {
+    const names = [
+      { id: 'a', displayName: 'claire.durand@exemple.fr' },
+      { id: 's1', displayName: 'Équipe commerciale' },
+    ];
+    const form = {
+      ...emptyForm(),
+      scope: 'selection' as const,
+      selection: ['a', 's1'],
+      justification: 'Obligation légale',
+    };
+    expect(Object.fromEntries(recapRows(form, names))['Périmètre']).toBe(
+      'claire.durand@exemple.fr et Équipe commerciale',
+    );
+    expect(planSummary({ ...plan, scope: 'selection', selection: ['s1'] }, names)).toContain(
+      'Équipe commerciale',
+    );
+  });
+
   it('lists the plan in labelled rows, in order', () => {
     const rows = recapRows({
       ...emptyForm(),
@@ -148,9 +168,12 @@ describe('plan form', () => {
       ['Nom du plan', 'Messagerie Direction'],
       ['Données', 'Messagerie, OneDrive, SharePoint'],
       ['Périmètre', 'Toute l’organisation'],
-      ['Perte de données acceptable', '12\u00a0h (une sauvegarde toutes les 12\u00a0h)'],
-      ['Remise en service souhaitée', '24\u00a0h'],
-      ['Durée de conservation', '1 an'],
+      [
+        'Perte de données acceptable',
+        '12\u00a0heures au plus (une sauvegarde toutes les 12\u00a0heures)',
+      ],
+      ['Remise en service souhaitée', '24\u00a0heures au plus'],
+      ['Durée de conservation', '1\u00a0an, puis suppression'],
       ['Justification de cette durée', 'Obligation légale'],
     ]);
   });
@@ -165,21 +188,19 @@ describe('plan form', () => {
     const row = (f: typeof form, label: string) =>
       Object.fromEntries(recapRows(f))[label] as string;
     expect(row({ ...form, selection: ['a', 'b'] }, 'Données')).toBe('Messagerie');
-    expect(row({ ...form, selection: ['a', 'b'] }, 'Périmètre')).toBe(
-      '2 boîtes ou comptes choisis',
-    );
-    expect(row({ ...form, selection: ['a'] }, 'Périmètre')).toBe('1 boîte ou compte choisi');
-    expect(row(form, 'Périmètre')).toBe('Aucune boîte ou compte choisi');
+    expect(row({ ...form, selection: ['a', 'b'] }, 'Périmètre')).toBe('2 éléments choisis');
+    expect(row({ ...form, selection: ['a'] }, 'Périmètre')).toBe('1 élément choisi');
+    expect(row(form, 'Périmètre')).toBe('Aucune boîte, compte ou site choisi');
     expect(row(form, 'Justification de cette durée')).toBe('Besoin métier : Audit annuel');
     expect(row({ ...form, dataTypes: [] }, 'Données')).toBe('Aucune donnée choisie');
   });
 
   it('announces the first planned backup', () => {
-    expect(createdMessage({ id: 'p1', rpoHours: 12 })).toMatch(
-      /^Plan créé\. Première sauvegarde prévue à \d\d:\d\d\.$/,
+    expect(createdMessage({ id: 'p1', name: 'Direction', rpoHours: 12 })).toMatch(
+      /^Le plan « Direction » a été créé\. Première sauvegarde prévue à \d\d:\d\d\.$/,
     );
-    expect(createdMessage({ id: 'p1', rpoHours: 24 })).toBe(
-      'Plan créé. Première sauvegarde prévue cette nuit.',
+    expect(createdMessage({ id: 'p1', name: 'Direction', rpoHours: 24 })).toBe(
+      'Le plan « Direction » a été créé. Première sauvegarde prévue cette nuit.',
     );
   });
 });
@@ -240,8 +261,34 @@ describe('list labels', () => {
     expect(complianceView({ ...plan, compliance: empty, lastRun: emptyRun })).toEqual({
       status: 'pending',
       label: 'En attente',
-      note: 'Rien à sauvegarder dans le périmètre : vérifiez la boîte, le compte ou le site choisi.',
+      note: 'Aucune source trouvée dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.',
     });
+    // Le conseil dépend du périmètre et des services du plan.
+    const none = { ...plan.compliance, lastRestorePointAt: null };
+    const note = (p: Partial<PlanItem>, boxes: { id: string; displayName: string }[] = []) =>
+      complianceView({ ...plan, compliance: none, ...p }, undefined, null, boxes).note;
+    const box = { id: 'a', displayName: 'marc.lefevre@exemple.fr' };
+    expect(note({ scope: 'selection', dataTypes: ['mail'], selection: ['a'] }, [box])).toBe(
+      'Rien à sauvegarder dans marc.lefevre@exemple.fr : vérifiez que cette boîte existe et contient des mails.',
+    );
+    expect(note({ scope: 'selection', dataTypes: ['mail'], selection: ['a', 'b'] }, [box])).toBe(
+      'Rien à sauvegarder dans les 2 boîtes choisies : vérifiez que ces boîtes existent et contiennent des mails.',
+    );
+    expect(note({ scope: 'all', dataTypes: ['mail'] })).toBe(
+      'Aucune boîte trouvée dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.',
+    );
+    expect(note({ scope: 'selection', dataTypes: ['mail'], selection: ['a'] })).toBe(
+      'Rien à sauvegarder dans la boîte choisie : vérifiez qu’elle existe et contient des mails.',
+    );
+    expect(note({ scope: 'all', dataTypes: ['onedrive'] })).toBe(
+      'Aucun compte OneDrive trouvé dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.',
+    );
+    expect(note({ scope: 'selection', dataTypes: ['sharepoint'], selection: ['s'] })).toBe(
+      'Rien à sauvegarder dans l’élément choisi : vérifiez qu’il existe (site SharePoint) et contient des données.',
+    );
+    expect(note({ scope: 'all', dataTypes: ['onedrive', 'sharepoint'] })).toBe(
+      'Aucun compte OneDrive ni site SharePoint trouvé dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.',
+    );
     // En cours ou en file : la colonne garde le dernier résultat terminé.
     expect(lastRunLabel({ ...plan, running: true })).toBe(lastRunLabel(plan));
     expect(lastRunLabel({ ...plan, queued: true })).toBe(lastRunLabel(plan));
@@ -305,7 +352,7 @@ describe('PlansListView', () => {
     const html = list([empty], false);
     expect(html).toContain('◷</span> En attente');
     expect(html).toContain(
-      '<small class="state-note">Rien à sauvegarder dans le périmètre : vérifiez la boîte, le compte ou le site choisi.</small>',
+      '<small class="state-note">Aucune source trouvée dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.</small>',
     );
     expect(html).not.toContain('À jour');
     expect(html).not.toContain('rien à sauvegarder)');
@@ -494,13 +541,37 @@ describe('PlanWizard', () => {
         onSubmit={() => Promise.resolve(undefined)}
       />,
     );
-    expect(html).toContain('Étape 1 sur 3 : Quoi protéger');
+    expect(html).toContain('Étape 1 sur 3');
     expect(html).toContain('aria-current="step"');
     expect(html).toContain('<legend>Données à sauvegarder</legend>');
     expect(html).toContain('<legend>Périmètre</legend>');
     expect(html).toContain('Nom du plan');
     expect(html).toContain('Continuer');
     expect(html).not.toContain('Précédent');
+  });
+
+  it('offers the sites only when SharePoint is ticked, once a selection is chosen', () => {
+    const render = (dataTypes: ('mail' | 'onedrive' | 'sharepoint')[]) =>
+      renderToStaticMarkup(
+        <PlanWizard
+          initial={{ ...emptyForm(), dataTypes, scope: 'selection' }}
+          editing={false}
+          mailboxes={[{ id: 'a', displayName: 'claire.durand@exemple.fr' }]}
+          sites={[{ id: 's1', displayName: 'Équipe commerciale' }]}
+          onSubmit={() => Promise.resolve(undefined)}
+        />,
+      );
+    const all = render(['mail', 'onedrive', 'sharepoint']);
+    expect(all).toContain('<legend>Sites SharePoint</legend>');
+    expect(all).toContain('Équipe commerciale');
+    expect(all).toContain('<legend>Boîtes et comptes</legend>');
+    expect(all).toContain('Boîtes, comptes et sites choisis');
+    const noSites = render(['mail']);
+    expect(noSites).not.toContain('Sites SharePoint');
+    expect(noSites).not.toContain('Équipe commerciale');
+    const onlySites = render(['sharepoint']);
+    expect(onlySites).not.toContain('<legend>Boîtes et comptes</legend>');
+    expect(onlySites).toContain('Équipe commerciale');
   });
 
   it('asks for the justification in one free text field with help and counter', () => {
@@ -513,7 +584,7 @@ describe('PlanWizard', () => {
         initialStep={2}
       />,
     );
-    expect(html).not.toContain('<select');
+    expect(html).toContain('<select');
     expect(html).not.toContain('Précision');
     expect(html).toContain('Justification de cette durée (obligatoire)');
     expect(html).toContain('placeholder="Obligation légale : courriers 1 an"');
@@ -541,7 +612,7 @@ describe('PlanWizard', () => {
         initialStep={3}
       />,
     );
-    expect(html).toContain('<h2>Récapitulatif</h2>');
+    expect(html).not.toContain('<h2>Récapitulatif</h2>');
     expect(html).toContain('<dl class="meta-list">');
     expect(html).toContain('<dd>Messagerie Direction</dd>');
     expect(html).toContain('<dd>Contrat client</dd>');
@@ -564,6 +635,11 @@ describe('PlanWizard', () => {
       (m) => [/value="(\d+)"/.exec(m[0])?.[1], m[0].includes('checked=""')] as const,
     );
 
+  const options = (html: string) =>
+    [...html.matchAll(/<option[^>]*>/g)].map(
+      (m) => [/value="(\d+)"/.exec(m[0])?.[1], m[0].includes('selected=""')] as const,
+    );
+
   it('names the recap rows like the objectives step, and marks no label with an asterisk', () => {
     const html = step2();
     const recapLabels = recapRows(emptyForm())
@@ -571,7 +647,7 @@ describe('PlanWizard', () => {
       .slice(3);
     expect(recapLabels).toEqual(Object.values(OBJECTIVE_LABELS));
     const legends = [...html.matchAll(/<legend>([^<]*)<\/legend>/g)].map((m) => m[1]);
-    expect(legends).toEqual(recapLabels.slice(0, 3));
+    expect(legends).toEqual(recapLabels.slice(0, 2));
     expect(html).toContain('Justification de cette durée (obligatoire)');
     const labels = [...html.matchAll(/<(?:label|legend)[^>]*>([^<]*)</g)].map((m) => m[1]);
     for (const label of labels) expect(label).not.toMatch(/\*\s*$/);
@@ -590,7 +666,7 @@ describe('PlanWizard', () => {
       ['24', true],
       ['72', false],
     ]);
-    expect(radios(html, 'retention')).toEqual([
+    expect(options(html)).toEqual([
       ['180', false],
       ['365', true],
       ['1095', false],
@@ -604,13 +680,18 @@ describe('PlanWizard', () => {
       expect(html).toContain(`aria-describedby="${name}-help"`);
       expect(html).toContain(`id="${name}-help"`);
     }
-    expect(html).toContain('perdre au plus 12 h');
-    expect(html).toContain('rétabli en 24 h au plus');
+    expect(html).toContain('perdre au plus 12\u00a0heures');
+    expect(html).toContain('rétabli en 24\u00a0heures au plus');
     expect(html).toContain('supprimées au bout de 1\u00a0an');
     const other = step2({ ...emptyForm(), rpoHours: 4, rtoHours: 8, retentionDays: 180 });
-    expect(other).toContain('perdre au plus 4 h');
-    expect(other).toContain('rétabli en 8 h au plus');
+    expect(other).toContain('perdre au plus 4\u00a0heures');
+    expect(other).toContain('rétabli en 8\u00a0heures au plus');
     expect(other).toContain('supprimées au bout de 6\u00a0mois');
+  });
+
+  it('writes hours in full, singular included', () => {
+    expect(hoursLabel(1)).toBe('1\u00a0heure');
+    expect(hoursLabel(24)).toBe('24\u00a0heures');
   });
 
   it('keeps the options sorted when the current value is outside the list', () => {
@@ -618,7 +699,7 @@ describe('PlanWizard', () => {
     expect(withCurrent(RETENTION_CHOICES, 30)).toEqual([30, 180, 365, 1095]);
     expect(withCurrent(RTO_CHOICES, 48)).toEqual([8, 24, 48, 72]);
     const html = step2({ ...emptyForm(), retentionDays: 730 });
-    expect(radios(html, 'retention').map(([v]) => v)).toEqual(['180', '365', '730', '1095']);
+    expect(options(html).map(([v]) => v)).toEqual(['180', '365', '730', '1095']);
   });
 });
 
@@ -658,7 +739,9 @@ describe('delete plan dialog', () => {
   });
 
   it('recalls the plan and warns that the run history is erased', () => {
-    expect(html).toContain('Plan : <strong>Messagerie Direction</strong>');
+    expect(html).toContain('<dt>Plan</dt><dd>Messagerie Direction</dd>');
+    expect(html).toContain('<dt>Périmètre</dt>');
+    expect(html.match(/Messagerie Direction/g)).toHaveLength(1);
     expect(html).toContain(planSummary(plan));
     expect(html).toContain('alert-warning');
     expect(html).toContain('Suppression définitive');
@@ -680,5 +763,14 @@ describe('delete plan dialog', () => {
     expect((await deletePlan('p1', '  Plan remplacé ', fetchFn)).ok).toBe(true);
     expect(sent.method).toBe('DELETE');
     expect(JSON.parse(String(sent.body))).toEqual({ reason: 'Plan remplacé' });
+  });
+});
+
+describe('PlanRecap', () => {
+  it('names the plan once, with its scope line', () => {
+    const html = renderToStaticMarkup(<PlanRecap plan={plan} />);
+    expect(html).toContain('<dt>Plan</dt><dd>Messagerie Direction</dd>');
+    expect(html).toContain('<dt>Périmètre</dt>');
+    expect(html.match(/Messagerie Direction/g)).toHaveLength(1);
   });
 });

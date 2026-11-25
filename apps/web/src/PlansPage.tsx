@@ -1,5 +1,5 @@
 import { DATA_TYPES, scheduleWindowLabel, type DataType, type RpoHours } from '@backup365/core';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ConfigurationLink } from './ConfigurationBlock.js';
 import {
   DATA_TYPE_LABELS,
@@ -13,6 +13,7 @@ import {
   RPO_CHOICES,
   RTO_CHOICES,
   complianceView,
+  type SourcesReport,
   failureBanner,
   createPlan,
   createdMessage,
@@ -28,6 +29,7 @@ import {
   planSummary,
   runFlashText,
   retentionLabel,
+  hoursLabel,
   withCurrent,
   retentionHelp,
   rpoHelp,
@@ -44,7 +46,9 @@ import {
   type PlanItem,
   type PlansRoute,
 } from './plans.js';
+import { fetchStatus } from './status.js';
 import { problemMessage, splitTitle, type Problem } from './apiError.js';
+import { fetchSites } from './sharepoint.js';
 import { useAdmin } from './role.js';
 import { MAX_REASON_LENGTH } from './mail.js';
 import { REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
@@ -106,11 +110,52 @@ function toggle<T>(list: T[], item: T): T[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
 
+/** Groupe de cases d'un service dans le périmètre choisi (mêmes `.choice` que les données). */
+function SelectionGroup({
+  legend,
+  empty,
+  items,
+  selection,
+  invalid,
+  onToggle,
+}: {
+  legend: string;
+  empty: string;
+  items: readonly Mailbox[];
+  selection: readonly string[];
+  invalid: true | undefined;
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <fieldset className="choices" aria-describedby={invalid ? 'selection-error' : undefined}>
+      <legend>{legend}</legend>
+      {items.length === 0 && <p>{empty}</p>}
+      <div className="choice-list">
+        {items.map((m) => (
+          <label key={m.id} className="choice">
+            <input
+              type="checkbox"
+              aria-invalid={invalid}
+              aria-describedby={invalid ? 'selection-error' : undefined}
+              checked={selection.includes(m.id)}
+              onChange={() => {
+                onToggle(m.id);
+              }}
+            />
+            {m.displayName}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 /** Parcours de création et de modification : les saisies restent en mémoire d'une étape à l'autre. */
 export function PlanWizard({
   initial,
   editing,
   mailboxes,
+  sites = [],
   onSubmit,
   initialStep = 1,
   takenNames = [],
@@ -120,6 +165,8 @@ export function PlanWizard({
   initial: PlanForm;
   editing: boolean;
   mailboxes: Mailbox[];
+  /** Sites SharePoint sauvegardables, proposés quand SharePoint est coché. */
+  sites?: Mailbox[];
   /** Renvoie le problème, ou `undefined` si l'enregistrement a réussi. */
   onSubmit: (form: PlanForm) => Promise<Problem | undefined>;
   /** Étape affichée à l'ouverture (tests). */
@@ -224,8 +271,19 @@ export function PlanWizard({
                     }
                     checked={form.dataTypes.includes(t)}
                     onChange={() => {
+                      const dataTypes = DATA_TYPES.filter((d) =>
+                        toggle(form.dataTypes, t).includes(d),
+                      );
+                      // Un groupe qui disparaît emporte ses choix ; les ids inconnus du catalogue restent.
+                      const hidden = new Set<string>([
+                        ...(dataTypes.some((d) => d !== 'sharepoint') ? [] : mailboxes).map(
+                          (m) => m.id,
+                        ),
+                        ...(dataTypes.includes('sharepoint') ? [] : sites).map((s) => s.id),
+                      ]);
                       patch({
-                        dataTypes: DATA_TYPES.filter((d) => toggle(form.dataTypes, t).includes(d)),
+                        dataTypes,
+                        selection: form.selection.filter((id) => !hidden.has(id)),
                       });
                     }}
                   />
@@ -246,37 +304,40 @@ export function PlanWizard({
             value={form.scope}
             options={[
               { value: 'all', label: 'Toute l’organisation' },
-              { value: 'selection', label: 'Boîtes et comptes choisis' },
+              { value: 'selection', label: 'Boîtes, comptes et sites choisis' },
             ]}
             onChange={(scope) => {
               patch({ scope });
             }}
           />
           {form.scope === 'selection' && (
-            <fieldset
-              className="choices"
-              aria-describedby={errors.selection ? 'selection-error' : undefined}
-            >
-              <legend>Boîtes et comptes</legend>
-              {mailboxes.length === 0 && <p>Aucune boîte à choisir pour l’instant.</p>}
-              <div className="choice-list">
-                {mailboxes.map((m) => (
-                  <label key={m.id} className="choice">
-                    <input
-                      type="checkbox"
-                      aria-invalid={invalid('selection')}
-                      aria-describedby={errors.selection ? 'selection-error' : undefined}
-                      checked={form.selection.includes(m.id)}
-                      onChange={() => {
-                        patch({ selection: toggle(form.selection, m.id) });
-                      }}
-                    />
-                    {m.displayName}
-                  </label>
-                ))}
-              </div>
+            <>
+              {form.dataTypes.some((t) => t !== 'sharepoint') && (
+                <SelectionGroup
+                  legend="Boîtes et comptes"
+                  empty="Aucune boîte à choisir pour l’instant."
+                  items={mailboxes}
+                  selection={form.selection}
+                  invalid={invalid('selection')}
+                  onToggle={(id) => {
+                    patch({ selection: toggle(form.selection, id) });
+                  }}
+                />
+              )}
+              {form.dataTypes.includes('sharepoint') && (
+                <SelectionGroup
+                  legend="Sites SharePoint"
+                  empty="Aucun site à choisir pour l’instant."
+                  items={sites}
+                  selection={form.selection}
+                  invalid={invalid('selection')}
+                  onToggle={(id) => {
+                    patch({ selection: toggle(form.selection, id) });
+                  }}
+                />
+              )}
               <ErrorText id="selection-error">{errors.selection}</ErrorText>
-            </fieldset>
+            </>
           )}
         </>
       )}
@@ -287,7 +348,7 @@ export function PlanWizard({
             legend={OBJECTIVE_LABELS.rpo}
             name="rpo"
             value={form.rpoHours}
-            options={RPO_CHOICES.map((h) => ({ value: h, label: `${h} h` }))}
+            options={RPO_CHOICES.map((h) => ({ value: h, label: hoursLabel(h) }))}
             help={rpoHelp(form.rpoHours)}
             onChange={(rpoHours) => {
               patch({ rpoHours });
@@ -299,26 +360,38 @@ export function PlanWizard({
             value={form.rtoHours}
             options={withCurrent(RTO_CHOICES, form.rtoHours).map((h) => ({
               value: h,
-              label: `${h} h`,
+              label: hoursLabel(h),
             }))}
             help={rtoHelp(form.rtoHours)}
             onChange={(rtoHours) => {
               patch({ rtoHours });
             }}
           />
-          <ChoiceGroup<number>
-            legend={OBJECTIVE_LABELS.retention}
-            name="retention"
-            value={form.retentionDays}
-            options={withCurrent(RETENTION_CHOICES, form.retentionDays).map((d) => ({
-              value: d,
-              label: retentionLabel(d),
-            }))}
-            help={retentionHelp(form.retentionDays)}
-            onChange={(retentionDays) => {
-              patch({ retentionDays });
-            }}
-          />
+          <div className="field">
+            <label htmlFor="retention">{OBJECTIVE_LABELS.retention}</label>
+            <div className="field-control">
+              <select
+                id="retention"
+                name="retention"
+                value={form.retentionDays}
+                aria-describedby="retention-help"
+                onChange={(e) => {
+                  patch({ retentionDays: Number(e.currentTarget.value) });
+                }}
+              >
+                {withCurrent(RETENTION_CHOICES, form.retentionDays).map((d) => (
+                  <option key={d} value={d}>
+                    {retentionLabel(d)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field-meta">
+              <p id="retention-help" className="field-help">
+                {retentionHelp(form.retentionDays)}
+              </p>
+            </div>
+          </div>
           <FormField
             label={`${OBJECTIVE_LABELS.justification} (obligatoire)`}
             type="text"
@@ -338,8 +411,7 @@ export function PlanWizard({
 
       {step === 3 && (
         <>
-          <h2>Récapitulatif</h2>
-          <ResultList rows={recapRows(form)} />
+          <ResultList rows={recapRows(form, [...mailboxes, ...sites])} />
         </>
       )}
 
@@ -443,12 +515,32 @@ export function RunFeedback({
   );
 }
 
+/** Le plan visé par une boîte d'action : son nom une seule fois, puis son périmètre. */
+export function PlanRecap({
+  plan,
+  mailboxes = [],
+}: {
+  plan: PlanItem;
+  mailboxes?: readonly Mailbox[];
+}) {
+  return (
+    <ResultList
+      rows={[
+        ['Plan', plan.name],
+        ['Périmètre', planSummary(plan, mailboxes)],
+      ]}
+    />
+  );
+}
+
 function RunDialog({
   plan,
+  mailboxes,
   onClose,
   onRun,
 }: {
   plan: PlanItem | null;
+  mailboxes: readonly Mailbox[];
   onClose: () => void;
   onRun: (plan: PlanItem, reason: string) => Promise<Problem | undefined>;
 }) {
@@ -468,7 +560,7 @@ function RunDialog({
   return (
     <Dialog
       open={plan !== null}
-      title={blocked ? 'Lancement impossible' : `Lancer « ${plan?.name ?? ''} » maintenant`}
+      title={blocked ? 'Lancement impossible' : 'Lancer ce plan maintenant'}
       onClose={onClose}
     >
       {blocked ? (
@@ -498,6 +590,7 @@ function RunDialog({
             });
           }}
         >
+          {plan && <PlanRecap plan={plan} mailboxes={mailboxes} />}
           <ReasonField
             of="du lancement"
             placeholder={REASON_EXAMPLES.run}
@@ -539,10 +632,7 @@ export function DeleteForm({
         onSubmit?.(reason.trim());
       }}
     >
-      <p>
-        Plan : <strong>{plan.name}</strong>
-        <small className="state-note plan-summary">{planSummary(plan, mailboxes)}</small>
-      </p>
+      <PlanRecap plan={plan} mailboxes={mailboxes} />
       <Alert tone="warning" title="Suppression définitive">
         Aucune nouvelle sauvegarde ne sera faite. L’historique des exécutions de ce plan sera
         effacé. Les sauvegardes déjà faites restent dans le stockage : la console ne les supprime
@@ -588,7 +678,7 @@ function DeleteDialog({
     setBusy(false);
   }, [plan]);
   return (
-    <Dialog open={plan !== null} title={`Supprimer « ${plan?.name ?? ''} » ?`} onClose={onClose}>
+    <Dialog open={plan !== null} title="Supprimer ce plan ?" onClose={onClose}>
       {plan && (
         <DeleteForm
           key={plan.id}
@@ -624,7 +714,10 @@ function planColumns(
   admin: boolean,
   mailboxes: readonly Mailbox[],
   runningName: string | undefined,
+  sources: SourcesReport | null,
   actions: { onRun: (p: PlanItem) => void; onDelete: (p: PlanItem) => void },
+  /** Vue « plans en échec » : le bandeau du plan porte « Lancer maintenant », pas la ligne. */
+  runInBanner = false,
 ): Column<PlanItem>[] {
   const columns: Column<PlanItem>[] = [
     {
@@ -644,11 +737,16 @@ function planColumns(
       header: 'État',
       className: 'compliance-cell card-nolabel',
       cell: (p) => {
-        const view = complianceView(p, runningName);
+        const view = complianceView(p, runningName, sources, mailboxes);
         return (
           <div>
             <StatusPill status={view.status} label={view.label} />
             {view.note && <small className="state-note">{view.note}</small>}
+            {view.seeSources && (
+              <a className="state-link" href="#/sources">
+                Voir les sources
+              </a>
+            )}
           </div>
         );
       },
@@ -664,19 +762,21 @@ function planColumns(
       header: 'Actions',
       className: 'card-action',
       cell: (p) => (
-        <div className="button-row row-actions">
-          <Button
-            variant="secondary"
-            aria-label={`Lancer ${p.name} maintenant`}
-            aria-disabled={p.running || p.queued || undefined}
-            aria-describedby={p.running || p.queued ? `run-hint-${p.id}` : undefined}
-            onClick={() => {
-              if (!p.running && !p.queued) actions.onRun(p);
-            }}
-          >
-            Lancer maintenant
-          </Button>
-          {(p.running || p.queued) && (
+        <div className={`button-row row-actions${runInBanner ? ' row-actions-no-run' : ''}`}>
+          {!runInBanner && (
+            <Button
+              variant="secondary"
+              aria-label={`Lancer ${p.name} maintenant`}
+              aria-disabled={p.running || p.queued || undefined}
+              aria-describedby={p.running || p.queued ? `run-hint-${p.id}` : undefined}
+              onClick={() => {
+                if (!p.running && !p.queued) actions.onRun(p);
+              }}
+            >
+              Lancer maintenant
+            </Button>
+          )}
+          {!runInBanner && (p.running || p.queued) && (
             <small className="state-note" id={`run-hint-${p.id}`}>
               {p.running ? MESSAGES.runBusy : MESSAGES.runAlreadyQueued}
             </small>
@@ -711,6 +811,7 @@ export function PlansListView({
   admin,
   configured,
   mailboxes = [],
+  sources = null,
   failedOnly = false,
   onRetry,
   onRun,
@@ -718,6 +819,8 @@ export function PlansListView({
 }: {
   state: PlansState;
   admin: boolean;
+  /** Rapport d'état des sources : un plan en retard y nomme ses sources en retard. */
+  sources?: SourcesReport | null;
   /** Réduit la liste aux plans en échec (s'il y en a) ; un lien rend la liste entière. */
   failedOnly?: boolean;
   mailboxes?: readonly Mailbox[];
@@ -801,7 +904,7 @@ export function PlansListView({
       {filtered && (
         <>
           {failed.map((p) => {
-            const banner = failureBanner(p, admin);
+            const banner = failureBanner(p, admin, sources);
             const busy = p.running || p.queued;
             return (
               <Alert
@@ -811,6 +914,7 @@ export function PlansListView({
                 action={
                   admin ? (
                     <Button
+                      className="alert-run"
                       aria-label={`Lancer ${p.name} maintenant`}
                       aria-disabled={busy || undefined}
                       aria-describedby={busy ? `banner-run-hint-${p.id}` : undefined}
@@ -832,18 +936,19 @@ export function PlansListView({
               </Alert>
             );
           })}
-          <p>
-            <a href={PLANS_HASH}>Voir tous les plans</a>
-          </p>
         </>
       )}
       <DataTable
         caption="Plans de protection"
         hideCaption
-        columns={planColumns(admin, mailboxes, state.find((p) => p.running)?.name, {
-          onRun,
-          onDelete,
-        })}
+        columns={planColumns(
+          admin,
+          mailboxes,
+          state.find((p) => p.running)?.name,
+          sources,
+          { onRun, onDelete },
+          filtered,
+        )}
         rows={filtered ? failed : state}
         rowKey={(p) => p.id}
       />
@@ -853,6 +958,30 @@ export function PlansListView({
 
 // ---- Écran ----------------------------------------------------------------------------------
 
+/** Phrase d'introduction : dit le filtre « plans en échec » (`shown` sur `total`) quand il est actif. */
+export function PlansIntro({
+  shown,
+  total,
+}: {
+  shown?: number | undefined;
+  total?: number | undefined;
+}) {
+  if (shown === undefined || total === undefined)
+    return <p>Ce que chaque plan sauvegarde, et quand.</p>;
+  // Tous les plans sont en échec : le filtre ne cache rien, le lien serait inutile.
+  if (shown === total)
+    return (
+      <p>
+        Plans en échec : {shown} sur {total}.
+      </p>
+    );
+  return (
+    <p>
+      Plans en échec : {shown} sur {total}. <a href={PLANS_HASH}>Voir les {total} plans</a>
+    </p>
+  );
+}
+
 /** Écran `#/plans` : liste, parcours de création ou de modification, lancement et suppression. */
 export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean }) {
   const [state, setState] = useState<PlansState>('loading');
@@ -860,15 +989,22 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     configured: true,
     mailboxes: [],
   });
+  const [sites, setSites] = useState<Mailbox[]>([]);
+  const [sources, setSources] = useState<SourcesReport | null>(null);
   const [flash, setFlash] = useState<Flash>();
   const [runTarget, setRunTarget] = useState<PlanItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlanItem | null>(null);
 
+  const named = useMemo(() => [...boxes.mailboxes, ...sites], [boxes.mailboxes, sites]);
   const load = useCallback(() => {
-    Promise.all([fetchPlans(), fetchMailboxes()]).then(
-      ([plans, mailboxes]) => {
+    // L'état des sources nomme ce qui est en retard ; sans lui, la liste reste lisible.
+    const status = fetchStatus().catch(() => null);
+    Promise.all([fetchPlans(), fetchMailboxes(), fetchSites(), status]).then(
+      ([plans, mailboxes, found, report]) => {
+        setSources(report);
         setState(plans);
         setBoxes(mailboxes);
+        setSites(found.status === 'ok' ? found.data : []);
       },
       () => {
         setState('error');
@@ -979,6 +1115,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         initial={plan ? formFromPlan(plan) : emptyForm()}
         editing={editing !== undefined}
         mailboxes={boxes.mailboxes}
+        sites={sites}
         takenNames={
           Array.isArray(state) ? state.filter((p) => p.id !== editing).map((p) => p.name) : []
         }
@@ -991,7 +1128,8 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         state={state}
         admin={admin}
         configured={boxes.configured}
-        mailboxes={boxes.mailboxes}
+        mailboxes={named}
+        sources={sources}
         failedOnly={route.page === 'list' && route.failedOnly === true}
         onRetry={reloadList}
         onRun={setRunTarget}
@@ -1006,23 +1144,35 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
       ? 'Modifier le plan'
       : 'Créer un plan de protection';
   const canCreate = admin && boxes.configured;
+  const failedShown = Array.isArray(state) ? state.filter(isFailed).length : 0;
+  const failedView =
+    !wizard &&
+    Array.isArray(state) &&
+    route.page === 'list' &&
+    route.failedOnly === true &&
+    failedShown > 0
+      ? { shown: failedShown, total: state.length }
+      : null;
   return (
     <main tabIndex={-1}>
-      <div className="page-header">
-        <h1>{title}</h1>
-        {!wizard && admin && (
-          <Button
-            aria-disabled={!canCreate || undefined}
-            onClick={() => {
-              if (canCreate) goTo(NEW_PLAN_HASH);
-            }}
-          >
-            <span aria-hidden="true">+ </span>
-            Créer un plan
-          </Button>
-        )}
-      </div>
+      <h1>{title}</h1>
       {!wizard && <SourcesNav current="plans" admin={admin} />}
+      {!wizard && (
+        <div className="view-intro">
+          <PlansIntro shown={failedView?.shown} total={failedView?.total} />
+          {admin && (
+            <Button
+              aria-disabled={!canCreate || undefined}
+              onClick={() => {
+                if (canCreate) goTo(NEW_PLAN_HASH);
+              }}
+            >
+              <span aria-hidden="true">+ </span>
+              Créer un plan
+            </Button>
+          )}
+        </div>
+      )}
       <div aria-live="polite">
         {flash && !wizard && (
           <Alert tone={flash.tone} focusRef={flashRef}>
@@ -1033,10 +1183,10 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
       {body}
       {!wizard && (
         <>
-          <RunDialog plan={runTarget} onClose={closeRun} onRun={onRun} />
+          <RunDialog plan={runTarget} mailboxes={named} onClose={closeRun} onRun={onRun} />
           <DeleteDialog
             plan={deleteTarget}
-            mailboxes={boxes.mailboxes}
+            mailboxes={named}
             onClose={() => {
               setDeleteTarget(null);
             }}

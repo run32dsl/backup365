@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ConfigurationNotice, connectionLine, useConfiguration } from './ConfigurationBlock.js';
-import { dateTimeOf } from './format.js';
+import { dateTimeOf, workloadLabel } from './format.js';
 import { HomeCoverage } from './HomeCoverage.js';
 import { fetchOverview, type Overview } from './overview.js';
 import {
@@ -31,6 +31,20 @@ export function backupMessage(state: Overview): string {
   return MESSAGES[state.state];
 }
 
+/** Phrase du retard : une sauvegarde est nommée, plusieurs sont résumées par service. */
+export function lateMessage(late: Overview['lateBackups']): string {
+  const [first] = late;
+  if (!first) return '';
+  if (late.length === 1) {
+    const at = dateTimeOf(first.lastSnapshotAt);
+    return `1 sauvegarde en retard : ${workloadLabel(first.service)}, ${first.name}${at && `, dernière réussite le ${at} UTC`}.`;
+  }
+  const services = (['mail', 'onedrive', 'sharepoint'] as const)
+    .filter((s) => late.some((l) => l.service === s))
+    .map(workloadLabel);
+  return `${late.length} sauvegardes en retard (${services.join(', ')}).`;
+}
+
 /** `il y a 3 h`, `il y a 2 j` : le jour, jamais la semaine ni le mois. */
 export function agoLabel(iso: string, now: number): string {
   const hours = Math.max(0, Math.floor((now - Date.parse(iso)) / 3_600_000));
@@ -50,6 +64,11 @@ const goToNewPlan = () => {
 /** « Voir l'erreur » : la liste des plans, réduite à ceux en échec, avec la cause. */
 const goToFailedPlans = () => {
   window.location.hash = FAILED_PLANS_HASH;
+};
+
+/** « Voir les sources » : la page Sources, où chaque sauvegarde en retard est listée. */
+const goToSources = () => {
+  window.location.hash = '#/sources';
 };
 
 /** « Voir les plans » : la liste des plans, sans filtre. */
@@ -94,9 +113,29 @@ function PlanStates({ plans }: { plans: Overview['plans'] }) {
 }
 
 /** Action unique de la carte « Sauvegarde » : « Créer un plan » (administrateur) ou « Voir l'erreur ». */
-export function BackupAction({ state, admin }: { state: Overview['state']; admin: boolean }) {
-  if (state === 'failed') return <Button onClick={goToFailedPlans}>Voir l’erreur</Button>;
-  if (state !== 'unconfigured') return null;
+export function BackupAction({
+  state,
+  admin,
+  late = false,
+}: {
+  state: Overview['state'];
+  admin: boolean;
+  /** Au moins une sauvegarde en retard : « Voir les sources », en contour sous l'action principale. */
+  late?: boolean;
+}) {
+  const sources = late && (
+    <Button variant="secondary" onClick={goToSources}>
+      Voir les sources
+    </Button>
+  );
+  if (state === 'failed')
+    return (
+      <>
+        <Button onClick={goToFailedPlans}>Voir l’erreur</Button>
+        {sources}
+      </>
+    );
+  if (state !== 'unconfigured') return sources || null;
   return admin ? (
     <Button onClick={goToNewPlan}>Créer un plan</Button>
   ) : (
@@ -151,17 +190,19 @@ export function OverviewView({
     );
   }
   const { plans } = state;
+  const isLate = state.lateBackups.length > 0;
   const last = state.lastBackupAt;
   const lastDate = last === null ? '' : dateTimeOf(last);
   return (
     <div className="overview">
       <Card id="overview-backup" title="Sauvegarde">
         <div role="status">
-          <StatusPill status={state.state} />
+          <StatusPill status={isLate && state.state === 'operational' ? 'late' : state.state} />
         </div>
         {backupMessage(state) && <p>{backupMessage(state)}</p>}
+        {isLate && <p>{lateMessage(state.lateBackups)}</p>}
         {connection && <p className="overview-connection">{connection}</p>}
-        <BackupAction state={state.state} admin={admin} />
+        <BackupAction state={state.state} admin={admin} late={isLate} />
       </Card>
       <Card id="overview-plans" title="Plans">
         {plans.total === 0 ? (
@@ -235,7 +276,7 @@ export function Home({ admin = false }: { admin?: boolean }) {
   }, [state]);
   return (
     <main tabIndex={-1}>
-      <h1 tabIndex={-1}>Tableau de bord</h1>
+      <h1 tabIndex={-1}>Accueil</h1>
       <div role="status" className="sr-only">
         {retried.current ? announcementOf(state) : ''}
       </div>

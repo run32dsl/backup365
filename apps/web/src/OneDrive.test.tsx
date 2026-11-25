@@ -1,6 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { ConfirmStep, EntriesTable, TrackStep } from './OneDrivePage.js';
+import { BrowseStep, ConfirmStep, EntriesTable, TrackStep } from './OneDrivePage.js';
 import {
   ONEDRIVE_MESSAGES,
   breadcrumbOf,
@@ -10,6 +10,7 @@ import {
   fetchEntries,
   fetchSnapshots,
   isOutcomeUncertain,
+  restoredSummary,
   oneDriveHash,
   parseOneDriveHash,
   restoreBlocked,
@@ -42,13 +43,15 @@ describe('OneDrive route', () => {
     expect(screenOf('#/onedrive/a')).toBe('onedrive');
   });
 
-  it('builds the breadcrumb from Accueil', () => {
-    expect(breadcrumbOf('/Documents/Budget')).toEqual([
-      { label: 'Accueil', path: '/' },
+  it('roots the breadcrumb at the account, which leads back to the drive root', () => {
+    expect(breadcrumbOf('/Documents/Budget', 'claire.durand@exemple.fr')).toEqual([
+      { label: 'claire.durand@exemple.fr', path: '/' },
       { label: 'Documents', path: '/Documents' },
       { label: 'Budget', path: '/Documents/Budget' },
     ]);
-    expect(breadcrumbOf('/')).toHaveLength(1);
+    expect(breadcrumbOf('/', 'claire.durand@exemple.fr')).toEqual([
+      { label: 'claire.durand@exemple.fr', path: '/' },
+    ]);
   });
 });
 
@@ -81,8 +84,8 @@ describe('OneDrive wording', () => {
     expect(confirmRowsOf({ ...base, mode: 'copy' })).toEqual([
       ['Compte', 'compte@exemple.test'],
       ['Élément', 'budget.xlsx'],
-      ['Sauvegarde du (UTC)', '14/11/2026 09:00'],
-      ['Version du (UTC)', '10/11/2026 18:30'],
+      ['Date de la sauvegarde (UTC)', '14/11/2026 09:00'],
+      ['Date de la version (UTC)', '10/11/2026 18:30'],
       ['Emplacement', 'Documents > Budget'],
       ['Restauré sous le nom', 'budget (restauré le 14-11-2026).xlsx'],
       ['Motif', 'Reprise après incident'],
@@ -91,7 +94,7 @@ describe('OneDrive wording', () => {
     expect(replace).toContainEqual(['Fichier remplacé', 'budget.xlsx']);
     expect(replace.map(([label]) => label)).not.toContain('Restauré sous le nom');
     expect(confirmRowsOf({ ...base, versionAt: null, mode: 'copy' }).map(([l]) => l)).not.toContain(
-      'Version du (UTC)',
+      'Date de la version (UTC)',
     );
     expect(COPY_CONSEQUENCE).toBe('Aucun fichier existant ne sera modifié.');
     expect(replaceWarningOf('budget.xlsx', '2026-11-18T16:59:00Z')).toBe(
@@ -169,7 +172,7 @@ describe('OneDrive entries table', () => {
       name: '2025',
       path: '/Budget 2025/2025',
       kind: 'folder' as const,
-      versionAt: null,
+      versionAt: '2026-11-19T09:34:00.000Z',
       sizeBytes: null,
     },
     {
@@ -194,8 +197,10 @@ describe('OneDrive entries table', () => {
   it('has no emoji, no « Choix » column and a UTC date header', () => {
     expect(html).not.toMatch(/\p{Extended_Pictographic}/u);
     expect(html).not.toContain('Choix');
-    expect(html).toContain('Version du (UTC)');
+    expect(html).toContain('Date de la version (UTC)');
     expect(html).toContain('dossier</span>');
+    // The folder carries a version date in the data; the table shows « — » like its size.
+    expect(html).not.toContain('19/11/2026');
   });
 
   it('shows « — » for absent values in the table; the mobile card shows none', () => {
@@ -291,8 +296,7 @@ describe('OneDrive replace confirmation', () => {
     expect(out).not.toContain('Vous allez restaurer');
     expect(out).not.toContain('Motif : ');
     expect(out).toContain('<dt>Motif</dt><dd>Ticket #1 : essai</dd>');
-    expect(out.indexOf('Mode')).toBeLessThan(out.indexOf('<h2>Récapitulatif</h2>'));
-    expect(out.indexOf('<h2>Récapitulatif</h2>')).toBeLessThan(out.indexOf('<dt>Compte</dt>'));
+    expect(out).not.toContain('<h2>Récapitulatif</h2>');
     expect(out).toContain('Aucun fichier existant ne sera modifié.');
   });
 });
@@ -334,11 +338,15 @@ describe('OneDrive result list', () => {
       />,
     );
     expect(out).toContain('<dt>Compte</dt><dd>a@exemple.fr</dd>');
-    expect(out).toContain('<dt>Version du (UTC)</dt><dd>10/11/2026 18:30</dd>');
+    expect(out).toContain('<dt>Date de la version (UTC)</dt><dd>10/11/2026\u00a018:30</dd>');
     const label = status === 'succeeded' ? 'Élément restauré' : 'Élément';
-    const at = ['Compte', label, 'Sauvegarde du (UTC)', 'Version du (UTC)', 'Emplacement'].map(
-      (l) => out.indexOf(`<dt>${l}</dt>`),
-    );
+    const at = [
+      'Compte',
+      label,
+      'Date de la sauvegarde (UTC)',
+      'Date de la version (UTC)',
+      'Emplacement',
+    ].map((l) => out.indexOf(`<dt>${l}</dt>`));
     expect(at.every((i, n) => i >= 0 && (n === 0 || i > at[n - 1]!))).toBe(true);
     if (status === 'succeeded') {
       expect(out).toContain(
@@ -372,13 +380,89 @@ describe('OneDrive result list', () => {
       snapshotId: 's1',
       version: { versionId: 'v1', at: '2026-10-01T08:00:00.000Z' },
     });
-    expect(out).toContain('<dt>Version du (UTC)</dt><dd>01/10/2026 08:00</dd>');
+    expect(out).toContain('<dt>Date de la version (UTC)</dt><dd>01/10/2026\u00a008:00</dd>');
   });
 
   it('omits the version row when no version date is known', () => {
     const out = render({ entry: { ...entry, versionAt: null }, snapshotId: 's1' });
-    expect(out).not.toContain('<dt>Version du (UTC)</dt>');
+    expect(out).not.toContain('<dt>Date de la version (UTC)</dt>');
     expect(out).toContain('<dt>Compte</dt>');
     expect(out).toContain('<dt>Emplacement</dt>');
+  });
+});
+
+describe('OneDrive breadcrumb', () => {
+  it('starts at the selected account and never shows Accueil', () => {
+    const out = renderToString(
+      <BrowseStep
+        route={{ account: 'u1', path: '/Documents/Budget' }}
+        account="u1"
+        accounts={[
+          { id: 'u0', displayName: 'autre@exemple.fr' },
+          { id: 'u1', displayName: 'claire.durand@exemple.fr' },
+        ]}
+        snapshots={[]}
+        snapshotId=""
+        onSnapshot={() => undefined}
+        configured
+        onChoose={() => undefined}
+      />,
+    );
+    const nav = out.slice(out.indexOf('<nav'), out.indexOf('</nav>'));
+    expect(nav).toMatch(/<a href="#\/onedrive\/u1">claire\.durand@exemple\.fr<\/a>/);
+    expect(nav).not.toContain('Accueil');
+    expect(nav).toContain('<span aria-current="location">Budget</span>');
+    expect(nav.match(/aria-current/g)).toHaveLength(1);
+  });
+});
+
+describe('OneDrive choose step without selection', () => {
+  it('explains the inactive « Continuer » and links it by aria-describedby', () => {
+    const out = renderToString(
+      <BrowseStep
+        route={{ account: 'u1', path: '/' }}
+        account="u1"
+        accounts={[{ id: 'u1', displayName: 'claire.durand@exemple.fr' }]}
+        snapshots={[]}
+        snapshotId=""
+        onSnapshot={() => undefined}
+        configured
+        onChoose={() => undefined}
+      />,
+    );
+    const help =
+      /<p id="([^"]+)" class="field-help">Cochez un fichier ou un dossier pour continuer\./.exec(
+        out,
+      );
+    expect(help).not.toBeNull();
+    const button = /<button[^>]*>Continuer<\/button>/.exec(out)?.[0] ?? '';
+    expect(button).toContain(`aria-describedby="${help?.[1] ?? ''}"`);
+    expect(button).toContain('is-inactive');
+    expect(button).toContain('aria-disabled="true"');
+  });
+
+  it('still references the choose hint when the storage is not configured', () => {
+    const out = renderToString(
+      <BrowseStep
+        route={{ account: 'u1', path: '/' }}
+        account="u1"
+        accounts={[{ id: 'u1', displayName: 'claire.durand@exemple.fr' }]}
+        snapshots={[]}
+        snapshotId=""
+        onSnapshot={() => undefined}
+        configured={false}
+        onChoose={() => undefined}
+      />,
+    );
+    const help = /<p id="([^"]+)" class="field-help">Cochez un fichier ou un dossier/.exec(out);
+    const button = /<button[^>]*>Continuer<\/button>/.exec(out)?.[0] ?? '';
+    expect(button).toContain(`aria-describedby="${help?.[1] ?? ''} `);
+  });
+});
+
+describe('restoredSummary', () => {
+  it('says what was restored, never the title of the box', () => {
+    expect(restoredSummary('file', '2 s')).toBe('1 fichier restauré en 2 s.');
+    expect(restoredSummary('folder', '2 s')).toBe('Dossier restauré en 2 s.');
   });
 });

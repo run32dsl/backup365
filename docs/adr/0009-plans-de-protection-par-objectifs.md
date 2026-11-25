@@ -137,8 +137,10 @@ true }` (ADR 0017).
   avec le tableau de bord) ne change pas. `lastSuccessAt` (qui fonde la conformité) compte
   toujours une réussite vide. L’écran des plans écrit « Rien copié, <date> » dans la colonne « Dernière
   exécution » (jamais « Réussie », issue #369) et, si aucune réussite n’a créé de point, la
-  pastille neutre « En attente » avec la note « Rien à sauvegarder dans le périmètre : vérifiez
-  la boîte, le compte ou le site choisi. » (issue #289) : rien n’a été copié, l’état ne doit pas
+  pastille neutre « En attente » avec une note qui dépend du périmètre et des services (issues #289, #532) : l’élément
+  choisi est nommé (« Rien à sauvegarder dans <boîte> : vérifiez que cette boîte existe et
+  contient des mails. »), « toute l’organisation » renvoie à la connexion Microsoft 365 et à ses
+  autorisations. Rien n’a été copié, l’état ne doit pas
   être vert.
   Le tableau de bord, fondé sur `compliance.state`, n’est pas modifié par cette issue.
 - Identifiants : `BACKUP365_M365_CLIENT_ID` et `BACKUP365_M365_CLIENT_SECRET` (variante

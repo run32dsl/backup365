@@ -31,7 +31,8 @@ export const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as Role[]).map((role) => (
 
 /** Textes d'état de l'écran des comptes. */
 export const NO_OPERATOR = 'Aucun opérateur pour l’instant.';
-export const OIDC_PASSWORD_NOTICE = 'Mot de passe géré par Microsoft';
+export const OIDC_MANAGED_NOTICE =
+  'Compte Microsoft : mot de passe et rôle gérés dans Microsoft Entra (groupes).';
 export const LAST_ADMIN_NOTICE =
   'Dernier administrateur : ce compte ne peut être ni désactivé ni rétrogradé.';
 

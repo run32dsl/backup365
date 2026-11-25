@@ -1,12 +1,21 @@
 import { useState } from 'react';
-import type {
-  BackupState,
-  ComplianceState,
-  PlanComplianceReport,
-  StatusReport,
+import {
+  effectiveState,
+  type BackupState,
+  type ComplianceState,
+  type PlanComplianceReport,
+  type StatusReport,
 } from '@backup365/core';
 import { Alert, Button, DataTable, EmptyState, StatusPill, type Column } from './ui/index.js';
-import { PLANS_HASH, lateNote, retentionLabel, runLabel } from './plans.js';
+import {
+  PLANS_HASH,
+  UNIT_NAMES,
+  lateNote,
+  lateSourcesNote,
+  retentionLabel,
+  runLabel,
+  serviceOf,
+} from './plans.js';
 import { searchHref } from './mail.js';
 import { ageLabel, dateTimeOf, dateTimeOrDash, plural, workloadLabel } from './format.js';
 import { AUDIT_HASH } from './routes.js';
@@ -19,11 +28,19 @@ function contentLabel(r: Row): string {
   return r.kind === 'site' ? 'Site SharePoint' : workloadLabel(r.workload);
 }
 
+/** Ligne secondaire d'une source dont un plan a échoué : le plan, la date, et qui la couvre. */
+export function failureNote(r: Row): string | undefined {
+  if (!r.failure) return undefined;
+  const head = `Plan « ${r.failure.plan} » : échec le ${dateTimeOf(r.failure.at)} UTC`;
+  const by = r.failure.coveredBy;
+  return by ? `${head} · dernière réussite par « ${by.plan} » le ${dateTimeOf(by.at)} UTC` : head;
+}
+
 const COLUMNS: Column<Row>[] = [
   {
     header: 'Source',
     cell: (r) =>
-      r.state !== 'ok' && r.kind === 'mailbox' && r.workload === 'mail' ? (
+      effectiveState(r) !== 'ok' && r.kind === 'mailbox' && r.workload === 'mail' ? (
         <a href={searchHref(r.sourceId)}>{r.displayName}</a>
       ) : (
         r.displayName
@@ -32,7 +49,18 @@ const COLUMNS: Column<Row>[] = [
   { header: 'Contenu', cell: contentLabel, className: 'nowrap' },
   { header: 'Dernière sauvegarde (UTC)', cell: (r) => dateTimeOrDash(r.lastSnapshotAt) },
   { header: 'Ancienneté', cell: (r) => ageLabel(r.ageHours) },
-  { header: 'État', cell: (r) => <StateBadge state={r.state} /> },
+  {
+    header: 'État',
+    cell: (r) => {
+      const note = failureNote(r);
+      return (
+        <div>
+          <StateBadge state={effectiveState(r)} />
+          {note && <small className="state-note">{note}</small>}
+        </div>
+      );
+    },
+  },
 ];
 
 /** État du chargement du tableau de bord. */
@@ -63,7 +91,7 @@ const SEVERITY: Record<BackupState, number> = { missing: 0, stale: 1, ok: 2 };
 export function sortRows(rows: Row[]): Row[] {
   return [...rows].sort(
     (a, b) =>
-      SEVERITY[a.state] - SEVERITY[b.state] ||
+      SEVERITY[effectiveState(a)] - SEVERITY[effectiveState(b)] ||
       (b.ageHours ?? Number.POSITIVE_INFINITY) - (a.ageHours ?? Number.POSITIVE_INFINITY),
   );
 }
@@ -117,9 +145,9 @@ function fromRows(service: ServiceEntry['service'], rows: readonly Row[]) {
     if (last === null || Date.parse(r.lastSnapshotAt) > Date.parse(last.lastSnapshotAt ?? ''))
       last = r;
   }
-  const state: BackupState = own.some((r) => r.state === 'missing')
+  const state: BackupState = own.some((r) => effectiveState(r) === 'missing')
     ? 'missing'
-    : own.some((r) => r.state === 'stale')
+    : own.some((r) => effectiveState(r) === 'stale')
       ? 'stale'
       : 'ok';
   return { last, state };
@@ -145,33 +173,24 @@ function reconcile(
   return {
     ...s,
     hasPlan,
-    // La date du serveur (fin de la réussite du plan) est l'heure de référence, la même que sur
-    // l'accueil et dans les plans ; la date du catalogue ne sert que sans elle.
-    lastSnapshotAt: s.lastSnapshotAt ?? own.last.lastSnapshotAt,
-    ageHours: s.lastSnapshotAt === null ? own.last.ageHours : s.ageHours,
+    // La date d'un service est celle de la plus récente ligne du tableau « Sauvegardes ».
+    lastSnapshotAt: own.last.lastSnapshotAt,
+    ageHours: own.last.ageHours,
     state: own.state,
     awaitingFirstRun: false,
   };
 }
 
-/** Le service d'une ligne du catalogue : un site est toujours SharePoint. */
-function serviceOf(r: Row): ServiceEntry['service'] {
-  if (r.kind === 'site') return 'sharepoint';
-  return r.workload === 'onedrive' ? 'onedrive' : 'mail';
-}
-
-const UNIT_NAMES: Record<ServiceEntry['service'], string> = {
-  mail: 'boîte',
-  onedrive: 'compte',
-  sharepoint: 'site',
-};
-
-/** `1 compte sur 5 en retard` ; chaîne vide si aucune source du service n'est en retard. */
+/**
+ * `1 compte sur 5 en retard`, ou `1 boîte sur 5 en échec` quand chaque source non à jour a un plan
+ * en échec ; chaîne vide si aucune source du service n'est en retard ni en échec.
+ */
 export function lateCause(service: ServiceEntry['service'], rows: readonly Row[]): string {
   const own = rows.filter((r) => serviceOf(r) === service);
-  const late = own.filter((r) => r.state !== 'ok').length;
+  const late = own.filter((r) => effectiveState(r) !== 'ok').length;
   if (late === 0) return '';
-  return `${plural(late, UNIT_NAMES[service])} sur ${own.length} en retard`;
+  const failed = own.filter((r) => effectiveState(r) !== 'ok' && r.failure).length;
+  return `${plural(late, UNIT_NAMES[service])} sur ${own.length} en ${failed === late ? 'échec' : 'retard'}`;
 }
 
 /**
@@ -216,10 +235,13 @@ function ServiceState({
     );
   }
   const cause = lateCause(service.service, rows);
+  const hasFailure = rows.some((r) => serviceOf(r) === service.service && r.failure);
   return (
     <div>
       <StateBadge state={service.state} />
-      {service.state === 'stale' && cause !== '' && <small className="state-note">{cause}</small>}
+      {cause !== '' && (service.state === 'stale' || hasFailure) && (
+        <small className="state-note">{cause}</small>
+      )}
       {service.state === 'missing' && (
         <a
           className="state-link"
@@ -292,7 +314,7 @@ const hasBackupsOf = (p: PlanEntry, rows: readonly Row[]): boolean =>
   p.lastRun === null &&
   rows.some((r) => r.lastSnapshotAt !== null && (p.dataTypes ?? []).includes(serviceOf(r)));
 
-const planColumns = (rows: readonly Row[]): Column<PlanEntry>[] => [
+const planColumns = (report: StatusReport): Column<PlanEntry>[] => [
   { header: 'Plan', cell: (p) => <a href={PLANS_HASH}>{p.name}</a> },
   // Même texte que la liste des plans (hors « Rien copié » sans point de restauration, que ce
   // rapport ne porte pas) : la dernière exécution du plan, jamais une date de service.
@@ -300,7 +322,10 @@ const planColumns = (rows: readonly Row[]): Column<PlanEntry>[] => [
   {
     header: 'État',
     cell: (p) => {
-      const note = lateNote(p.state, p.lastSuccessAt, hasBackupsOf(p, rows));
+      // Un plan en retard dont la réussite est récente : la note nomme les sources en retard.
+      const fromSources = p.state === 'late' ? lateSourcesNote(p, report) : undefined;
+      const note =
+        fromSources?.text ?? lateNote(p.state, p.lastSuccessAt, hasBackupsOf(p, report.rows));
       return (
         <div>
           <StatusPill status={p.state === 'failed' ? 'failed' : 'late'} />
@@ -323,14 +348,16 @@ function Counts({
 }) {
   return (
     <ul className="plan-counts">
-      {COMPLIANCE_ORDER.map((state) => (
-        <li key={state}>
-          <StatusPill status={state} label={STATE_LABELS[state]} />{' '}
-          <strong>
-            {state === 'compliant' ? Math.max(0, counts[state] - pending) : counts[state]}
-          </strong>
-        </li>
-      ))}
+      {COMPLIANCE_ORDER.filter((state) => state === 'compliant' || counts[state] > 0).map(
+        (state) => (
+          <li key={state}>
+            <StatusPill status={state} label={STATE_LABELS[state]} />{' '}
+            <strong>
+              {state === 'compliant' ? Math.max(0, counts[state] - pending) : counts[state]}
+            </strong>
+          </li>
+        ),
+      )}
       {pending > 0 && (
         <li>
           <StatusPill status="pending" /> <strong>{pending}</strong>
@@ -341,13 +368,8 @@ function Counts({
 }
 
 /** Conformité des plans de protection : décompte par état, puis les plans non conformes. */
-function PlansCompliance({
-  plans,
-  rows,
-}: {
-  plans: PlanComplianceReport | null | undefined;
-  rows: readonly Row[];
-}) {
+function PlansCompliance({ report }: { report: StatusReport }) {
+  const plans = report.plans;
   if (plans === undefined) return null;
   if (plans === null) return <Alert tone="error">Conformité des plans indisponible</Alert>;
   const total = COMPLIANCE_ORDER.reduce((sum, state) => sum + plans.counts[state], 0);
@@ -362,7 +384,7 @@ function PlansCompliance({
           {plans.nonCompliant.length > 0 && (
             <DataTable
               caption="Plans en retard ou en échec"
-              columns={planColumns(rows)}
+              columns={planColumns(report)}
               rows={plans.nonCompliant}
               rowKey={(p) => p.id}
               empty={{ message: 'Aucun plan en retard ou en échec.' }}
@@ -384,7 +406,8 @@ function unprotectedServices(report: StatusReport): ServiceEntry['service'][] {
 
 /** Bandeau de synthèse : « mes sauvegardes vont-elles bien ? » */
 function Summary({ report }: { report: StatusReport }) {
-  const count = (state: BackupState) => report.rows.filter((r) => r.state === state).length;
+  const count = (state: BackupState) =>
+    report.rows.filter((r) => effectiveState(r) === state).length;
   const plans = report.plans ?? null;
   const parts: [number, string, string][] = [
     [count('stale'), 'sauvegarde', 'en retard'],
@@ -425,11 +448,12 @@ function Backups({ report }: { report: StatusReport }) {
   // Une source sans plan n'a pas de ligne « À jour » : rien ne garantit qu'elle le reste.
   const unprotected = unprotectedServices(report);
   const rows = sortRows(
-    report.rows.filter((r) => r.state !== 'ok' || !unprotected.includes(serviceOf(r))),
+    report.rows.filter((r) => effectiveState(r) !== 'ok' || !unprotected.includes(serviceOf(r))),
   );
-  const okCount = rows.filter((r) => r.state === 'ok').length;
+  const okCount = rows.filter((r) => effectiveState(r) === 'ok').length;
   const counts: Record<ComplianceState, number> = { compliant: okCount, late: 0, failed: 0 };
-  for (const r of rows) if (r.state !== 'ok') counts[STATE_COMPLIANCE[r.state]]++;
+  for (const r of rows)
+    if (effectiveState(r) !== 'ok') counts[STATE_COMPLIANCE[effectiveState(r)]]++;
   return (
     <section className="status-section" aria-labelledby="backups-title">
       <h2 id="backups-title">Sauvegardes</h2>
@@ -442,7 +466,7 @@ function Backups({ report }: { report: StatusReport }) {
           columns={COLUMNS}
           rows={rows}
           rowKey={(r) => `${r.kind}/${r.sourceId}/${r.workload}`}
-          rowClassName={(r) => (r.state === 'ok' ? 'row-ok' : undefined)}
+          rowClassName={(r) => (effectiveState(r) === 'ok' ? 'row-ok' : undefined)}
           empty={{
             message:
               report.rows.length > 0
@@ -482,7 +506,7 @@ export function StatusView({ state }: { state: StatusState }) {
     <>
       <Summary report={state} />
       <Services report={state} />
-      <PlansCompliance plans={state.plans} rows={state.rows} />
+      <PlansCompliance report={state} />
       <Backups report={state} />
     </>
   );

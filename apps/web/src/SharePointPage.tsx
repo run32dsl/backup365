@@ -7,6 +7,7 @@ import { cardSummary, dateTimeOrDash } from './format.js';
 import { RestoreFailureAlert, restoreFailureBanner } from './restoreFailure.js';
 import { RESTORE_LABELS } from './restoreLabels.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
+import { selectionLabel, WHOLE_SITE_SELECTION } from './selection.js';
 import {
   AuditReminder,
   REASON,
@@ -23,7 +24,6 @@ import {
   SHAREPOINT_MESSAGES as T,
   continueHint,
   scopeOfKind,
-  selectionLabel,
   dateTimeOf,
   errorItemLabel,
   failureCause,
@@ -76,6 +76,7 @@ interface Choice {
   path: string;
   snapshotId: string;
   pointAt: string;
+  versionAt?: string | null | undefined;
 }
 
 export function Problem({
@@ -110,6 +111,14 @@ const LINK_SCOPE: SiteScope = 'item';
 export interface Selected {
   path: string;
   kind: SiteEntry['kind'];
+  /** Date de la version choisie, pour un fichier. */
+  versionAt?: string | null;
+}
+
+function selectionOf(e: SiteEntry): Selected {
+  return e.kind === 'file'
+    ? { path: e.path, kind: e.kind, versionAt: e.versionAt }
+    : { path: e.path, kind: e.kind };
 }
 
 /** Liste d'un niveau du site : même présentation que celle d'OneDrive (`EntriesTable`). */
@@ -134,7 +143,7 @@ export function SiteEntriesTable({
         rows={rows}
         rowKey={(e) => e.path}
         onRowClick={(e) => {
-          onSelect({ path: e.path, kind: e.kind });
+          onSelect(selectionOf(e));
         }}
         columns={[
           {
@@ -148,7 +157,7 @@ export function SiteEntriesTable({
                   aria-label={e.name}
                   checked={selected?.path === e.path}
                   onChange={() => {
-                    onSelect({ path: e.path, kind: e.kind });
+                    onSelect(selectionOf(e));
                   }}
                 />
                 {e.kind === 'file' ? (
@@ -167,9 +176,9 @@ export function SiteEntriesTable({
             ),
           },
           {
-            header: 'Version du (UTC)',
+            header: RESTORE_LABELS.versionAt,
             className: 'card-hidden',
-            cell: (e) => dateTimeOrDash(e.versionAt),
+            cell: (e) => (e.kind === 'file' ? dateTimeOrDash(e.versionAt) : '—'),
           },
           {
             header: 'Taille',
@@ -382,9 +391,12 @@ export function ChooseStep({
 
       <p aria-live="polite">
         {whole
-          ? 'Sélection : le site entier'
+          ? WHOLE_SITE_SELECTION
           : selected
-            ? `Sélection : ${selectionLabel(selected)}`
+            ? selectionLabel({
+                kind: selected.kind,
+                name: selected.path.split('/').filter(Boolean).at(-1) ?? selected.path,
+              })
             : null}
       </p>
       {!ok && (
@@ -404,6 +416,7 @@ export function ChooseStep({
                 path: whole ? '/' : (selected?.path ?? '/'),
                 snapshotId,
                 pointAt: point.createdAt,
+                versionAt: scope === 'item' ? selected?.versionAt : undefined,
               });
             }
           }}
@@ -520,7 +533,6 @@ export function ConfirmStep({
 
   return (
     <form onSubmit={submit} noValidate>
-      <h2>Récapitulatif</h2>
       <ResultList
         rows={confirmRowsOf({
           scope: choice.scope,
@@ -590,6 +602,7 @@ export function ConfirmStep({
 export function TrackStep({
   job,
   pointAt,
+  versionAt,
   siteName,
   onJob,
   onAgain,
@@ -597,6 +610,7 @@ export function TrackStep({
 }: {
   job: SiteJob;
   pointAt?: string | undefined;
+  versionAt?: string | null | undefined;
   siteName: string;
   onJob: (job: SiteJob) => void;
   onAgain: () => void;
@@ -635,6 +649,7 @@ export function TrackStep({
 
   const untreated = Math.max(0, job.total - job.restored - job.skipped - job.errors);
   const failedNormally = job.status === 'failed' && !isOutcomeUncertain(job.error);
+  const single = job.scope === 'item';
   const countRows: [string, ReactNode][] = [
     ['Site', siteName],
     [
@@ -642,14 +657,15 @@ export function TrackStep({
       restoredContentLabel(job.scope, job.path),
     ],
   ];
-  if (pointAt) countRows.push([RESTORE_LABELS.backupAt, dateTimeOf(pointAt)]);
+  if (pointAt) countRows.push([RESTORE_LABELS.backupDate, dateTimeOf(pointAt)]);
+  if (single && versionAt) countRows.push([RESTORE_LABELS.versionAt, dateTimeOf(versionAt)]);
   countRows.push(...placementRows(job.scope, siteName, job.path));
   if (job.status === 'failed' && job.restored > 0) {
     countRows.push(['Éléments restaurés', job.restored]);
   }
   if (job.status === 'succeeded' && job.copyName) countRows.push(['Restauré sous', job.copyName]);
   if (failedNormally && untreated > 0) countRows.push(['Éléments non traités', untreated]);
-  if (job.status !== 'running' && job.errors > 0) {
+  if (job.status !== 'running' && job.errors > 0 && !single) {
     countRows.push(['Éléments en erreur', job.errors]);
     const named = errorItemLabel(job);
     if (named) countRows.push(['En erreur', named]);
@@ -835,6 +851,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
         key={job.id}
         job={job}
         pointAt={choice?.pointAt}
+        versionAt={choice?.versionAt}
         siteName={site.displayName}
         onJob={setJob}
         onAgain={reset}

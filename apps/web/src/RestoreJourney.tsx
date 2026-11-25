@@ -8,7 +8,7 @@ import { Alert, FormField, WIZARD_LABELS } from './ui/index.js';
  */
 
 /** Étapes de OneDrive et de SharePoint ; `Steps` les affiche jusqu'à la confirmation, pas au suivi. */
-export const RESTORE_STEPS = ['Choisir', 'Motif', 'Confirmation'];
+export const RESTORE_STEPS = ['Choisir', 'Motif', 'Récapitulatif'];
 
 /** Rang de l'écran pour `Steps` : au-delà de la dernière étape, toutes sont terminées (le suivi n'affiche plus `Steps`). */
 export const stepOf = (n: number): number => Math.min(n, RESTORE_STEPS.length + 1);
@@ -129,8 +129,7 @@ export function RunningProgress({ detail }: { detail?: ReactNode }) {
   return (
     <>
       <Alert tone="info">
-        Restauration en cours…{detail ? <> {detail}.</> : null} Vous pouvez quitter cette page, la
-        restauration continue.
+        {detail ? <>{detail}. </> : null}Vous pouvez quitter cette page, la restauration continue.
       </Alert>
       {/* Le SDK ne rend pas de progression : barre sans valeur, jamais un pourcentage inventé. */}
       <div
