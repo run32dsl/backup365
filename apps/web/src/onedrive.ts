@@ -80,9 +80,9 @@ export function oneDriveHash(account: string, path: string): string {
   return [ONEDRIVE_HASH, encodeURIComponent(account), ...segments].join('/');
 }
 
-/** Fil d'Ariane : `Accueil` puis chaque dossier, avec le chemin complet de chacun. */
-export function breadcrumbOf(path: string): { label: string; path: string }[] {
-  const out = [{ label: 'Accueil', path: '/' }];
+/** Fil d'Ariane : le compte (racine du OneDrive) puis chaque dossier, avec le chemin complet. */
+export function breadcrumbOf(path: string, rootLabel: string): { label: string; path: string }[] {
+  const out = [{ label: rootLabel, path: '/' }];
   let current = '';
   for (const segment of path.split('/').filter(Boolean)) {
     current += `/${segment}`;

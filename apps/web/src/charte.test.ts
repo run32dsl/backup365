@@ -205,3 +205,12 @@ describe('charte.css lone actions', () => {
     expect(rule.exec(css)?.[1]).toMatch(/width:\s*100%;/);
   });
 });
+
+describe('charte.css breadcrumb', () => {
+  it('keeps each separator with the level after it, never alone at a line end', () => {
+    expect(/\.breadcrumb li\s*\{[^}]*display:\s*inline-flex;/.test(css)).toBe(true);
+    expect(/\.breadcrumb li::before\s*\{[^}]*content:\s*'>';/.test(css)).toBe(true);
+    expect(/\.breadcrumb li:first-child::before\s*\{[^}]*display:\s*none;/.test(css)).toBe(true);
+    expect(/\.breadcrumb li::after/.test(css)).toBe(false);
+  });
+});
