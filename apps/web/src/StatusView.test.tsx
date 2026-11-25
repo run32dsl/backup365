@@ -455,6 +455,31 @@ describe('StatusView', () => {
       expect(plans).toContain('sauvegardes déjà présentes');
     });
 
+    it('counts a plan with a late OneDrive source as late and lists it (#495)', () => {
+      const plan = {
+        id: 'p',
+        name: 'OneDrive Services',
+        rpoHours: 24 as const,
+        dataTypes: ['onedrive'] as 'onedrive'[],
+        state: 'late' as const,
+        lastSuccessAt: '2026-11-22T03:15:00Z',
+        lastRun: null,
+      };
+      const html = renderToString(
+        <StatusView
+          state={{
+            ...report,
+            rows: [],
+            plans: { counts: { compliant: 2, late: 1, failed: 1 }, nonCompliant: [plan] },
+          }}
+        />,
+      );
+      const plans = html.slice(html.indexOf('Plans de protection'));
+      expect(plans).toMatch(/En retard<\/span> <strong>1<\/strong>/);
+      expect(plans).toContain('Plans en retard ou en échec');
+      expect(plans).toContain('OneDrive Services');
+    });
+
     it('counts a pending plan so that the plan counters add up to the number of plans', () => {
       const html = renderToString(
         <StatusView

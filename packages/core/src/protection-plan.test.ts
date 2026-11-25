@@ -197,6 +197,14 @@ describe('alignment with the listed backups', () => {
     });
   });
 
+  it('counts a plan late when a single covered source is late, as the overview does (#495)', () => {
+    // La route de l'accueil et le rapport de Sources passent par `alignCompliance`.
+    const base = { state: 'compliant' as const, lastSuccessAt: run.finishedAt };
+    expect(alignCompliance(base, plan, rows).state).toBe('late');
+    expect(alignCompliance(base, plan, rows.slice(0, 1)).state).toBe('compliant');
+    expect(buildPlanComplianceReport([plan], () => [run], now, rows).counts.late).toBe(1);
+  });
+
   it('ignores sources the plan does not cover and keeps the plan without a catalogue', () => {
     const selection = { ...plan, scope: 'selection' as const, selection: ['a'] };
     expect(buildPlanComplianceReport([selection], () => [run], now, rows).counts.compliant).toBe(1);
