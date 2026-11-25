@@ -73,7 +73,7 @@ describe('SharePoint choose step', () => {
     expect(out).not.toContain('class="choice-item"');
   });
 
-  it('shows the hint above « Continuer », never below', () => {
+  it('shows the hint above «\u202FContinuer\u202F», never below', () => {
     const out = html(true);
     const hint = out.indexOf('Cochez un fichier, un dossier ou une bibliothèque pour continuer.');
     const button = out.indexOf('Continuer');

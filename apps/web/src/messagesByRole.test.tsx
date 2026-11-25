@@ -65,7 +65,7 @@ describe('messages by role', () => {
     expect(renderToStaticMarkup(<ConfigurationLink />)).toContain(RESERVED);
   });
 
-  it('RunBlocked: no « Prévenez un administrateur » for an administrator', () => {
+  it('RunBlocked: no «\u202FPrévenez un administrateur\u202F» for an administrator', () => {
     const problem = {
       message: API_ERRORS['backup_not_configured'] ?? '',
       code: 'backup_not_configured',

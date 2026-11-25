@@ -9,7 +9,7 @@ describe('barre d’actions des parcours', () => {
     for (const f of ['OneDrivePage.tsx', 'SharePointPage.tsx']) {
       const src = screen(f);
       expect(src).toContain('<WizardActions');
-      // Seule la boîte « Versions » de OneDrive garde dialog-actions.
+      // Seule la boîte «\u202FVersions\u202F» de OneDrive garde dialog-actions.
       const count = (src.match(/dialog-actions/g) ?? []).length;
       expect(count).toBe(f === 'OneDrivePage.tsx' ? 1 : 0);
       expect(src).not.toContain('wizard-actions');

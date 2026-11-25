@@ -15,7 +15,7 @@ import {
   submitFilters,
   type DateRange,
 } from './audit.js';
-import { dateTimeOf, folderLabel, plural } from './format.js';
+import { dateTimeOf, folderLabel, plural, quoted } from './format.js';
 import { AuditReminder } from './RestoreJourney.js';
 import { RestoreAction, RestoreNotConfigured } from './RestoreAction.js';
 import { fetchRestoreConfigured } from './restore.js';
@@ -85,7 +85,7 @@ export function hasSearchFilters(query?: SearchQuery): boolean {
 
 /** Phrase de l'état « sans résultat » : rappelle les critères saisis, ne conseille que ce qui est possible. */
 export function noResultText(query?: SearchQuery): string {
-  const what = query?.q ? `« ${query.q} »` : 'cette recherche';
+  const what = query?.q ? quoted(query.q) : 'cette recherche';
   const period = Boolean(query?.after || query?.before);
   if (!query?.mailbox && !period) {
     return `Aucun mail ne correspond à ${what} dans les sauvegardes. Vérifiez l’orthographe ou cherchez par expéditeur.`;

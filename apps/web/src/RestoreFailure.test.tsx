@@ -19,17 +19,19 @@ describe('restore failure banner', () => {
       cause: 'boîte injoignable pour le moment.',
       consequence: 'Rien n’a été modifié',
     });
-    expect(banner.title).toBe('Échec de la restauration de « plan-a.pdf » le 19/11/2026 17:55 UTC');
+    expect(banner.title).toBe(
+      'Échec de la restauration de «\u202Fplan-a.pdf\u202F» le 19/11/2026 17:55 UTC',
+    );
     expect(banner.cause).toBe('Boîte injoignable pour le moment.');
     expect(banner.consequence).toBe('Rien n’a été modifié.');
     const html = renderToStaticMarkup(<RestoreFailureAlert banner={banner} />);
-    expect(html).toContain('<strong>Échec de la restauration de « plan-a.pdf »');
+    expect(html).toContain('<strong>Échec de la restauration de «\u202Fplan-a.pdf\u202F»');
     expect(html).toContain(RESTORE_FAILURE_ADVICE);
   });
 
   it('gives one advice for every journey: retry, then warn the operator with the time', () => {
     expect(RESTORE_FAILURE_ADVICE).toBe(
-      'Réessayez ; si l’échec se répète, prévenez l’exploitant du serveur avec l’heure ci-dessus.',
+      'Réessayez\u202F; si l’échec se répète, prévenez l’exploitant du serveur avec l’heure ci-dessus.',
     );
   });
 
@@ -42,7 +44,7 @@ describe('restore failure banner', () => {
       uncertain: true,
     });
     expect(banner.advice).toBe(
-      'Une fois l’état vérifié, réessayez ; si l’échec se répète, prévenez l’exploitant du serveur avec l’heure ci-dessus.',
+      'Une fois l’état vérifié, réessayez\u202F; si l’échec se répète, prévenez l’exploitant du serveur avec l’heure ci-dessus.',
     );
   });
 
@@ -57,7 +59,7 @@ describe('restore failure banner', () => {
 
   it('drops the date rather than showing a broken one', () => {
     const banner = restoreFailureBanner({ item: 'x', at: null, cause: 'c', consequence: 'd' });
-    expect(banner.title).toBe('Échec de la restauration de « x »');
+    expect(banner.title).toBe('Échec de la restauration de «\u202Fx\u202F»');
   });
 
   it.each(errors)('shows no technical code for the cause %s', (error) => {

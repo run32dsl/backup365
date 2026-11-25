@@ -75,7 +75,7 @@ describe('SearchView', () => {
     const unfiltered = renderToString(<SearchView state={state} />);
     expect(unfiltered).toContain('col-mailbox');
     expect(unfiltered).toContain('mbx 1</');
-    // Carte mobile : objet en titre, expéditeur sans libellé, « date · dossier · boîte » en secondaire.
+    // Carte mobile : objet en titre, expéditeur sans libellé, «\u202Fdate · dossier · boîte\u202F» en secondaire.
     expect(unfiltered).toContain('class="subject card-title mail-subject"');
     expect(unfiltered).toContain('class="keep-words address card-nolabel"');
     expect(unfiltered).toContain('class="mail-meta mail-date"');
@@ -109,7 +109,7 @@ describe('SearchView', () => {
     const html = renderToString(
       <SearchView state={empty} query={{ q: 'devis', after: '2026-01-01' }} />,
     );
-    expect(html).toContain('Aucun mail ne correspond à « devis » dans cette période.');
+    expect(html).toContain('Aucun mail ne correspond à «\u202Fdevis\u202F» dans cette période.');
     expect(html).toContain('Élargissez la période.');
     expect(html).not.toContain('boîte');
   });
@@ -120,7 +120,7 @@ describe('SearchView', () => {
       <SearchView state={empty} query={{ q: 'devis' }} onClearFilters={() => {}} />,
     );
     expect(html).toContain(
-      'Aucun mail ne correspond à « devis » dans les sauvegardes. Vérifiez l’orthographe ou cherchez par expéditeur.',
+      'Aucun mail ne correspond à «\u202Fdevis\u202F» dans les sauvegardes. Vérifiez l’orthographe ou cherchez par expéditeur.',
     );
     expect(html).not.toMatch(/filtre|période|<button/);
     expect(noResultText()).not.toMatch(/filtre|période/);
@@ -354,7 +354,7 @@ describe('mail helpers', () => {
     expect(url).toContain('before=2026-11-19T00%3A00%3A00.000Z');
   });
 
-  it('shows jj/mm/aaaa text fields, without the native date input or « exclu »', () => {
+  it('shows jj/mm/aaaa text fields, without the native date input or «\u202Fexclu\u202F»', () => {
     const html = renderToString(<SearchPage />);
     expect(html).not.toContain('datetime-local');
     expect(html).not.toContain('exclu');
@@ -414,7 +414,7 @@ describe('mail helpers', () => {
     const bad = search('20/11/2026', '18/11/2026');
     expect(bad.result.query).toBeNull();
     expect(bad.result.errors.toError).toBe(
-      'La date « Au » doit être égale ou postérieure à « Du »',
+      'La date «\u202FAu\u202F» doit être égale ou postérieure à «\u202FDu\u202F»',
     );
     expect(bad.build).not.toHaveBeenCalled();
     const same = search('18/11/2026', '18/11/2026');

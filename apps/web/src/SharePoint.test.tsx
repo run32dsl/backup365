@@ -37,7 +37,7 @@ describe('SharePoint right refusal', () => {
     const html = renderToStaticMarkup(
       <SiteDenied site={{ id: 'abc', displayName: 'Équipe commerciale' }} />,
     );
-    expect(html).toContain('le site « Équipe commerciale »');
+    expect(html).toContain('le site «\u202FÉquipe commerciale\u202F»');
     expect(html).toContain('Choisir un autre site');
     expect(html).not.toContain('alert-error');
     expect(html).toMatch(/<div class="alert alert-warning" role="alert">/u);
@@ -45,7 +45,7 @@ describe('SharePoint right refusal', () => {
     expect(html).not.toContain('class="empty');
     const href = /href="([^"]+)"/u.exec(html)?.[1];
     expect(href).toBe(sharePointHash('abc'));
-    // Sans granularité : l'étape « Choisir » du site.
+    // Sans granularité : l'étape «\u202FChoisir\u202F» du site.
     expect(parseSharePointHash(href ?? '')).toEqual({ site: 'abc', scope: null, path: '/' });
   });
 });

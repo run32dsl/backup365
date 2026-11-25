@@ -48,10 +48,10 @@ describe('source covered by a failed plan', () => {
 
   it('says the data stays covered, naming the other plan, instead of unprotected', () => {
     expect(failureBanner(plan, true, report([failing])).consequence).toBe(
-      'Ces données restent couvertes par « Messagerie Direction » (dernière réussite 25/11/2026 07:36 UTC).',
+      'Ces données restent couvertes par «\u202FMessagerie Direction\u202F» (dernière réussite 25/11/2026 07:36 UTC).',
     );
     expect(failureBanner(plan, true, report([failing, fine])).consequence).toBe(
-      'Ces données restent couvertes par « Messagerie Direction » (dernière réussite 25/11/2026 07:36 UTC).',
+      'Ces données restent couvertes par «\u202FMessagerie Direction\u202F» (dernière réussite 25/11/2026 07:36 UTC).',
     );
   });
 

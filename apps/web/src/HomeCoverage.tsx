@@ -2,7 +2,7 @@ import { nextRunAt, type StatusReport, type StatusRow } from '@backup365/core';
 import { useCallback, useEffect, useState } from 'react';
 import { fetchAudit, type AuditItem } from './audit.js';
 import { ACTION_LABELS, actorLabel, auditDate } from './auditLabels.js';
-import { plural } from './format.js';
+import { plural, quoted } from './format.js';
 import { fetchPlans, runPlan, runReasonError, type PlanItem } from './plans.js';
 import { REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
 import { AUDIT_HASH, STATUS_HASH } from './routes.js';
@@ -104,7 +104,7 @@ export async function runAll(
   for (const plan of plans) {
     const outcome = await run(plan.id, reason);
     if (outcome.ok) result.launched += 1;
-    else result.failures.push(`« ${plan.name} » : ${outcome.message}`);
+    else result.failures.push(`${quoted(plan.name)} : ${outcome.message}`);
   }
   return result;
 }

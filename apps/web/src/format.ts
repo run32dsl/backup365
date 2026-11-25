@@ -99,5 +99,13 @@ export const elements = (n: number): string => plural(n, 'élément');
 export const elementsWhich = (n: number, participle: string): string =>
   `${elements(n)} ${participle}${n < 2 ? '' : 's'}`;
 
+/** Espace insécable fine (U+202F) : devant ? ; ! et dans les guillemets français. */
+export const NNBSP = ' ';
+/** Espace insécable (U+00A0) : devant les deux-points. */
+export const NBSP = ' ';
+
+/** Texte entre guillemets français, avec des espaces insécables fines : jamais un guillemet seul en bout de ligne. */
+export const quoted = (text: string): string => `«${NNBSP}${text}${NNBSP}»`;
+
 /** `1 élément en erreur`, `2 éléments en erreur`. */
 export const elementsInError = (n: number): string => `${elements(n)} en erreur`;

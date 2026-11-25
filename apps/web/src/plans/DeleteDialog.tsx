@@ -79,7 +79,7 @@ export function DeleteDialog({
     setBusy(false);
   }, [plan]);
   return (
-    <Dialog open={plan !== null} title="Supprimer ce plan ?" onClose={onClose}>
+    <Dialog open={plan !== null} title={'Supprimer ce plan\u202F?'} onClose={onClose}>
       {plan && (
         <DeleteForm
           key={plan.id}

@@ -1,5 +1,6 @@
 import type { DriveSnapshot } from '@backup365/core';
 import { useId, useState } from 'react';
+import { quoted } from '../format.js';
 import { RestoreNotConfigured } from '../RestoreAction.js';
 import { RESTORE_BUTTONS as B } from '../RestoreJourney.js';
 import { RESTORE_LABELS } from '../restoreLabels.js';
@@ -106,7 +107,7 @@ export function ChooseStep({
       )}
 
       {whole ? (
-        <p>Tout le contenu de « {site.displayName} » sera concerné.</p>
+        <p>Tout le contenu de {quoted(site.displayName)} sera concerné.</p>
       ) : (
         <ContentTree
           key={snapshotId}

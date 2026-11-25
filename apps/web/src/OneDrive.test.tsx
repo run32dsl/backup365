@@ -123,7 +123,7 @@ describe('OneDrive requests', () => {
     expect((await fetchSnapshots('a', fetchFn)).status).toBe('unconfigured');
     fetchFn.mockReturnValueOnce(json({ error: 'no_backup_found' }, 503));
     expect((await fetchSnapshots('a', fetchFn)).status).toBe('no_backup');
-    // Un journal d'audit en panne n'est pas « aucun compte connecté ».
+    // Un journal d'audit en panne n'est pas «\u202Faucun compte connecté\u202F».
     fetchFn.mockReturnValueOnce(json({ error: 'audit_unavailable' }, 503));
     expect((await fetchEntries('a', 's', '/', fetchFn)).status).toBe('error');
     fetchFn.mockRejectedValueOnce(new Error('réseau'));
@@ -197,7 +197,7 @@ describe('OneDrive entries table', () => {
     />,
   );
 
-  it('has no emoji, no « Choix » column and a UTC date header', () => {
+  it('has no emoji, no «\u202FChoix\u202F» column and a UTC date header', () => {
     expect(html).not.toMatch(/\p{Extended_Pictographic}/u);
     expect(html).not.toContain('Choix');
     expect(html).toContain('Date de la version (UTC)');
@@ -206,10 +206,10 @@ describe('OneDrive entries table', () => {
     expect(html).not.toContain('19/11/2026');
   });
 
-  it('shows « — » for absent values in the table; the mobile card shows none', () => {
+  it('shows «\u202F—\u202F» for absent values in the table; the mobile card shows none', () => {
     const folderRow = html.split('<tr').find((r) => r.includes('2025')) ?? '';
     expect(folderRow.match(/—/gu)).toHaveLength(3);
-    // Les « — » et la colonne « Détail » vide sont masqués dans la carte (CSS `table-only`, `:empty`).
+    // Les «\u202F—\u202F» et la colonne «\u202FDétail\u202F» vide sont masqués dans la carte (CSS `table-only`, `:empty`).
     expect(folderRow).toContain('class="table-only">—');
     expect(folderRow).toMatch(/data-label="Détail" class="card-only"><\/td>/u);
     const fileRow = html.split('<tr').find((r) => r.includes('budget.xlsx')) ?? '';
@@ -258,7 +258,7 @@ describe('OneDrive entries table', () => {
 
 describe('OneDrive : stockage non configuré', () => {
   it('is reached only by catalog_unavailable, never by backup_not_configured', async () => {
-    // `backup_not_configured` est le code du dialogue « Lancer » (POST d'exécution d'un plan) :
+    // `backup_not_configured` est le code du dialogue «\u202FLancer\u202F» (POST d'exécution d'un plan) :
     // aucune route OneDrive ne l'émet, et s'il arrivait, la page n'afficherait pas cet état.
     const fetchFn = vi.fn();
     fetchFn.mockReturnValueOnce(json({ error: 'backup_not_configured' }, 503));

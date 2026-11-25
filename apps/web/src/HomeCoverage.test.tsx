@@ -115,7 +115,7 @@ describe('runAll', () => {
     const result = await runAll([plan('a'), plan('b')], 'Test', run);
     expect(run).toHaveBeenCalledTimes(2);
     expect(run).toHaveBeenCalledWith('a', 'Test');
-    expect(result).toEqual({ launched: 1, failures: ['« Plan b » : Refusé'] });
+    expect(result).toEqual({ launched: 1, failures: ['«\u202FPlan b\u202F» : Refusé'] });
     expect(launchedLabel(1)).toBe('1 sauvegarde lancée');
   });
 });

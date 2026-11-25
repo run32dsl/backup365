@@ -191,7 +191,7 @@ function Playground() {
         </Button>
         <Dialog
           open={destructiveOpen}
-          title="Supprimer cet exemple ?"
+          title="Supprimer cet exemple ?"
           onClose={() => {
             setDestructiveOpen(false);
           }}
@@ -219,7 +219,7 @@ function Playground() {
         </Dialog>
         <Dialog
           open={open}
-          title="Exporter cette boîte ?"
+          title="Exporter cette boîte ?"
           onClose={() => {
             setOpen(false);
           }}
@@ -305,7 +305,9 @@ export function ComponentsPage() {
         <Steps steps={['Choisir', 'Vérifier', 'Confirmer']} current={4} />
       </Section>
       <Section id="actions-etapes" title="Barre d’actions des parcours">
-        <p>Retour à gauche, action principale à droite ; en mobile, action principale en haut.</p>
+        <p>
+          Retour à gauche, action principale à droite&#x202F;; en mobile, action principale en haut.
+        </p>
         <WizardActions back={<Button variant="secondary">{WIZARD_LABELS.back}</Button>}>
           <Button>{WIZARD_LABELS.next}</Button>
         </WizardActions>
@@ -340,8 +342,8 @@ export function ComponentsPage() {
       </Section>
       <Section id="titres" title="Échelle de titres">
         <p>
-          Le titre de la page (<code>h1</code>, 1,5 rem) domine ; les parties de la page sont en{' '}
-          <code>h2</code> (1,25 rem), leurs sous-parties en <code>h3</code> (1,125 rem).
+          Le titre de la page (<code>h1</code>, 1,5 rem) domine&#x202F;; les parties de la page sont
+          en <code>h2</code> (1,25 rem), leurs sous-parties en <code>h3</code> (1,125 rem).
         </p>
         <h3>Exemple de sous-partie</h3>
       </Section>

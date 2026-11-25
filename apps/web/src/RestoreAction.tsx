@@ -25,7 +25,7 @@ import {
   startRestore,
   type RestoreJob,
 } from './restore.js';
-import { dateTimeOf, folderLabel } from './format.js';
+import { dateTimeOf, folderLabel, quoted } from './format.js';
 import { Alert, Button, Dialog, ResultList } from './ui/index.js';
 
 export type RestorableMail = Pick<
@@ -86,7 +86,7 @@ export function folderRows(
 
 /** Puce « Ce qui va se passer » : nomme le dossier de destination entre guillemets. */
 export const copyBullet = (folder: string): string =>
-  `Le mail sera copié dans le dossier « ${folder} » de la boîte d’origine.`;
+  `Le mail sera copié dans le dossier ${quoted(folder)} de la boîte d’origine.`;
 
 /** Rappel du formulaire : les lignes des résultats, avec le dossier que la restauration créera. */
 export function formRows(mail: RestorableMail, now: number): [string, ReactNode][] {

@@ -1,4 +1,5 @@
 import { API_ERRORS, fallbackMessage } from './apiError.js';
+import { quoted } from './format.js';
 
 /** Rôles des comptes locaux (voir docs/adr/0008-comptes-locaux-et-sessions.md). */
 export type Role = 'admin' | 'operator';
@@ -57,7 +58,7 @@ export const AUDIT_NOTICE =
 export const ADMIN_ONLY = 'Cette page est réservée aux administrateurs.';
 /** Récapitulatif affiché après la création du premier administrateur. */
 export const setupRecap = (username: string): string =>
-  `${username ? `Compte « ${username} », rôle` : 'Rôle'} administrateur. Ses actions sont inscrites au journal d’audit.`;
+  `${username ? `Compte ${quoted(username)}, rôle` : 'Rôle'} administrateur. Ses actions sont inscrites au journal d’audit.`;
 
 /** Écran de connexion après un 401 d'une requête alors qu'une session existait. */
 export const SESSION_EXPIRED =

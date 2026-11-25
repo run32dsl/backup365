@@ -939,7 +939,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
-      await page.getByRole('dialog', { name: 'Supprimer ce plan ?' }).waitFor();
+      await page.getByRole('dialog', { name: 'Supprimer ce plan\u202F?' }).waitFor();
     },
   },
   {
@@ -948,7 +948,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
-      const dialog = page.getByRole('dialog', { name: 'Supprimer ce plan ?' });
+      const dialog = page.getByRole('dialog', { name: 'Supprimer ce plan\u202F?' });
       await dialog.getByRole('button', { name: 'Supprimer le plan' }).click();
       await dialog.getByText('Indiquez un motif pour continuer.').waitFor();
     },

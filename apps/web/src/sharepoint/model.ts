@@ -1,5 +1,6 @@
 import type { SiteScope } from '@backup365/core';
 import { REASON } from '../RestoreJourney.js';
+import { quoted } from '../format.js';
 
 export type SiteJobStatus = 'running' | 'succeeded' | 'failed';
 
@@ -36,7 +37,7 @@ export const SHAREPOINT_MESSAGES = {
   readError: 'La sauvegarde n’a pas pu être lue.',
   forbidden: 'Vous n’avez pas le droit de restaurer ce site. Contactez un administrateur.',
   forbiddenSite: (name: string) =>
-    `Vous n’avez pas le droit de restaurer le site « ${name} ». Demandez à un administrateur ou choisissez un autre site.`,
+    `Vous n’avez pas le droit de restaurer le site ${quoted(name)}. Demandez à un administrateur ou choisissez un autre site.`,
   chooseOther: 'Choisir un autre site',
   reasonError: REASON.error,
   nameError: 'Le nom saisi ne correspond pas au site.',

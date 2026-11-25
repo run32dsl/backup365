@@ -330,7 +330,9 @@ describe('helpers', () => {
     const build = vi.fn(queryFromForm);
     const bad = submitFilters(form({ from: '20/11/2026', to: '18/11/2026' }), 'from', 'to', build);
     expect(bad.query).toBeNull();
-    expect(bad.errors.toError).toBe('La date « Au » doit être égale ou postérieure à « Du »');
+    expect(bad.errors.toError).toBe(
+      'La date «\u202FAu\u202F» doit être égale ou postérieure à «\u202FDu\u202F»',
+    );
     expect(bad.errors.fromError).toBeUndefined();
     expect(build).not.toHaveBeenCalled();
   });

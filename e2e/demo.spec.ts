@@ -63,7 +63,7 @@ test('restauration : motif obligatoire, suivi, résultat et journal', async ({
   await expect(dialog.getByText('Restauré dans le dossier')).toBeVisible();
   await expect(
     dialog.getByText(
-      /^Le mail sera copié dans le dossier « Restauré par backup365 \d\d\/\d\d\/\d{4} » de la boîte d’origine\.$/,
+      /^Le mail sera copié dans le dossier «\u202FRestauré par backup365 \d\d\/\d\d\/\d{4}\u202F» de la boîte d’origine\.$/,
     ),
   ).toBeVisible();
 
@@ -334,7 +334,9 @@ test('SharePoint : un accès direct au site entier est refusé à un opérateur'
   await signInAs(context, baseURL!, 'operator');
   await page.goto(`/#/sharepoint/${SITES.rh}/site`);
   await expect(
-    page.getByText(/Vous n’avez pas le droit de restaurer le site « Ressources humaines »/),
+    page.getByText(
+      /Vous n’avez pas le droit de restaurer le site «\u202FRessources humaines\u202F»/,
+    ),
   ).toBeVisible();
   await expect(page.getByText(/Étape 1 sur 3/)).toBeVisible();
   await expect(page.getByRole('link', { name: 'Choisir un autre site' })).toBeVisible();
@@ -480,7 +482,9 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await expect(page.locator('dd', { hasText: '3 ans' }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Créer le plan' }).click();
   await expect(
-    page.getByText(/Le plan « .+ » a été créé\. Première sauvegarde prévue à \d\d:\d\d\./),
+    page.getByText(
+      /Le plan «\u202F.+\u202F» a été créé\. Première sauvegarde prévue à \d\d:\d\d\./,
+    ),
   ).toBeVisible();
   await expect(page).toHaveURL(/#\/plans$/);
   await expect(
@@ -500,7 +504,7 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
 
   // Suppression : la confirmation s'ouvre sur le champ du motif (comme les autres boîtes à motif).
   await page.getByRole('button', { name: 'Supprimer Contacts Exemple' }).click();
-  const del = page.getByRole('dialog', { name: 'Supprimer ce plan ?' });
+  const del = page.getByRole('dialog', { name: 'Supprimer ce plan\u202F?' });
   await expect(del.getByLabel('Motif de la suppression (obligatoire)')).toBeFocused();
   await del.getByRole('button', { name: 'Supprimer le plan' }).click();
   await expect(del.getByText('Indiquez un motif pour continuer.')).toBeVisible();
@@ -585,7 +589,7 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
       : route.fallback(),
   );
   await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
-  const del = page.getByRole('dialog', { name: 'Supprimer ce plan ?' });
+  const del = page.getByRole('dialog', { name: 'Supprimer ce plan\u202F?' });
   await del.getByLabel('Motif de la suppression (obligatoire)').fill('Plan remplacé');
   await del.getByRole('button', { name: 'Supprimer le plan' }).click();
   const refused = del.getByRole('alert').filter({ hasText: 'Journal d’audit indisponible' });

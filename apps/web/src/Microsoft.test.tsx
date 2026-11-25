@@ -15,7 +15,7 @@ describe('connexion avec un compte Microsoft', () => {
     );
   });
 
-  it('shows a Microsoft refusal as an error alert titled « Accès refusé »', () => {
+  it('shows a Microsoft refusal as an error alert titled «\u202FAccès refusé\u202F»', () => {
     const message = oidcErrorMessage('?oidc_error=no_group') ?? '';
     const html = renderToString(<CredentialsView mode="login" microsoft refusal={message} />);
     expect(html).toContain('class="alert alert-error" role="alert"');
@@ -25,7 +25,7 @@ describe('connexion avec un compte Microsoft', () => {
     expect(renderToString(<CredentialsView mode="login" />)).not.toContain('Accès refusé');
   });
 
-  it('puts the product name above a card and separates the two buttons with « ou »', () => {
+  it('puts the product name above a card and separates the two buttons with «\u202Fou\u202F»', () => {
     const html = renderToString(<CredentialsView mode="login" microsoft />);
     expect(html).toContain('backup365');
     expect(html).toContain('Console de sauvegarde Microsoft 365');

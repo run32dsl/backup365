@@ -206,7 +206,9 @@ describe('OverviewView', () => {
   it('failed: Voir l’erreur and Voir les plans buttons, a plain message, last success date', () => {
     const html = render(failed, false);
     expect(html).toContain('En échec');
-    expect(html).toContain('Échec de « Boîte direction, quotidien » le 24/11/2026 18:58 UTC.');
+    expect(html).toContain(
+      'Échec de «\u202FBoîte direction, quotidien\u202F» le 24/11/2026 18:58 UTC.',
+    );
     expect(html).not.toContain('La dernière exécution');
     expect(html.match(/<button/g)).toHaveLength(2);
     expect(html).toContain('Voir l’erreur');
@@ -215,7 +217,7 @@ describe('OverviewView', () => {
     expect(html).not.toContain('(dernière réussie)');
     expect(html).not.toContain('un plan est en échec');
     expect(render({ ...failed, lastBackupPlan: null })).not.toContain('Plan : ');
-    // Sans plan nommé (réponse d'un ancien serveur) : la phrase générique, jamais « dernière exécution ».
+    // Sans plan nommé (réponse d'un ancien serveur) : la phrase générique, jamais «\u202Fdernière exécution\u202F».
     expect(render({ ...failed, lastFailure: null })).toContain('Un plan est en échec.');
     expect(html).toContain('Plan : Boîtes mail, quotidien');
     expect(html).toContain('02:00 UTC</time>');
@@ -231,9 +233,9 @@ describe('OverviewView', () => {
     expect(card).toContain(
       `<span aria-hidden="true">◷</span> ${PLAN_MESSAGES.queued}</span> <strong>2</strong>`,
     );
-    // Le dernier résultat reste dit : le décompte « à jour » et l'état de la carte « Sauvegarde ».
+    // Le dernier résultat reste dit : le décompte «\u202Fà jour\u202F» et l'état de la carte «\u202FSauvegarde\u202F».
     expect(card).toContain('2 plans à jour sur 4');
-    expect(busy).toContain('Échec de « Boîte direction, quotidien »');
+    expect(busy).toContain('Échec de «\u202FBoîte direction, quotidien\u202F»');
     const queuedOnly = render({ ...failed, plans: { ...failed.plans, queued: 1 } });
     expect(queuedOnly).toContain('En file d’attente');
     expect(queuedOnly).not.toContain('En cours');
@@ -292,7 +294,7 @@ describe('retry after an error', () => {
     expect(done).toContain('4 plans à jour sur 4');
   });
 
-  it('shows the alert again, without « Erreur inattendue », after a new error', async () => {
+  it('shows the alert again, without «\u202FErreur inattendue\u202F», after a new error', async () => {
     const states = await run(fail);
     expect(states.at(-1)).toBe('error');
     const html = render('error');

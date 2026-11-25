@@ -38,7 +38,7 @@ export const ONEDRIVE_MESSAGES = {
   confirmReplace: 'Je confirme le remplacement du fichier actuel.',
   confirmError: 'Cochez la case pour confirmer le remplacement.',
   noRights:
-    'Votre rôle ne permet pas de restaurer. Vous pouvez parcourir la sauvegarde ; demandez l’accès à un administrateur.',
+    'Votre rôle ne permet pas de restaurer. Vous pouvez parcourir la sauvegarde ; demandez l’accès à un administrateur.',
   alreadyRunning: 'Une restauration de cet élément est déjà en cours.',
   auditUnavailable: 'Journal d’audit indisponible : restauration refusée.',
   notInBackup: 'Cet élément n’est plus disponible dans la sauvegarde.',

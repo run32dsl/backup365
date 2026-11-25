@@ -252,7 +252,7 @@ describe('RestoreOutcome', () => {
     expect(html).toContain('<dt>Mail</dt><dd>Facture 1 · ');
     expect(html).toContain('<dt>Boîte</dt><dd>mbx 1</dd>');
     expect(html).not.toContain('<dt>Dossier</dt>');
-    expect(html).toContain('<strong>Échec de la restauration de « Facture 1 » le ');
+    expect(html).toContain('<strong>Échec de la restauration de «\u202FFacture 1\u202F» le ');
     expect(html).toContain('Le service de restauration a signalé une erreur.');
     expect(html).toContain('Rien n’a été modifié.');
     expect(html).not.toContain('Cause :');
@@ -348,7 +348,7 @@ describe('restore form recall', () => {
 
   it('names the destination folder in quotes in the bullet', () => {
     expect(copyBullet('Restauré par backup365 18/11/2026')).toBe(
-      'Le mail sera copié dans le dossier « Restauré par backup365 18/11/2026 » de la boîte d’origine.',
+      'Le mail sera copié dans le dossier «\u202FRestauré par backup365 18/11/2026\u202F» de la boîte d’origine.',
     );
   });
 

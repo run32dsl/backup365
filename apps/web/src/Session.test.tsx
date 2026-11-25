@@ -245,7 +245,7 @@ describe('Réglages page structure', () => {
     expect(html).toContain('aria-label="Réinitialiser le mot de passe : bob"');
   });
 
-  it('keeps one filled button on the page, « + Créer un compte », on the intro line', () => {
+  it('keeps one filled button on the page, «\u202F+ Créer un compte\u202F», on the intro line', () => {
     const page = renderToString(<AccountsPage />);
     expect(page).toContain('<h1>Réglages</h1><div class="view-intro">');
     expect(page.match(/btn-primary/g)).toHaveLength(1);
@@ -374,7 +374,7 @@ describe('connexion verrouillée (#56)', () => {
 });
 
 describe('maquette de l’issue #22', () => {
-  it('labels the login field « Identifiant », never « Nom d’utilisateur »', () => {
+  it('labels the login field «\u202FIdentifiant\u202F», never «\u202FNom d’utilisateur\u202F»', () => {
     for (const mode of ['login', 'setup'] as const) {
       const html = renderToString(<CredentialsView mode={mode} />);
       expect(html).toContain('Identifiant');
@@ -562,7 +562,7 @@ describe('textes restants de la maquette de #22', () => {
     expect(html.match(/aria-disabled="true"/g)).toHaveLength(2);
     expect(html.match(/aria-describedby="last-admin-1"/g)).toHaveLength(2);
     expect(html).toContain('id="last-admin-1"');
-    // Plus de bandeau en tête de page : la phrase est dans la cellule « Actions » du compte.
+    // Plus de bandeau en tête de page : la phrase est dans la cellule «\u202FActions\u202F» du compte.
     expect(html).not.toContain('class="alert');
     const cells = [...html.matchAll(/<td[^>]*data-label="Actions"[^>]*>(.*?)<\/td>/g)].map(
       (m) => m[1],
@@ -592,7 +592,7 @@ describe('textes restants de la maquette de #22', () => {
 
   it('recaps the first start inside the form, before the validation', () => {
     expect(setupRecap('root')).toBe(
-      'Compte « root », rôle administrateur. Ses actions sont inscrites au journal d’audit.',
+      'Compte «\u202Froot\u202F», rôle administrateur. Ses actions sont inscrites au journal d’audit.',
     );
     expect(setupRecap('')).toBe(
       'Rôle administrateur. Ses actions sont inscrites au journal d’audit.',
@@ -606,13 +606,13 @@ describe('textes restants de la maquette de #22', () => {
     expect(renderToString(<CredentialsView mode="login" />)).not.toContain('Ses actions sont');
   });
 
-  it('says « mot de passe temporaire » on the account forms, never « provisoire »', () => {
+  it('says «\u202Fmot de passe temporaire\u202F» on the account forms, never «\u202Fprovisoire\u202F»', () => {
     const html = renderToString(<CreateAccountForm />);
     expect(html).toContain('Un mot de passe temporaire sera créé');
     expect(html).not.toContain('provisoire');
   });
 
-  it('shows the account menu as « identifiant (rôle) » then « Se déconnecter »', () => {
+  it('shows the account menu as «\u202Fidentifiant (rôle)\u202F» then «\u202FSe déconnecter\u202F»', () => {
     const user = { id: 1, username: 'marie', role: 'operator' as const, mustChangePassword: false };
     vi.stubGlobal('window', { location: { hash: '' }, addEventListener: () => undefined });
     const html = renderToString(<Console user={user} onLogout={() => undefined} />);
@@ -623,7 +623,7 @@ describe('textes restants de la maquette de #22', () => {
     expect(html).toContain('>Se déconnecter</button>');
   });
 
-  it('inserts a break point after the « @ » of an address-like identifier only', () => {
+  it('inserts a break point after the «\u202F@\u202F» of an address-like identifier only', () => {
     const mail = renderToString(<AccountId username="compte-microsoft@exemple.fr" />);
     expect(mail).toContain('compte-microsoft@<wbr/>exemple.fr');
     expect(renderToString(<AccountId username="admin-demo" />)).not.toContain('<wbr');
@@ -697,7 +697,7 @@ describe('textes restants de la maquette de #22', () => {
     (other.find((e) => e.props?.['aria-disabled'] === undefined)!.props!.onClick as () => void)();
     expect(onDisabled).toHaveBeenCalledWith(2, true);
 
-    // « Réinitialiser le mot de passe » ouvre la boîte du compte de sa ligne, sans choix de compte.
+    // «\u202FRéinitialiser le mot de passe\u202F» ouvre la boîte du compte de sa ligne, sans choix de compte.
     const onReset = vi.fn();
     const resets = find(
       AccountsView({ state: only, actions: { onReset } }),

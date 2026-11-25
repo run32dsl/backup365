@@ -96,7 +96,7 @@ describe('restore journey', () => {
     expect(plans).not.toContain('AuditReminder');
   });
 
-  it('keeps the word « journalisée » out of the screens', () => {
+  it('keeps the word «\u202Fjournalisée\u202F» out of the screens', () => {
     for (const f of sourceFiles()) {
       const code = source(f)
         .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -169,7 +169,7 @@ describe('reason examples', () => {
     }
   });
 
-  it('keeps « suppression » out of every example except the restore one', () => {
+  it('keeps «\u202Fsuppression\u202F» out of every example except the restore one', () => {
     for (const [action, example] of ACTIONS) {
       if (action !== 'restore') expect(example, action).not.toMatch(/suppression/i);
     }
