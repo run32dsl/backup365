@@ -411,6 +411,9 @@ th {
   width: 100%;
   min-height: 2.75rem;
 }
+.overview-card .btn + .btn {
+  margin-top: var(--space-2);
+}
 .overview-card .overview-connection,
 .overview-card .overview-ago {
   color: var(--muted);
@@ -427,6 +430,10 @@ th {
   }
   .overview-card .btn {
     width: auto;
+  }
+  .overview-card .btn + .btn {
+    margin-top: 0;
+    margin-left: var(--space-2);
   }
 }
 

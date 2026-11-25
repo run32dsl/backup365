@@ -270,8 +270,32 @@ export const SCREENS = [
         lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
         lastBackupPlan: 'Boîtes mail, quotidien',
         lastFailure: null,
+        lateBackups: [],
       });
       await page.getByText('Microsoft 365 connecté').waitFor();
+    },
+  },
+  {
+    // Aucun plan en échec, une sauvegarde OneDrive en retard (issue #462).
+    name: 'accueil-en-retard',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      await overviewAs(page, {
+        state: 'operational',
+        plans: { total: 2, operational: 2, running: 0, queued: 0, failed: 0, late: 0 },
+        lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+        lastBackupPlan: 'Boîtes mail, quotidien',
+        lastFailure: null,
+        lateBackups: [
+          {
+            service: 'onedrive',
+            name: 'paul.moreau@exemple.fr',
+            lastSnapshotAt: new Date(Date.now() - 72 * 3_600_000).toISOString(),
+          },
+        ],
+      });
+      await page.getByText('1 sauvegarde en retard').waitFor();
     },
   },
   {
@@ -286,6 +310,7 @@ export const SCREENS = [
         lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
         lastBackupPlan: 'Boîtes mail, quotidien',
         lastFailure: null,
+        lateBackups: [],
       });
       await page.getByText('En file d’attente').waitFor();
     },
@@ -301,6 +326,7 @@ export const SCREENS = [
         lastBackupAt: null,
         lastBackupPlan: null,
         lastFailure: null,
+        lateBackups: [],
       }),
   },
   {
@@ -314,6 +340,7 @@ export const SCREENS = [
         lastBackupAt: null,
         lastBackupPlan: null,
         lastFailure: null,
+        lateBackups: [],
       }),
   },
   {
@@ -327,6 +354,7 @@ export const SCREENS = [
         lastBackupAt: null,
         lastBackupPlan: null,
         lastFailure: null,
+        lateBackups: [],
       }),
   },
   {

@@ -39,6 +39,7 @@ describe('GET /api/overview', () => {
       lastBackupAt: null,
       lastBackupPlan: null,
       lastFailure: null,
+      lateBackups: [],
     });
   });
 
@@ -52,6 +53,7 @@ describe('GET /api/overview', () => {
       lastBackupAt: null,
       lastBackupPlan: null,
       lastFailure: null,
+      lateBackups: [],
     });
   });
 
