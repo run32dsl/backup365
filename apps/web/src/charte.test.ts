@@ -108,6 +108,14 @@ describe('charte.css data tables', () => {
     expect(/\.data-table \.subject a\s*\{[^}]*text-overflow:\s*ellipsis;/.test(css)).toBe(true);
   });
 
+  it('lets the sub-navigation wrap, with 44 px targets, under 900 px', () => {
+    const narrow = /@media \(max-width: 56\.25rem\)\s*\{([\s\S]*?)\n\}\n/.exec(css)?.[1] ?? '';
+    const rule = /\.subnav a \{([^}]*)\}/.exec(narrow)?.[1];
+    expect(rule).toMatch(/padding:\s*0 var\(--space-2\)/);
+    expect(rule).toMatch(/white-space:\s*normal/);
+    expect(/\.subnav a \{[^}]*min-height:\s*2\.75rem;/.test(css)).toBe(true);
+  });
+
   it('keeps words whole in keep-words cells', () => {
     expect(/\.data-table \.keep-words\s*\{\s*overflow-wrap:\s*break-word;/.test(css)).toBe(true);
   });
