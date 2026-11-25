@@ -18,6 +18,7 @@ import {
   NO_TARGET,
   actorLabel,
   auditDate,
+  countLabel,
   detailLabel,
   reasonLabel,
   targetView,
@@ -58,10 +59,12 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
       className: 'keep-words card-title',
       cell: (e) => {
         const detail = detailLabel(e.reason);
+        const typed = reasonLabel(e.reason);
         return (
           <span>
             <span className="nowrap-wide">{ACTION_LABELS[e.action]}</span>
             {detail && <span className="cell-secondary">{detail}</span>}
+            {typed && <span className="cell-secondary">{`Motif : ${typed}`}</span>}
           </span>
         );
       },
@@ -71,25 +74,22 @@ function columns(planNames: ReadonlyMap<string, string> | null): Column<Entry>[]
       className: 'keep-words address card-nolabel',
       cell: (e) => {
         const { name, secondary } = targetView(e, planNames);
-        // Sans cible : cellule vide, comme Éléments et Motif (la carte l'omet).
-        if (name === NO_TARGET) return null;
+        const count = countLabel(e.resource, e.count);
+        // Sans cible ni nombre : cellule vide (la carte l'omet).
+        if (name === NO_TARGET && !count) return null;
         return (
           <span>
-            <Address value={name} />
-            {secondary && (
+            {name !== NO_TARGET && <Address value={name} />}
+            {(secondary || count) && (
               <span className="cell-secondary">
-                <Address value={secondary} />
+                {secondary && <Address value={secondary} />}
+                {secondary && count && ' · '}
+                {count}
               </span>
             )}
           </span>
         );
       },
-    },
-    { header: 'Éléments', className: 'card-hidden num', cell: (e) => e.count ?? '' },
-    {
-      header: 'Motif',
-      className: 'card-wide keep-words col-reason',
-      cell: (e) => reasonLabel(e.reason),
     },
   ];
 }
