@@ -112,7 +112,7 @@ export function confirmRowsOf(input: {
   const rows: [string, string][] = [
     ['Compte', input.account],
     [RESTORE_LABELS.item, input.name],
-    [RESTORE_LABELS.backupAt, dateTimeOf(input.backupAt)],
+    [RESTORE_LABELS.backupDate, dateTimeOf(input.backupAt)],
   ];
   if (input.versionAt !== null) rows.push([RESTORE_LABELS.versionAt, dateTimeOf(input.versionAt)]);
   rows.push(['Emplacement', input.folderLabel]);

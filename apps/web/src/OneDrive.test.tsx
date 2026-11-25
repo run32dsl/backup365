@@ -81,8 +81,8 @@ describe('OneDrive wording', () => {
     expect(confirmRowsOf({ ...base, mode: 'copy' })).toEqual([
       ['Compte', 'compte@exemple.test'],
       ['Élément', 'budget.xlsx'],
-      ['Sauvegarde du (UTC)', '14/11/2026 09:00'],
-      ['Version du (UTC)', '10/11/2026 18:30'],
+      ['Date de la sauvegarde (UTC)', '14/11/2026 09:00'],
+      ['Date de la version (UTC)', '10/11/2026 18:30'],
       ['Emplacement', 'Documents > Budget'],
       ['Restauré sous le nom', 'budget (restauré le 14-11-2026).xlsx'],
       ['Motif', 'Reprise après incident'],
@@ -91,7 +91,7 @@ describe('OneDrive wording', () => {
     expect(replace).toContainEqual(['Fichier remplacé', 'budget.xlsx']);
     expect(replace.map(([label]) => label)).not.toContain('Restauré sous le nom');
     expect(confirmRowsOf({ ...base, versionAt: null, mode: 'copy' }).map(([l]) => l)).not.toContain(
-      'Version du (UTC)',
+      'Date de la version (UTC)',
     );
     expect(COPY_CONSEQUENCE).toBe('Aucun fichier existant ne sera modifié.');
     expect(replaceWarningOf('budget.xlsx', '2026-11-18T16:59:00Z')).toBe(
@@ -169,7 +169,7 @@ describe('OneDrive entries table', () => {
       name: '2025',
       path: '/Budget 2025/2025',
       kind: 'folder' as const,
-      versionAt: null,
+      versionAt: '2026-11-19T09:34:00.000Z',
       sizeBytes: null,
     },
     {
@@ -194,8 +194,10 @@ describe('OneDrive entries table', () => {
   it('has no emoji, no « Choix » column and a UTC date header', () => {
     expect(html).not.toMatch(/\p{Extended_Pictographic}/u);
     expect(html).not.toContain('Choix');
-    expect(html).toContain('Version du (UTC)');
+    expect(html).toContain('Date de la version (UTC)');
     expect(html).toContain('dossier</span>');
+    // The folder carries a version date in the data; the table shows « — » like its size.
+    expect(html).not.toContain('19/11/2026');
   });
 
   it('shows « — » for absent values in the table; the mobile card shows none', () => {
@@ -333,11 +335,15 @@ describe('OneDrive result list', () => {
       />,
     );
     expect(out).toContain('<dt>Compte</dt><dd>a@exemple.fr</dd>');
-    expect(out).toContain('<dt>Version du (UTC)</dt><dd>10/11/2026 18:30</dd>');
+    expect(out).toContain('<dt>Date de la version (UTC)</dt><dd>10/11/2026 18:30</dd>');
     const label = status === 'succeeded' ? 'Élément restauré' : 'Élément';
-    const at = ['Compte', label, 'Sauvegarde du (UTC)', 'Version du (UTC)', 'Emplacement'].map(
-      (l) => out.indexOf(`<dt>${l}</dt>`),
-    );
+    const at = [
+      'Compte',
+      label,
+      'Date de la sauvegarde (UTC)',
+      'Date de la version (UTC)',
+      'Emplacement',
+    ].map((l) => out.indexOf(`<dt>${l}</dt>`));
     expect(at.every((i, n) => i >= 0 && (n === 0 || i > at[n - 1]!))).toBe(true);
     if (status === 'succeeded') {
       expect(out).toContain(
@@ -371,12 +377,12 @@ describe('OneDrive result list', () => {
       snapshotId: 's1',
       version: { versionId: 'v1', at: '2026-10-01T08:00:00.000Z' },
     });
-    expect(out).toContain('<dt>Version du (UTC)</dt><dd>01/10/2026 08:00</dd>');
+    expect(out).toContain('<dt>Date de la version (UTC)</dt><dd>01/10/2026 08:00</dd>');
   });
 
   it('omits the version row when no version date is known', () => {
     const out = render({ entry: { ...entry, versionAt: null }, snapshotId: 's1' });
-    expect(out).not.toContain('<dt>Version du (UTC)</dt>');
+    expect(out).not.toContain('<dt>Date de la version (UTC)</dt>');
     expect(out).toContain('<dt>Compte</dt>');
     expect(out).toContain('<dt>Emplacement</dt>');
   });
