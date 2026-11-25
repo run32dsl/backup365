@@ -121,9 +121,9 @@ describe('restore journey', () => {
     expect(html).toContain('alert-info');
     expect(html.indexOf('alert-info')).toBeLessThan(html.indexOf('role="progressbar"'));
     expect(html).toContain('Vous pouvez quitter cette page, la restauration continue.');
-    expect(html.match(/Restauration en cours…/g)).toHaveLength(1);
+    expect(html).not.toContain('Restauration en cours');
     expect(renderToStaticMarkup(<RunningProgress detail="5 éléments à traiter" />)).toContain(
-      'Restauration en cours… 5 éléments à traiter. Vous pouvez',
+      '5 éléments à traiter. Vous pouvez quitter cette page, la restauration continue.',
     );
     for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx']) {
       const text = source(name);
@@ -211,6 +211,21 @@ describe('restore result', () => {
     expect(heads[2]).toContain('>Restauration échouée</h2>');
     expect(heads[1]).toContain('<dt>Emplacement</dt><dd>Images</dd>');
     expect(Object.values(RESULT_TITLES)).toHaveLength(3);
+  });
+
+  it('says « Restauration en cours » once in a running result, whatever the journey', () => {
+    for (const detail of [undefined, '5 éléments à traiter']) {
+      const html = renderToStaticMarkup(
+        <RestoreResult status="running">
+          <RunningProgress detail={detail} />
+        </RestoreResult>,
+      );
+      expect(html.match(/Restauration en cours/g)).toHaveLength(1);
+    }
+    for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx', 'RestoreAction.tsx']) {
+      expect(source(name)).toContain('<RunningProgress');
+    }
+    expect(source('OneDrivePage.tsx')).not.toContain('Restauration terminée');
   });
 
   it('is used by both OneDrive and SharePoint', () => {

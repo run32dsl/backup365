@@ -1155,7 +1155,7 @@ export const SCREENS = [
       await openDrive(page, '/Images');
       await chooseDriveFile(page, 'logo.png');
       await launchDriveRestore(page);
-      await page.getByText(/Restauration terminée en/u).waitFor();
+      await page.getByText(/fichier restauré en/u).waitFor();
     },
   },
   {

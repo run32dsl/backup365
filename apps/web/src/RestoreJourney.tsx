@@ -129,8 +129,7 @@ export function RunningProgress({ detail }: { detail?: ReactNode }) {
   return (
     <>
       <Alert tone="info">
-        Restauration en cours…{detail ? <> {detail}.</> : null} Vous pouvez quitter cette page, la
-        restauration continue.
+        {detail ? <>{detail}. </> : null}Vous pouvez quitter cette page, la restauration continue.
       </Alert>
       {/* Le SDK ne rend pas de progression : barre sans valeur, jamais un pourcentage inventé. */}
       <div
