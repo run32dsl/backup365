@@ -1,4 +1,5 @@
 import {
+  annotateFailures,
   buildPlanComplianceReport,
   buildServiceSummaries,
   type StatusRow,
@@ -41,6 +42,20 @@ function planCompliance(
   }
 }
 
+/** Lignes rattachées à l'échec du plan qui les couvre ; inchangées si la base des plans ne répond pas. */
+function withFailures(
+  store: SqlitePlanStore,
+  rows: StatusRow[],
+  log: { warn(obj: object, msg: string): void },
+): StatusRow[] {
+  try {
+    return annotateFailures(rows, store.list(), (id) => store.listRuns(id, COMPLIANCE_RUNS_LIMIT));
+  } catch (err) {
+    log.warn({ code: (err as NodeJS.ErrnoException).code }, 'échecs des plans indisponibles');
+    return rows;
+  }
+}
+
 /** Une ligne par service (page « Sources ») ; `null` si la base des plans ne répond pas. */
 function serviceSummaries(
   store: SqlitePlanStore,
@@ -77,11 +92,13 @@ export function registerStatusRoutes(
     // Conformité des plans : réservée aux administrateurs par décision du PO du 2026-11-16, en
     // attente de #86, donc absente pour tout autre rôle et sans session ; absente sans base des plans, `null` si elle ne répond pas.
     const store = req.session?.role === 'admin' ? indexing?.plans : undefined;
+    const rows = store ? withFailures(store, catalogReport.rows, req.log) : catalogReport.rows;
     const base = store
       ? {
           ...catalogReport,
+          rows,
           plans: planCompliance(store, catalogReport.rows, req.log),
-          services: serviceSummaries(store, catalogReport.rows, options.maxAgeHours, req.log),
+          services: serviceSummaries(store, rows, options.maxAgeHours, req.log),
         }
       : catalogReport;
     const report = options.auditAnchor

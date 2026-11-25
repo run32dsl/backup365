@@ -211,7 +211,7 @@ export const SCREENS = [
     role: null,
     prepare: async (page) => {
       await page.getByRole('link', { name: 'Se connecter avec un compte Microsoft' }).click();
-      await page.getByRole('heading', { name: 'Tableau de bord' }).waitFor();
+      await page.getByRole('heading', { name: 'Accueil' }).waitFor();
       // Sur mobile, ouvre le menu pour montrer l'identifiant du compte en bas de la barre.
       const menu = page.getByRole('button', { name: 'Menu' });
       if (await menu.isVisible()) await menu.click();
@@ -275,6 +275,8 @@ export const SCREENS = [
   // Accueil : la démo inscrit un plan en échec (état réel, sans simulation) ; les deux autres états
   // sont simulés par la réponse de GET /api/overview.
   { name: 'accueil-en-echec', hash: '#/', role: 'admin' },
+  // Bloc « Couverture du tenant », « Prochaine sauvegarde » et « Derniers événements ».
+  { name: 'accueil-couverture', hash: '#/', role: 'admin' },
   { name: 'accueil-en-echec-sombre', hash: '#/', role: 'admin', scheme: 'dark' },
   {
     name: 'accueil-operationnelle',
@@ -900,9 +902,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
-      await page
-        .getByRole('dialog', { name: 'Lancer « Messagerie Direction » maintenant' })
-        .waitFor();
+      await page.getByRole('dialog', { name: 'Lancer ce plan maintenant' }).waitFor();
     },
   },
   {
@@ -920,7 +920,7 @@ export const SCREENS = [
       );
       await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
       const dialog = page.getByRole('dialog', {
-        name: 'Lancer « Messagerie Direction » maintenant',
+        name: 'Lancer ce plan maintenant',
       });
       await dialog.getByLabel('Motif du lancement (obligatoire)').fill('Contrôle de conformité');
       await dialog.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
@@ -939,7 +939,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
-      await page.getByRole('dialog', { name: 'Supprimer « Messagerie Direction » ?' }).waitFor();
+      await page.getByRole('dialog', { name: 'Supprimer ce plan\u202F?' }).waitFor();
     },
   },
   {
@@ -948,7 +948,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
-      const dialog = page.getByRole('dialog', { name: 'Supprimer « Messagerie Direction » ?' });
+      const dialog = page.getByRole('dialog', { name: 'Supprimer ce plan\u202F?' });
       await dialog.getByRole('button', { name: 'Supprimer le plan' }).click();
       await dialog.getByText('Indiquez un motif pour continuer.').waitFor();
     },
@@ -1091,7 +1091,16 @@ export const SCREENS = [
       const panel = page.getByRole('dialog', { name: 'Versions de budget.xlsx' });
       await panel.getByRole('radio').nth(1).check();
       await panel.getByRole('button', { name: 'Choisir cette version' }).click();
-      await page.getByText(/Sélection : budget\.xlsx, version du /).waitFor();
+      await page.getByText(/Sélection : fichier « budget\.xlsx », version du /).waitFor();
+    },
+  },
+  {
+    name: 'onedrive-sans-selection',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await openDrive(page);
+      await page.getByText('Cochez un fichier ou un dossier pour continuer.').waitFor();
     },
   },
   {
@@ -1146,7 +1155,7 @@ export const SCREENS = [
       await openDrive(page, '/Images');
       await chooseDriveFile(page, 'logo.png');
       await launchDriveRestore(page);
-      await page.getByText(/Restauration terminée en/u).waitFor();
+      await page.getByText(/fichier restauré en/u).waitFor();
     },
   },
   {

@@ -44,8 +44,9 @@ describe('account table', () => {
 describe('AccountChangeForm', () => {
   it('names the account and asks for a mandatory reason with a counter, for a role change', () => {
     const html = renderToString(<AccountChangeForm change={operator} role="operator" />);
-    expect(changeTitle(operator)).toBe('Modifier le rôle de operateur-demo');
-    expect(html).toContain('Compte : <strong>operateur-demo</strong>');
+    expect(changeTitle(operator)).toBe('Modifier le rôle');
+    expect(html).toContain('<dt>Compte</dt><dd>operateur-demo</dd>');
+    expect(html.match(/operateur-demo/g)).toHaveLength(1);
     expect(html).toContain('Administrateur : gère les comptes');
     expect(html).toContain('Opérateur : consulte');
     expect(html).toContain('Motif du changement de rôle (obligatoire)');
@@ -57,8 +58,8 @@ describe('AccountChangeForm', () => {
   it('states the consequence of a deactivation', () => {
     const change = { ...operator, kind: 'disable' as const };
     const html = renderToString(<AccountChangeForm change={change} role="operator" />);
-    expect(changeTitle(change)).toBe('Désactiver operateur-demo\u202F?');
-    expect(html.replaceAll('<!-- -->', '')).toContain('operateur-demo ne pourra plus se connecter');
+    expect(changeTitle(change)).toBe('Désactiver ce compte\u202F?');
+    expect(html.replaceAll('<!-- -->', '')).toContain('Ce compte ne pourra plus se connecter');
     expect(html).toContain('Motif de la désactivation (obligatoire)');
     expect(html).not.toContain('type="radio"');
     expect(html).toMatch(/btn btn-danger[^>]*>Désactiver<\/button>/);

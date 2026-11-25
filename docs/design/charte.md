@@ -113,8 +113,12 @@ décorative (`aria-hidden`) au-dessus d'un libellé court, qui passe à la ligne
 Dessous, le menu repliable garde les mêmes entrées en ligne. Ce sont des `<a href>` natifs, dont
 l'active porte `aria-current="page"`, un trait et un fond plein.
 
+Le `h1` d'une rubrique commence par le libellé de son entrée : « Accueil », « Activités »
+(phrase d'introduction : « Journal d’audit : … », terme du vocabulaire de référence), « Réglages »
+(y compris la page réservée aux administrateurs). Le mot « tableau de bord » n'est pas affiché.
+
 Les vues d'une rubrique sont choisies par un sélecteur en tête de page (`SubNav`, `<nav>` de
-liens natifs, sans `role="tab"`, défilant horizontalement sous 900 px) :
+liens natifs, sans `role="tab"`, dont les libellés passent à la ligne sous 900 px, marge des liens `--space-2`, cible d'au moins 44 px ; si la barre déborde malgré tout, l'entrée active est ramenée dans la zone visible) :
 
 - **Restaurer** (`aria-label="Source à restaurer"`) : Mails (`#/search`, y compris la fiche d'un
   mail), Fichiers OneDrive (`#/onedrive`), Sites SharePoint (`#/sharepoint`). L'entrée

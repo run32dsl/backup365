@@ -3,12 +3,10 @@
  * un seul vocabulaire pour les deux (choix de la date, récapitulatif, résultat).
  */
 export const RESTORE_LABELS = {
-  /** Choix de la date, étape « Choisir ». */
+  /** Date de la sauvegarde : champ de choix, récapitulatif et résultat. */
   backupDate: 'Date de la sauvegarde (UTC)',
-  /** Date de la sauvegarde, récapitulatif et résultat. */
-  backupAt: 'Sauvegarde du (UTC)',
-  /** Date de la version d'un fichier, récapitulatif et résultat OneDrive. */
-  versionAt: 'Version du (UTC)',
+  /** Date de la version d'un fichier : colonne du tableau, récapitulatif et résultat. */
+  versionAt: 'Date de la version (UTC)',
   /** Objet à restaurer, récapitulatif ; la nature est dans la valeur. */
   item: 'Élément',
   /** Objet restauré, résultat. */

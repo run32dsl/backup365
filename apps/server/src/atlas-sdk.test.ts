@@ -1,3 +1,4 @@
+import { createAtlasInstance } from '@wisecom/atlas-sdk';
 import { describe, expect, it, vi } from 'vitest';
 import {
   NO_GRAPH_CLIENT_ID,
@@ -57,5 +58,29 @@ describe('createAtlasCatalog', () => {
     expect(factory).toHaveBeenCalledOnce();
     expect(validate).not.toHaveBeenCalled();
     expect(dispose).toHaveBeenCalledOnce();
+  });
+
+  it('builds a real SDK 7.2 instance from the read-only config, without any request', async () => {
+    // `createAtlasInstance` valide la configuration sans entrée-sortie (docs/adr/0019) : aucune
+    // lecture n'est faite ici, seule la forme de l'instance est vérifiée.
+    const atlas = createAtlasInstance(toAtlasConfig(storage));
+    try {
+      for (const fn of [
+        atlas.outlook.listMailboxes,
+        atlas.outlook.listSnapshots,
+        atlas.outlook.getSnapshotDetail,
+        atlas.outlook.readMessage,
+        atlas.outlook.restore,
+        atlas.onedrive.listSnapshots,
+        atlas.onedrive.restore,
+        atlas.onedrive.restoreVersion,
+        atlas.sharepoint.listSnapshots,
+        atlas.sharepoint.restore,
+        atlas.getStorageUsage,
+      ])
+        expect(fn).toBeTypeOf('function');
+    } finally {
+      await atlas.dispose();
+    }
   });
 });

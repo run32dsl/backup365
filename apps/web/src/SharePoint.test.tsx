@@ -4,7 +4,6 @@ import {
   continueHint,
   restoredContentLabel,
   scopeOfKind,
-  selectionLabel,
   failureCause,
   fetchScope,
   breadcrumbLevels,
@@ -20,10 +19,14 @@ import {
   summaryCountOf,
   confirmRowsOf,
   placementRows,
+  locationOf,
   siteWarningOf,
 } from './sharepoint.js';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ConfirmStep, ContentTree, SiteDenied, SiteEntriesTable } from './SharePointPage.js';
+import { ConfirmStep } from './sharepoint/ConfirmStep.js';
+import { ContentTree } from './sharepoint/ContentTree.js';
+import { SiteDenied } from './sharepoint/SiteDenied.js';
+import { SiteEntriesTable } from './sharepoint/SiteEntriesTable.js';
 import { navEntries, screenOf } from './App.js';
 
 const json = (body: unknown, status = 200) =>
@@ -114,10 +117,16 @@ describe('SharePoint entries table', () => {
       name: 'Documents',
       path: '/Documents',
       kind: 'library' as const,
-      versionAt: null,
+      versionAt: '2026-11-19T09:34:00.000Z',
       sizeBytes: null,
     },
-    { name: 'Plans', path: '/Plans', kind: 'folder' as const, versionAt: null, sizeBytes: null },
+    {
+      name: 'Plans',
+      path: '/Plans',
+      kind: 'folder' as const,
+      versionAt: '2026-11-19T09:34:00.000Z',
+      sizeBytes: null,
+    },
     {
       name: 'plan-a.pdf',
       path: '/plan-a.pdf',
@@ -146,13 +155,15 @@ describe('SharePoint entries table', () => {
 
   it('is a table with the same columns as OneDrive, and no emoji', () => {
     const html = render(null);
-    for (const h of ['Nom', 'Version du (UTC)', 'Taille']) {
+    for (const h of ['Nom', 'Date de la version (UTC)', 'Taille']) {
       expect(html).toContain(`scope="col"`);
       expect(html).toContain(`>${h}</th>`);
     }
     expect(html).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
     expect(html).toContain('>bibliothèque</span>');
     expect(html).toContain('>dossier</span>');
+    // Library and folder carry a version date in the data; the table shows « — » like their size.
+    expect(html).not.toContain('19/11/2026');
     expect(html).toContain('href="#/sharepoint/s/item/Plans"');
   });
 
@@ -208,6 +219,7 @@ describe('SharePoint breadcrumb', () => {
     expect(html).toContain('href="#/sharepoint/a%2Cb/item"');
     expect(html).toContain('href="#/sharepoint/a%2Cb/item/Documents"');
     expect(html).toContain('<span aria-current="location">Plans 2024</span>');
+    expect(html.match(/aria-current/g)).toHaveLength(1);
   });
 
   it('navigates in the page on a plain click', () => {
@@ -260,11 +272,6 @@ describe('SharePoint wording', () => {
     expect(scopeOfKind('library')).toBe('library');
     expect(scopeOfKind('folder')).toBe('folder');
     expect(scopeOfKind('file')).toBe('item');
-    expect(selectionLabel({ path: '/Documents partagés', kind: 'library' })).toBe(
-      'Bibliothèque Documents partagés',
-    );
-    expect(selectionLabel({ path: '/Docs/Plans', kind: 'folder' })).toBe('Dossier Docs > Plans');
-    expect(selectionLabel({ path: '/Docs/a.pdf', kind: 'file' })).toBe('Fichier Docs > a.pdf');
     expect(restoredContentLabel('library', '/Documents partagés')).toBe(
       'Bibliothèque : Documents partagés',
     );
@@ -293,19 +300,21 @@ describe('SharePoint wording', () => {
     expect(confirmRowsOf(input)).toEqual([
       ['Site', 'Site Urbanisme (exemple)'],
       ['Élément', 'Bibliothèque : Documents partagés'],
-      ['Sauvegarde du (UTC)', '12/11/2026 02:00'],
+      ['Date de la sauvegarde (UTC)', '12/11/2026 02:00'],
       ['Emplacement', 'Site Urbanisme (exemple) > Documents partagés (emplacement d’origine)'],
       ['Fichiers déjà présents', 'conservés, non remplacés'],
       ['Volume', '1 240 éléments, 3,2 Go'],
       ['Motif', 'Reprise après incident'],
     ]);
     const item = confirmRowsOf({ ...input, scope: 'item', summary: null, path: '/A/b.pdf' });
-    expect(item).toContainEqual(['Élément', 'Fichier : A > b.pdf']);
+    expect(item).toContainEqual(['Élément', 'b.pdf']);
     expect(item.map(([label]) => label)).not.toContain('Volume');
     expect(item).toContainEqual([
       'Emplacement',
       'Site Urbanisme (exemple) > A (emplacement d’origine)',
     ]);
+    expect(locationOf('item', 'S', '/Docs/f.pdf')).toBe('S > Docs (emplacement d’origine)');
+    expect(locationOf('item', 'S', '/f.pdf')).toBe('S (emplacement d’origine)');
     const folder = confirmRowsOf({ ...input, scope: 'folder', path: '/Documents partagés/Plans' });
     expect(folder).toContainEqual([
       'Emplacement',

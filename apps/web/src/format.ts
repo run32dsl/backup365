@@ -19,6 +19,15 @@ export function dateTimeOf(iso: string | null): string {
     : `${dayOf(iso)} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 
+/** Espaces insécables dans `jj/mm/aaaa hh:mm UTC` : l'heure et « UTC » ne passent jamais seuls à la ligne. */
+export function keepDateTogether(text: string): string {
+  return text.replace(
+    /(\d{2}\/\d{2}\/\d{4}) (\d{2}:\d{2})(?: (UTC))?/g,
+    (_m, day: string, time: string, utc?: string) =>
+      `${day}\u00a0${time}${utc === undefined ? '' : `\u00a0${utc}`}`,
+  );
+}
+
 /** Seconde ligne d'une carte de fichier : « Version du 18/11/2026 09:52 UTC · 84 Ko » ; absente sans valeur. */
 export function cardSummary(versionAt: string | null, sizeBytes: number | null): string | null {
   const parts = [

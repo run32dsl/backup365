@@ -176,10 +176,10 @@ export function AuditPage() {
 
   return (
     <main tabIndex={-1}>
-      <h1>Journal d’audit</h1>
+      <h1>Activités</h1>
       <p>
-        La consultation de ce journal est elle-même inscrite au journal d’audit. Filtrez par action
-        pour retrouver un export ou une restauration.
+        Journal d’audit : la consultation de ce journal est elle-même inscrite au journal d’audit.
+        Filtrez par action pour retrouver un export ou une restauration.
       </p>
       <form onSubmit={submit} className="filters">
         <FormField

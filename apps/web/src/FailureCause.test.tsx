@@ -2,7 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { OverviewView } from './Home.js';
 import type { Overview } from './overview.js';
-import { PlansListView } from './PlansPage.js';
+import { PlansListView } from './plans/PlansListView.js';
+import { PlansIntro } from './PlansPage.js';
 import { FAILED_PLANS_HASH, complianceView, parsePlansHash, type PlanItem } from './plans.js';
 
 const noop = () => undefined;
@@ -71,7 +72,7 @@ describe('failure cause on the plans list', () => {
     const html = list([okPlan, failedPlan], true);
     expect(html).toContain('Plan en échec');
     expect(html).not.toContain('Messagerie Direction');
-    expect(html).toContain('Voir tous les plans');
+    expect(html).not.toContain('Voir tous les plans');
     expect(list([okPlan, failedPlan], false)).toContain('Messagerie Direction');
     // Aucun plan en échec : la liste entière, pas une page vide.
     expect(list([okPlan], true)).toContain('Messagerie Direction');
@@ -102,13 +103,13 @@ describe('failure cause on the plans list', () => {
     expect(html).toContain(`${label}.`);
     expect(html).toContain('Ces données ne sont pas encore protégées.');
     expect(html).toContain('prévenez l’exploitant du serveur');
-    expect(html).toContain('Voir tous les plans');
+    expect(html).not.toContain('Voir tous les plans');
   });
 
   it('offers a primary run button to an administrator only', () => {
     const html = list([failedPlan], true);
     expect(html).toContain('Relancez le plan');
-    expect(html).toMatch(/class="btn btn-primary"[^>]*>Lancer maintenant/);
+    expect(html).toMatch(/class="btn btn-primary alert-run"[^>]*>Lancer maintenant/);
     const operator = renderToStaticMarkup(
       <PlansListView
         state={[failedPlan]}
@@ -170,5 +171,29 @@ describe('plans card of the dashboard', () => {
       expect(html).toContain('<p>Aucun plan pour l’instant.</p>');
       expect(html).not.toContain('class="empty"');
     }
+  });
+});
+
+describe('failed plans view, one run button per plan', () => {
+  it('shows the run button once for a failed plan shown alone, and keeps Modifier and Supprimer', () => {
+    const html = list([okPlan, failedPlan], true);
+    expect(html.match(/Lancer maintenant/g)).toHaveLength(1);
+    expect(html).toContain('aria-label="Modifier Plan en échec"');
+    expect(html).toContain('aria-label="Supprimer Plan en échec"');
+    expect(html).toContain('row-actions-no-run');
+  });
+
+  it('keeps the three row actions on the full list', () => {
+    const html = list([okPlan, failedPlan], false);
+    expect(html.match(/Lancer maintenant/g)).toHaveLength(2);
+    expect(html).not.toContain('row-actions-no-run');
+  });
+
+  it('says the filter and links to the full list on the same line', () => {
+    const html = renderToStaticMarkup(<PlansIntro shown={1} total={4} />);
+    expect(html).toContain('Plans en échec : 1 sur 4.');
+    expect(html).toContain('Voir les 4 plans</a>');
+    expect(renderToStaticMarkup(<PlansIntro shown={1} total={1} />)).not.toContain('<a ');
+    expect(renderToStaticMarkup(<PlansIntro />)).toContain('Ce que chaque plan sauvegarde');
   });
 });

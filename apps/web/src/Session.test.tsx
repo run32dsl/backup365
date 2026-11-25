@@ -1,3 +1,4 @@
+import { Children, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { AccountId, Console, ForbiddenView, screenFor, screenOf } from './App.js';
@@ -148,18 +149,61 @@ describe('AccountsView', () => {
     const html = renderToString(<AccountsView state={accounts} actions={{}} />);
     expect(html).toContain('class="data-table"');
   });
-  it('offers the password reset only to local accounts', () => {
-    const html = renderToString(
-      <AccountsView state={[accounts[0]!, { ...accounts[1]!, oidc: true }]} actions={{}} />,
+  it('greys the password and role actions of a Microsoft account, with one reason', () => {
+    const onReset = vi.fn();
+    const onRole = vi.fn();
+    const onDisabled = vi.fn();
+    const root = renderToString(
+      <AccountsView
+        state={[accounts[0]!, { ...accounts[1]!, oidc: true }]}
+        actions={{ onReset, onRole, onDisabled }}
+      />,
     );
-    expect(html.match(/Réinitialiser le mot de passe : /g)).toHaveLength(1);
-    expect(html).toContain('Réinitialiser le mot de passe : root');
-    expect(html).not.toContain('Réinitialiser le mot de passe : bob');
-    expect(html).toContain('Mot de passe géré par Microsoft');
+    expect(root).not.toContain('Mot de passe géré par Microsoft');
+    expect(
+      root.match(/Compte Microsoft : mot de passe et rôle gérés dans Microsoft Entra/g),
+    ).toHaveLength(1);
+    expect(root).toContain('id="oidc-2"');
+    for (const label of ['Réinitialiser le mot de passe', 'Modifier le rôle']) {
+      expect(root).toMatch(
+        new RegExp(
+          `aria-describedby="oidc-2"[^>]*aria-label="${label} : bob"|aria-label="${label} : bob"[^>]*aria-describedby="oidc-2"`,
+        ),
+      );
+    }
+    // Deux boutons de bob, plus les deux de root (dernier administrateur).
+    expect(root.match(/aria-disabled="true"/g)).toHaveLength(4);
+    expect(root).not.toMatch(/aria-disabled="true"[^>]*aria-label="Désactiver : bob"/);
+    expect(root).not.toMatch(/aria-label="Désactiver : bob"[^>]*aria-disabled/);
+    // Clic simulé : on appelle le `onClick` de chaque bouton de la ligne Microsoft.
+    const tree = AccountsView({
+      state: [{ ...accounts[1]!, oidc: true }, accounts[0]!],
+      actions: { onReset, onRole, onDisabled },
+    }) as ReactElement<{ children: ReactNode }>;
+    const table = Children.toArray(tree.props.children).find(
+      (c): c is ReactElement<{ columns: { cell: (a: unknown) => ReactElement }[] }> =>
+        isValidElement(c) && 'columns' in (c.props as object),
+    )!;
+    const buttons: ReactElement<{ onClick?: () => void; 'aria-label'?: string }>[] = [];
+    const walk = (n: ReactNode): void =>
+      Children.forEach(n, (c) => {
+        if (!isValidElement(c)) return;
+        const p = c.props as { children?: ReactNode; onClick?: () => void };
+        if (p.onClick) buttons.push(c as (typeof buttons)[number]);
+        walk(p.children);
+      });
+    const cell = table.props.columns.at(-1)!.cell({ ...accounts[1]!, oidc: true });
+    walk((cell.props as { children: ReactNode }).children);
+    expect(buttons).toHaveLength(3);
+    buttons.forEach((b) => b.props.onClick?.());
+    expect(onReset).not.toHaveBeenCalled();
+    expect(onRole).not.toHaveBeenCalled();
+    expect(onDisabled).toHaveBeenCalledTimes(1);
   });
   it('keeps both mentions, and a valid aria-describedby, on a Microsoft last administrator', () => {
     const html = renderToString(<AccountsView state={[{ ...accounts[0]!, oidc: true }]} />);
-    expect(html).toContain('Mot de passe géré par Microsoft');
+    expect(html).toContain('gérés dans Microsoft Entra');
+    expect(html).toContain('aria-describedby="oidc-1 last-admin-1"');
     expect(html).toContain('id="last-admin-1"');
     expect(html).toContain('aria-describedby="last-admin-1"');
   });
@@ -175,7 +219,7 @@ describe('AccountsView', () => {
   });
 });
 
-describe('Administration page structure', () => {
+describe('Réglages page structure', () => {
   const account = (id: number, username: string) => ({
     id,
     username,
@@ -203,7 +247,7 @@ describe('Administration page structure', () => {
 
   it('keeps one filled button on the page, «\u202F+ Créer un compte\u202F», on the intro line', () => {
     const page = renderToString(<AccountsPage />);
-    expect(page).toContain('<h1>Administration</h1><div class="view-intro">');
+    expect(page).toContain('<h1>Réglages</h1><div class="view-intro">');
     expect(page.match(/btn-primary/g)).toHaveLength(1);
     expect(page.replaceAll('<!-- -->', '')).toContain('+ </span>Créer un compte</button>');
   });
@@ -373,6 +417,16 @@ describe('maquette de l’issue #22', () => {
     expect(renderToString(<CredentialsView mode="login" />)).not.toContain('expiré');
   });
 
+  it('shows every lost session as an info alert, never as an error', () => {
+    for (const loss of ['expired', 'invalid'] as const) {
+      const html = renderToString(<CredentialsView mode="login" notice={lossMessage(loss)} />);
+      expect(html).toContain('<div class="alert alert-info" role="status">');
+      expect(html).toContain(lossMessage(loss));
+      expect(html).not.toContain('alert-error');
+      expect(html).not.toContain('role="alert"');
+    }
+  });
+
   it('shows a Microsoft refusal as an error alert, not a plain paragraph', () => {
     const html = renderToString(<CredentialsView mode="login" refusal="Accès refusé." microsoft />);
     expect(html).toContain('class="alert alert-error" role="alert"');
@@ -427,7 +481,7 @@ describe('maquette de l’issue #22', () => {
   });
 
   it('names the console in the accounts title and says the journal is audited', () => {
-    expect(renderToString(<AccountsPage />)).toContain('<h1>Administration</h1>');
+    expect(renderToString(<AccountsPage />)).toContain('<h1>Réglages</h1>');
     const accounts = renderToString(<AccountsView state={[]} />);
     expect(accounts).not.toContain('<h2>Comptes de la console</h2>');
     expect(accounts).toContain('<caption class="sr-only">Comptes de la console</caption>');
@@ -437,7 +491,7 @@ describe('maquette de l’issue #22', () => {
     expect(page.split(AUDIT_NOTICE)).toHaveLength(2);
     expect(renderToString(<CredentialsView mode="login" />)).toContain(AUDIT_NOTICE);
     expect(renderToString(<AuditPage />)).toContain(
-      'La consultation de ce journal est elle-même inscrite au journal d’audit.',
+      'Journal d’audit : la consultation de ce journal est elle-même inscrite au journal d’audit.',
     );
     expect(UNREACHABLE).toBe('Impossible de joindre la console. Réessayez.');
   });
@@ -463,10 +517,10 @@ describe('textes restants de la maquette de #22', () => {
   it('tells an operator that the accounts page is reserved, with a link home', () => {
     const html = renderToString(<ForbiddenView />);
     expect(html).toContain('Cette page est réservée aux administrateurs.');
-    expect(html).toContain('<h1>Administration</h1>');
+    expect(html).toContain('<h1>Réglages</h1>');
     expect(html).toContain('Demandez à un administrateur');
     expect(html).toContain('href="#/"');
-    expect(html).toContain('Retour au tableau de bord');
+    expect(html).toContain('Retour à l’accueil');
     expect(html).not.toContain('alert-error');
     expect(html).toMatch(/<div class="alert alert-warning" role="alert">/u);
     expect(html).toContain('<strong class="alert-title">Accès réservé</strong>');

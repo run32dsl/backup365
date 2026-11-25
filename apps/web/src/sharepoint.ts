@@ -1,74 +1,14 @@
-import { API_ERRORS } from './apiError.js';
-import { REASON } from './RestoreJourney.js';
 import { RESTORE_LABELS } from './restoreLabels.js';
-import type { DriveSnapshot, SiteEntry, SiteScope, SiteScopeSummary } from '@backup365/core';
-import { dayOf, dateTimeOf, sizeOf, type Loaded } from './onedrive.js';
-import { UNREACHABLE } from './session.js';
-import { elementsInError, elementsWhich, quoted } from './format.js';
+import type { SiteEntry, SiteScope, SiteScopeSummary } from '@backup365/core';
+import { dayOf, dateTimeOf, sizeOf } from './onedrive.js';
+import { elementsInError, elementsWhich } from './format.js';
+import type { SiteJob } from './sharepoint/model.js';
 
+// Modèle et accès au serveur : un fichier chacun sous `sharepoint/`, réunis ici pour les écrans.
+export * from './sharepoint/model.js';
+export * from './sharepoint/api.js';
 export type { SiteEntry, SiteScope, SiteScopeSummary };
 export { dayOf, dateTimeOf, sizeOf };
-
-export type SiteJobStatus = 'running' | 'succeeded' | 'failed';
-
-/** Restauration SharePoint telle que l'API la rend : états, comptes et durées, jamais de contenu. */
-export interface SiteJob {
-  id: string;
-  siteId: string;
-  scope: SiteScope;
-  path: string;
-  status: SiteJobStatus;
-  startedAt: string;
-  finishedAt: string | null;
-  durationMs: number | null;
-  total: number;
-  restored: number;
-  skipped: number;
-  errors: number;
-  copyName: string | null;
-  error: 'restore_error' | 'restore_unreachable' | 'restore_lost' | null;
-}
-
-export interface Site {
-  id: string;
-  displayName: string;
-}
-
-export const SHAREPOINT_MESSAGES = {
-  title: 'Restaurer depuis SharePoint',
-  loadingPoints: 'Chargement des points de restauration…',
-  loading: 'Chargement…',
-  noSites: 'Aucun site SharePoint n’est encore sauvegardé.',
-  noPoints: 'Aucun point de restauration pour ce site.',
-  emptyFolder: 'Ce dossier ne contient aucun élément à cette date.',
-  readError: 'La sauvegarde n’a pas pu être lue.',
-  forbidden: 'Vous n’avez pas le droit de restaurer ce site. Contactez un administrateur.',
-  forbiddenSite: (name: string) =>
-    `Vous n’avez pas le droit de restaurer le site ${quoted(name)}. Demandez à un administrateur ou choisissez un autre site.`,
-  chooseOther: 'Choisir un autre site',
-  reasonError: REASON.error,
-  nameError: 'Le nom saisi ne correspond pas au site.',
-  inactiveHint:
-    'Le bouton reste inactif tant que la case n’est pas cochée et que le nom du site n’est pas exact.',
-  alreadyRunning: 'Une restauration de ce site est déjà en cours.',
-  auditUnavailable: 'Journal d’audit indisponible : restauration refusée.',
-  emptyScope: 'Rien à restaurer à cette date : le périmètre ne contient aucun élément.',
-  notInBackup: 'Cet élément n’est plus disponible dans la sauvegarde.',
-  generic: 'La demande a échoué. Réessayez.',
-} as const;
-
-const T = SHAREPOINT_MESSAGES;
-
-const SERVER_MESSAGES: Record<string, string> = {
-  reason_required: T.reasonError,
-  forbidden: T.forbidden,
-  admin_required: T.forbidden,
-  confirmation_mismatch: T.nameError,
-  restore_in_progress: T.alreadyRunning,
-  audit_unavailable: T.auditUnavailable,
-  item_not_found: T.notInBackup,
-  empty_scope: T.emptyScope,
-};
 
 export const SCOPE_OPTIONS: { value: SiteScope; label: string; noun: string }[] = [
   { value: 'item', label: 'Un élément', noun: 'l’élément' },
@@ -178,7 +118,8 @@ export function pathLabel(path: string): string {
 /** Ce qui a été restauré, pour l'écran de résultat : `Fichier : Documents partagés > plan-a.pdf`. */
 export function restoredContentLabel(scope: SiteScope, path: string): string {
   if (scope === 'site') return 'Site entier';
-  const kind = scope === 'item' ? 'Fichier' : scope === 'folder' ? 'Dossier' : 'Bibliothèque';
+  if (scope === 'item') return pathLabel(path).split(' > ').pop() ?? '';
+  const kind = scope === 'folder' ? 'Dossier' : 'Bibliothèque';
   return `${kind} : ${pathLabel(path)}`;
 }
 
@@ -191,8 +132,9 @@ export const EXISTING_FILES_KEPT = 'conservés, non remplacés';
  */
 export function locationOf(scope: SiteScope, siteName: string, path: string): string {
   if (scope === 'site') return 'Emplacement d’origine de chaque élément';
-  const library = path.split('/').filter(Boolean)[0];
-  return `${[siteName, library].filter(Boolean).join(' > ')} (emplacement d’origine)`;
+  const segments = path.split('/').filter(Boolean);
+  const place = scope === 'item' ? segments.slice(0, -1) : segments.slice(0, 1);
+  return `${[siteName, ...place].filter(Boolean).join(' > ')} (emplacement d’origine)`;
 }
 
 /** Lignes « Emplacement » et « Fichiers déjà présents », communes au récapitulatif et aux résultats. */
@@ -210,12 +152,6 @@ export function placementRows(
 /** Granularité de restauration déduite de la ligne cochée. */
 export function scopeOfKind(kind: SiteEntry['kind']): SiteScope {
   return kind === 'file' ? 'item' : kind;
-}
-
-/** Ligne « Sélection : … » sous le tableau : `Bibliothèque Documents partagés`. */
-export function selectionLabel(selected: { path: string; kind: SiteEntry['kind'] }): string {
-  const kind = { library: 'Bibliothèque', folder: 'Dossier', file: 'Fichier' }[selected.kind];
-  return `${kind} ${pathLabel(selected.path)}`;
 }
 
 /** Pourquoi « Continuer » est inactif, en une phrase. */
@@ -246,7 +182,7 @@ export function confirmRowsOf(input: {
   const rows: [string, string][] = [
     ['Site', input.siteName],
     [RESTORE_LABELS.item, restoredContentLabel(input.scope, input.path)],
-    [RESTORE_LABELS.backupAt, dateTimeOf(input.pointAt)],
+    [RESTORE_LABELS.backupDate, dateTimeOf(input.pointAt)],
     ...placementRows(input.scope, input.siteName, input.path),
   ];
   if (input.summary) {
@@ -322,127 +258,4 @@ export function errorItemLabel(job: Pick<SiteJob, 'scope' | 'path' | 'errors'>):
 /** Vrai si l'appel a pu aboutir malgré l'échec affiché. */
 export function isOutcomeUncertain(error: SiteJob['error']): boolean {
   return error === 'restore_unreachable' || error === 'restore_lost';
-}
-
-async function load<T>(
-  url: string,
-  pick: (body: never) => T,
-  fetchFn: typeof fetch,
-): Promise<Loaded<T>> {
-  try {
-    const res = await fetchFn(url);
-    if (res.ok) return { status: 'ok', data: pick((await res.json()) as never) };
-    const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
-    if (res.status === 503 && body?.error === 'catalog_unavailable')
-      return { status: 'unconfigured' };
-    if (res.status === 503 && body?.error === 'no_backup_found') return { status: 'no_backup' };
-    return { status: 'error' };
-  } catch {
-    return { status: 'error' };
-  }
-}
-
-const site = (id: string): string => `/api/sharepoint/${encodeURIComponent(id)}`;
-
-export function fetchSites(fetchFn: typeof fetch = fetch): Promise<Loaded<Site[]>> {
-  return load('/api/sharepoint/sites', (b: { sites: Site[] }) => b.sites, fetchFn);
-}
-
-export function fetchSiteSnapshots(
-  siteId: string,
-  fetchFn: typeof fetch = fetch,
-): Promise<Loaded<DriveSnapshot[]>> {
-  return load(
-    `${site(siteId)}/snapshots`,
-    (b: { snapshots: DriveSnapshot[] }) => b.snapshots,
-    fetchFn,
-  );
-}
-
-export function fetchSiteEntries(
-  siteId: string,
-  snapshotId: string,
-  path: string,
-  fetchFn: typeof fetch = fetch,
-): Promise<Loaded<SiteEntry[]>> {
-  const query = new URLSearchParams({ snapshot: snapshotId, path });
-  return load(
-    `${site(siteId)}/items?${query.toString()}`,
-    (b: { entries: SiteEntry[] }) => b.entries,
-    fetchFn,
-  );
-}
-
-export function fetchScope(
-  siteId: string,
-  snapshotId: string,
-  path: string,
-  fetchFn: typeof fetch = fetch,
-): Promise<Loaded<SiteScopeSummary>> {
-  const query = new URLSearchParams({ snapshot: snapshotId, path });
-  return load(
-    `${site(siteId)}/scope?${query.toString()}`,
-    (b: SiteScopeSummary) => ({ items: b.items, sizeBytes: b.sizeBytes }),
-    fetchFn,
-  );
-}
-
-/** La restauration est-elle configurée ? En cas d'erreur : oui, le serveur tranchera. */
-export async function fetchSiteRestoreConfigured(fetchFn: typeof fetch = fetch): Promise<boolean> {
-  try {
-    const res = await fetchFn('/api/sharepoint/status');
-    if (!res.ok) return true;
-    return ((await res.json()) as { configured: boolean }).configured;
-  } catch {
-    return true;
-  }
-}
-
-/** Dernière restauration du site ; lève si la réponse n'est pas en 2xx. */
-export async function fetchLastSiteJob(
-  siteId: string,
-  fetchFn: typeof fetch = fetch,
-): Promise<SiteJob | null> {
-  const res = await fetchFn(`${site(siteId)}/restore`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return ((await res.json()) as { last: SiteJob | null }).last;
-}
-
-export interface SiteRestoreInput {
-  snapshotId: string;
-  scope: SiteScope;
-  path: string;
-  reason: string;
-  confirmName?: string | undefined;
-}
-
-export type SiteRestoreResult =
-  { ok: true; job: SiteJob } | { ok: false; message: string; requestId?: string };
-
-/** Lance la restauration. `message` est en français, sans détail technique. */
-export async function startSiteRestore(
-  siteId: string,
-  input: SiteRestoreInput,
-  fetchFn: typeof fetch = fetch,
-): Promise<SiteRestoreResult> {
-  try {
-    const res = await fetchFn(`${site(siteId)}/restore`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...input, reason: input.reason.trim() }),
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
-      const code = typeof body?.error === 'string' ? body.error : '';
-      const requestId = res.headers.get('x-request-id') ?? undefined;
-      return {
-        ok: false,
-        message: SERVER_MESSAGES[code] ?? API_ERRORS[code] ?? T.generic,
-        ...(requestId ? { requestId } : {}),
-      };
-    }
-    return { ok: true, job: ((await res.json()) as { job: SiteJob }).job };
-  } catch {
-    return { ok: false, message: UNREACHABLE };
-  }
 }

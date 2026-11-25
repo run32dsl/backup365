@@ -13,7 +13,7 @@ test('connexion, puis retour à la page demandée', async ({ page }) => {
   await page.getByLabel('Identifiant').fill(DEMO_LOGINS.admin.username);
   await page.getByLabel('Mot de passe', { exact: true }).fill(DEMO_LOGINS.admin.password);
   await page.getByRole('button', { name: 'Se connecter' }).click();
-  await expect(page.getByRole('heading', { name: 'Journal d’audit' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Activités' })).toBeVisible();
   await expect(page).toHaveURL(/#\/audit$/);
 });
 
@@ -144,14 +144,14 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
     .click();
   const path = page.getByRole('navigation', { name: "Fil d'Ariane" });
   await expect(path.getByText('Budget')).toHaveAttribute('aria-current', 'location');
-  await expect(page.getByRole('columnheader', { name: 'Version du (UTC)' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Date de la version (UTC)' })).toBeVisible();
   await expect(
     page.getByRole('cell', { name: /\d\d\/\d\d\/\d{4} \d\d:\d\d/ }).first(),
   ).toBeVisible();
 
   // Sélection annoncée ; le panneau des versions rend le focus à son bouton.
   await page.getByRole('radio', { name: 'budget.xlsx' }).check();
-  await expect(page.getByText('Sélection : budget.xlsx')).toBeVisible();
+  await expect(page.getByText('Sélection : fichier « budget.xlsx »')).toBeVisible();
   const versions = page.getByRole('button', { name: 'Versions de budget.xlsx' });
   await versions.click();
   const panel = page.getByRole('dialog', { name: 'Versions de budget.xlsx' });
@@ -165,7 +165,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   await panel.getByRole('radio').nth(1).check();
   await panel.getByRole('button', { name: 'Choisir cette version' }).click();
   await expect(page.getByText(/Étape 1 sur 3/)).toBeVisible();
-  await expect(page.getByText(/Sélection : budget\.xlsx, version du /)).toBeVisible();
+  await expect(page.getByText(/Sélection : fichier « budget\.xlsx », version du /)).toBeVisible();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page.getByRole('heading', { name: 'Restaurer depuis OneDrive' })).toBeVisible();
   await expect(page.getByText(/Étape 2 sur 3/)).toBeVisible();
@@ -177,12 +177,12 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
 
   // Confirmation : récapitulatif ; remplacer exige une confirmation explicite.
   await expect(page.getByText('Étape 3 sur 3')).toBeVisible();
-  for (const term of ['Sauvegarde du \\(UTC\\)', 'Version du \\(UTC\\)']) {
+  for (const term of ['Date de la sauvegarde \\(UTC\\)', 'Date de la version \\(UTC\\)']) {
     await expect(
       page
         .locator('dt', { hasText: new RegExp(`^${term}$`) })
         .locator('xpath=following-sibling::dd[1]'),
-    ).toHaveText(/^\d\d\/\d\d\/\d{4} \d\d:\d\d$/);
+    ).toHaveText(/^\d\d\/\d\d\/\d{4}[\s\u00a0]\d\d:\d\d$/);
   }
   await expect(page.getByText('Nom choisi par OneDrive')).toBeVisible();
   await page.getByLabel('Remplacer le fichier actuel').check();
@@ -201,8 +201,8 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   await replaceGo.click();
 
   await expect(page.getByRole('progressbar')).toBeVisible();
-  await expect(page.getByRole('status').getByText('Restauration en cours')).toBeVisible();
-  await expect(page.getByText(/Restauration terminée en \d+ s\./)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Restauration en cours' })).toBeVisible();
+  await expect(page.getByText(/(fichier|Dossier) restauré en \d+ s\./)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Restauration terminée' })).toBeVisible();
   await expect(page.getByText('Emplacement', { exact: true })).toBeVisible();
   await expect(page.getByText('Documents > Budget', { exact: true })).toBeVisible();
@@ -262,7 +262,7 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   ).toBeVisible();
   // Une bibliothèque se coche sans être ouverte.
   await page.getByRole('radio', { name: 'Documents partagés', exact: true }).check();
-  await expect(page.getByText('Sélection : Bibliothèque Documents partagés')).toBeVisible();
+  await expect(page.getByText('Sélection : bibliothèque « Documents partagés »')).toBeVisible();
   await next.click();
 
   // Motif : la précision est obligatoire.
@@ -359,7 +359,8 @@ test('SharePoint : un échec affiche le résultat partiel et propose de réessay
   await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
   await expect(page.getByRole('alert').getByText(/Rien n’a été modifié\./)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Restauration échouée' })).toBeVisible();
-  await expect(page.getByText('Éléments en erreur', { exact: true })).toBeVisible();
+  await expect(page.getByText('Date de la version (UTC)')).toBeVisible();
+  await expect(page.getByText('Éléments en erreur', { exact: true })).toHaveCount(0);
   // Réessayer ramène au récapitulatif, motif et choix conservés.
   await page.getByRole('button', { name: 'Réessayer' }).click();
   await expect(page.getByText('Étape 3 sur 3')).toBeVisible();
@@ -382,20 +383,20 @@ test('SharePoint : fil d’Ariane à 390 px, séparateurs et liens par niveau', 
   const parent = nav.getByRole('link', { name: 'Documents partagés' });
   await expect(parent).toHaveAttribute('href', library);
 
-  // Chaque « > » est dans le `li` du niveau qui le précède, donc sur sa ligne, après le libellé :
-  // aucune ligne ne commence par « > ». Le dernier niveau n'en a pas.
+  // Chaque « > » ouvre le `li` du niveau qui le suit (`::before`) : à un retour à la ligne il part
+  // avec ce niveau, donc sur sa ligne, avant le libellé. Le premier niveau n'en a pas.
   const levels = await nav.locator('ol').evaluate((ol) =>
     [...ol.children].map((li) => {
       const box = li.getBoundingClientRect();
       const label = li.firstElementChild!.getBoundingClientRect();
-      const after = getComputedStyle(li, '::after');
+      const before = getComputedStyle(li, '::before');
       return {
         top: Math.round(box.top),
-        display: after.display,
-        content: after.content,
-        // Le séparateur suit le libellé, sur la même ligne.
+        display: before.display,
+        content: before.content,
+        // Le séparateur précède le libellé, sur la même ligne.
         glued:
-          label.right <= box.right - parseFloat(after.width) &&
+          box.left + parseFloat(before.width) <= label.left &&
           label.top < box.bottom &&
           label.bottom > box.top,
       };
@@ -405,7 +406,7 @@ test('SharePoint : fil d’Ariane à 390 px, séparateurs et liens par niveau', 
   // À 390 px, le chemin à trois niveaux du jeu de démo ne tient pas sur une ligne.
   expect(new Set(levels.map((l) => l.top)).size).toBeGreaterThan(1);
   for (const [i, level] of levels.entries()) {
-    if (i === levels.length - 1) {
+    if (i === 0) {
       expect(level.display).toBe('none');
       continue;
     }
@@ -438,7 +439,7 @@ test('navigation au clavier du menu replié à 390 px', async ({ page, context, 
   await expect(page.getByRole('link', { name: 'Activités' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/audit$/);
-  await expect(page.getByRole('heading', { name: 'Journal d’audit' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Activités' })).toBeVisible();
   // Le menu se referme après la navigation.
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 
@@ -471,7 +472,7 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await expect(page.getByText('Étape 2 sur 3')).toBeFocused();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page.getByText('Indiquez pourquoi cette durée est nécessaire.')).toBeVisible();
-  await page.getByRole('group', { name: 'Durée de conservation' }).getByLabel('3 ans').check();
+  await page.getByLabel('Durée de conservation').selectOption('1095');
   await page.getByLabel('Justification de cette durée').fill('Besoin métier : archives');
   await page.getByRole('button', { name: 'Continuer' }).click();
 
@@ -492,7 +493,7 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
 
   // Lancement manuel : le motif est exigé, puis inscrit au journal d'audit.
   await page.getByRole('button', { name: 'Lancer Contacts Exemple maintenant' }).click();
-  const run = page.getByRole('dialog', { name: 'Lancer « Contacts Exemple » maintenant' });
+  const run = page.getByRole('dialog', { name: 'Lancer ce plan maintenant' });
   await run.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
   await expect(run.getByText('Indiquez un motif pour continuer.')).toBeVisible();
   await run.getByLabel('Motif du lancement (obligatoire)').fill('Après un incident');
@@ -503,7 +504,7 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
 
   // Suppression : la confirmation s'ouvre sur le champ du motif (comme les autres boîtes à motif).
   await page.getByRole('button', { name: 'Supprimer Contacts Exemple' }).click();
-  const del = page.getByRole('dialog', { name: 'Supprimer « Contacts Exemple » ?' });
+  const del = page.getByRole('dialog', { name: 'Supprimer ce plan\u202F?' });
   await expect(del.getByLabel('Motif de la suppression (obligatoire)')).toBeFocused();
   await del.getByRole('button', { name: 'Supprimer le plan' }).click();
   await expect(del.getByText('Indiquez un motif pour continuer.')).toBeVisible();
@@ -534,7 +535,7 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
     }),
   );
   await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
-  const run = page.getByRole('dialog', { name: 'Lancer « Messagerie Direction » maintenant' });
+  const run = page.getByRole('dialog', { name: 'Lancer ce plan maintenant' });
   const submit = run.getByRole('button', { name: 'Lancer la sauvegarde' });
   await run.getByLabel('Motif du lancement (obligatoire)').fill('Après un incident');
   await submit.click();
@@ -588,7 +589,7 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
       : route.fallback(),
   );
   await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
-  const del = page.getByRole('dialog', { name: 'Supprimer « Messagerie Direction » ?' });
+  const del = page.getByRole('dialog', { name: 'Supprimer ce plan\u202F?' });
   await del.getByLabel('Motif de la suppression (obligatoire)').fill('Plan remplacé');
   await del.getByRole('button', { name: 'Supprimer le plan' }).click();
   const refused = del.getByRole('alert').filter({ hasText: 'Journal d’audit indisponible' });

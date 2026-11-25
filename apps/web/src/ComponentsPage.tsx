@@ -8,6 +8,7 @@ import {
   EmptyState,
   StatusPill,
   Steps,
+  SubNav,
   WIZARD_LABELS,
   WizardActions,
   type Column,
@@ -324,6 +325,20 @@ export function ComponentsPage() {
           <StatusPill status="unconfigured" />
           <StatusPill status="pending" />
         </div>
+      </Section>
+      <Section id="sous-navigation" title="Sélecteur de vue (SubNav)">
+        <p>
+          Les entrées tiennent sur une ligne, quelle que soit la largeur : sous 900 px, leurs
+          libellés passent à la ligne plutôt que d'être coupés.
+        </p>
+        <SubNav
+          label="Exemple de sélecteur"
+          links={[
+            { href: '#/composants', label: 'Mails', current: false },
+            { href: '#/composants', label: 'Fichiers OneDrive', current: false },
+            { href: '#/composants', label: 'Sites SharePoint', current: true },
+          ]}
+        />
       </Section>
       <Section id="titres" title="Échelle de titres">
         <p>

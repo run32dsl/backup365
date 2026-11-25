@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { API_ERRORS, readFailure, splitTitle } from './apiError.js';
-import { PlanFailure } from './PlansPage.js';
+import { PlanFailure } from './plans/PlanFailure.js';
 import { FailureAlert } from './FailureAlert.js';
 import { runPlan } from './plans.js';
 import { errorMessage } from './session.js';

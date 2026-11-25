@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ConfigurationNotice, connectionLine, useConfiguration } from './ConfigurationBlock.js';
 import { dateTimeOf, quoted, workloadLabel } from './format.js';
+import { HomeCoverage } from './HomeCoverage.js';
 import { fetchOverview, type Overview } from './overview.js';
 import {
   FAILED_PLANS_HASH,
@@ -275,7 +276,7 @@ export function Home({ admin = false }: { admin?: boolean }) {
   }, [state]);
   return (
     <main tabIndex={-1}>
-      <h1 tabIndex={-1}>Tableau de bord</h1>
+      <h1 tabIndex={-1}>Accueil</h1>
       <div role="status" className="sr-only">
         {retried.current ? announcementOf(state) : ''}
       </div>
@@ -286,6 +287,7 @@ export function Home({ admin = false }: { admin?: boolean }) {
         onRetry={retry}
         connection={admin ? connectionLine(config) : null}
       />
+      <HomeCoverage admin={admin} />
     </main>
   );
 }

@@ -8,11 +8,13 @@ SDK : permettre de plafonner le débit et la concurrence d'une opération
 
 ## Contexte
 
-Nous intégrons `@wisecom/atlas-sdk` 6.2.0 dans une console web de sauvegarde pour petites
+Nous intégrons `@wisecom/atlas-sdk` 7.2.0 dans une console web de sauvegarde pour petites
 organisations, souvent exécutée sur un NAS derrière une connexion limitée. Elles ne veulent pas
-saturer leur lien en journée. Dans 6.2.0, `AtlasInstanceConfig` et les options de sauvegarde
-(`outlook.backup`, `onedrive.backup`, `sharepoint.backup`) n'offrent ni plafond de débit ni de
-parallélisme ; `throttleCoordinator` ne gère que les attentes après un HTTP 429.
+saturer leur lien en journée. Dans 7.2.0 (vérifié, ADR 0019), `AtlasInstanceConfig` et les
+options de sauvegarde (`outlook.backup`, `onedrive.backup`, `sharepoint.backup`) n'offrent ni
+plafond de débit ni de parallélisme ; `throttleCoordinator` ne gère que les attentes après un
+HTTP 429, et `teamsPacingShare` comme `concurrency` ne règlent que le rythme des appels Graph
+de Teams.
 
 ## Demande
 

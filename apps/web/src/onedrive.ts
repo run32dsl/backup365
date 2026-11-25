@@ -80,9 +80,9 @@ export function oneDriveHash(account: string, path: string): string {
   return [ONEDRIVE_HASH, encodeURIComponent(account), ...segments].join('/');
 }
 
-/** Fil d'Ariane : `Accueil` puis chaque dossier, avec le chemin complet de chacun. */
-export function breadcrumbOf(path: string): { label: string; path: string }[] {
-  const out = [{ label: 'Accueil', path: '/' }];
+/** Fil d'Ariane : le compte (racine du OneDrive) puis chaque dossier, avec le chemin complet. */
+export function breadcrumbOf(path: string, rootLabel: string): { label: string; path: string }[] {
+  const out = [{ label: rootLabel, path: '/' }];
   let current = '';
   for (const segment of path.split('/').filter(Boolean)) {
     current += `/${segment}`;
@@ -112,7 +112,7 @@ export function confirmRowsOf(input: {
   const rows: [string, string][] = [
     ['Compte', input.account],
     [RESTORE_LABELS.item, input.name],
-    [RESTORE_LABELS.backupAt, dateTimeOf(input.backupAt)],
+    [RESTORE_LABELS.backupDate, dateTimeOf(input.backupAt)],
   ];
   if (input.versionAt !== null) rows.push([RESTORE_LABELS.versionAt, dateTimeOf(input.versionAt)]);
   rows.push(['Emplacement', input.folderLabel]);
@@ -286,4 +286,9 @@ export async function startDriveRestore(
   } catch {
     return { ok: false, message: UNREACHABLE };
   }
+}
+
+/** Ce qui a été restauré, sans répéter le titre « Restauration terminée » de la boîte. */
+export function restoredSummary(kind: DriveKind, duration: string): string {
+  return `${kind === 'folder' ? 'Dossier restauré' : '1 fichier restauré'} en ${duration}.`;
 }

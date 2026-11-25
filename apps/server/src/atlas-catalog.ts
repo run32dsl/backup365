@@ -61,9 +61,10 @@ interface SiteEntry {
 }
 
 /**
- * Aucune sauvegarde : Atlas ne crée le bucket qu'à la première. Le SDK 6.2 convertit alors le
- * `NoSuchBucket` de S3 en `NotFoundError` (`ATLAS_NOT_FOUND`, « No backups found for tenant … »),
- * le `NoSuchBucket` d'origine restant dans `cause` ; on accepte aussi ce dernier tel quel.
+ * Aucune sauvegarde : Atlas ne crée le bucket qu'à la première. Le SDK (6.2 comme 7.2) convertit
+ * alors le `NoSuchBucket` de S3 en `NotFoundError` (`ATLAS_NOT_FOUND`, « No backups found for
+ * tenant … »), le `NoSuchBucket` d'origine restant dans `cause` ; on accepte aussi ce dernier tel
+ * quel. Le SDK 7.2 précise que seul le code fait contrat, pas le message (docs/adr/0019).
  */
 function isBucketMissing(err: unknown): boolean {
   for (let e: unknown = err, depth = 0; e instanceof Error && depth < 4; e = e.cause, depth++) {

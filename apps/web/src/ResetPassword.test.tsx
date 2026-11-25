@@ -39,7 +39,8 @@ describe('réinitialisation : étape 3', () => {
     expect(html).toContain('Affiché une seule fois. Il ne pourra plus être consulté.');
     expect(html).toContain('>Copier</button>');
     expect(html).toContain('J’ai transmis le mot de passe');
-    expect(html).toContain('Compte : <strong>jean.exemple</strong>');
+    expect(html).toContain('<dt>Compte</dt><dd>jean.exemple</dd>');
+    expect(html.match(/jean\.exemple/g)).toHaveLength(1);
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Terminer/);
     expect(html).toMatch(/<button[^>]*btn-primary[^>]*>Terminer/);
   });
@@ -74,7 +75,8 @@ describe('réinitialisation : étape 3', () => {
       <TemporaryPasswordView username="jean.exemple" password={password} />,
     );
     expect(step).toBe(view);
-    expect(step).toContain('Compte : <strong>jean.exemple</strong>');
+    expect(step).toContain('<dt>Compte</dt><dd>jean.exemple</dd>');
+    expect(step.match(/jean\.exemple/g)).toHaveLength(1);
     expect(step).toMatch(/<button[^>]*disabled=""[^>]*>Terminer/);
   });
 

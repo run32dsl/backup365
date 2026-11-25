@@ -1,8 +1,8 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { Problem as OneDriveProblem } from './OneDrivePage.js';
-import { Problem as SharePointProblem } from './SharePointPage.js';
+import { Problem as OneDriveProblem } from './onedrive/Problem.js';
+import { Problem as SharePointProblem } from './sharepoint/Problem.js';
 import { StorageUnavailable } from './StorageUnavailable.js';
 import { Button } from './ui/index.js';
 

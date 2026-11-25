@@ -13,8 +13,8 @@ Graph volontairement faux) quelles lectures fonctionnent sans Graph.
 
 - Le port `BackupCatalog` (`packages/core`) est en lecture seule : boîtes, instantanés par
   charge, détail d'un instantané. Il est indépendant du SDK.
-- **Dépendance** : `@wisecom/atlas-sdk` en version figée `6.2.0` (npm, Apache-2.0, même projet
-  qu'Atlas), dans `apps/server` uniquement. Le SDK embarque l'accès S3, le chiffrement et le
+- **Dépendance** : `@wisecom/atlas-sdk` en version figée (`7.2.0` depuis l'ADR 0019, d'abord
+  `6.2.0` ; npm, Apache-2.0, même projet qu'Atlas), dans `apps/server` uniquement. Le SDK embarque l'accès S3, le chiffrement et le
   client Graph ; le réécrire serait un fork de fait (README, principe 5).
 - L'adaptateur `AtlasSdkCatalog` (`apps/server/src/atlas-catalog.ts`) ne dépend que de
   l'interface `AtlasSdkReader`, sous-ensemble de `AtlasInstance`. `atlas-sdk.ts` construit

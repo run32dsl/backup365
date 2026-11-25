@@ -442,6 +442,84 @@ th {
   }
 }
 
+/* Accueil : couverture, prochaine sauvegarde, derniers événements. */
+.home-coverage {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.coverage-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.coverage-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 2.75rem;
+  height: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.coverage-tile:focus-visible {
+  outline: 3px solid var(--focus, currentColor);
+  outline-offset: 2px;
+}
+.coverage-count {
+  font-size: 1.75rem;
+}
+.coverage-more {
+  color: var(--muted);
+}
+.home-coverage .btn {
+  width: 100%;
+  min-height: 2.75rem;
+}
+.events-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.events-table th,
+.events-table td {
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+}
+@media (max-width: 600px) {
+  .events-table thead {
+    position: absolute;
+    left: -9999px;
+  }
+  .events-table tr,
+  .events-table td {
+    display: block;
+  }
+  .events-table tr {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .events-table td::before {
+    content: attr(data-label) ' : ';
+    color: var(--muted);
+  }
+}
+@media (min-width: 900px) {
+  .coverage-tiles {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .home-coverage .btn {
+    width: auto;
+  }
+}
+
 [role='alert'],
 .banner {
   padding: var(--space-2) var(--space-3);
@@ -471,6 +549,18 @@ th {
   .shell {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
+  }
+  .subnav li {
+    flex: 1 1 auto;
+    min-width: min-content;
+  }
+  .subnav a {
+    box-sizing: border-box;
+    width: 100%;
+    justify-content: center;
+    padding: 0 var(--space-2);
+    white-space: normal;
+    text-align: center;
   }
   .sidebar {
     border-right: 0;
@@ -962,7 +1052,7 @@ select[aria-disabled='true'] {
     margin-right: var(--space-2);
   }
   /* Règle commune (comptes, plans) : action principale seule en pleine largeur, puis les deux
-     secondaires (.action-half) côte à côte ; la raison d'un bouton grisé juste sous lui. */
+     secondaires (.action-half) côte à côte ; la raison des boutons grisés en tête de carte. */
   .data-table td.card-action .button-row .btn.action-half {
     flex: 1 1 calc(50% - var(--space-2));
   }
@@ -1375,7 +1465,7 @@ a.btn-secondary {
   color: var(--accent);
 }
 /* Actions d'une ligne (`.button-row.row-actions`) : sur mobile, la règle des cartes les met en
-   pleine largeur, la raison d'un bouton grisé juste sous lui. Au bureau, les boutons restent sur
+   pleine largeur, la raison des boutons grisés en tête de carte. Au bureau, les boutons restent sur
    une rangée et la raison, placée après le bouton dans le DOM, passe sous la rangée. */
 @media (min-width: 56.26rem) {
   .data-table .row-actions {
@@ -1391,6 +1481,18 @@ a.btn-secondary {
   .data-table .row-actions .state-note {
     grid-row: 2;
     grid-column: 1 / -1;
+  }
+}
+/* Vue « plans en échec » : sans « Lancer maintenant », Modifier et Supprimer gardent leurs colonnes. */
+@media (min-width: 56.26rem) {
+  .data-table .row-actions-no-run > :first-child {
+    grid-column: 2;
+  }
+}
+/* Bouton du bandeau d'erreur : pleine largeur sur mobile, comme les actions de la page. */
+@media (max-width: 37.5rem) {
+  .alert > .alert-run {
+    width: 100%;
   }
 }
 .choices {
@@ -1517,8 +1619,9 @@ a.btn-secondary {
   gap: var(--space-2) var(--space-4);
 }
 /*
- * Fil d'Ariane. Chaque « > » appartient au niveau qui le précède (`li::after`) : il reste en fin
- * de ligne, jamais seul en début de la suivante ; seul le dernier niveau n'en a pas.
+ * Fil d'Ariane. Chaque « > » appartient au niveau qui le suit (`li::before`, `inline-flex`) : à
+ * un retour à la ligne il passe avec ce niveau, jamais seul en fin ni en début de ligne ; seul le
+ * premier niveau n'en a pas.
  */
 .breadcrumb {
   --crumb-sep: 1rem;
@@ -1529,13 +1632,14 @@ a.btn-secondary {
   padding: 0;
   list-style: none;
 }
-.breadcrumb li:last-child::after {
+.breadcrumb li:first-child::before {
   display: none;
 }
 .breadcrumb li {
   display: inline-flex;
   align-items: center;
-  min-height: 2.75rem;
+  min-width: 0;
+  overflow-wrap: anywhere; /* une adresse de compte longue ne déborde pas à 390 px */
 }
 .drive-list .data-table td {
   vertical-align: middle;
@@ -1548,18 +1652,33 @@ a.btn-secondary {
   color: var(--muted);
   font-size: 0.875em;
 }
-.breadcrumb li::after {
+.breadcrumb li::before {
   content: '>';
   flex: none;
   width: var(--crumb-sep);
-  margin-left: var(--space-1);
+  margin-right: var(--space-1);
   text-align: center;
 }
-.breadcrumb a,
 .drive-list .data-table td a {
   display: inline-flex;
   align-items: center;
   min-height: 2.75rem;
+}
+/* Cible tactile de 44 px sans gonfler la ligne : le fil reste compact quand il passe à la ligne. */
+.breadcrumb a {
+  position: relative;
+}
+.breadcrumb a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2.75rem;
+  transform: translateY(-50%);
+}
+.breadcrumb [aria-current='location'] {
+  font-weight: 700;
 }
 .drive-list .data-table input[type='radio'] {
   width: 1.5rem;
@@ -1610,20 +1729,43 @@ a.btn-secondary {
 .meta-list {
   margin: 0 0 var(--space-4);
 }
+/* Les lignes disparaissent de la grille : libellés et valeurs forment deux colonnes communes, la
+   colonne des libellés prenant la largeur du plus long. Sous 40 rem : libellé au-dessus. */
 .meta-row {
-  display: grid;
-  grid-template-columns: 11rem 1fr;
-  gap: var(--space-2);
-  padding: var(--space-1) 0;
+  display: contents;
 }
 .meta-row dt {
+  padding-top: var(--space-1);
   color: var(--muted);
   font-weight: 700;
 }
 .meta-row dd {
   margin: 0;
+  padding-bottom: var(--space-1);
   color: var(--text);
   overflow-wrap: anywhere;
+}
+@media (min-width: 40rem) {
+  .meta-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: var(--space-2);
+  }
+  .meta-row dt,
+  .meta-row dd {
+    padding: var(--space-1) 0;
+  }
+  /* Boîte de dialogue trop étroite pour deux colonnes : libellé au-dessus de la valeur. */
+  .dialog .meta-list,
+  .dialog .meta-row {
+    display: block;
+  }
+  .dialog .meta-row dt {
+    padding: var(--space-1) 0 0;
+  }
+  .dialog .meta-row dd {
+    padding: 0 0 var(--space-1);
+  }
 }
 .restore-unavailable {
   margin-top: var(--space-3);
@@ -1641,12 +1783,6 @@ a.btn-secondary {
     display: flex;
     width: 100%;
     min-height: 2.75rem;
-  }
-}
-@media (max-width: 40rem) {
-  .meta-row {
-    grid-template-columns: 1fr;
-    gap: 0;
   }
 }
 

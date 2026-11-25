@@ -156,6 +156,13 @@ describe('AuditPage', () => {
     const html = renderToString(<AuditPage />);
     for (const name of ['from', 'to', 'actor', 'action']) expect(html).toContain(`name="${name}"`);
   });
+
+  it('titles the page like its navigation entry and keeps the reference term in the intro', () => {
+    const html = renderToString(<AuditPage />);
+    expect(html).toContain('<h1>Activités</h1>');
+    expect(html).toContain('Journal d’audit : ');
+    expect(html.toLowerCase()).not.toContain('tableau de bord');
+  });
 });
 
 describe('fetchAudit', () => {

@@ -480,6 +480,38 @@ describe('StatusView', () => {
       expect(plans).toContain('OneDrive Services');
     });
 
+    it('hides the late and failed pills when their count is zero, keeps the others', () => {
+      const render = (late: number, failed: number) =>
+        renderToString(
+          <StatusView
+            state={{
+              ...report,
+              rows: [],
+              plans: { counts: { compliant: 3, late, failed }, nonCompliant: [] },
+            }}
+          />,
+        );
+      const none = render(0, 0);
+      const noneCounts = none.slice(none.indexOf('plan-counts'));
+      expect(noneCounts).not.toContain('En retard');
+      expect(noneCounts).not.toContain('En échec');
+      expect(noneCounts).toContain('À jour</span> <strong>3</strong>');
+      const some = render(2, 1);
+      const someCounts = some.slice(some.indexOf('plan-counts'));
+      expect(someCounts).toContain('En retard</span> <strong>2</strong>');
+      expect(someCounts).toContain('En échec</span> <strong>1</strong>');
+    });
+
+    it('hides the zero late and failed pills of the backup counts too', () => {
+      const html = renderToString(
+        <StatusView state={{ ...report, rows: report.rows.filter((r) => r.state === 'ok') }} />,
+      );
+      const counts = html.slice(html.indexOf('plan-counts'));
+      expect(counts).toContain('À jour</span> <strong>2</strong>');
+      expect(counts).not.toContain('En retard</span>');
+      expect(counts).not.toContain('En échec</span>');
+    });
+
     it('counts a pending plan so that the plan counters add up to the number of plans', () => {
       const html = renderToString(
         <StatusView

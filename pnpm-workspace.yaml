@@ -5,3 +5,8 @@ packages:
 # Dépendance transitive du SDK Atlas : son script d'installation n'affiche qu'une bannière.
 allowBuilds:
   core-js-pure: false
+
+# SDK Atlas 7.2.0, autorisé par le PM (issue #542, ADR 0019) : publié trop récemment pour la
+# règle d'âge minimal de pnpm. Exception limitée à cette version exacte.
+minimumReleaseAgeExclude:
+  - '@wisecom/atlas-sdk@7.2.0'
