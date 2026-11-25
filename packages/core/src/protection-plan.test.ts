@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import type { StatusRow } from './status.js';
 import {
+  alignCompliance,
+  alignRunEnd,
   buildPlanComplianceReport,
   currentRunSlot,
   isNightPlan,
@@ -159,6 +162,63 @@ describe('planCompliance', () => {
   });
   it('is failed when the only run failed', () => {
     expect(planCompliance(24, [run('2026-11-16T11:00:00Z', 'failed')], now).state).toBe('failed');
+  });
+});
+
+describe('alignment with the listed backups', () => {
+  const now = new Date('2026-11-25T01:21:00Z');
+  const source = (sourceId: string, lastSnapshotAt: string, state: 'ok' | 'stale'): StatusRow => ({
+    kind: 'mailbox',
+    sourceId,
+    displayName: 'Source',
+    workload: 'onedrive',
+    lastSnapshotAt,
+    ageHours: 0,
+    state,
+  });
+  const rows = [
+    source('a', '2026-11-24T21:21:00Z', 'ok'),
+    source('b', '2026-11-21T22:21:00Z', 'stale'),
+  ];
+  const plan = { id: 'p', name: 'P', rpoHours: 24 as const, dataTypes: ['onedrive' as const] };
+  const run: PlanRun = {
+    startedAt: '2026-11-25T01:20:00Z',
+    finishedAt: '2026-11-25T01:21:00Z',
+    status: 'success',
+  };
+
+  it('is late, dated by the latest listed backup, when a covered source is late', () => {
+    const report = buildPlanComplianceReport([plan], () => [run], now, rows);
+    expect(report.counts).toEqual({ compliant: 0, late: 1, failed: 0 });
+    expect(report.nonCompliant[0]).toMatchObject({
+      state: 'late',
+      lastSuccessAt: '2026-11-24T21:21:00.000Z',
+      lastRun: { finishedAt: '2026-11-24T21:21:00.000Z' },
+    });
+  });
+
+  it('counts a plan late when a single covered source is late, as the overview does (#495)', () => {
+    // La route de l'accueil et le rapport de Sources passent par `alignCompliance`.
+    const base = { state: 'compliant' as const, lastSuccessAt: run.finishedAt };
+    expect(alignCompliance(base, plan, rows).state).toBe('late');
+    expect(alignCompliance(base, plan, rows.slice(0, 1)).state).toBe('compliant');
+    expect(buildPlanComplianceReport([plan], () => [run], now, rows).counts.late).toBe(1);
+  });
+
+  it('ignores sources the plan does not cover and keeps the plan without a catalogue', () => {
+    const selection = { ...plan, scope: 'selection' as const, selection: ['a'] };
+    expect(buildPlanComplianceReport([selection], () => [run], now, rows).counts.compliant).toBe(1);
+    expect(buildPlanComplianceReport([plan], () => [run], now).counts.compliant).toBe(1);
+  });
+
+  it('never moves a failure date or a missing success', () => {
+    expect(alignRunEnd({ status: 'failed', finishedAt: run.finishedAt }, plan, rows)).toBe(
+      run.finishedAt,
+    );
+    expect(alignCompliance({ state: 'late', lastSuccessAt: null }, plan, rows)).toEqual({
+      state: 'late',
+      lastSuccessAt: null,
+    });
   });
 });
 

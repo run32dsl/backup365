@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import type { ComplianceState, StatusReport } from '@backup365/core';
+import { effectiveState, type ComplianceState, type StatusReport } from '@backup365/core';
 import { searchHref } from '../mail.js';
-import { dateTimeOrDash, ageLabel, workloadLabel } from '../format.js';
+import { dateTimeOf, dateTimeOrDash, ageLabel, workloadLabel } from '../format.js';
 import { Button, DataTable, type Column } from '../ui/index.js';
 import { Counts } from './Counts.js';
 import { STATE_COMPLIANCE, StateBadge, serviceOf, sortRows, type Row } from './model.js';
@@ -12,11 +12,19 @@ function contentLabel(r: Row): string {
   return r.kind === 'site' ? 'Site SharePoint' : workloadLabel(r.workload);
 }
 
+/** Ligne secondaire d'une source dont un plan a échoué : le plan, la date, et qui la couvre. */
+export function failureNote(r: Row): string | undefined {
+  if (!r.failure) return undefined;
+  const head = `Plan « ${r.failure.plan} » : échec le ${dateTimeOf(r.failure.at)} UTC`;
+  const by = r.failure.coveredBy;
+  return by ? `${head} · dernière réussite par « ${by.plan} » le ${dateTimeOf(by.at)} UTC` : head;
+}
+
 const COLUMNS: Column<Row>[] = [
   {
     header: 'Source',
     cell: (r) =>
-      r.state !== 'ok' && r.kind === 'mailbox' && r.workload === 'mail' ? (
+      effectiveState(r) !== 'ok' && r.kind === 'mailbox' && r.workload === 'mail' ? (
         <a href={searchHref(r.sourceId)}>{r.displayName}</a>
       ) : (
         r.displayName
@@ -25,7 +33,18 @@ const COLUMNS: Column<Row>[] = [
   { header: 'Contenu', cell: contentLabel, className: 'nowrap' },
   { header: 'Dernière sauvegarde (UTC)', cell: (r) => dateTimeOrDash(r.lastSnapshotAt) },
   { header: 'Ancienneté', cell: (r) => ageLabel(r.ageHours) },
-  { header: 'État', cell: (r) => <StateBadge state={r.state} /> },
+  {
+    header: 'État',
+    cell: (r) => {
+      const note = failureNote(r);
+      return (
+        <div>
+          <StateBadge state={effectiveState(r)} />
+          {note && <small className="state-note">{note}</small>}
+        </div>
+      );
+    },
+  },
 ];
 
 /** Sauvegardes : décompte par état, puis le tableau trié ; sous 900 px, les lignes à jour sont repliées. */
@@ -34,11 +53,12 @@ export function Backups({ report }: { report: StatusReport }) {
   // Une source sans plan n'a pas de ligne « À jour » : rien ne garantit qu'elle le reste.
   const unprotected = unprotectedServices(report);
   const rows = sortRows(
-    report.rows.filter((r) => r.state !== 'ok' || !unprotected.includes(serviceOf(r))),
+    report.rows.filter((r) => effectiveState(r) !== 'ok' || !unprotected.includes(serviceOf(r))),
   );
-  const okCount = rows.filter((r) => r.state === 'ok').length;
+  const okCount = rows.filter((r) => effectiveState(r) === 'ok').length;
   const counts: Record<ComplianceState, number> = { compliant: okCount, late: 0, failed: 0 };
-  for (const r of rows) if (r.state !== 'ok') counts[STATE_COMPLIANCE[r.state]]++;
+  for (const r of rows)
+    if (effectiveState(r) !== 'ok') counts[STATE_COMPLIANCE[effectiveState(r)]]++;
   return (
     <section className="status-section" aria-labelledby="backups-title">
       <h2 id="backups-title">Sauvegardes</h2>
@@ -51,7 +71,7 @@ export function Backups({ report }: { report: StatusReport }) {
           columns={COLUMNS}
           rows={rows}
           rowKey={(r) => `${r.kind}/${r.sourceId}/${r.workload}`}
-          rowClassName={(r) => (r.state === 'ok' ? 'row-ok' : undefined)}
+          rowClassName={(r) => (effectiveState(r) === 'ok' ? 'row-ok' : undefined)}
           empty={{
             message:
               report.rows.length > 0

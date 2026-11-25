@@ -169,7 +169,7 @@ describe('StatusView', () => {
       return found;
     };
 
-    it('keeps the server time of the service when a catalogue row is dated a minute earlier', () => {
+    it('dates the service by the latest row of the backups table, not by the server summary', () => {
       const catalogue = { ...report.rows[0]!, workload: 'mail' as const };
       const services = [entry({ lastSnapshotAt: '2026-11-24T19:00:00Z', ageHours: 1 })];
       const html = renderToString(
@@ -182,8 +182,8 @@ describe('StatusView', () => {
         />,
       );
       const table = html.slice(html.indexOf('services-title'), html.indexOf('backups-title'));
-      expect(table).toContain('24/11/2026 19:00');
-      expect(table).not.toContain('24/11/2026 18:58');
+      expect(table).toContain('24/11/2026 18:58');
+      expect(table).not.toContain('24/11/2026 19:00');
     });
 
     it('says « Non protégé » with a link to create one, and nothing to read in the journal', () => {
@@ -453,6 +453,63 @@ describe('StatusView', () => {
       const plans = html.slice(html.indexOf('Plans de protection'));
       expect(plans).not.toContain('Aucune sauvegarde réussie');
       expect(plans).toContain('sauvegardes déjà présentes');
+    });
+
+    it('counts a plan with a late OneDrive source as late and lists it (#495)', () => {
+      const plan = {
+        id: 'p',
+        name: 'OneDrive Services',
+        rpoHours: 24 as const,
+        dataTypes: ['onedrive'] as 'onedrive'[],
+        state: 'late' as const,
+        lastSuccessAt: '2026-11-22T03:15:00Z',
+        lastRun: null,
+      };
+      const html = renderToString(
+        <StatusView
+          state={{
+            ...report,
+            rows: [],
+            plans: { counts: { compliant: 2, late: 1, failed: 1 }, nonCompliant: [plan] },
+          }}
+        />,
+      );
+      const plans = html.slice(html.indexOf('Plans de protection'));
+      expect(plans).toMatch(/En retard<\/span> <strong>1<\/strong>/);
+      expect(plans).toContain('Plans en retard ou en échec');
+      expect(plans).toContain('OneDrive Services');
+    });
+
+    it('hides the late and failed pills when their count is zero, keeps the others', () => {
+      const render = (late: number, failed: number) =>
+        renderToString(
+          <StatusView
+            state={{
+              ...report,
+              rows: [],
+              plans: { counts: { compliant: 3, late, failed }, nonCompliant: [] },
+            }}
+          />,
+        );
+      const none = render(0, 0);
+      const noneCounts = none.slice(none.indexOf('plan-counts'));
+      expect(noneCounts).not.toContain('En retard');
+      expect(noneCounts).not.toContain('En échec');
+      expect(noneCounts).toContain('À jour</span> <strong>3</strong>');
+      const some = render(2, 1);
+      const someCounts = some.slice(some.indexOf('plan-counts'));
+      expect(someCounts).toContain('En retard</span> <strong>2</strong>');
+      expect(someCounts).toContain('En échec</span> <strong>1</strong>');
+    });
+
+    it('hides the zero late and failed pills of the backup counts too', () => {
+      const html = renderToString(
+        <StatusView state={{ ...report, rows: report.rows.filter((r) => r.state === 'ok') }} />,
+      );
+      const counts = html.slice(html.indexOf('plan-counts'));
+      expect(counts).toContain('À jour</span> <strong>2</strong>');
+      expect(counts).not.toContain('En retard</span>');
+      expect(counts).not.toContain('En échec</span>');
     });
 
     it('counts a pending plan so that the plan counters add up to the number of plans', () => {

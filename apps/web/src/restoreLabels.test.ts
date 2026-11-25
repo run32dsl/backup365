@@ -23,11 +23,13 @@ describe('shared restore labels', () => {
       summary: null,
       reason: 'Reprise',
     }).map(([l]) => l);
-    for (const label of [RESTORE_LABELS.item, RESTORE_LABELS.backupAt]) {
+    for (const label of [RESTORE_LABELS.item, RESTORE_LABELS.backupDate]) {
       expect(od).toContain(label);
       expect(sp).toContain(label);
     }
     expect(RESTORE_LABELS.itemRestored).toBe('Élément restauré');
     expect(RESTORE_LABELS.backupDate).toBe('Date de la sauvegarde (UTC)');
+    expect(RESTORE_LABELS.versionAt).toBe('Date de la version (UTC)');
+    for (const l of Object.values(RESTORE_LABELS)) expect(l).not.toContain('du (UTC)');
   });
 });

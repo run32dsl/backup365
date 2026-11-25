@@ -1,3 +1,4 @@
+import { FakeBackupCatalog } from '@backup365/core';
 import type { FastifyInstance } from 'fastify';
 import { describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
@@ -33,6 +34,49 @@ const send = (
 
 const log = async (audit: SqliteAuditLog) =>
   (await audit.list({ limit: 100, offset: 0 })).items.reverse();
+
+describe('API des plans et sauvegardes listées (#485)', () => {
+  it('lists a plan covering a late source as late, with the date of the latest backup', async () => {
+    const { auth } = testAuth();
+    const audit = SqliteAuditLog.open(':memory:');
+    const plans = SqlitePlanStore.open(':memory:');
+    const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+    const catalog = new FakeBackupCatalog({
+      mailboxes: [
+        { id: 'a', displayName: 'A' },
+        { id: 'b', displayName: 'B' },
+      ],
+      snapshots: {
+        a: [{ id: 's1', workload: 'mail', createdAt: hoursAgo(2) }],
+        b: [{ id: 's2', workload: 'mail', createdAt: hoursAgo(40) }],
+      },
+    });
+    const plan = plans.create({
+      name: 'Tout',
+      scope: 'all',
+      selection: [],
+      dataTypes: ['mail'],
+      rpoHours: 24,
+      rtoHours: null,
+      retentionDays: 90,
+      gdprJustification: 'Obligation de conservation.',
+    });
+    const runId = plans.startRun(plan.id, 'item', hoursAgo(0.6));
+    plans.finishRun(runId!, 'success', hoursAgo(0.5));
+    const session = sessionFor(auth, 'root', 'admin');
+    const app = withHeaders(
+      buildApp({ version: '1', auth, audit, plans, catalog }),
+      session.headers,
+    );
+    const { items } = (await send(app, 'GET', '/api/plans')).json<{
+      items: { compliance: { state: string }; lastRun: { finishedAt: string } }[];
+    }>();
+    expect(items[0]?.compliance.state).toBe('late');
+    expect(Date.parse(items[0]?.lastRun.finishedAt ?? '')).toBeLessThan(
+      Date.now() - 1.9 * 3_600_000,
+    );
+  });
+});
 
 describe('API des plans', () => {
   it('answers 401 without a session', async () => {

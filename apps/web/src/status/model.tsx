@@ -1,6 +1,15 @@
-import type { BackupState, ComplianceState, StatusReport } from '@backup365/core';
+import {
+  effectiveState,
+  type BackupState,
+  type ComplianceState,
+  type StatusReport,
+} from '@backup365/core';
 import { plural } from '../format.js';
+import { UNIT_NAMES, serviceOf } from '../plans.js';
 import { StatusPill } from '../ui/index.js';
+
+// Le service d'une ligne se lit comme dans les plans : un seul endroit pour la règle.
+export { serviceOf };
 
 export type Row = StatusReport['rows'][number];
 
@@ -31,7 +40,7 @@ const SEVERITY: Record<BackupState, number> = { missing: 0, stale: 1, ok: 2 };
 export function sortRows(rows: Row[]): Row[] {
   return [...rows].sort(
     (a, b) =>
-      SEVERITY[a.state] - SEVERITY[b.state] ||
+      SEVERITY[effectiveState(a)] - SEVERITY[effectiveState(b)] ||
       (b.ageHours ?? Number.POSITIVE_INFINITY) - (a.ageHours ?? Number.POSITIVE_INFINITY),
   );
 }
@@ -53,22 +62,14 @@ export function scopeLabel(s: Pick<ServiceEntry, 'service' | 'scope'>): string {
     : plural(s.scope.count, 'élément choisi', 'éléments choisis');
 }
 
-/** Le service d'une ligne du catalogue : un site est toujours SharePoint. */
-export function serviceOf(r: Row): ServiceEntry['service'] {
-  if (r.kind === 'site') return 'sharepoint';
-  return r.workload === 'onedrive' ? 'onedrive' : 'mail';
-}
-
-const UNIT_NAMES: Record<ServiceEntry['service'], string> = {
-  mail: 'boîte',
-  onedrive: 'compte',
-  sharepoint: 'site',
-};
-
-/** `1 compte sur 5 en retard` ; chaîne vide si aucune source du service n'est en retard. */
+/**
+ * `1 compte sur 5 en retard`, ou `1 boîte sur 5 en échec` quand chaque source non à jour a un plan
+ * en échec ; chaîne vide si aucune source du service n'est en retard ni en échec.
+ */
 export function lateCause(service: ServiceEntry['service'], rows: readonly Row[]): string {
   const own = rows.filter((r) => serviceOf(r) === service);
-  const late = own.filter((r) => r.state !== 'ok').length;
+  const late = own.filter((r) => effectiveState(r) !== 'ok').length;
   if (late === 0) return '';
-  return `${plural(late, UNIT_NAMES[service])} sur ${own.length} en retard`;
+  const failed = own.filter((r) => effectiveState(r) !== 'ok' && r.failure).length;
+  return `${plural(late, UNIT_NAMES[service])} sur ${own.length} en ${failed === late ? 'échec' : 'retard'}`;
 }

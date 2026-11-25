@@ -1,4 +1,4 @@
-import type { BackupState, StatusReport } from '@backup365/core';
+import { effectiveState, type BackupState, type StatusReport } from '@backup365/core';
 import { plural, workloadLabel } from '../format.js';
 import { PLANS_HASH } from '../plans.js';
 import { Alert } from '../ui/index.js';
@@ -6,7 +6,8 @@ import { unprotectedServices } from './Services.js';
 
 /** Bandeau de synthèse : « mes sauvegardes vont-elles bien ? » */
 export function Summary({ report }: { report: StatusReport }) {
-  const count = (state: BackupState) => report.rows.filter((r) => r.state === state).length;
+  const count = (state: BackupState) =>
+    report.rows.filter((r) => effectiveState(r) === state).length;
   const plans = report.plans ?? null;
   const parts: [number, string, string][] = [
     [count('stale'), 'sauvegarde', 'en retard'],

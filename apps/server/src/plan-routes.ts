@@ -1,4 +1,6 @@
 import {
+  alignCompliance,
+  alignRunEnd,
   failureCauseOf,
   parseProtectionPlanInput,
   planCompliance,
@@ -6,6 +8,7 @@ import {
 } from '@backup365/core';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { auditEvent, recordDenied } from './audit-events.js';
+import { catalogRowsOf, type CatalogAccess } from './overview-routes.js';
 import type { PlanScheduler } from './plan-scheduler.js';
 import {
   PlanNameTakenError,
@@ -57,6 +60,8 @@ export function registerPlanRoutes(
   audit: AuditLog | undefined,
   scheduler?: PlanScheduler,
   backupConfigured = true,
+  /** Catalogue : l'état d'un plan tient compte des sauvegardes de ses sources (page « Sources »). */
+  catalogAccess?: CatalogAccess,
 ) {
   async function guard(req: FastifyRequest, reply: FastifyReply, readOnlyOk = false) {
     if (!req.session) {
@@ -106,6 +111,7 @@ export function registerPlanRoutes(
     const ctx = await guard(req, reply, true);
     if (!ctx) return reply;
     const now = new Date();
+    const rows = await catalogRowsOf(catalogAccess, req.log);
     const items = ctx.plans.list().map((plan) => {
       const runs = ctx.plans.listRuns(plan.id, RUNS_LIMIT);
       const last = runs[0];
@@ -130,7 +136,7 @@ export function registerPlanRoutes(
         // ne doivent pas faire oublier un vrai point plus ancien. Champ propre à cette route :
         // le type `Compliance` du core, partagé avec le tableau de bord, ne le porte pas.
         compliance: {
-          ...planCompliance(plan.rpoHours, runs, now),
+          ...alignCompliance(planCompliance(plan.rpoHours, runs, now), plan, rows),
           lastRestorePointAt: ctx.plans.lastRestorePointAt(plan.id),
         },
         running: runs.some((r) => r.status === 'running'),
@@ -140,7 +146,7 @@ export function registerPlanRoutes(
           ? {
               status: last.status,
               startedAt: last.startedAt,
-              finishedAt: last.finishedAt,
+              finishedAt: alignRunEnd(last, plan, rows),
               noSnapshotReason: last.noSnapshotReason,
               // Cause traduite (liste fermée), jamais le code ni le message brut.
               ...(last.status === 'failed' && { failureCause: failureCauseOf(last.error) }),

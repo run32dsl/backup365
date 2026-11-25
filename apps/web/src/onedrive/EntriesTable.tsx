@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { cardSummary, dateTimeOrDash } from '../format.js';
 import { oneDriveHash, sizeOf, type DriveEntry, type DriveVersion } from '../onedrive.js';
+import { RESTORE_LABELS } from '../restoreLabels.js';
 import { Button, DataTable } from '../ui/index.js';
 
 /** Liste des éléments d'un dossier sauvegardé : le bouton radio porte le nom de l'élément. */
@@ -65,10 +66,14 @@ export function EntriesTable({
             ),
         },
         {
-          header: 'Version du (UTC)',
+          header: RESTORE_LABELS.versionAt,
           className: 'card-hidden',
           cell: (e) =>
-            dateTimeOrDash(pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt),
+            e.kind === 'folder'
+              ? '—'
+              : dateTimeOrDash(
+                  pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt,
+                ),
         },
         {
           header: 'Taille',
@@ -83,10 +88,12 @@ export function EntriesTable({
           header: 'Détail',
           className: 'card-only',
           cell: (e) =>
-            cardSummary(
-              pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt,
-              pickedVersion && selected === e.path ? pickedVersion.sizeBytes : e.sizeBytes,
-            ),
+            e.kind === 'folder'
+              ? null
+              : cardSummary(
+                  pickedVersion && selected === e.path ? pickedVersion.at : e.versionAt,
+                  pickedVersion && selected === e.path ? pickedVersion.sizeBytes : e.sizeBytes,
+                ),
         },
         {
           header: 'Versions',

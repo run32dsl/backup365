@@ -2,9 +2,43 @@ import { describe, expect, it } from 'vitest';
 import type { BackupCatalog } from './catalog.js';
 import { FakeBackupCatalog } from './fake-catalog.js';
 import { nextRunAt } from './protection-plan.js';
-import { backupState, buildServiceSummaries, buildStatusReport, type StatusRow } from './status.js';
+import {
+  backupState,
+  buildServiceSummaries,
+  buildStatusReport,
+  lateBackups,
+  type StatusRow,
+} from './status.js';
 
 const now = new Date('2026-11-12T12:00:00Z');
+
+describe('lateBackups', () => {
+  const row = (over: Partial<StatusRow>): StatusRow => ({
+    kind: 'mailbox',
+    sourceId: 'a',
+    displayName: 'Boîte A',
+    workload: 'mail',
+    lastSnapshotAt: '2026-11-01T00:00:00Z',
+    ageHours: 276,
+    state: 'stale',
+    ...over,
+  });
+
+  it('keeps only stale rows and maps them to a service', () => {
+    const late = lateBackups([
+      row({}),
+      row({ workload: 'onedrive', displayName: 'Compte' }),
+      row({ kind: 'site', workload: 'sharepoint', displayName: 'Site' }),
+      row({ state: 'ok' }),
+      row({ state: 'missing', lastSnapshotAt: null, ageHours: null }),
+    ]);
+    expect(late.map((l) => [l.service, l.name])).toEqual([
+      ['mail', 'Boîte A'],
+      ['onedrive', 'Compte'],
+      ['sharepoint', 'Site'],
+    ]);
+  });
+});
 
 describe('backupState', () => {
   it('is ok under the threshold and at the threshold', () => {
@@ -146,14 +180,11 @@ describe('buildServiceSummaries', () => {
     );
   });
 
-  it('dates a covered service by the end of the plan success, the time shown on the dashboard and plans', () => {
-    const rows = [row('mail', '2026-11-19T11:58:00Z')];
-    const lastSuccess = () => '2026-11-19T12:00:00Z';
-    const [mail, drive] = buildServiceSummaries(rows, [plan()], 26, now, lastSuccess);
-    expect(mail?.lastSnapshotAt).toBe('2026-11-19T12:00:00Z');
-    expect(drive?.lastSnapshotAt).toBeNull();
-    const [kept] = buildServiceSummaries(rows, [plan()], 26, now, () => null);
-    expect(kept?.lastSnapshotAt).toBe('2026-11-19T11:58:00Z');
+  it('dates a service by its latest listed backup, never by a plan run, and none without backups', () => {
+    const rows = [row('onedrive', '2026-11-19T11:58:00Z'), row('onedrive', '2026-11-17T11:58:00Z')];
+    const [mail, drive] = buildServiceSummaries(rows, [plan({ dataTypes: ['onedrive'] })], 26, now);
+    expect(drive?.lastSnapshotAt).toBe('2026-11-19T11:58:00Z');
+    expect(mail?.lastSnapshotAt).toBeNull();
   });
 
   it('keeps the latest snapshot but the worst state of the service', () => {

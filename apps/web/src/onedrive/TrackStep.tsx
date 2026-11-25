@@ -4,6 +4,7 @@ import {
   failureCause,
   fetchLastDriveJob,
   isOutcomeUncertain,
+  restoredSummary,
   type DriveJob,
 } from '../onedrive.js';
 import { RESTORE_BUTTONS as B, RestoreResult, RunningProgress } from '../RestoreJourney.js';
@@ -49,7 +50,7 @@ export function TrackStep({
         job.status === 'succeeded'
           ? [RESTORE_LABELS.itemRestored, `${choice.entry.name} → ${target}`]
           : [RESTORE_LABELS.item, choice.entry.name],
-        [RESTORE_LABELS.backupAt, dateTimeOf(backupAt)],
+        [RESTORE_LABELS.backupDate, dateTimeOf(backupAt)],
         ...(versionAt
           ? [[RESTORE_LABELS.versionAt, dateTimeOf(versionAt)] as [string, string]]
           : []),
@@ -70,7 +71,7 @@ export function TrackStep({
     body = (
       <>
         <Alert tone="success">
-          Restauration terminée en {formatDuration(job.durationMs ?? 0)}.
+          {restoredSummary(job.kind, formatDuration(job.durationMs ?? 0))}
         </Alert>
         {items}
         <ResultActions>

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { type Problem } from '../apiError.js';
-import { runReasonError, type PlanItem } from '../plans.js';
+import { runReasonError, type Mailbox, type PlanItem } from '../plans.js';
 import { REASON_EXAMPLES, ReasonField } from '../RestoreJourney.js';
 import { Button, Dialog, ResultList } from '../ui/index.js';
 import { PlanFailure } from './PlanFailure.js';
+import { PlanRecap } from './PlanRecap.js';
 
 /** Réessayer ne changerait rien tant que la console n'est pas reliée à Microsoft 365. */
 export function isRunBlocked(problem: Problem | undefined): problem is Problem {
@@ -69,10 +70,12 @@ export function RunFeedback({
 
 export function RunDialog({
   plan,
+  mailboxes,
   onClose,
   onRun,
 }: {
   plan: PlanItem | null;
+  mailboxes: readonly Mailbox[];
   onClose: () => void;
   onRun: (plan: PlanItem, reason: string) => Promise<Problem | undefined>;
 }) {
@@ -92,7 +95,7 @@ export function RunDialog({
   return (
     <Dialog
       open={plan !== null}
-      title={blocked ? 'Lancement impossible' : `Lancer « ${plan?.name ?? ''} » maintenant`}
+      title={blocked ? 'Lancement impossible' : 'Lancer ce plan maintenant'}
       onClose={onClose}
     >
       {blocked ? (
@@ -122,6 +125,7 @@ export function RunDialog({
             });
           }}
         >
+          {plan && <PlanRecap plan={plan} mailboxes={mailboxes} />}
           <ReasonField
             of="du lancement"
             placeholder={REASON_EXAMPLES.run}

@@ -3,6 +3,7 @@ import {
   DATA_TYPE_LABELS,
   MESSAGES,
   NBSP,
+  hoursLabel,
   retentionLabel,
   type Mailbox,
   type PlanItem,
@@ -91,11 +92,14 @@ export function validateStep(
 }
 
 /** Périmètre du plan, en clair. */
-function scopeLabel(form: PlanForm): string {
+function scopeLabel(form: PlanForm, names: readonly Mailbox[]): string {
   if (form.scope === 'all') return 'Toute l’organisation';
   const n = form.selection.length;
-  if (n === 0) return 'Aucune boîte ou compte choisi';
-  return n === 1 ? '1 boîte ou compte choisi' : `${n} boîtes ou comptes choisis`;
+  if (n === 0) return 'Aucune boîte, compte ou site choisi';
+  // Les noms connus sont dits tels quels, dans l'ordre du catalogue ; sinon les éléments sont comptés.
+  const known = names.filter((m) => form.selection.includes(m.id)).map((m) => m.displayName);
+  if (known.length === n) return enumerate(known);
+  return n === 1 ? '1 élément choisi' : `${n} éléments choisis`;
 }
 
 /** Libellés de l'étape « Objectifs », repris tels quels par le récapitulatif. */
@@ -107,18 +111,18 @@ export const OBJECTIVE_LABELS = {
 } as const;
 
 /** Lignes du récapitulatif (dernière étape de création) : libellé et valeur. */
-export function recapRows(form: PlanForm): [string, string][] {
+export function recapRows(form: PlanForm, names: readonly Mailbox[] = []): [string, string][] {
   const data = DATA_TYPES.filter((t) => form.dataTypes.includes(t)).map((t) => DATA_TYPE_LABELS[t]);
   return [
     ['Nom du plan', form.name.trim()],
     ['Données', data.length === 0 ? 'Aucune donnée choisie' : data.join(', ')],
-    ['Périmètre', scopeLabel(form)],
+    ['Périmètre', scopeLabel(form, names)],
     [
       OBJECTIVE_LABELS.rpo,
-      `${form.rpoHours}${NBSP}h (une sauvegarde toutes les ${form.rpoHours}${NBSP}h)`,
+      `${hoursLabel(form.rpoHours)} au plus (une sauvegarde toutes les ${hoursLabel(form.rpoHours)})`,
     ],
-    [OBJECTIVE_LABELS.rto, `${form.rtoHours}${NBSP}h`],
-    [OBJECTIVE_LABELS.retention, retentionLabel(form.retentionDays)],
+    [OBJECTIVE_LABELS.rto, `${hoursLabel(form.rtoHours)} au plus`],
+    [OBJECTIVE_LABELS.retention, `${retentionLabel(form.retentionDays)}, puis suppression`],
     [OBJECTIVE_LABELS.justification, form.justification],
   ];
 }
@@ -173,10 +177,10 @@ export function planSummary(
 }
 
 export const rpoHelp = (hours: number): string =>
-  `Si un incident survient, vous pouvez perdre au plus ${hours} h de données.`;
+  `Si un incident survient, vous pouvez perdre au plus ${hoursLabel(hours)} de données.`;
 
 export const rtoHelp = (hours: number): string =>
-  `Le service doit être rétabli en ${hours} h au plus.`;
+  `Le service doit être rétabli en ${hoursLabel(hours)} au plus.`;
 
 export const retentionHelp = (days: number): string =>
   `Les sauvegardes sont supprimées au bout de ${retentionLabel(days)}.`;

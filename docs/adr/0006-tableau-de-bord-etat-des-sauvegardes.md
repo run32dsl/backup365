@@ -13,6 +13,9 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
 - `GET /api/status` renvoie `{ generatedAt, maxAgeHours, alertCount, rows }` ; une ligne par
   source (boîte ou site) et par charge suivie : `kind` (`mailbox` ou `site`), `sourceId`,
   `displayName`, date du dernier instantané, âge en heures entières, état.
+- Pour un administrateur, une ligne porte `failure` (`plan`, `at`, `coveredBy?`) quand la dernière
+  exécution d'un plan qui la couvre a échoué : l'écran la dit « En échec », jamais « À jour »,
+  et nomme l'autre plan qui la sauvegarde avec succès s'il existe (issue #518).
 - États : `ok` (âge ≤ seuil), `stale` (« ancien », âge > seuil), `missing` (« absent », aucun
   instantané ou date illisible). `alertCount` compte les lignes `stale` et `missing`, sites
   compris. Un instantané daté du futur compte pour un âge nul.
@@ -55,6 +58,13 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   carte « Plans » les affiche sous le décompte, avec les pastilles de la liste (« En cours », « En
   file d’attente ») ; au repos, rien ne s'ajoute. `state` n'en dépend pas : il suit toujours le
   dernier résultat terminé.
+- Issue #462 : `lateBackups` liste les sauvegardes au-delà du seuil de retard (26 h par défaut),
+  une par boîte, compte ou site (`service`, `name`, `lastSnapshotAt`). Le serveur les calcule avec
+  `lateBackups` du noyau, sur les mêmes lignes que `GET /api/status` : le bandeau et le compteur de
+  « Sources » en comptent donc autant. Une source jamais sauvegardée n'en fait pas partie. Tant que
+  la liste n'est pas vide, la carte « Sauvegarde » n'affiche pas « Opérationnelle » mais
+  « En retard » (« En échec » reste prioritaire), ajoute sa phrase et un bouton « Voir les sources ».
+  `state` et la carte « Plans » ne changent pas.
 
 ### Sites SharePoint sauvegardés (issue #31)
 

@@ -23,6 +23,7 @@ export function PlanWizard({
   initial,
   editing,
   mailboxes,
+  sites = [],
   onSubmit,
   initialStep = 1,
   takenNames = [],
@@ -32,6 +33,8 @@ export function PlanWizard({
   initial: PlanForm;
   editing: boolean;
   mailboxes: Mailbox[];
+  /** Sites SharePoint sauvegardables, proposés quand SharePoint est coché. */
+  sites?: Mailbox[];
   /** Renvoie le problème, ou `undefined` si l'enregistrement a réussi. */
   onSubmit: (form: PlanForm) => Promise<Problem | undefined>;
   /** Étape affichée à l'ouverture (tests). */
@@ -102,9 +105,11 @@ export function PlanWizard({
       {messages.length > 0 && <Alert tone="error">{errorSummary(messages.length)}</Alert>}
       {failure && <PlanFailure problem={failure} />}
 
-      {step === 1 && <StepWhat form={form} errors={errors} mailboxes={mailboxes} patch={patch} />}
+      {step === 1 && (
+        <StepWhat form={form} errors={errors} mailboxes={mailboxes} sites={sites} patch={patch} />
+      )}
       {step === 2 && <StepObjectives form={form} errors={errors} patch={patch} />}
-      {step === 3 && <StepRecap form={form} />}
+      {step === 3 && <StepRecap form={form} names={[...mailboxes, ...sites]} />}
 
       <WizardActions
         back={

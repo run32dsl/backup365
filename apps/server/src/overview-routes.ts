@@ -1,4 +1,14 @@
-import { planCompliance } from '@backup365/core';
+import {
+  alignCompliance,
+  alignRunEnd,
+  buildStatusReport,
+  lateBackups,
+  planCompliance,
+  type BackupCatalog,
+  type LateBackup,
+  type StatusRow,
+  type Workload,
+} from '@backup365/core';
 import type { FastifyInstance } from 'fastify';
 import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 
@@ -36,6 +46,31 @@ export interface Overview {
    * et fin de l'exécution. `null` si aucun plan n'est dans ce cas.
    */
   lastFailure: { plan: string; at: string } | null;
+  /**
+   * Sauvegardes au-delà du seuil de retard (par boîte, compte ou site), calculées comme la page
+   * « Sources » (`lateBackups`). Vide sans catalogue ou si celui-ci ne répond pas.
+   */
+  lateBackups: LateBackup[];
+}
+
+/** Mêmes lignes que `GET /api/status` ; un catalogue qui ne répond pas ne fait pas échouer l'accueil. */
+export async function catalogRowsOf(
+  late: CatalogAccess | undefined,
+  log: { warn(obj: object, msg: string): void },
+): Promise<StatusRow[] | undefined> {
+  if (!late?.catalog) return undefined;
+  try {
+    return (await buildStatusReport(late.catalog, late.workloads, late.maxAgeHours)).rows;
+  } catch (err) {
+    log.warn({ code: (err as NodeJS.ErrnoException).code }, 'sauvegardes en retard indisponibles');
+    return undefined;
+  }
+}
+
+export interface CatalogAccess {
+  catalog: BackupCatalog | undefined;
+  maxAgeHours: number;
+  workloads: readonly Workload[];
 }
 
 /**
@@ -47,11 +82,13 @@ export function registerOverviewRoutes(
   scope: FastifyInstance,
   plans: SqlitePlanStore | undefined,
   queue?: { isQueued(planId: string): boolean },
+  late?: CatalogAccess,
 ) {
-  scope.get('/api/overview', (req, reply) => {
+  scope.get('/api/overview', async (req, reply) => {
     if (!req.session) return reply.code(401).send({ error: 'unauthenticated' });
     if (!plans) return reply.code(503).send({ error: 'plans_unavailable' });
     const all = plans.list();
+    const rows = await catalogRowsOf(late, req.log);
     let operational = 0;
     let failed = 0;
     let failedPlans = 0;
@@ -82,7 +119,11 @@ export function registerOverviewRoutes(
       }
       // « En échec » : conformité en échec ou dernière exécution (celle de la liste) en échec ;
       // la liste filtrée de « Voir l'erreur » applique la même règle.
-      const compliance = planCompliance(plan.rpoHours, runs, now).state;
+      const compliance = alignCompliance(
+        planCompliance(plan.rpoHours, runs, now),
+        plan,
+        rows,
+      ).state;
       if (compliance === 'failed' || runs[0]?.status === 'failed') failedPlans += 1;
       else if (compliance === 'compliant') operational += 1;
       else latePlans += 1;
@@ -91,10 +132,12 @@ export function registerOverviewRoutes(
       else if (queue?.isQueued(plan.id)) queued += 1;
       for (const run of runs) {
         if (run.status !== 'success' || run.finishedAt === null) continue;
-        const ms = Date.parse(run.finishedAt);
+        // Même borne que la liste des plans : jamais plus récent que les sauvegardes listées.
+        const end = alignRunEnd(run, plan, rows) ?? run.finishedAt;
+        const ms = Date.parse(end);
         if (!Number.isNaN(ms) && ms > lastBackupMs) {
           lastBackupMs = ms;
-          lastBackupAt = run.finishedAt;
+          lastBackupAt = end;
           lastBackupPlan = plan.name;
         }
       }
@@ -120,6 +163,7 @@ export function registerOverviewRoutes(
       lastBackupAt,
       lastBackupPlan,
       lastFailure,
+      lateBackups: rows ? lateBackups(rows) : [],
     };
     return overview;
   });

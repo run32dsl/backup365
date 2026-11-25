@@ -39,7 +39,7 @@ describe('#/composants', () => {
       expect(html).toContain(`>${s.title}</h2>`);
     }
     expect(html).toContain('Ouvrir l’exemple de dialogue');
-    expect(html).toContain('Étape 1 sur 3 : Choisir');
+    expect(html).toContain('Étape 1 sur 3');
     expect(html).toContain('Toutes les étapes sont terminées');
     expect(html).toContain('Information : la sauvegarde de ce soir démarrera à 22 h.');
     expect(html).toContain('Motif de l’export (obligatoire)');

@@ -7,11 +7,11 @@ import {
   continueHint,
   dateTimeOf,
   scopeOfKind,
-  selectionLabel,
   sharePointHash,
   type Site,
   type SiteScope,
 } from '../sharepoint.js';
+import { selectionLabel, WHOLE_SITE_SELECTION } from '../selection.js';
 import { Button, WizardActions } from '../ui/index.js';
 import { ContentTree } from './ContentTree.js';
 import type { Choice, Selected } from './types.js';
@@ -122,9 +122,12 @@ export function ChooseStep({
 
       <p aria-live="polite">
         {whole
-          ? 'Sélection : le site entier'
+          ? WHOLE_SITE_SELECTION
           : selected
-            ? `Sélection : ${selectionLabel(selected)}`
+            ? selectionLabel({
+                kind: selected.kind,
+                name: selected.path.split('/').filter(Boolean).at(-1) ?? selected.path,
+              })
             : null}
       </p>
       {!ok && (
@@ -144,6 +147,7 @@ export function ChooseStep({
                 path: whole ? '/' : (selected?.path ?? '/'),
                 snapshotId,
                 pointAt: point.createdAt,
+                versionAt: scope === 'item' ? selected?.versionAt : undefined,
               });
             }
           }}

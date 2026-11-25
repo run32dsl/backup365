@@ -12,7 +12,7 @@ de trois produits.
 ## Décision
 
 - Un module `apps/web/src/RestoreJourney.tsx` porte ce qui est commun : les étapes
-  (« Choisir », « Motif », « Confirmation »), le bloc motif (`ReasonField`), les libellés des
+  (« Choisir », « Motif », « Récapitulatif »), le bloc motif (`ReasonField`), les libellés des
   boutons, le rappel d'audit (`AuditReminder`, un `Alert` d'information) et l'indicateur « en
   cours » (`RunningProgress`).
 - Le titre de page est stable (« Restaurer depuis OneDrive », « Restaurer depuis SharePoint ») ;

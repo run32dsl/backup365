@@ -108,6 +108,14 @@ describe('charte.css data tables', () => {
     expect(/\.data-table \.subject a\s*\{[^}]*text-overflow:\s*ellipsis;/.test(css)).toBe(true);
   });
 
+  it('lets the sub-navigation wrap, with 44 px targets, under 900 px', () => {
+    const narrow = /@media \(max-width: 56\.25rem\)\s*\{([\s\S]*?)\n\}\n/.exec(css)?.[1] ?? '';
+    const rule = /\.subnav a \{([^}]*)\}/.exec(narrow)?.[1];
+    expect(rule).toMatch(/padding:\s*0 var\(--space-2\)/);
+    expect(rule).toMatch(/white-space:\s*normal/);
+    expect(/\.subnav a \{[^}]*min-height:\s*2\.75rem;/.test(css)).toBe(true);
+  });
+
   it('keeps words whole in keep-words cells', () => {
     expect(/\.data-table \.keep-words\s*\{\s*overflow-wrap:\s*break-word;/.test(css)).toBe(true);
   });
@@ -203,5 +211,24 @@ describe('charte.css lone actions', () => {
     const rule =
       /@media \(max-width: 56\.25rem\) \{\s*\.mail-section > \.btn,\s*\.storage-unavailable > \.btn \{([^}]*)\}/;
     expect(rule.exec(css)?.[1]).toMatch(/width:\s*100%;/);
+  });
+});
+
+describe('charte.css breadcrumb', () => {
+  it('keeps each separator with the level after it, never alone at a line end', () => {
+    expect(/\.breadcrumb li\s*\{[^}]*display:\s*inline-flex;/.test(css)).toBe(true);
+    expect(/\.breadcrumb li::before\s*\{[^}]*content:\s*'>';/.test(css)).toBe(true);
+    expect(/\.breadcrumb li:first-child::before\s*\{[^}]*display:\s*none;/.test(css)).toBe(true);
+    expect(/\.breadcrumb li::after/.test(css)).toBe(false);
+  });
+
+  it('keeps the levels compact, with a 44 px target only on the links, and bolds the current one', () => {
+    expect(/\.breadcrumb li\s*\{[^}]*min-height/.test(css)).toBe(false);
+    expect(/\.breadcrumb a\s*\{[^}]*min-height/.test(css)).toBe(false);
+    expect(/\.breadcrumb a::after\s*\{[^}]*height:\s*2\.75rem;/.test(css)).toBe(true);
+    expect(/\.breadcrumb \[aria-current='location'\]\s*\{[^}]*font-weight:\s*700;/.test(css)).toBe(
+      true,
+    );
+    expect(/\.breadcrumb\s*\{[^}]*gap:\s*0 var\(--space-1\);/.test(css)).toBe(true);
   });
 });

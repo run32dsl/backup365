@@ -78,7 +78,6 @@ export function ConfirmStep({
 
   return (
     <form onSubmit={submit} noValidate>
-      <h2>Récapitulatif</h2>
       <ResultList
         rows={confirmRowsOf({
           scope: choice.scope,

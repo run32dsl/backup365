@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   MESSAGES,
   NEW_PLAN_HASH,
@@ -10,6 +10,7 @@ import {
   fetchMailboxes,
   fetchPlans,
   formFromPlan,
+  isFailed,
   runFlashText,
   runPlan,
   updatePlan,
@@ -17,6 +18,7 @@ import {
   type PlanForm,
   type PlanItem,
   type PlansRoute,
+  type SourcesReport,
 } from './plans.js';
 import { type Problem } from './apiError.js';
 import { DeleteDialog } from './plans/DeleteDialog.js';
@@ -24,11 +26,37 @@ import { PlansListView, type PlansState } from './plans/PlansListView.js';
 import { RunDialog } from './plans/RunDialog.js';
 import { goTo } from './plans/goTo.js';
 import { PlanWizard } from './plans/wizard/PlanWizard.js';
+import { fetchSites } from './sharepoint.js';
+import { fetchStatus } from './status.js';
 import { Alert, Button, SourcesNav } from './ui/index.js';
 
 type Flash = { tone: 'success' | 'error'; text: string };
 
 // ---- Écran ----------------------------------------------------------------------------------
+
+/** Phrase d'introduction : dit le filtre « plans en échec » (`shown` sur `total`) quand il est actif. */
+export function PlansIntro({
+  shown,
+  total,
+}: {
+  shown?: number | undefined;
+  total?: number | undefined;
+}) {
+  if (shown === undefined || total === undefined)
+    return <p>Ce que chaque plan sauvegarde, et quand.</p>;
+  // Tous les plans sont en échec : le filtre ne cache rien, le lien serait inutile.
+  if (shown === total)
+    return (
+      <p>
+        Plans en échec : {shown} sur {total}.
+      </p>
+    );
+  return (
+    <p>
+      Plans en échec : {shown} sur {total}. <a href={PLANS_HASH}>Voir les {total} plans</a>
+    </p>
+  );
+}
 
 /** Écran `#/plans` : liste, parcours de création ou de modification, lancement et suppression. */
 export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean }) {
@@ -37,15 +65,22 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     configured: true,
     mailboxes: [],
   });
+  const [sites, setSites] = useState<Mailbox[]>([]);
+  const [sources, setSources] = useState<SourcesReport | null>(null);
   const [flash, setFlash] = useState<Flash>();
   const [runTarget, setRunTarget] = useState<PlanItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlanItem | null>(null);
 
+  const named = useMemo(() => [...boxes.mailboxes, ...sites], [boxes.mailboxes, sites]);
   const load = useCallback(() => {
-    Promise.all([fetchPlans(), fetchMailboxes()]).then(
-      ([plans, mailboxes]) => {
+    // L'état des sources nomme ce qui est en retard ; sans lui, la liste reste lisible.
+    const status = fetchStatus().catch(() => null);
+    Promise.all([fetchPlans(), fetchMailboxes(), fetchSites(), status]).then(
+      ([plans, mailboxes, found, report]) => {
+        setSources(report);
         setState(plans);
         setBoxes(mailboxes);
+        setSites(found.status === 'ok' ? found.data : []);
       },
       () => {
         setState('error');
@@ -156,6 +191,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         initial={plan ? formFromPlan(plan) : emptyForm()}
         editing={editing !== undefined}
         mailboxes={boxes.mailboxes}
+        sites={sites}
         takenNames={
           Array.isArray(state) ? state.filter((p) => p.id !== editing).map((p) => p.name) : []
         }
@@ -168,7 +204,8 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         state={state}
         admin={admin}
         configured={boxes.configured}
-        mailboxes={boxes.mailboxes}
+        mailboxes={named}
+        sources={sources}
         failedOnly={route.page === 'list' && route.failedOnly === true}
         onRetry={reloadList}
         onRun={setRunTarget}
@@ -183,23 +220,35 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
       ? 'Modifier le plan'
       : 'Créer un plan de protection';
   const canCreate = admin && boxes.configured;
+  const failedShown = Array.isArray(state) ? state.filter(isFailed).length : 0;
+  const failedView =
+    !wizard &&
+    Array.isArray(state) &&
+    route.page === 'list' &&
+    route.failedOnly === true &&
+    failedShown > 0
+      ? { shown: failedShown, total: state.length }
+      : null;
   return (
     <main tabIndex={-1}>
-      <div className="page-header">
-        <h1>{title}</h1>
-        {!wizard && admin && (
-          <Button
-            aria-disabled={!canCreate || undefined}
-            onClick={() => {
-              if (canCreate) goTo(NEW_PLAN_HASH);
-            }}
-          >
-            <span aria-hidden="true">+ </span>
-            Créer un plan
-          </Button>
-        )}
-      </div>
+      <h1>{title}</h1>
       {!wizard && <SourcesNav current="plans" admin={admin} />}
+      {!wizard && (
+        <div className="view-intro">
+          <PlansIntro shown={failedView?.shown} total={failedView?.total} />
+          {admin && (
+            <Button
+              aria-disabled={!canCreate || undefined}
+              onClick={() => {
+                if (canCreate) goTo(NEW_PLAN_HASH);
+              }}
+            >
+              <span aria-hidden="true">+ </span>
+              Créer un plan
+            </Button>
+          )}
+        </div>
+      )}
       <div aria-live="polite">
         {flash && !wizard && (
           <Alert tone={flash.tone} focusRef={flashRef}>
@@ -210,10 +259,10 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
       {body}
       {!wizard && (
         <>
-          <RunDialog plan={runTarget} onClose={closeRun} onRun={onRun} />
+          <RunDialog plan={runTarget} mailboxes={named} onClose={closeRun} onRun={onRun} />
           <DeleteDialog
             plan={deleteTarget}
-            mailboxes={boxes.mailboxes}
+            mailboxes={named}
             onClose={() => {
               setDeleteTarget(null);
             }}

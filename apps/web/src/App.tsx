@@ -20,7 +20,13 @@ import {
 
 // Le gabarit et le routage vivent sous `app/` ; ils restent importables d'ici pour les tests.
 export { Console } from './app/Console.js';
-export { ConsoleView, ForbiddenView, closeMenuOnEscape, skipToContent } from './app/ConsoleView.js';
+export {
+  AccountId,
+  ConsoleView,
+  ForbiddenView,
+  closeMenuOnEscape,
+  skipToContent,
+} from './app/ConsoleView.js';
 export {
   MAX_ADMIN_NAV_ENTRIES,
   navEntries,

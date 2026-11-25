@@ -3,7 +3,7 @@ import { RESET_TEXTS } from './accounts.js';
 import type { Problem } from './apiError.js';
 import { FailureAlert } from './FailureAlert.js';
 import { REASON, REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
-import { Alert, Button, Dialog } from './ui/index.js';
+import { Alert, Button, Dialog, ResultList } from './ui/index.js';
 
 /** Étape 2 : récapitulatif et motif obligatoire. Sans état : le motif vide donne `error`. */
 export function ResetReasonForm({
@@ -30,12 +30,10 @@ export function ResetReasonForm({
         onSubmit?.(reason.trim());
       }}
     >
+      <ResultList rows={[['Compte', username]]} />
       <p>
-        Compte : <strong>{username}</strong>
-      </p>
-      <p>
-        Un mot de passe temporaire sera créé et affiché une seule fois. {username} devra le changer
-        à sa prochaine connexion.
+        Un mot de passe temporaire sera créé et affiché une seule fois. Ce compte devra le changer à
+        sa prochaine connexion.
       </p>
       <ReasonField
         of="de la réinitialisation"
@@ -81,9 +79,7 @@ export function TemporaryPasswordView({
 }) {
   return (
     <div>
-      <p>
-        Compte : <strong>{username}</strong>
-      </p>
+      <ResultList rows={[['Compte', username]]} />
       <p>{RESET_TEXTS.once}</p>
       <div className="button-row temp-password-row">
         <code className="temp-password" role="group" aria-label="Mot de passe temporaire">
@@ -208,11 +204,7 @@ export function ResetPasswordDialog({
   return (
     <Dialog
       open={username !== null}
-      title={
-        password === undefined
-          ? RESET_TEXTS.title
-          : `${RESET_TEXTS.resultTitle} de ${username ?? ''}`
-      }
+      title={password === undefined ? RESET_TEXTS.title : RESET_TEXTS.resultTitle}
       // Ni « ✕ » ni Échap tant que la case n'est pas cochée.
       dismissible={password === undefined || handed}
       onClose={onClose}

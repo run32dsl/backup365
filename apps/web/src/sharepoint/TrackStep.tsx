@@ -24,6 +24,7 @@ import { Alert, Button, ResultList } from '../ui/index.js';
 export function TrackStep({
   job,
   pointAt,
+  versionAt,
   siteName,
   onJob,
   onAgain,
@@ -31,6 +32,7 @@ export function TrackStep({
 }: {
   job: SiteJob;
   pointAt?: string | undefined;
+  versionAt?: string | null | undefined;
   siteName: string;
   onJob: (job: SiteJob) => void;
   onAgain: () => void;
@@ -41,6 +43,7 @@ export function TrackStep({
 
   const untreated = Math.max(0, job.total - job.restored - job.skipped - job.errors);
   const failedNormally = job.status === 'failed' && !isOutcomeUncertain(job.error);
+  const single = job.scope === 'item';
   const countRows: [string, ReactNode][] = [
     ['Site', siteName],
     [
@@ -48,14 +51,15 @@ export function TrackStep({
       restoredContentLabel(job.scope, job.path),
     ],
   ];
-  if (pointAt) countRows.push([RESTORE_LABELS.backupAt, dateTimeOf(pointAt)]);
+  if (pointAt) countRows.push([RESTORE_LABELS.backupDate, dateTimeOf(pointAt)]);
+  if (single && versionAt) countRows.push([RESTORE_LABELS.versionAt, dateTimeOf(versionAt)]);
   countRows.push(...placementRows(job.scope, siteName, job.path));
   if (job.status === 'failed' && job.restored > 0) {
     countRows.push(['Éléments restaurés', job.restored]);
   }
   if (job.status === 'succeeded' && job.copyName) countRows.push(['Restauré sous', job.copyName]);
   if (failedNormally && untreated > 0) countRows.push(['Éléments non traités', untreated]);
-  if (job.status !== 'running' && job.errors > 0) {
+  if (job.status !== 'running' && job.errors > 0 && !single) {
     countRows.push(['Éléments en erreur', job.errors]);
     const named = errorItemLabel(job);
     if (named) countRows.push(['En erreur', named]);

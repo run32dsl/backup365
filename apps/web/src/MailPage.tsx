@@ -55,18 +55,7 @@ export function MailView({ state }: { state: MailState }) {
     ['Taille', sizeOf(state.size)],
     ['Pièces jointes', state.attachments.length === 0 ? 'aucune' : state.attachments.join(', ')],
   ];
-  return (
-    <dl className="meta-list">
-      {rows
-        .filter(([, value]) => value.trim() !== '')
-        .map(([label, value]) => (
-          <div key={label} className="meta-row">
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-    </dl>
-  );
+  return <ResultList rows={rows.filter(([, value]) => value.trim() !== '')} />;
 }
 
 /** Issue d'une demande d'export : motif refusé, fichier remis, ou export refusé par le serveur. */
@@ -140,7 +129,7 @@ export function ExportSection({ mail }: { mail: IndexedMail }) {
   const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
   return (
     <section aria-labelledby="export-title" className="mail-section">
-      <h2 id="export-title">Exporter</h2>
+      <h3 id="export-title">Exporter</h3>
       <p>Télécharge une copie du mail au format .eml, lisible par Outlook.</p>
       <Button variant="secondary" aria-label={`Exporter ${subject}`} onClick={openPanel}>
         Exporter
@@ -234,7 +223,7 @@ export function RestoreSectionView({
   const summary = lastRestoreSummary(last);
   return (
     <section aria-labelledby="restore-title" className="mail-section">
-      <h2 id="restore-title">Restaurer dans la boîte d’origine</h2>
+      <h3 id="restore-title">Restaurer dans la boîte d’origine</h3>
       <p>Remet une copie du mail dans sa boîte d’origine, sans rien écraser.</p>
       {configured ? (
         <RestoreAction mail={mail} configured onJob={onJob} />
@@ -270,11 +259,12 @@ export function MailPage({ mailboxId, messageId }: { mailboxId: string; messageI
 
   return (
     <main tabIndex={-1}>
+      <h1>Restaurer depuis la messagerie</h1>
+      <RestoreSourceNav current="mail" />
       <p>
         <a href="#/search">Retour à la recherche</a>
       </p>
-      <RestoreSourceNav current="mail" />
-      <h1>{mailTitle(state)}</h1>
+      <h2>{mailTitle(state)}</h2>
       <MailView state={state} />
       {typeof state === 'object' && <RestoreSection mail={state} />}
       {typeof state === 'object' && (

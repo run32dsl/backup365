@@ -115,6 +115,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
         key={job.id}
         job={job}
         pointAt={choice?.pointAt}
+        versionAt={choice?.versionAt}
         siteName={site.displayName}
         onJob={setJob}
         onAgain={reset}

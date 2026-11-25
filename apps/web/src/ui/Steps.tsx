@@ -15,13 +15,10 @@ export function Steps({
   titleRef?: Ref<HTMLParagraphElement>;
 }) {
   const finished = current > steps.length;
-  const label = steps[current - 1] ?? '';
   return (
     <div className="steps">
       <p ref={titleRef} tabIndex={titleRef ? -1 : undefined} className="steps-title">
-        {finished
-          ? 'Toutes les étapes sont terminées'
-          : `Étape ${current} sur ${steps.length} : ${label}`}
+        {finished ? 'Toutes les étapes sont terminées' : `Étape ${current} sur ${steps.length}`}
       </p>
       <ol>
         {steps.map((name, i) => {
@@ -34,7 +31,8 @@ export function Steps({
               className={`step step-${state}`}
               aria-current={state === 'current' ? 'step' : undefined}
             >
-              <span aria-hidden="true">{icon}</span> {name}
+              <span aria-hidden="true">{icon}</span>{' '}
+              {state === 'current' ? <strong>{name}</strong> : name}
               {state === 'done' && <span className="sr-only"> (terminée)</span>}
             </li>
           );

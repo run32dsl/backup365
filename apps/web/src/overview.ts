@@ -17,6 +17,12 @@ export interface Overview {
   lastBackupPlan: string | null;
   /** Plan dont la dernière exécution a échoué (le plus récent) et fin de cette exécution ; `null` sinon. */
   lastFailure: { plan: string; at: string } | null;
+  /** Sauvegardes au-delà du seuil de retard, calculées par le serveur comme la page Sources. */
+  lateBackups: {
+    service: 'mail' | 'onedrive' | 'sharepoint';
+    name: string;
+    lastSnapshotAt: string;
+  }[];
 }
 
 /** Interroge `/api/overview` ; lève une erreur si la réponse n'est pas en 2xx. */

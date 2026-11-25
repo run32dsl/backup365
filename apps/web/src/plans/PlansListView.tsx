@@ -2,11 +2,11 @@ import { type ReactNode } from 'react';
 import {
   MESSAGES,
   NEW_PLAN_HASH,
-  PLANS_HASH,
   failureBanner,
   isFailed,
   type Mailbox,
   type PlanItem,
+  type SourcesReport,
 } from '../plans.js';
 import { Alert, Button, DataTable, EmptyState } from '../ui/index.js';
 import { goTo } from './goTo.js';
@@ -20,6 +20,7 @@ export function PlansListView({
   admin,
   configured,
   mailboxes = [],
+  sources = null,
   failedOnly = false,
   onRetry,
   onRun,
@@ -27,6 +28,8 @@ export function PlansListView({
 }: {
   state: PlansState;
   admin: boolean;
+  /** Rapport d'état des sources : un plan en retard y nomme ses sources en retard. */
+  sources?: SourcesReport | null;
   /** Réduit la liste aux plans en échec (s'il y en a) ; un lien rend la liste entière. */
   failedOnly?: boolean;
   mailboxes?: readonly Mailbox[];
@@ -110,7 +113,7 @@ export function PlansListView({
       {filtered && (
         <>
           {failed.map((p) => {
-            const banner = failureBanner(p, admin);
+            const banner = failureBanner(p, admin, sources);
             const busy = p.running || p.queued;
             return (
               <Alert
@@ -120,6 +123,7 @@ export function PlansListView({
                 action={
                   admin ? (
                     <Button
+                      className="alert-run"
                       aria-label={`Lancer ${p.name} maintenant`}
                       aria-disabled={busy || undefined}
                       aria-describedby={busy ? `banner-run-hint-${p.id}` : undefined}
@@ -141,18 +145,19 @@ export function PlansListView({
               </Alert>
             );
           })}
-          <p>
-            <a href={PLANS_HASH}>Voir tous les plans</a>
-          </p>
         </>
       )}
       <DataTable
         caption="Plans de protection"
         hideCaption
-        columns={planColumns(admin, mailboxes, state.find((p) => p.running)?.name, {
-          onRun,
-          onDelete,
-        })}
+        columns={planColumns(
+          admin,
+          mailboxes,
+          state.find((p) => p.running)?.name,
+          sources,
+          { onRun, onDelete },
+          filtered,
+        )}
         rows={filtered ? failed : state}
         rowKey={(p) => p.id}
       />

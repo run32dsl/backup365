@@ -234,6 +234,11 @@ a {
   text-align: center;
   overflow-wrap: anywhere;
 }
+.sidebar-account {
+  display: flex;
+  flex-direction: column;
+  overflow-wrap: normal;
+}
 .sidebar-footer button {
   padding: 0 var(--space-1);
   font-size: 0.6875rem;
@@ -411,6 +416,9 @@ th {
   width: 100%;
   min-height: 2.75rem;
 }
+.overview-card .btn + .btn {
+  margin-top: var(--space-2);
+}
 .overview-card .overview-connection,
 .overview-card .overview-ago {
   color: var(--muted);
@@ -427,6 +435,10 @@ th {
   }
   .overview-card .btn {
     width: auto;
+  }
+  .overview-card .btn + .btn {
+    margin-top: 0;
+    margin-left: var(--space-2);
   }
 }
 
@@ -459,6 +471,18 @@ th {
   .shell {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
+  }
+  .subnav li {
+    flex: 1 1 auto;
+    min-width: min-content;
+  }
+  .subnav a {
+    box-sizing: border-box;
+    width: 100%;
+    justify-content: center;
+    padding: 0 var(--space-2);
+    white-space: normal;
+    text-align: center;
   }
   .sidebar {
     border-right: 0;
@@ -760,13 +784,9 @@ select[aria-disabled='true'] {
     padding-inline: 0.625rem;
   }
 
-  /* Nombre aligné à droite ; la colonne `col-reason` qui suit en est séparée d'au moins `--space-3`. */
+  /* Nombre aligné à droite. */
   .data-table .num {
     text-align: right;
-  }
-  .data-table .col-reason {
-    min-width: 12rem;
-    padding-inline-start: var(--space-3);
   }
 
   /*
@@ -926,6 +946,9 @@ select[aria-disabled='true'] {
   .data-table td.card-title .nowrap-wide {
     display: block;
   }
+  .data-table td.card-title .cell-secondary {
+    font-weight: 400;
+  }
   .data-table td.card-title .plan-summary:not(:only-of-type) {
     display: inline;
     line-height: 1.25;
@@ -951,7 +974,7 @@ select[aria-disabled='true'] {
     margin-right: var(--space-2);
   }
   /* Règle commune (comptes, plans) : action principale seule en pleine largeur, puis les deux
-     secondaires (.action-half) côte à côte ; la raison d'un bouton grisé juste sous lui. */
+     secondaires (.action-half) côte à côte ; la raison des boutons grisés en tête de carte. */
   .data-table td.card-action .button-row .btn.action-half {
     flex: 1 1 calc(50% - var(--space-2));
   }
@@ -1327,16 +1350,29 @@ select[aria-disabled='true'] {
 }
 
 /* Plans de protection */
-.page-header {
+.view-intro {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
-.page-header h1 {
+.view-intro p {
   margin: 0;
+}
+.view-intro .btn {
+  width: 100%;
+}
+@media (min-width: 900px) {
+  .view-intro {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .view-intro .btn {
+    width: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
 }
 a.btn {
   min-height: 2.75rem;
@@ -1351,7 +1387,7 @@ a.btn-secondary {
   color: var(--accent);
 }
 /* Actions d'une ligne (`.button-row.row-actions`) : sur mobile, la règle des cartes les met en
-   pleine largeur, la raison d'un bouton grisé juste sous lui. Au bureau, les boutons restent sur
+   pleine largeur, la raison des boutons grisés en tête de carte. Au bureau, les boutons restent sur
    une rangée et la raison, placée après le bouton dans le DOM, passe sous la rangée. */
 @media (min-width: 56.26rem) {
   .data-table .row-actions {
@@ -1367,6 +1403,18 @@ a.btn-secondary {
   .data-table .row-actions .state-note {
     grid-row: 2;
     grid-column: 1 / -1;
+  }
+}
+/* Vue « plans en échec » : sans « Lancer maintenant », Modifier et Supprimer gardent leurs colonnes. */
+@media (min-width: 56.26rem) {
+  .data-table .row-actions-no-run > :first-child {
+    grid-column: 2;
+  }
+}
+/* Bouton du bandeau d'erreur : pleine largeur sur mobile, comme les actions de la page. */
+@media (max-width: 37.5rem) {
+  .alert > .alert-run {
+    width: 100%;
   }
 }
 .choices {
@@ -1413,6 +1461,7 @@ a.btn-secondary {
   }
 }
 .choice input {
+  flex: none;
   min-height: 0;
   width: 1.25rem;
   height: 1.25rem;
@@ -1448,8 +1497,7 @@ a.btn-secondary {
     justify-content: center;
     text-align: center;
   }
-  .wizard-actions .btn,
-  .page-header .btn {
+  .wizard-actions .btn {
     width: 100%;
   }
 }
@@ -1493,8 +1541,9 @@ a.btn-secondary {
   gap: var(--space-2) var(--space-4);
 }
 /*
- * Fil d'Ariane. Chaque « > » appartient au niveau qui le précède (`li::after`) : il reste en fin
- * de ligne, jamais seul en début de la suivante ; seul le dernier niveau n'en a pas.
+ * Fil d'Ariane. Chaque « > » appartient au niveau qui le suit (`li::before`, `inline-flex`) : à
+ * un retour à la ligne il passe avec ce niveau, jamais seul en fin ni en début de ligne ; seul le
+ * premier niveau n'en a pas.
  */
 .breadcrumb {
   --crumb-sep: 1rem;
@@ -1505,13 +1554,14 @@ a.btn-secondary {
   padding: 0;
   list-style: none;
 }
-.breadcrumb li:last-child::after {
+.breadcrumb li:first-child::before {
   display: none;
 }
 .breadcrumb li {
   display: inline-flex;
   align-items: center;
-  min-height: 2.75rem;
+  min-width: 0;
+  overflow-wrap: anywhere; /* une adresse de compte longue ne déborde pas à 390 px */
 }
 .drive-list .data-table td {
   vertical-align: middle;
@@ -1524,18 +1574,33 @@ a.btn-secondary {
   color: var(--muted);
   font-size: 0.875em;
 }
-.breadcrumb li::after {
+.breadcrumb li::before {
   content: '>';
   flex: none;
   width: var(--crumb-sep);
-  margin-left: var(--space-1);
+  margin-right: var(--space-1);
   text-align: center;
 }
-.breadcrumb a,
 .drive-list .data-table td a {
   display: inline-flex;
   align-items: center;
   min-height: 2.75rem;
+}
+/* Cible tactile de 44 px sans gonfler la ligne : le fil reste compact quand il passe à la ligne. */
+.breadcrumb a {
+  position: relative;
+}
+.breadcrumb a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2.75rem;
+  transform: translateY(-50%);
+}
+.breadcrumb [aria-current='location'] {
+  font-weight: 700;
 }
 .drive-list .data-table input[type='radio'] {
   width: 1.5rem;
@@ -1586,20 +1651,43 @@ a.btn-secondary {
 .meta-list {
   margin: 0 0 var(--space-4);
 }
+/* Les lignes disparaissent de la grille : libellés et valeurs forment deux colonnes communes, la
+   colonne des libellés prenant la largeur du plus long. Sous 40 rem : libellé au-dessus. */
 .meta-row {
-  display: grid;
-  grid-template-columns: 11rem 1fr;
-  gap: var(--space-2);
-  padding: var(--space-1) 0;
+  display: contents;
 }
 .meta-row dt {
+  padding-top: var(--space-1);
   color: var(--muted);
   font-weight: 700;
 }
 .meta-row dd {
   margin: 0;
+  padding-bottom: var(--space-1);
   color: var(--text);
   overflow-wrap: anywhere;
+}
+@media (min-width: 40rem) {
+  .meta-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: var(--space-2);
+  }
+  .meta-row dt,
+  .meta-row dd {
+    padding: var(--space-1) 0;
+  }
+  /* Boîte de dialogue trop étroite pour deux colonnes : libellé au-dessus de la valeur. */
+  .dialog .meta-list,
+  .dialog .meta-row {
+    display: block;
+  }
+  .dialog .meta-row dt {
+    padding: var(--space-1) 0 0;
+  }
+  .dialog .meta-row dd {
+    padding: 0 0 var(--space-1);
+  }
 }
 .restore-unavailable {
   margin-top: var(--space-3);
@@ -1617,12 +1705,6 @@ a.btn-secondary {
     display: flex;
     width: 100%;
     min-height: 2.75rem;
-  }
-}
-@media (max-width: 40rem) {
-  .meta-row {
-    grid-template-columns: 1fr;
-    gap: 0;
   }
 }
 

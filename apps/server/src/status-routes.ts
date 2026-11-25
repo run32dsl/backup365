@@ -1,4 +1,5 @@
 import {
+  annotateFailures,
   buildPlanComplianceReport,
   buildServiceSummaries,
   type StatusRow,
@@ -22,17 +23,36 @@ export interface StatusOptions {
 }
 
 /** Conformité de tous les plans ; `null` si leur base ne répond pas (le tableau reste servi). */
-function planCompliance(store: SqlitePlanStore, log: { warn(obj: object, msg: string): void }) {
+function planCompliance(
+  store: SqlitePlanStore,
+  rows: readonly StatusRow[],
+  log: { warn(obj: object, msg: string): void },
+) {
   try {
     return buildPlanComplianceReport(
       store.list(),
       (id) => store.listRuns(id, COMPLIANCE_RUNS_LIMIT),
       new Date(),
+      rows,
     );
   } catch (err) {
     // Code technique seul : jamais de message ni de nom de plan.
     log.warn({ code: (err as NodeJS.ErrnoException).code }, 'conformité des plans indisponible');
     return null;
+  }
+}
+
+/** Lignes rattachées à l'échec du plan qui les couvre ; inchangées si la base des plans ne répond pas. */
+function withFailures(
+  store: SqlitePlanStore,
+  rows: StatusRow[],
+  log: { warn(obj: object, msg: string): void },
+): StatusRow[] {
+  try {
+    return annotateFailures(rows, store.list(), (id) => store.listRuns(id, COMPLIANCE_RUNS_LIMIT));
+  } catch (err) {
+    log.warn({ code: (err as NodeJS.ErrnoException).code }, 'échecs des plans indisponibles');
+    return rows;
   }
 }
 
@@ -44,10 +64,7 @@ function serviceSummaries(
   log: { warn(obj: object, msg: string): void },
 ) {
   try {
-    return buildServiceSummaries(rows, store.list(), maxAgeHours, new Date(), (id) => {
-      const ok = store.listRuns(id, COMPLIANCE_RUNS_LIMIT).find((r) => r.status === 'success');
-      return ok?.finishedAt ?? null;
-    });
+    return buildServiceSummaries(rows, store.list(), maxAgeHours);
   } catch (err) {
     log.warn({ code: (err as NodeJS.ErrnoException).code }, 'synthèse des services indisponible');
     return null;
@@ -75,11 +92,13 @@ export function registerStatusRoutes(
     // Conformité des plans : réservée aux administrateurs par décision du PO du 2026-11-16, en
     // attente de #86, donc absente pour tout autre rôle et sans session ; absente sans base des plans, `null` si elle ne répond pas.
     const store = req.session?.role === 'admin' ? indexing?.plans : undefined;
+    const rows = store ? withFailures(store, catalogReport.rows, req.log) : catalogReport.rows;
     const base = store
       ? {
           ...catalogReport,
-          plans: planCompliance(store, req.log),
-          services: serviceSummaries(store, catalogReport.rows, options.maxAgeHours, req.log),
+          rows,
+          plans: planCompliance(store, catalogReport.rows, req.log),
+          services: serviceSummaries(store, rows, options.maxAgeHours, req.log),
         }
       : catalogReport;
     const report = options.auditAnchor

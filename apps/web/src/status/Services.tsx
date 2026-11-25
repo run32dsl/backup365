@@ -1,4 +1,9 @@
-import type { BackupState, PlanComplianceReport, StatusReport } from '@backup365/core';
+import {
+  effectiveState,
+  type BackupState,
+  type PlanComplianceReport,
+  type StatusReport,
+} from '@backup365/core';
 import { PLANS_HASH, lateNote, retentionLabel } from '../plans.js';
 import { dateTimeOf, ageLabel, workloadLabel } from '../format.js';
 import { AUDIT_HASH } from '../routes.js';
@@ -43,9 +48,9 @@ function fromRows(service: ServiceEntry['service'], rows: readonly Row[]) {
     if (last === null || Date.parse(r.lastSnapshotAt) > Date.parse(last.lastSnapshotAt ?? ''))
       last = r;
   }
-  const state: BackupState = own.some((r) => r.state === 'missing')
+  const state: BackupState = own.some((r) => effectiveState(r) === 'missing')
     ? 'missing'
-    : own.some((r) => r.state === 'stale')
+    : own.some((r) => effectiveState(r) === 'stale')
       ? 'stale'
       : 'ok';
   return { last, state };
@@ -71,10 +76,9 @@ function reconcile(
   return {
     ...s,
     hasPlan,
-    // La date du serveur (fin de la réussite du plan) est l'heure de référence, la même que sur
-    // l'accueil et dans les plans ; la date du catalogue ne sert que sans elle.
-    lastSnapshotAt: s.lastSnapshotAt ?? own.last.lastSnapshotAt,
-    ageHours: s.lastSnapshotAt === null ? own.last.ageHours : s.ageHours,
+    // La date d'un service est celle de la plus récente ligne du tableau « Sauvegardes ».
+    lastSnapshotAt: own.last.lastSnapshotAt,
+    ageHours: own.last.ageHours,
     state: own.state,
     awaitingFirstRun: false,
   };
@@ -122,10 +126,13 @@ function ServiceState({
     );
   }
   const cause = lateCause(service.service, rows);
+  const hasFailure = rows.some((r) => serviceOf(r) === service.service && r.failure);
   return (
     <div>
       <StateBadge state={service.state} />
-      {service.state === 'stale' && cause !== '' && <small className="state-note">{cause}</small>}
+      {cause !== '' && (service.state === 'stale' || hasFailure) && (
+        <small className="state-note">{cause}</small>
+      )}
       {service.state === 'missing' && (
         <a
           className="state-link"

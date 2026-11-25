@@ -76,6 +76,11 @@ export function withCurrent(choices: readonly number[], current: number): number
 /** Espace insécable : la valeur et son unité ne se séparent pas à la coupure de ligne. */
 export const NBSP = '\xa0';
 
+/** Durée en heures, en toutes lettres (« 1 heure », « 24 heures »). */
+export function hoursLabel(hours: number): string {
+  return `${hours}${NBSP}heure${hours === 1 ? '' : 's'}`;
+}
+
 export function retentionLabel(days: number): string {
   if (days === 180) return `6${NBSP}mois`;
   if (days === 365) return `1${NBSP}an`;

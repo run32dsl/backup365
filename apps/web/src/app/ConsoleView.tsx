@@ -5,12 +5,25 @@ import type { User } from '../session.js';
 import { Alert } from '../ui/index.js';
 import type { navEntries } from './routing.js';
 
+/** Identifier that wraps only after « @ » (browsers also break at a hyphen), never inside a word. */
+export function AccountId({ username }: { username: string }) {
+  const at = username.indexOf('@');
+  if (at < 0) return <span>{username}</span>;
+  return (
+    <span>
+      {username.slice(0, at + 1)}
+      <wbr />
+      {username.slice(at + 1)}
+    </span>
+  );
+}
+
 /** Page des comptes refusée à un opérateur. */
 export function ForbiddenView() {
   return (
     <main tabIndex={-1}>
-      <h1>Administration</h1>
-      <AccessDenied title="Accès réservé" href="#/" exit="Retour au tableau de bord">
+      <h1>Réglages</h1>
+      <AccessDenied title="Accès réservé" href="#/" exit="Retour à l’accueil">
         Cette page est réservée aux administrateurs. Demandez à un administrateur de la console de
         faire cette action.
       </AccessDenied>
@@ -121,7 +134,10 @@ export function ConsoleView({
               </ul>
             </nav>
             <div className="sidebar-footer">
-              <span>{`${user.username} (${ROLE_LABELS[user.role].toLowerCase()})`}</span>
+              <span className="sidebar-account">
+                <AccountId username={user.username} />
+                <span className="sidebar-role">{`(${ROLE_LABELS[user.role].toLowerCase()})`}</span>
+              </span>
               {!user.oidc && (
                 <a href="#/password" aria-current={passwordCurrent ? 'page' : undefined}>
                   Mot de passe

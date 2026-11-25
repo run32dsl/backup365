@@ -76,14 +76,14 @@ export async function openDrive(page, folder = '/Documents/Budget') {
 export async function chooseDriveFile(page, name) {
   await page.getByRole('radio', { name, exact: true }).check();
   await page.getByRole('button', { name: 'Continuer' }).click();
-  await page.getByText('Étape 2 sur 3 : Motif').waitFor();
+  await page.getByText('Étape 2 sur 3').waitFor();
 }
 
-/** Saisit le motif et passe à l'étape « Confirmation ». */
+/** Saisit le motif et passe à l'étape « Récapitulatif ». */
 export async function giveDriveReason(page) {
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Suppression accidentelle par l’utilisateur');
   await page.getByRole('button', { name: 'Continuer' }).click();
-  await page.getByText('Étape 3 sur 3 : Confirmation').waitFor();
+  await page.getByText('Étape 3 sur 3').waitFor();
 }
 
 /** Saisit un motif, confirme et lance la restauration. */
@@ -133,7 +133,7 @@ export async function continueStep(page) {
 
 /** Étape « Motif » : liste par défaut et précision saisie. */
 export async function giveSiteReason(page) {
-  await page.getByText('Étape 2 sur 3 : Motif').waitFor();
+  await page.getByText('Étape 2 sur 3').waitFor();
   await page.getByLabel(RESTORE_REASON_LABEL).fill('Dossier supprimé par erreur');
 }
 
@@ -144,7 +144,7 @@ export async function reachSiteSummary(page, site, scope, ...names) {
   await continueStep(page);
   await giveSiteReason(page);
   await continueStep(page);
-  await page.getByText('Étape 3 sur 3 : Confirmation').waitFor();
+  await page.getByText('Étape 3 sur 3').waitFor();
 }
 
 /**
@@ -166,6 +166,19 @@ function dropListedPlans(body, service) {
     if (p.dataTypes?.includes(service)) body.plans.counts[p.state] -= 1;
   }
   body.plans.nonCompliant = body.plans.nonCompliant.filter((p) => !p.dataTypes?.includes(service));
+}
+
+/**
+ * Retire un service de la couverture des plans listés : un plan qui ne couvrait que lui disparaît,
+ * décomptes compris ; un plan qui en couvre d'autres reste, avec son état (issue #495).
+ */
+function uncoverListedPlans(body, service) {
+  if (!body.plans) return;
+  const only = (p) => p.dataTypes?.length === 1 && p.dataTypes[0] === service;
+  for (const p of body.plans.nonCompliant) if (only(p)) body.plans.counts[p.state] -= 1;
+  body.plans.nonCompliant = body.plans.nonCompliant
+    .filter((p) => !only(p))
+    .map((p) => (p.dataTypes ? { ...p, dataTypes: p.dataTypes.filter((t) => t !== service) } : p));
 }
 
 /** @type {Screen[]} */
@@ -198,7 +211,11 @@ export const SCREENS = [
     role: null,
     prepare: async (page) => {
       await page.getByRole('link', { name: 'Se connecter avec un compte Microsoft' }).click();
-      await page.getByRole('heading', { name: 'Tableau de bord' }).waitFor();
+      await page.getByRole('heading', { name: 'Accueil' }).waitFor();
+      // Sur mobile, ouvre le menu pour montrer l'identifiant du compte en bas de la barre.
+      const menu = page.getByRole('button', { name: 'Menu' });
+      if (await menu.isVisible()) await menu.click();
+      await page.getByRole('button', { name: 'Se déconnecter' }).waitFor();
     },
   },
   {
@@ -270,8 +287,32 @@ export const SCREENS = [
         lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
         lastBackupPlan: 'Boîtes mail, quotidien',
         lastFailure: null,
+        lateBackups: [],
       });
       await page.getByText('Microsoft 365 connecté').waitFor();
+    },
+  },
+  {
+    // Aucun plan en échec, une sauvegarde OneDrive en retard : son plan est en retard (#462, #495).
+    name: 'accueil-en-retard',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      await overviewAs(page, {
+        state: 'operational',
+        plans: { total: 2, operational: 1, running: 0, queued: 0, failed: 0, late: 1 },
+        lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+        lastBackupPlan: 'Boîtes mail, quotidien',
+        lastFailure: null,
+        lateBackups: [
+          {
+            service: 'onedrive',
+            name: 'paul.moreau@exemple.fr',
+            lastSnapshotAt: new Date(Date.now() - 72 * 3_600_000).toISOString(),
+          },
+        ],
+      });
+      await page.getByText('1 sauvegarde en retard').waitFor();
     },
   },
   {
@@ -286,6 +327,7 @@ export const SCREENS = [
         lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
         lastBackupPlan: 'Boîtes mail, quotidien',
         lastFailure: null,
+        lateBackups: [],
       });
       await page.getByText('En file d’attente').waitFor();
     },
@@ -301,6 +343,7 @@ export const SCREENS = [
         lastBackupAt: null,
         lastBackupPlan: null,
         lastFailure: null,
+        lateBackups: [],
       }),
   },
   {
@@ -314,6 +357,7 @@ export const SCREENS = [
         lastBackupAt: null,
         lastBackupPlan: null,
         lastFailure: null,
+        lateBackups: [],
       }),
   },
   {
@@ -327,6 +371,7 @@ export const SCREENS = [
         lastBackupAt: null,
         lastBackupPlan: null,
         lastFailure: null,
+        lateBackups: [],
       }),
   },
   {
@@ -454,6 +499,18 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('table').waitFor();
+    },
+  },
+  {
+    // Les connexions des captures repoussent les exports hors de la première page : filtre sur l'export.
+    name: 'journal-audit-export',
+    hash: '#/audit',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+      await page.getByLabel('Action', { exact: true }).selectOption({ label: 'Export' });
+      await page.getByRole('button', { name: 'Filtrer' }).click();
+      await page.getByText('Motif : Ticket INC-10001').first().waitFor();
     },
   },
   {
@@ -625,8 +682,8 @@ export const SCREENS = [
         const body = await res.json();
         // SharePoint jamais protégé : aucune sauvegarde de site, sinon la ligne en reprend la date.
         body.rows = body.rows.filter((r) => r.kind !== 'site');
-        // Et aucun plan listé ne le couvre : sinon la page dirait le contraire.
-        dropListedPlans(body, 'sharepoint');
+        // Et aucun plan listé ne le couvre ; le plan des fichiers garde OneDrive et son retard.
+        uncoverListedPlans(body, 'sharepoint');
         body.services = body.services.map((s) =>
           s.service === 'sharepoint'
             ? {
@@ -777,7 +834,7 @@ export const SCREENS = [
     prepare: async (page) => {
       await page.getByLabel('Nom du plan').fill('Plan de démonstration');
       await page.getByRole('button', { name: 'Continuer' }).click();
-      await page.getByText('Étape 2 sur 3 : Objectifs').waitFor();
+      await page.getByText('Étape 2 sur 3').waitFor();
     },
   },
   {
@@ -790,7 +847,7 @@ export const SCREENS = [
       await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByLabel('Justification de cette durée (obligatoire)').fill('Obligation légale');
       await page.getByRole('button', { name: 'Continuer' }).click();
-      await page.getByText('Étape 3 sur 3 : Récapitulatif').waitFor();
+      await page.getByText('Étape 3 sur 3').waitFor();
     },
   },
   {
@@ -800,7 +857,7 @@ export const SCREENS = [
     prepare: async (page) => {
       await page.getByLabel('Nom du plan').fill('Plan de démonstration');
       await page.getByRole('button', { name: 'Continuer' }).click();
-      await page.getByText('Étape 2 sur 3 : Objectifs').waitFor();
+      await page.getByText('Étape 2 sur 3').waitFor();
     },
   },
   {
@@ -812,7 +869,7 @@ export const SCREENS = [
       await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByLabel('Justification de cette durée (obligatoire)').fill('Obligation légale');
       await page.getByRole('button', { name: 'Continuer' }).click();
-      await page.getByText('Étape 3 sur 3 : Récapitulatif').waitFor();
+      await page.getByText('Étape 3 sur 3').waitFor();
     },
   },
   {
@@ -822,9 +879,19 @@ export const SCREENS = [
     prepare: async (page) => {
       // Nom déjà pris et périmètre vide : les deux erreurs, le focus sur le nom.
       await page.getByLabel('Nom du plan').fill('Messagerie Direction');
-      await page.getByRole('radio', { name: 'Boîtes et comptes choisis' }).check();
+      await page.getByRole('radio', { name: 'Boîtes, comptes et sites choisis' }).check();
       await page.getByRole('button', { name: 'Continuer' }).click();
       await page.getByText('Ce nom est déjà utilisé. Choisissez-en un autre.').waitFor();
+    },
+  },
+  {
+    // Périmètre choisi : un groupe par service coché, dont les sites SharePoint.
+    name: 'plans-creation-perimetre',
+    hash: '#/plans/nouveau',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('radio', { name: 'Boîtes, comptes et sites choisis' }).check();
+      await page.getByRole('group', { name: 'Sites SharePoint' }).waitFor();
     },
   },
   {
@@ -833,9 +900,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
-      await page
-        .getByRole('dialog', { name: 'Lancer « Messagerie Direction » maintenant' })
-        .waitFor();
+      await page.getByRole('dialog', { name: 'Lancer ce plan maintenant' }).waitFor();
     },
   },
   {
@@ -853,7 +918,7 @@ export const SCREENS = [
       );
       await page.getByRole('button', { name: 'Lancer Messagerie Direction maintenant' }).click();
       const dialog = page.getByRole('dialog', {
-        name: 'Lancer « Messagerie Direction » maintenant',
+        name: 'Lancer ce plan maintenant',
       });
       await dialog.getByLabel('Motif du lancement (obligatoire)').fill('Contrôle de conformité');
       await dialog.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
@@ -872,7 +937,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
-      await page.getByRole('dialog', { name: 'Supprimer « Messagerie Direction » ?' }).waitFor();
+      await page.getByRole('dialog', { name: 'Supprimer ce plan ?' }).waitFor();
     },
   },
   {
@@ -881,7 +946,7 @@ export const SCREENS = [
     role: 'admin',
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Supprimer Messagerie Direction' }).click();
-      const dialog = page.getByRole('dialog', { name: 'Supprimer « Messagerie Direction » ?' });
+      const dialog = page.getByRole('dialog', { name: 'Supprimer ce plan ?' });
       await dialog.getByRole('button', { name: 'Supprimer le plan' }).click();
       await dialog.getByText('Indiquez un motif pour continuer.').waitFor();
     },
@@ -1024,7 +1089,16 @@ export const SCREENS = [
       const panel = page.getByRole('dialog', { name: 'Versions de budget.xlsx' });
       await panel.getByRole('radio').nth(1).check();
       await panel.getByRole('button', { name: 'Choisir cette version' }).click();
-      await page.getByText(/Sélection : budget\.xlsx, version du /).waitFor();
+      await page.getByText(/Sélection : fichier « budget\.xlsx », version du /).waitFor();
+    },
+  },
+  {
+    name: 'onedrive-sans-selection',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await openDrive(page);
+      await page.getByText('Cochez un fichier ou un dossier pour continuer.').waitFor();
     },
   },
   {
@@ -1079,7 +1153,7 @@ export const SCREENS = [
       await openDrive(page, '/Images');
       await chooseDriveFile(page, 'logo.png');
       await launchDriveRestore(page);
-      await page.getByText(/Restauration terminée en/u).waitFor();
+      await page.getByText(/fichier restauré en/u).waitFor();
     },
   },
   {

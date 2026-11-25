@@ -16,6 +16,7 @@ const operational = {
   lastBackupAt: '2026-11-18T14:02:00Z',
   lastBackupPlan: 'Boîtes mail, quotidien',
   lastFailure: null,
+  lateBackups: [],
 };
 
 describe('Home without configuration block', () => {

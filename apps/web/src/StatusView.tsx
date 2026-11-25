@@ -5,6 +5,7 @@ import { PlansCompliance } from './status/PlansCompliance.js';
 import { Services } from './status/Services.js';
 import { Summary } from './status/Summary.js';
 
+export { failureNote } from './status/Backups.js';
 export { lateCause, scopeLabel, sortRows } from './status/model.js';
 
 /** État du chargement du tableau de bord. */
@@ -25,7 +26,7 @@ export function StatusView({ state }: { state: StatusState }) {
     <>
       <Summary report={state} />
       <Services report={state} />
-      <PlansCompliance plans={state.plans} rows={state.rows} />
+      <PlansCompliance report={state} />
       <Backups report={state} />
     </>
   );

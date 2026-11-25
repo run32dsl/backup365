@@ -15,6 +15,7 @@ import {
 import { RestoreNotConfigured } from '../RestoreAction.js';
 import { RESTORE_BUTTONS as B } from '../RestoreJourney.js';
 import { RESTORE_LABELS } from '../restoreLabels.js';
+import { selectionLabel } from '../selection.js';
 import { Button, WizardActions } from '../ui/index.js';
 import { EntriesTable } from './EntriesTable.js';
 import { Problem } from './Problem.js';
@@ -48,6 +49,7 @@ export function BrowseStep({
   const [attempt, setAttempt] = useState(0);
   const versionsButton = useRef<HTMLButtonElement | null>(null);
   const hintId = useId();
+  const chooseHintId = useId();
   const path = route.path;
 
   useEffect(() => {
@@ -66,6 +68,9 @@ export function BrowseStep({
   const rows = entries?.status === 'ok' ? entries.data : [];
   const chosen = rows.find((e) => e.path === selected);
   const snapshot = snapshots.find((s) => s.id === snapshotId);
+
+  const rootLabel = accounts.find((a) => a.id === account)?.displayName ?? account;
+  const crumbs = breadcrumbOf(path, rootLabel);
 
   return (
     <>
@@ -105,7 +110,7 @@ export function BrowseStep({
       </div>
       <nav aria-label="Fil d'Ariane">
         <ol className="breadcrumb">
-          {breadcrumbOf(path).map((c, i, all) => (
+          {crumbs.map((c, i, all) => (
             <li key={c.path}>
               {i === all.length - 1 ? (
                 <span aria-current="location">{c.label}</span>
@@ -129,7 +134,7 @@ export function BrowseStep({
         )}
         {entries?.status === 'ok' && (
           <fieldset className="choices drive-list">
-            <legend className="sr-only">Éléments de {breadcrumbOf(path).at(-1)?.label}</legend>
+            <legend className="sr-only">Éléments de {crumbs.at(-1)?.label}</legend>
             <EntriesTable
               account={account}
               rows={rows}
@@ -152,13 +157,25 @@ export function BrowseStep({
 
       <p aria-live="polite">
         {chosen
-          ? `Sélection : ${chosen.name}${pickedVersion ? `, version du ${dateTimeOf(pickedVersion.at)} UTC` : ''}`
+          ? selectionLabel({
+              name: chosen.name,
+              kind: chosen.kind,
+              versionAt: pickedVersion ? dateTimeOf(pickedVersion.at) : null,
+            })
           : null}
       </p>
+      {!chosen && (
+        <p id={chooseHintId} className="field-help">
+          Cochez un fichier ou un dossier pour continuer.
+        </p>
+      )}
       <WizardActions>
         <Button
           aria-disabled={!configured || !chosen || undefined}
-          aria-describedby={!configured ? hintId : undefined}
+          className={!configured || !chosen ? 'is-inactive' : undefined}
+          aria-describedby={
+            [!chosen && chooseHintId, !configured && hintId].filter(Boolean).join(' ') || undefined
+          }
           onClick={() => {
             if (configured && chosen)
               onChoose(

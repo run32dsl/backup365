@@ -7,6 +7,7 @@ export interface Choice {
   path: string;
   snapshotId: string;
   pointAt: string;
+  versionAt?: string | null | undefined;
 }
 
 /** Granularité portée par les ancres des liens : elle n'a plus d'effet sur l'écran. */
@@ -16,4 +17,12 @@ export const LINK_SCOPE: SiteScope = 'item';
 export interface Selected {
   path: string;
   kind: SiteEntry['kind'];
+  /** Date de la version choisie, pour un fichier. */
+  versionAt?: string | null;
+}
+
+export function selectionOf(e: SiteEntry): Selected {
+  return e.kind === 'file'
+    ? { path: e.path, kind: e.kind, versionAt: e.versionAt }
+    : { path: e.path, kind: e.kind };
 }

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { type Problem } from '../apiError.js';
-import { planSummary, runReasonError, type Mailbox, type PlanItem } from '../plans.js';
+import { runReasonError, type Mailbox, type PlanItem } from '../plans.js';
 import { REASON_EXAMPLES, ReasonField } from '../RestoreJourney.js';
 import { Alert, Button, Dialog } from '../ui/index.js';
 import { PlanFailure } from './PlanFailure.js';
+import { PlanRecap } from './PlanRecap.js';
 
 /** Contenu de la boîte de suppression : le plan, ce qui disparaît, le motif. Sans accès réseau. */
 export function DeleteForm({
@@ -32,10 +33,7 @@ export function DeleteForm({
         onSubmit?.(reason.trim());
       }}
     >
-      <p>
-        Plan : <strong>{plan.name}</strong>
-        <small className="state-note plan-summary">{planSummary(plan, mailboxes)}</small>
-      </p>
+      <PlanRecap plan={plan} mailboxes={mailboxes} />
       <Alert tone="warning" title="Suppression définitive">
         Aucune nouvelle sauvegarde ne sera faite. L’historique des exécutions de ce plan sera
         effacé. Les sauvegardes déjà faites restent dans le stockage : la console ne les supprime
@@ -81,7 +79,7 @@ export function DeleteDialog({
     setBusy(false);
   }, [plan]);
   return (
-    <Dialog open={plan !== null} title={`Supprimer « ${plan?.name ?? ''} » ?`} onClose={onClose}>
+    <Dialog open={plan !== null} title="Supprimer ce plan ?" onClose={onClose}>
       {plan && (
         <DeleteForm
           key={plan.id}

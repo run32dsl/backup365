@@ -14,14 +14,16 @@ export function Counts({
 }) {
   return (
     <ul className="plan-counts">
-      {COMPLIANCE_ORDER.map((state) => (
-        <li key={state}>
-          <StatusPill status={state} label={STATE_LABELS[state]} />{' '}
-          <strong>
-            {state === 'compliant' ? Math.max(0, counts[state] - pending) : counts[state]}
-          </strong>
-        </li>
-      ))}
+      {COMPLIANCE_ORDER.filter((state) => state === 'compliant' || counts[state] > 0).map(
+        (state) => (
+          <li key={state}>
+            <StatusPill status={state} label={STATE_LABELS[state]} />{' '}
+            <strong>
+              {state === 'compliant' ? Math.max(0, counts[state] - pending) : counts[state]}
+            </strong>
+          </li>
+        ),
+      )}
       {pending > 0 && (
         <li>
           <StatusPill status="pending" /> <strong>{pending}</strong>

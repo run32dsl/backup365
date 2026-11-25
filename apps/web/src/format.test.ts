@@ -4,6 +4,7 @@ import {
   dateTimeOf,
   dateTimeOrDash,
   folderLabel,
+  keepDateTogether,
   plural,
   sizeOf,
   workloadLabel,
@@ -53,5 +54,19 @@ describe('format', () => {
     expect(plural(0, 'résultat')).toBe('0 résultat');
     expect(plural(1, 'élément')).toBe('1 élément');
     expect(plural(10, 'résultat')).toBe('10 résultats');
+  });
+});
+
+describe('keepDateTogether', () => {
+  const NBSP = '\u00a0';
+  it('joins date, time and UTC with non-breaking spaces only', () => {
+    expect(keepDateTogether('Mail · 22/11/2026 21:01 UTC')).toBe(
+      `Mail · 22/11/2026${NBSP}21:01${NBSP}UTC`,
+    );
+  });
+
+  it('handles a date without UTC and leaves other text alone', () => {
+    expect(keepDateTogether('14/11/2026 06:00')).toBe(`14/11/2026${NBSP}06:00`);
+    expect(keepDateTogether('Fichiers déjà présents')).toBe('Fichiers déjà présents');
   });
 });

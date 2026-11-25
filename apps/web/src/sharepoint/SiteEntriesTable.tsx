@@ -1,7 +1,8 @@
 import { cardSummary, dateTimeOrDash } from '../format.js';
+import { RESTORE_LABELS } from '../restoreLabels.js';
 import { breadcrumbLink, sizeOf, type SiteEntry } from '../sharepoint.js';
 import { DataTable } from '../ui/index.js';
-import { LINK_SCOPE, type Selected } from './types.js';
+import { LINK_SCOPE, selectionOf, type Selected } from './types.js';
 
 /** Liste d'un niveau du site : même présentation que celle d'OneDrive (`EntriesTable`). */
 export function SiteEntriesTable({
@@ -25,7 +26,7 @@ export function SiteEntriesTable({
         rows={rows}
         rowKey={(e) => e.path}
         onRowClick={(e) => {
-          onSelect({ path: e.path, kind: e.kind });
+          onSelect(selectionOf(e));
         }}
         columns={[
           {
@@ -39,7 +40,7 @@ export function SiteEntriesTable({
                   aria-label={e.name}
                   checked={selected?.path === e.path}
                   onChange={() => {
-                    onSelect({ path: e.path, kind: e.kind });
+                    onSelect(selectionOf(e));
                   }}
                 />
                 {e.kind === 'file' ? (
@@ -58,9 +59,9 @@ export function SiteEntriesTable({
             ),
           },
           {
-            header: 'Version du (UTC)',
+            header: RESTORE_LABELS.versionAt,
             className: 'card-hidden',
-            cell: (e) => dateTimeOrDash(e.versionAt),
+            cell: (e) => (e.kind === 'file' ? dateTimeOrDash(e.versionAt) : '—'),
           },
           {
             header: 'Taille',
