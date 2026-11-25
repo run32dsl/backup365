@@ -171,7 +171,6 @@ export function AccountsView({
         ) : (
           <Alert tone="success">{message.text}</Alert>
         ))}
-      <h2>Comptes de la console</h2>
       <DataTable
         caption="Comptes de la console"
         hideCaption
@@ -181,7 +180,6 @@ export function AccountsView({
       />
       {!state.some((a) => a.role === 'operator') && <p>{NO_OPERATOR}</p>}
       {dialog}
-      <p>{AUDIT_NOTICE}</p>
     </>
   );
 }
@@ -393,8 +391,9 @@ export function AccountsPage() {
   };
   return (
     <main tabIndex={-1}>
-      <div className="page-header">
-        <h1>Administration</h1>
+      <h1>Administration</h1>
+      <div className="view-intro">
+        <p>Comptes qui peuvent se connecter à la console. {AUDIT_NOTICE}</p>
         <Button
           onClick={() => {
             setCreating(true);
