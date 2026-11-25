@@ -869,7 +869,7 @@ export function PlansListView({
       {filtered && (
         <>
           {failed.map((p) => {
-            const banner = failureBanner(p, admin);
+            const banner = failureBanner(p, admin, sources);
             const busy = p.running || p.queued;
             return (
               <Alert

@@ -1,5 +1,6 @@
 import {
   DATA_TYPES,
+  effectiveState,
   isNightPlan,
   nextRunAt,
   type ComplianceState,
@@ -416,7 +417,7 @@ export function lateSourcesNote(
   const own = report.rows.filter(
     (r) => types.includes(serviceOf(r)) && (picked === null || picked.has(r.sourceId)),
   );
-  const late = own.filter((r) => r.state !== 'ok');
+  const late = own.filter((r) => effectiveState(r) !== 'ok');
   const [first] = late;
   if (!first) return undefined;
   const unit = types.length === 1 && types[0] ? UNIT_NAMES[types[0]] : 'source';
@@ -483,10 +484,25 @@ export function runLabel(run: PlanItem['lastRun'] | undefined, noRestorePoint: b
   return `Réussie, ${at}`;
 }
 
+/**
+ * Conséquence d'un échec quand chaque source dont ce plan a échoué a une sauvegarde réussie par un
+ * autre plan ; `undefined` sinon (ou sans rapport d'état des sources).
+ */
+function coveredByOthers(planId: string, sources: SourcesReport | null | undefined) {
+  const own = (sources?.rows ?? []).filter((r) => r.failure?.planId === planId);
+  const by = own.map((r) => r.failure?.coveredBy);
+  if (own.length === 0 || by.some((c) => c === undefined)) return undefined;
+  const found = by.flatMap((c) => (c ? [c] : []));
+  const names = [...new Set(found.map((c) => `« ${c.plan} »`))].join(', ');
+  const latest = found.map((c) => c.at).sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? '';
+  return `Ces données restent couvertes par ${names} (dernière réussite ${dateTimeOf(latest)} UTC).`;
+}
+
 /** Contenu du bandeau d'un plan en échec : titre daté (UTC), cause, conséquence, conduite à tenir. */
 export function failureBanner(
   plan: PlanItem,
   admin: boolean,
+  sources?: SourcesReport | null,
 ): { title: string; cause: string; consequence?: string; advice: string } {
   const run = plan.lastRun;
   const at = run?.status === 'failed' ? dateTimeOf(run.finishedAt ?? run.startedAt) : '';
@@ -494,7 +510,7 @@ export function failureBanner(
     title: `Échec de « ${plan.name} »${at && ` le ${at} UTC`}`,
     cause: `${FAILURE_LABELS[run?.failureCause ?? 'unknown']}.`,
     ...(plan.compliance.lastSuccessAt === null && {
-      consequence: 'Ces données ne sont pas encore protégées.',
+      consequence: coveredByOthers(plan.id, sources) ?? 'Ces données ne sont pas encore protégées.',
     }),
     advice: `${admin ? 'Relancez' : 'Demandez à un administrateur de relancer'} le plan ; si l’échec se répète, prévenez l’exploitant du serveur.`,
   };

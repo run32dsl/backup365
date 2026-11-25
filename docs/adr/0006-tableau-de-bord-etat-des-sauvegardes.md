@@ -13,6 +13,9 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
 - `GET /api/status` renvoie `{ generatedAt, maxAgeHours, alertCount, rows }` ; une ligne par
   source (boîte ou site) et par charge suivie : `kind` (`mailbox` ou `site`), `sourceId`,
   `displayName`, date du dernier instantané, âge en heures entières, état.
+- Pour un administrateur, une ligne porte `failure` (`plan`, `at`, `coveredBy?`) quand la dernière
+  exécution d'un plan qui la couvre a échoué : l'écran la dit « En échec », jamais « À jour »,
+  et nomme l'autre plan qui la sauvegarde avec succès s'il existe (issue #518).
 - États : `ok` (âge ≤ seuil), `stale` (« ancien », âge > seuil), `missing` (« absent », aucun
   instantané ou date illisible). `alertCount` compte les lignes `stale` et `missing`, sites
   compris. Un instantané daté du futur compte pour un âge nul.

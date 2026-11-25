@@ -2,6 +2,7 @@ import type { BackupCatalog, Workload } from './catalog.js';
 import {
   nextRunAt,
   type PlanComplianceReport,
+  type SourceFailure,
   type ProtectionPlanInput,
 } from './protection-plan.js';
 
@@ -25,6 +26,13 @@ export interface StatusRow {
   /** Âge en heures entières (arrondi à l'inférieur) ; `null` si absent. */
   ageHours: number | null;
   state: BackupState;
+  /** Ajouté par `GET /api/status` pour les administrateurs : un plan qui couvre la source a échoué. */
+  failure?: SourceFailure;
+}
+
+/** État affiché : une source dont un plan a échoué n'est jamais « à jour » (elle est en échec). */
+export function effectiveState(row: Pick<StatusRow, 'state' | 'failure'>): BackupState {
+  return row.state === 'ok' && row.failure ? 'missing' : row.state;
 }
 
 export interface StatusReport {
@@ -173,7 +181,7 @@ export function buildServiceSummaries(
     const last = latest(
       own.flatMap((r) => (r.lastSnapshotAt === null ? [] : [{ createdAt: r.lastSnapshotAt }])),
     );
-    const state = WORST_FIRST.find((s) => own.some((r) => r.state === s)) ?? 'missing';
+    const state = WORST_FIRST.find((s) => own.some((r) => effectiveState(r) === s)) ?? 'missing';
     const selected = new Set(covering.flatMap((p) => (p.scope === 'selection' ? p.selection : [])));
     const scope: ServiceSummary['scope'] =
       covering.length === 0
