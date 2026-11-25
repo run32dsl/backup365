@@ -123,7 +123,7 @@ describe('SharePoint result', () => {
     expect(html.split('plan-a.pdf').length - 1).toBe(2);
     expect(html).not.toContain('Éléments en erreur');
     expect(html).not.toContain('<dt>En erreur</dt>');
-    expect(html).toContain('<dt>Date de la version (UTC)</dt><dd>10/11/2026 08:30</dd>');
+    expect(html).toContain('<dt>Date de la version (UTC)</dt><dd>10/11/2026\u00a008:30</dd>');
     expect(html).toContain('Plans 2024 (emplacement d’origine)');
   });
 
