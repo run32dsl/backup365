@@ -268,7 +268,7 @@ export function CreateAccountDialog({
   return (
     <Dialog
       open={open}
-      title={created ? `${RESET_TEXTS.resultTitle} de ${created.username}` : 'Créer un compte'}
+      title={created ? RESET_TEXTS.resultTitle : 'Créer un compte'}
       // Ni « ✕ » ni Échap tant que la case n'est pas cochée.
       dismissible={!created || handed}
       onClose={onClose}
