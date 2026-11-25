@@ -9,9 +9,10 @@ import {
   type PlanScope,
   type RpoHours,
   type RunStatus,
+  type StatusReport,
 } from '@backup365/core';
 import { readFailure, requestError } from './apiError.js';
-import { dateTimeOf } from './format.js';
+import { dateTimeOf, plural, workloadLabel } from './format.js';
 import { UNREACHABLE, type Outcome } from './session.js';
 import type { PillStatus } from './ui/index.js';
 
@@ -316,10 +317,13 @@ export const timeOf = (date: Date): string => `${pad(date.getHours())}:${pad(dat
 export function complianceView(
   plan: PlanItem,
   runningName?: string,
+  sources?: SourcesReport | null,
 ): {
   status: PillStatus;
   label: string;
   note?: string;
+  /** Le retard touche plusieurs sources : « Voir les sources » les liste. */
+  seeSources?: boolean;
 } {
   // Une exécution ou une mise en file prime : le dernier résultat terminé reste lisible dans
   // la colonne « Dernière exécution ».
@@ -353,7 +357,9 @@ export function complianceView(
     };
   }
   // Même état que le tableau de bord (`state` du plan), jamais déduit d'ailleurs.
-  const base = lateNote(state, lastSuccessAt);
+  const fromSources =
+    state === 'late' ? lateSourcesNote({ ...plan, lastSuccessAt }, sources) : undefined;
+  const base = fromSources?.text ?? lateNote(state, lastSuccessAt);
   const cause =
     state === 'failed' && plan.lastRun?.failureCause
       ? FAILURE_LABELS[plan.lastRun.failureCause]
@@ -361,7 +367,66 @@ export function complianceView(
   const note = [cause, base].filter(Boolean).join(' · ') || undefined;
   return state === 'failed'
     ? { status: 'failed', label: 'En échec', ...(note && { note }) }
-    : { status: 'late', label: 'En retard', ...(note && { note }) };
+    : {
+        status: 'late',
+        label: 'En retard',
+        ...(note && { note }),
+        ...(fromSources?.seeSources && { seeSources: true }),
+      };
+}
+
+/** Ce que le rapport d'état dit des sources : leurs lignes et le seuil de retard. */
+export type SourcesReport = Pick<StatusReport, 'rows' | 'maxAgeHours' | 'generatedAt'>;
+
+/** Le service d'une ligne du catalogue : un site est toujours SharePoint. */
+export function serviceOf(r: StatusReport['rows'][number]): DataType {
+  if (r.kind === 'site') return 'sharepoint';
+  return r.workload === 'onedrive' ? 'onedrive' : 'mail';
+}
+
+export const UNIT_NAMES: Record<DataType, string> = {
+  mail: 'boîte',
+  onedrive: 'compte',
+  sharepoint: 'site',
+};
+
+/**
+ * Note d'un plan en retard dont la dernière réussite est récente : le retard vient de sources.
+ * Une source est nommée avec sa dernière réussite ; au-delà, le décompte et `seeSources`.
+ * `undefined` si la réussite du plan est elle-même trop ancienne (`lateNote` le dit alors) ou si
+ * aucune source de ses services n'est en retard.
+ */
+export function lateSourcesNote(
+  plan: {
+    dataTypes?: readonly DataType[];
+    scope?: PlanScope;
+    selection?: readonly string[];
+    lastSuccessAt: string | null;
+  },
+  report: SourcesReport | null | undefined,
+): { text: string; seeSources: boolean } | undefined {
+  if (!report || plan.lastSuccessAt === null) return undefined;
+  const age = Date.parse(report.generatedAt) - Date.parse(plan.lastSuccessAt);
+  if (!(age <= report.maxAgeHours * 3_600_000)) return undefined;
+  const types = plan.dataTypes ?? [];
+  // Un périmètre restreint ne compte que ses sources ; sans la sélection (opérateur), on ne
+  // devine pas : la note d'origine reste.
+  if (plan.scope === 'selection' && plan.selection === undefined) return undefined;
+  const picked = plan.scope === 'selection' ? new Set(plan.selection) : null;
+  const own = report.rows.filter(
+    (r) => types.includes(serviceOf(r)) && (picked === null || picked.has(r.sourceId)),
+  );
+  const late = own.filter((r) => r.state !== 'ok');
+  const [first] = late;
+  if (!first) return undefined;
+  const unit = types.length === 1 && types[0] ? UNIT_NAMES[types[0]] : 'source';
+  const count = `${plural(late.length, unit)} sur ${own.length} en retard`;
+  if (late.length > 1) return { text: count, seeSources: true };
+  const at = first.lastSnapshotAt ? dateTimeOf(first.lastSnapshotAt) : '';
+  return {
+    text: `${count} : ${workloadLabel(first.workload)}, ${first.displayName}${at && `, dernière réussite le ${at} UTC`}`,
+    seeSources: false,
+  };
 }
 
 /**

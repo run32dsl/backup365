@@ -13,6 +13,7 @@ import {
   RPO_CHOICES,
   RTO_CHOICES,
   complianceView,
+  type SourcesReport,
   failureBanner,
   createPlan,
   createdMessage,
@@ -44,6 +45,7 @@ import {
   type PlanItem,
   type PlansRoute,
 } from './plans.js';
+import { fetchStatus } from './status.js';
 import { problemMessage, splitTitle, type Problem } from './apiError.js';
 import { fetchSites } from './sharepoint.js';
 import { useAdmin } from './role.js';
@@ -682,6 +684,7 @@ function planColumns(
   admin: boolean,
   mailboxes: readonly Mailbox[],
   runningName: string | undefined,
+  sources: SourcesReport | null,
   actions: { onRun: (p: PlanItem) => void; onDelete: (p: PlanItem) => void },
 ): Column<PlanItem>[] {
   const columns: Column<PlanItem>[] = [
@@ -702,11 +705,16 @@ function planColumns(
       header: 'État',
       className: 'compliance-cell card-nolabel',
       cell: (p) => {
-        const view = complianceView(p, runningName);
+        const view = complianceView(p, runningName, sources);
         return (
           <div>
             <StatusPill status={view.status} label={view.label} />
             {view.note && <small className="state-note">{view.note}</small>}
+            {view.seeSources && (
+              <a className="state-link" href="#/sources">
+                Voir les sources
+              </a>
+            )}
           </div>
         );
       },
@@ -769,6 +777,7 @@ export function PlansListView({
   admin,
   configured,
   mailboxes = [],
+  sources = null,
   failedOnly = false,
   onRetry,
   onRun,
@@ -776,6 +785,8 @@ export function PlansListView({
 }: {
   state: PlansState;
   admin: boolean;
+  /** Rapport d'état des sources : un plan en retard y nomme ses sources en retard. */
+  sources?: SourcesReport | null;
   /** Réduit la liste aux plans en échec (s'il y en a) ; un lien rend la liste entière. */
   failedOnly?: boolean;
   mailboxes?: readonly Mailbox[];
@@ -898,7 +909,7 @@ export function PlansListView({
       <DataTable
         caption="Plans de protection"
         hideCaption
-        columns={planColumns(admin, mailboxes, state.find((p) => p.running)?.name, {
+        columns={planColumns(admin, mailboxes, state.find((p) => p.running)?.name, sources, {
           onRun,
           onDelete,
         })}
@@ -919,14 +930,18 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     mailboxes: [],
   });
   const [sites, setSites] = useState<Mailbox[]>([]);
+  const [sources, setSources] = useState<SourcesReport | null>(null);
   const [flash, setFlash] = useState<Flash>();
   const [runTarget, setRunTarget] = useState<PlanItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlanItem | null>(null);
 
   const named = useMemo(() => [...boxes.mailboxes, ...sites], [boxes.mailboxes, sites]);
   const load = useCallback(() => {
-    Promise.all([fetchPlans(), fetchMailboxes(), fetchSites()]).then(
-      ([plans, mailboxes, found]) => {
+    // L'état des sources nomme ce qui est en retard ; sans lui, la liste reste lisible.
+    const status = fetchStatus().catch(() => null);
+    Promise.all([fetchPlans(), fetchMailboxes(), fetchSites(), status]).then(
+      ([plans, mailboxes, found, report]) => {
+        setSources(report);
         setState(plans);
         setBoxes(mailboxes);
         setSites(found.status === 'ok' ? found.data : []);
@@ -1054,6 +1069,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         admin={admin}
         configured={boxes.configured}
         mailboxes={named}
+        sources={sources}
         failedOnly={route.page === 'list' && route.failedOnly === true}
         onRetry={reloadList}
         onRun={setRunTarget}
