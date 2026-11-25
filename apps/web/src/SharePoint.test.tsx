@@ -4,7 +4,6 @@ import {
   continueHint,
   restoredContentLabel,
   scopeOfKind,
-  selectionLabel,
   failureCause,
   fetchScope,
   breadcrumbLevels,
@@ -268,11 +267,6 @@ describe('SharePoint wording', () => {
     expect(scopeOfKind('library')).toBe('library');
     expect(scopeOfKind('folder')).toBe('folder');
     expect(scopeOfKind('file')).toBe('item');
-    expect(selectionLabel({ path: '/Documents partagés', kind: 'library' })).toBe(
-      'Bibliothèque Documents partagés',
-    );
-    expect(selectionLabel({ path: '/Docs/Plans', kind: 'folder' })).toBe('Dossier Docs > Plans');
-    expect(selectionLabel({ path: '/Docs/a.pdf', kind: 'file' })).toBe('Fichier Docs > a.pdf');
     expect(restoredContentLabel('library', '/Documents partagés')).toBe(
       'Bibliothèque : Documents partagés',
     );

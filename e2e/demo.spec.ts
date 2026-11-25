@@ -151,7 +151,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
 
   // Sélection annoncée ; le panneau des versions rend le focus à son bouton.
   await page.getByRole('radio', { name: 'budget.xlsx' }).check();
-  await expect(page.getByText('Sélection : budget.xlsx')).toBeVisible();
+  await expect(page.getByText('Sélection : fichier « budget.xlsx »')).toBeVisible();
   const versions = page.getByRole('button', { name: 'Versions de budget.xlsx' });
   await versions.click();
   const panel = page.getByRole('dialog', { name: 'Versions de budget.xlsx' });
@@ -165,7 +165,7 @@ test('OneDrive : parcourir, choisir une version, motif, remplacement confirmé, 
   await panel.getByRole('radio').nth(1).check();
   await panel.getByRole('button', { name: 'Choisir cette version' }).click();
   await expect(page.getByText(/Étape 1 sur 3/)).toBeVisible();
-  await expect(page.getByText(/Sélection : budget\.xlsx, version du /)).toBeVisible();
+  await expect(page.getByText(/Sélection : fichier « budget\.xlsx », version du /)).toBeVisible();
   await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page.getByRole('heading', { name: 'Restaurer depuis OneDrive' })).toBeVisible();
   await expect(page.getByText(/Étape 2 sur 3/)).toBeVisible();
@@ -262,7 +262,7 @@ test('SharePoint : choisir une bibliothèque, motif, récapitulatif, suivi et jo
   ).toBeVisible();
   // Une bibliothèque se coche sans être ouverte.
   await page.getByRole('radio', { name: 'Documents partagés', exact: true }).check();
-  await expect(page.getByText('Sélection : Bibliothèque Documents partagés')).toBeVisible();
+  await expect(page.getByText('Sélection : bibliothèque « Documents partagés »')).toBeVisible();
   await next.click();
 
   // Motif : la précision est obligatoire.

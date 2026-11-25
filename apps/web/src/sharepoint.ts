@@ -212,12 +212,6 @@ export function scopeOfKind(kind: SiteEntry['kind']): SiteScope {
   return kind === 'file' ? 'item' : kind;
 }
 
-/** Ligne « Sélection : … » sous le tableau : `Bibliothèque Documents partagés`. */
-export function selectionLabel(selected: { path: string; kind: SiteEntry['kind'] }): string {
-  const kind = { library: 'Bibliothèque', folder: 'Dossier', file: 'Fichier' }[selected.kind];
-  return `${kind} ${pathLabel(selected.path)}`;
-}
-
 /** Pourquoi « Continuer » est inactif, en une phrase. */
 export function continueHint(): string {
   return 'Cochez un fichier, un dossier ou une bibliothèque pour continuer.';

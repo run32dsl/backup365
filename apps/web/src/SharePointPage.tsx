@@ -7,6 +7,7 @@ import { cardSummary, dateTimeOrDash } from './format.js';
 import { RestoreFailureAlert, restoreFailureBanner } from './restoreFailure.js';
 import { RESTORE_LABELS } from './restoreLabels.js';
 import { RestoreNotConfigured } from './RestoreAction.js';
+import { selectionLabel, WHOLE_SITE_SELECTION } from './selection.js';
 import {
   AuditReminder,
   REASON,
@@ -23,7 +24,6 @@ import {
   SHAREPOINT_MESSAGES as T,
   continueHint,
   scopeOfKind,
-  selectionLabel,
   dateTimeOf,
   errorItemLabel,
   failureCause,
@@ -382,9 +382,12 @@ export function ChooseStep({
 
       <p aria-live="polite">
         {whole
-          ? 'Sélection : le site entier'
+          ? WHOLE_SITE_SELECTION
           : selected
-            ? `Sélection : ${selectionLabel(selected)}`
+            ? selectionLabel({
+                kind: selected.kind,
+                name: selected.path.split('/').filter(Boolean).at(-1) ?? selected.path,
+              })
             : null}
       </p>
       {!ok && (
