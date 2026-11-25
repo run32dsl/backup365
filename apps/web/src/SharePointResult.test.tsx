@@ -31,15 +31,25 @@ const render = (job: Partial<SiteJob>) =>
     />,
   );
 
+const renderWith = (job: Partial<SiteJob>, versionAt: string) =>
+  renderToStaticMarkup(
+    <TrackStep
+      job={{ ...base, ...job }}
+      versionAt={versionAt}
+      siteName="Équipe commerciale"
+      onJob={vi.fn()}
+      onAgain={vi.fn()}
+      onRetry={vi.fn()}
+    />,
+  );
+
 describe('SharePoint result', () => {
   it('recalls the site and the item, labelled Élément restauré only on success', () => {
     for (const status of ['running', 'succeeded', 'failed'] as const) {
       const html = render({ status, errors: status === 'failed' ? 1 : 0 });
       const label = status === 'succeeded' ? 'Élément restauré' : 'Élément';
       expect(html).toContain('<dt>Site</dt><dd>Équipe commerciale</dd>');
-      expect(html).toContain(
-        `<dt>${label}</dt><dd>Fichier : Documents partagés &gt; Plans 2024 &gt; plan-a.pdf</dd>`,
-      );
+      expect(html).toContain(`<dt>${label}</dt><dd>plan-a.pdf</dd>`);
     }
   });
 
@@ -68,7 +78,9 @@ describe('SharePoint result', () => {
     const kept = '<dt>Fichiers déjà présents</dt><dd>conservés, non remplacés</dd>';
     for (const status of ['running', 'succeeded', 'failed'] as const) {
       const html = render({ status, errors: status === 'failed' ? 1 : 0 });
-      expect(html).toContain(where);
+      expect(html).toContain(
+        '<dt>Emplacement</dt><dd>Équipe commerciale &gt; Documents partagés &gt; Plans 2024 (emplacement d’origine)</dd>',
+      );
       expect(html).toContain(kept);
     }
     expect(render({ scope: 'library', path: '/Documents partagés' })).toContain(where);
@@ -103,11 +115,16 @@ describe('SharePoint result', () => {
     expect(html).toContain('2 éléments restaurés, 1 élément en erreur.');
   });
 
-  it('names the failed file in the summary', () => {
-    const html = render({ status: 'failed', restored: 0, errors: 1, error: 'restore_error' });
-    expect(html).toContain(
-      '<dt>En erreur</dt><dd>Documents partagés &gt; Plans 2024 &gt; plan-a.pdf</dd>',
+  it('shows a single failed file once, with its folder and version date, and no error counters', () => {
+    const html = renderWith(
+      { status: 'failed', restored: 0, errors: 1, error: 'restore_error' },
+      '2026-11-10T08:30:00.000Z',
     );
+    expect(html.split('plan-a.pdf').length - 1).toBe(2);
+    expect(html).not.toContain('Éléments en erreur');
+    expect(html).not.toContain('<dt>En erreur</dt>');
+    expect(html).toContain('<dt>Date de la version (UTC)</dt><dd>10/11/2026 08:30</dd>');
+    expect(html).toContain('Plans 2024 (emplacement d’origine)');
   });
 
   it('names the folder holding the failed items', () => {
