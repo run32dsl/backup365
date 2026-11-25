@@ -136,8 +136,10 @@ développement :
   l'hôte (suivi dans #249). Ce sera la durée mesurée sur l'hôte, distincte de celle de l'étape
   `captures` du job `ci` ;
 - le bilan hebdomadaire du Product Owner reprend la durée médiane et la durée maximale du job `ci`
-  sur `develop` pour la semaine écoulée (lues dans l'interface Actions), et la plus longue durée de
-  `captures` relevée dans les résumés de run et les fichiers `verifs` de la semaine ;
+  sur `develop` pour la semaine écoulée (lues dans l'interface Actions, seule source pour `ci`),
+  avec le nombre de runs pris en compte, et la plus longue durée de `captures` relevée dans les
+  fichiers `verifs` de la semaine, complétés par les résumés de run. En cas d'écart entre ces deux
+  relevés de `captures`, la valeur la plus défavorable est retenue ;
 - seuils d'alerte, tous deux sous le timeout de 15 min : 10 min pour le job `ci`, 5 min pour
   `captures`. Au-delà, le Product Owner ouvre une issue pendant le bilan (modèle du bilan :
   `docs/bilan-hebdomadaire.md`) : rien dans le dépôt ne l'ouvre à sa place. Cas limite accepté : un dépassement du
