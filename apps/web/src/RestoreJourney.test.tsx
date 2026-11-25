@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { MAX_REASON_LENGTH } from './mail.js';
@@ -16,10 +16,13 @@ import {
   RunningProgress,
   stepOf,
 } from './RestoreJourney.js';
+import { screen, sourceFiles } from './testSources.js';
 import { ResultList } from './ui/index.js';
 
 const dir = new URL('./', import.meta.url);
 const source = (name: string) => readFileSync(new URL(name, dir), 'utf8');
+/** Les écrans découpés (page et dossiers) se lisent en entier ; les autres, fichier par fichier. */
+const screenText = (name: string) => (name === 'RestoreAction.tsx' ? source(name) : screen(name));
 const SCREENS = ['OneDrivePage.tsx', 'SharePointPage.tsx', 'RestoreAction.tsx'];
 
 describe('restore journey', () => {
@@ -39,7 +42,7 @@ describe('restore journey', () => {
   });
 
   it.each(SCREENS)('%s uses the shared reason block and has no field of its own', (name) => {
-    const text = source(name);
+    const text = screenText(name);
     expect(text).toContain('ReasonField');
     expect(text).not.toContain('counterMax');
   });
@@ -57,7 +60,7 @@ describe('restore journey', () => {
   it('keeps the audit reminder out of actions that do not touch a backed-up item', () => {
     expect(source('ResetPassword.tsx')).not.toContain('AuditReminder');
     expect(source('ResetPassword.tsx')).toContain('<ReasonField');
-    expect(source('PlansPage.tsx')).not.toContain('AuditReminder');
+    expect(screen('PlansPage.tsx')).not.toContain('AuditReminder');
   });
 
   it('shows the reminder in the restore dialog only on the input step', () => {
@@ -86,7 +89,7 @@ describe('restore journey', () => {
     expect(html).toContain(REASON.help);
     expect(html).toContain(`0 / ${MAX_REASON_LENGTH}`);
     expect(html).not.toContain('*');
-    const plans = source('PlansPage.tsx');
+    const plans = screen('PlansPage.tsx');
     expect(plans).toMatch(/<ReasonField\s+of="du lancement"/);
     expect(plans).not.toContain('RUN_REASONS');
     expect(plans).not.toContain('id="run-reason"');
@@ -94,8 +97,7 @@ describe('restore journey', () => {
   });
 
   it('keeps the word « journalisée » out of the screens', () => {
-    const files = readdirSync(dir).filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f));
-    for (const f of files) {
+    for (const f of sourceFiles()) {
       const code = source(f)
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/^\s*\/\/.*$/gm, '');
@@ -111,7 +113,7 @@ describe('restore journey', () => {
       'Chaque consultation, export ou restauration est inscrite au journal d’audit.',
     );
     for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx', 'RestoreAction.tsx']) {
-      expect(source(name)).toContain('<AuditReminder />');
+      expect(screenText(name)).toContain('<AuditReminder />');
     }
   });
 
@@ -126,13 +128,15 @@ describe('restore journey', () => {
       '5 éléments à traiter. Vous pouvez quitter cette page, la restauration continue.',
     );
     for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx']) {
-      const text = source(name);
+      const text = screen(name);
       expect(text).not.toContain('<p>Vous pouvez quitter cette page');
-      // Le lien du journal d'audit figure à l'état en cours, terminé et échoué.
-      expect(text.match(/\{B\.audit\}/g)?.length).toBeGreaterThanOrEqual(3);
+      // Le lien du journal d'audit figure à l'état en cours, terminé et échoué : une seule barre
+      // d'actions (`ResultActions`) le porte, et le suivi l'emploie dans les trois états.
+      expect(text.match(/<ResultActions/g)?.length).toBeGreaterThanOrEqual(3);
+      expect(text.match(/\{B\.audit\}/g)).toHaveLength(1);
     }
     for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx']) {
-      expect(source(name)).toContain('<RunningProgress');
+      expect(screen(name)).toContain('<RunningProgress');
     }
   });
 
@@ -147,10 +151,7 @@ describe('restore journey', () => {
       'est tracée : motif, opérateur',
       'sont enregistrées : qui, quoi, quand, pourquoi',
     ];
-    const files = readdirSync(dir).filter(
-      (f) => /\.tsx?$/.test(f) && !f.endsWith('.test.tsx') && !f.endsWith('.test.ts'),
-    );
-    for (const file of files) {
+    for (const file of sourceFiles()) {
       const text = source(file);
       for (const phrase of banned) expect(text, `${file}: ${phrase}`).not.toContain(phrase);
     }
@@ -184,15 +185,15 @@ describe('reason examples', () => {
   });
 
   it('passes an explicit example at every use of ReasonField', () => {
-    const files = readdirSync(dir).filter((f) => /\.tsx$/.test(f) && !/\.test\.tsx$/.test(f));
     let uses = 0;
-    for (const f of files) {
+    for (const f of sourceFiles().filter((f) => f.endsWith('.tsx'))) {
       for (const tag of source(f).match(/<ReasonField[\s\S]*?\/>/g) ?? []) {
         uses += 1;
         expect(tag, f).toMatch(/placeholder=\{[^}]*REASON_EXAMPLES\.\w+/);
       }
     }
-    expect(uses).toBeGreaterThanOrEqual(9);
+    // Neuf avant que OneDrive et SharePoint ne partagent leur étape « Motif » (issue #256).
+    expect(uses).toBeGreaterThanOrEqual(8);
   });
 });
 
@@ -222,15 +223,15 @@ describe('restore result', () => {
       );
       expect(html.match(/Restauration en cours/g)).toHaveLength(1);
     }
-    for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx', 'RestoreAction.tsx']) {
-      expect(source(name)).toContain('<RunningProgress');
+    for (const name of SCREENS) {
+      expect(screenText(name)).toContain('<RunningProgress');
     }
-    expect(source('OneDrivePage.tsx')).not.toContain('Restauration terminée');
+    expect(screen('OneDrivePage.tsx')).not.toContain('Restauration terminée');
   });
 
   it('is used by both OneDrive and SharePoint', () => {
     for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx']) {
-      expect(source(name)).toContain('<RestoreResult status={job.status}>');
+      expect(screen(name)).toContain('<RestoreResult status={job.status}>');
     }
   });
 
@@ -253,6 +254,8 @@ describe('restore result', () => {
     (name) => {
       expect(source(name)).toMatch(/\{journey && !job && \(\s*<Steps/);
       expect(source(name)).not.toContain('{journey && <Steps');
+      // Les étapes ne sont jamais rendues par les fichiers des étapes elles-mêmes.
+      expect(screen(name).match(/<Steps\b/g)).toHaveLength(1);
     },
   );
 });
