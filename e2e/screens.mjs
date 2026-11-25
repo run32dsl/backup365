@@ -168,6 +168,19 @@ function dropListedPlans(body, service) {
   body.plans.nonCompliant = body.plans.nonCompliant.filter((p) => !p.dataTypes?.includes(service));
 }
 
+/**
+ * Retire un service de la couverture des plans listés : un plan qui ne couvrait que lui disparaît,
+ * décomptes compris ; un plan qui en couvre d'autres reste, avec son état (issue #495).
+ */
+function uncoverListedPlans(body, service) {
+  if (!body.plans) return;
+  const only = (p) => p.dataTypes?.length === 1 && p.dataTypes[0] === service;
+  for (const p of body.plans.nonCompliant) if (only(p)) body.plans.counts[p.state] -= 1;
+  body.plans.nonCompliant = body.plans.nonCompliant
+    .filter((p) => !only(p))
+    .map((p) => (p.dataTypes ? { ...p, dataTypes: p.dataTypes.filter((t) => t !== service) } : p));
+}
+
 /** @type {Screen[]} */
 export const SCREENS = [
   { name: 'connexion', hash: '', role: null },
@@ -276,14 +289,14 @@ export const SCREENS = [
     },
   },
   {
-    // Aucun plan en échec, une sauvegarde OneDrive en retard (issue #462).
+    // Aucun plan en échec, une sauvegarde OneDrive en retard : son plan est en retard (#462, #495).
     name: 'accueil-en-retard',
     hash: '#/',
     role: 'admin',
     prepare: async (page) => {
       await overviewAs(page, {
         state: 'operational',
-        plans: { total: 2, operational: 2, running: 0, queued: 0, failed: 0, late: 0 },
+        plans: { total: 2, operational: 1, running: 0, queued: 0, failed: 0, late: 1 },
         lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
         lastBackupPlan: 'Boîtes mail, quotidien',
         lastFailure: null,
@@ -665,8 +678,8 @@ export const SCREENS = [
         const body = await res.json();
         // SharePoint jamais protégé : aucune sauvegarde de site, sinon la ligne en reprend la date.
         body.rows = body.rows.filter((r) => r.kind !== 'site');
-        // Et aucun plan listé ne le couvre : sinon la page dirait le contraire.
-        dropListedPlans(body, 'sharepoint');
+        // Et aucun plan listé ne le couvre ; le plan des fichiers garde OneDrive et son retard.
+        uncoverListedPlans(body, 'sharepoint');
         body.services = body.services.map((s) =>
           s.service === 'sharepoint'
             ? {

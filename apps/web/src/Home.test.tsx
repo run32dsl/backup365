@@ -90,6 +90,17 @@ describe('OverviewView, late backups', () => {
     expect(html).toMatch(/<button[^>]*btn-secondary[^>]*>Voir les sources<\/button>/);
   });
 
+  it('counts the plan covering the late backup as late on the Plans card (#495)', () => {
+    const html = render({
+      ...operational,
+      plans: { total: 2, operational: 1, running: 0, queued: 0, failed: 0, late: 1 },
+      lateBackups: [oneDrive],
+    });
+    expect(html).not.toContain('2 plans à jour sur 2');
+    expect(html).toContain('1 plan à jour sur 2');
+    expect(html).toMatch(/plan-counts[\s\S]*En retard[\s\S]*<strong>1<\/strong>/);
+  });
+
   it('shows Opérationnelle and no Voir les sources without late backups', () => {
     const html = render(operational);
     expect(html).toContain('Opérationnelle');
