@@ -1,3 +1,4 @@
+import { Children, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { AccountId, Console, ForbiddenView, screenFor, screenOf } from './App.js';
@@ -148,18 +149,61 @@ describe('AccountsView', () => {
     const html = renderToString(<AccountsView state={accounts} actions={{}} />);
     expect(html).toContain('class="data-table"');
   });
-  it('offers the password reset only to local accounts', () => {
-    const html = renderToString(
-      <AccountsView state={[accounts[0]!, { ...accounts[1]!, oidc: true }]} actions={{}} />,
+  it('greys the password and role actions of a Microsoft account, with one reason', () => {
+    const onReset = vi.fn();
+    const onRole = vi.fn();
+    const onDisabled = vi.fn();
+    const root = renderToString(
+      <AccountsView
+        state={[accounts[0]!, { ...accounts[1]!, oidc: true }]}
+        actions={{ onReset, onRole, onDisabled }}
+      />,
     );
-    expect(html.match(/Réinitialiser le mot de passe : /g)).toHaveLength(1);
-    expect(html).toContain('Réinitialiser le mot de passe : root');
-    expect(html).not.toContain('Réinitialiser le mot de passe : bob');
-    expect(html).toContain('Mot de passe géré par Microsoft');
+    expect(root).not.toContain('Mot de passe géré par Microsoft');
+    expect(
+      root.match(/Compte Microsoft : mot de passe et rôle gérés dans Microsoft Entra/g),
+    ).toHaveLength(1);
+    expect(root).toContain('id="oidc-2"');
+    for (const label of ['Réinitialiser le mot de passe', 'Modifier le rôle']) {
+      expect(root).toMatch(
+        new RegExp(
+          `aria-describedby="oidc-2"[^>]*aria-label="${label} : bob"|aria-label="${label} : bob"[^>]*aria-describedby="oidc-2"`,
+        ),
+      );
+    }
+    // Deux boutons de bob, plus les deux de root (dernier administrateur).
+    expect(root.match(/aria-disabled="true"/g)).toHaveLength(4);
+    expect(root).not.toMatch(/aria-disabled="true"[^>]*aria-label="Désactiver : bob"/);
+    expect(root).not.toMatch(/aria-label="Désactiver : bob"[^>]*aria-disabled/);
+    // Clic simulé : on appelle le `onClick` de chaque bouton de la ligne Microsoft.
+    const tree = AccountsView({
+      state: [{ ...accounts[1]!, oidc: true }, accounts[0]!],
+      actions: { onReset, onRole, onDisabled },
+    }) as ReactElement<{ children: ReactNode }>;
+    const table = Children.toArray(tree.props.children).find(
+      (c): c is ReactElement<{ columns: { cell: (a: unknown) => ReactElement }[] }> =>
+        isValidElement(c) && 'columns' in (c.props as object),
+    )!;
+    const buttons: ReactElement<{ onClick?: () => void; 'aria-label'?: string }>[] = [];
+    const walk = (n: ReactNode): void =>
+      Children.forEach(n, (c) => {
+        if (!isValidElement(c)) return;
+        const p = c.props as { children?: ReactNode; onClick?: () => void };
+        if (p.onClick) buttons.push(c as (typeof buttons)[number]);
+        walk(p.children);
+      });
+    const cell = table.props.columns.at(-1)!.cell({ ...accounts[1]!, oidc: true });
+    walk((cell.props as { children: ReactNode }).children);
+    expect(buttons).toHaveLength(3);
+    buttons.forEach((b) => b.props.onClick?.());
+    expect(onReset).not.toHaveBeenCalled();
+    expect(onRole).not.toHaveBeenCalled();
+    expect(onDisabled).toHaveBeenCalledTimes(1);
   });
   it('keeps both mentions, and a valid aria-describedby, on a Microsoft last administrator', () => {
     const html = renderToString(<AccountsView state={[{ ...accounts[0]!, oidc: true }]} />);
-    expect(html).toContain('Mot de passe géré par Microsoft');
+    expect(html).toContain('gérés dans Microsoft Entra');
+    expect(html).toContain('aria-describedby="oidc-1 last-admin-1"');
     expect(html).toContain('id="last-admin-1"');
     expect(html).toContain('aria-describedby="last-admin-1"');
   });
