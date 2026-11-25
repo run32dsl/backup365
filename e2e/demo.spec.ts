@@ -357,7 +357,8 @@ test('SharePoint : un échec affiche le résultat partiel et propose de réessay
   await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
   await expect(page.getByRole('alert').getByText(/Rien n’a été modifié\./)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Restauration échouée' })).toBeVisible();
-  await expect(page.getByText('Éléments en erreur', { exact: true })).toBeVisible();
+  await expect(page.getByText('Date de la version (UTC)')).toBeVisible();
+  await expect(page.getByText('Éléments en erreur', { exact: true })).toHaveCount(0);
   // Réessayer ramène au récapitulatif, motif et choix conservés.
   await page.getByRole('button', { name: 'Réessayer' }).click();
   await expect(page.getByText('Étape 3 sur 3')).toBeVisible();

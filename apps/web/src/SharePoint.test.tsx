@@ -19,6 +19,7 @@ import {
   summaryCountOf,
   confirmRowsOf,
   placementRows,
+  locationOf,
   siteWarningOf,
 } from './sharepoint.js';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -302,12 +303,14 @@ describe('SharePoint wording', () => {
       ['Motif', 'Reprise après incident'],
     ]);
     const item = confirmRowsOf({ ...input, scope: 'item', summary: null, path: '/A/b.pdf' });
-    expect(item).toContainEqual(['Élément', 'Fichier : A > b.pdf']);
+    expect(item).toContainEqual(['Élément', 'b.pdf']);
     expect(item.map(([label]) => label)).not.toContain('Volume');
     expect(item).toContainEqual([
       'Emplacement',
       'Site Urbanisme (exemple) > A (emplacement d’origine)',
     ]);
+    expect(locationOf('item', 'S', '/Docs/f.pdf')).toBe('S > Docs (emplacement d’origine)');
+    expect(locationOf('item', 'S', '/f.pdf')).toBe('S (emplacement d’origine)');
     const folder = confirmRowsOf({ ...input, scope: 'folder', path: '/Documents partagés/Plans' });
     expect(folder).toContainEqual([
       'Emplacement',

@@ -178,7 +178,8 @@ export function pathLabel(path: string): string {
 /** Ce qui a été restauré, pour l'écran de résultat : `Fichier : Documents partagés > plan-a.pdf`. */
 export function restoredContentLabel(scope: SiteScope, path: string): string {
   if (scope === 'site') return 'Site entier';
-  const kind = scope === 'item' ? 'Fichier' : scope === 'folder' ? 'Dossier' : 'Bibliothèque';
+  if (scope === 'item') return pathLabel(path).split(' > ').pop() ?? '';
+  const kind = scope === 'folder' ? 'Dossier' : 'Bibliothèque';
   return `${kind} : ${pathLabel(path)}`;
 }
 
@@ -191,8 +192,9 @@ export const EXISTING_FILES_KEPT = 'conservés, non remplacés';
  */
 export function locationOf(scope: SiteScope, siteName: string, path: string): string {
   if (scope === 'site') return 'Emplacement d’origine de chaque élément';
-  const library = path.split('/').filter(Boolean)[0];
-  return `${[siteName, library].filter(Boolean).join(' > ')} (emplacement d’origine)`;
+  const segments = path.split('/').filter(Boolean);
+  const place = scope === 'item' ? segments.slice(0, -1) : segments.slice(0, 1);
+  return `${[siteName, ...place].filter(Boolean).join(' > ')} (emplacement d’origine)`;
 }
 
 /** Lignes « Emplacement » et « Fichiers déjà présents », communes au récapitulatif et aux résultats. */
