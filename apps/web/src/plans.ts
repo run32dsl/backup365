@@ -109,7 +109,6 @@ export const MESSAGES = {
   selection: 'Choisissez au moins un élément à protéger.',
   justification: 'Indiquez pourquoi cette durée est nécessaire.',
   runReason: 'Indiquez un motif pour continuer.',
-  created: 'Plan créé.',
   updated: 'Plan modifié.',
   deleted: 'Plan supprimé.',
   runStarted: 'Sauvegarde lancée. Motif enregistré au journal d’audit.',
@@ -438,11 +437,14 @@ export const errorSummary = (count: number): string =>
   `${count} ${count === 1 ? 'point' : 'points'} à corriger avant de continuer`;
 
 /** Message de succès d'une création : l'heure du premier créneau planifié. */
-export function createdMessage(plan: { id: string; rpoHours: RpoHours }, now = new Date()): string {
+export function createdMessage(
+  plan: { id: string; name: string; rpoHours: RpoHours },
+  now = new Date(),
+): string {
+  const head = `Le plan « ${plan.name} » a été créé.`;
   // Plan de nuit : le créneau suit le fuseau du serveur, que le navigateur ne connaît pas.
-  if (isNightPlan(plan.rpoHours))
-    return `${MESSAGES.created} Première sauvegarde prévue cette nuit.`;
-  return `${MESSAGES.created} Première sauvegarde prévue à ${timeOf(nextRunAt(plan, now))}.`;
+  if (isNightPlan(plan.rpoHours)) return `${head} Première sauvegarde prévue cette nuit.`;
+  return `${head} Première sauvegarde prévue à ${timeOf(nextRunAt(plan, now))}.`;
 }
 
 // ---- Ancres ---------------------------------------------------------------------------------
