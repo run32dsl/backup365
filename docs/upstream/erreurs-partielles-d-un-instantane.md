@@ -32,6 +32,16 @@ justifier « Avec avertissements » ni « En échec » pour un instantané. Selo
 l'issue, le libellé n'est donc pas affiché et le catalogue n'est pas modifié. Un instantané
 absent reste « En échec » côté plan (ADR 0006), c'est un autre calcul.
 
+## Vérification dans le SDK 7.2.0 (issue #542)
+
+**Toujours non** (ADR 0019). Les références de lignes ci-dessus visent le paquet 6.2.0. En
+7.2.0, les résultats de `backup()` portent les mêmes informations (plus `snapshot_stored` pour la
+messagerie), toujours renvoyées à l'appelant seulement. Ni `Manifest`, ni
+`OneDriveSnapshotManifest`, ni `SharePointSnapshotManifest`, ni les nouveaux résumés d'index
+(`SnapshotSummary`, lus par `listSnapshotSummaries`) n'ont de statut, de compte d'erreurs ou de
+résultat. Le registre des fichiers en échec (OneDrive, SharePoint) n'est lisible que par
+`checkStatus()`, qui interroge Graph. La demande ci-dessous reste valable.
+
 ## Brouillon de demande amont
 
 ### Titre
@@ -40,7 +50,7 @@ SDK : persister dans le manifeste d'un instantané les erreurs et avertissements
 
 ### Contexte
 
-Notre console web (SDK 6.2.0, lecture seule du stockage) liste les instantanés d'après leurs
+Notre console web (SDK 7.2.0, lecture seule du stockage) liste les instantanés d'après leurs
 manifestes. `BackupSyncSummary.folder_errors` et `warnings` ne sont renvoyés qu'à l'appelant de
 `backup()` : une fois l'opération terminée, rien dans le stockage ne dit qu'un dossier ou une
 pièce jointe a échoué.
