@@ -1449,3 +1449,32 @@ export const SCREENS = [
     },
   },
 ];
+
+/**
+ * Pages distinctes (rôle et ancre) d'une liste d'écrans, dans l'ordre de leur première apparition.
+ * Plusieurs écrans photographient la même page après des gestes différents (`prepare`) : un
+ * contrôle qui ne joue pas ces gestes n'a besoin de l'ouvrir qu'une fois. Sa durée suit alors le
+ * nombre de pages de la console, pas le nombre de captures.
+ *
+ * @param {readonly Pick<Screen, 'name' | 'hash' | 'role'>[]} screens
+ * @returns {{ name: string, hash: string, role: 'admin' | 'operator' | null }[]} une entrée par
+ *   page, avec le nom du premier écran qui la montre
+ */
+export function distinctPages(screens) {
+  const pages = new Map();
+  for (const { name, hash, role } of screens) {
+    const key = JSON.stringify([role ?? null, hash]);
+    if (!pages.has(key)) pages.set(key, { name, hash, role: role ?? null });
+  }
+  return [...pages.values()];
+}
+
+/**
+ * Pages ouvertes par le test du bandeau du mode démo : les variantes de thème ou de version
+ * reprennent des pages déjà parcourues.
+ *
+ * @param {readonly Screen[]} [screens]
+ */
+export function bannerPages(screens = SCREENS) {
+  return distinctPages(screens.filter((s) => !s.scheme && !s.buildCommit));
+}
