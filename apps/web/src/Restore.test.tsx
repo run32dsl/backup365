@@ -399,7 +399,7 @@ describe('RestoreAction', () => {
     expect(row.match(/<td[^>]*keep-words[^>]*>/g)).toHaveLength(2);
     expect(row).toMatch(/<td[^>]*subject[^>]*><a [^>]*title="/);
     expect(row).toContain(
-      '<span class="addr"><span class="addr-local">alice@</span><span class="addr-domain">example.test</span>',
+      '<span class="addr addr-short"><span class="addr-local">alice@</span><span class="addr-domain">example.test</span>',
     );
     const off = renderToString(<SearchView state={state} restoreConfigured={false} />);
     // Même état que le 503 `restore_unavailable` du serveur (voir `restore.test.ts`).

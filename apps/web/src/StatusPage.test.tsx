@@ -118,7 +118,7 @@ describe('Sources cards on mobile', () => {
     const row = { ...full.rows[0]!, displayName: 'paul.moreau@exemple.test' };
     const withAddress = renderToString(<StatusView state={{ ...full, rows: [row] }} />);
     expect(withAddress).toContain(
-      '<span class="addr"><span class="addr-local">paul.moreau@</span><span class="addr-domain">exemple.test</span>',
+      '<span class="addr addr-short"><span class="addr-local">paul.moreau@</span><span class="addr-domain">exemple.test</span>',
     );
     expect(cls('Ancienneté').split(' ')).toContain('nowrap');
   });

@@ -899,15 +899,15 @@ select[aria-disabled='true'] {
     white-space: normal;
   }
   /*
-   * Une adresse de 40 caractères au plus tient sur une ligne : le bloc prend la largeur de
-   * l'adresse (plafonnée à 40ch), la colonne ne se réduit pas en deçà ; « Objet » cède la place.
-   * Au-delà, l'adresse passe à la ligne après le « @ ». Dans « Identifiant » (comptes), la mention
-   * « (Microsoft) » passe dessous si la place manque.
+   * Une adresse de 40 caractères au plus (classe `addr-short`, posée par `Address`) tient sur une
+   * ligne : la colonne ne se réduit pas en deçà, « Objet » cède la place. Une adresse plus longue
+   * passe à la ligne après le « @ » et ne réserve que la largeur de sa plus longue partie, de sorte
+   * que le tableau tient dans la page. Dans « Identifiant » (comptes), la mention « (Microsoft) »
+   * passe dessous si la place manque.
    */
-  .data-table td.address .addr {
-    display: inline-block;
-    width: max-content;
-    max-width: 40ch;
+  .data-table td.address .addr-short,
+  .data-table td.address .addr-short .addr-domain::before {
+    white-space: nowrap;
   }
 
   /*
