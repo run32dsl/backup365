@@ -127,3 +127,11 @@ export {
   annotateFailures,
   type SourceFailure,
 } from './protection-plan.js';
+export {
+  BACKUP_RESULTS,
+  type BackupReport,
+  type BackupResult,
+  type BackupResultRecord,
+  classifyBackup,
+  recordedBackupResult,
+} from './backup-result.js';

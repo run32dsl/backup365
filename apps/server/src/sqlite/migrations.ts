@@ -186,6 +186,17 @@ export const PLAN_MIGRATIONS: readonly Migration[] = [
       CREATE INDEX plan_runs_start ON plan_runs (started_at);
     `,
   },
+  {
+    version: 7,
+    name: 'plan-runs-backup-result',
+    // Résultat d'une sauvegarde lancée par la console, tiré du retour de `backup()` (issue #439) :
+    // deux nombres, jamais un nom de dossier ni un message. `NULL` : résultat inconnu.
+    sql: `
+      ALTER TABLE plan_runs ADD COLUMN backup_result TEXT CHECK (backup_result IS NULL OR backup_result IN ('success', 'warnings', 'failed'));
+      ALTER TABLE plan_runs ADD COLUMN folder_error_count INTEGER CHECK (folder_error_count IS NULL OR folder_error_count >= 0);
+      ALTER TABLE plan_runs ADD COLUMN warning_count INTEGER CHECK (warning_count IS NULL OR warning_count >= 0);
+    `,
+  },
 ];
 
 /** Applique les migrations manquantes, chacune dans une transaction. */

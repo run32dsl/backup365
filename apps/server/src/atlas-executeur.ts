@@ -1,5 +1,5 @@
 import { createAtlasInstance, type AtlasInstanceConfig } from '@wisecom/atlas-sdk';
-import type { DataType } from '@backup365/core';
+import { classifyBackup, type BackupReport, type DataType } from '@backup365/core';
 import type { M365Config, StorageConfig } from './config.js';
 import type { Executeur, ExecutionResult, ExecutionTarget } from './plan-scheduler.js';
 
@@ -9,14 +9,22 @@ import type { Executeur, ExecutionResult, ExecutionTarget } from './plan-schedul
  */
 export interface MailOutcome {
   readonly interrupted: boolean;
-  readonly summary: { readonly folderErrors: readonly unknown[]; readonly stored?: number };
+  readonly summary: {
+    readonly folderErrors: readonly unknown[];
+    readonly warnings?: readonly unknown[];
+    readonly stored?: number;
+  };
   readonly manifest?: { readonly totalSizeBytes?: number } | undefined;
+  /** Faux si l'exécution a été annulée avant de lire un dossier : rien n'a été stocké. */
+  readonly snapshotStored?: boolean;
 }
 /** OneDrive, SharePoint, contacts et agenda : `healthy` est faux si une erreur a été rencontrée. */
 export interface DriveOutcome {
   readonly interrupted: boolean;
   readonly summary: {
     readonly healthy: boolean;
+    readonly errors?: readonly unknown[];
+    readonly warnings?: readonly unknown[];
     /** Présent quand une exécution saine n'a créé aucun point de restauration. */
     readonly noSnapshotReason?: string | undefined;
     readonly filesStored?: number;
@@ -74,6 +82,30 @@ function check(outcomes: readonly BackupOutcome[]): boolean {
 
 const NO_CONTENT: ExecutionResult = { noSnapshotReason: 'no_content' };
 
+/**
+ * Nombres et fait retenus d'un retour de `backup()` (issue #439) : jamais un nom ni un message.
+ * Un instantané est produit sauf si l'exécution est interrompue (échec, ADR 0009) ou si le moteur
+ * n'en rend aucun sans dire pourquoi : une exécution propre sans changement (`noSnapshotReason`)
+ * garde l'instantané précédent valable.
+ */
+function reportOf(outcome: BackupOutcome): BackupReport {
+  if ('healthy' in outcome.summary) {
+    const { summary, snapshot } = outcome as DriveOutcome;
+    return {
+      folderErrorCount: summary.errors?.length ?? 0,
+      warningCount: summary.warnings?.length ?? 0,
+      snapshotProduced:
+        !outcome.interrupted && (snapshot !== undefined || summary.noSnapshotReason !== undefined),
+    };
+  }
+  const mail = outcome as MailOutcome;
+  return {
+    folderErrorCount: mail.summary.folderErrors.length,
+    warningCount: mail.summary.warnings?.length ?? 0,
+    snapshotProduced: !mail.interrupted && mail.snapshotStored !== false,
+  };
+}
+
 /** Somme des valeurs fournies ; `undefined` si le moteur n'en a fourni aucune. */
 function sum(values: readonly (number | undefined)[]): number | undefined {
   const known = values.filter((v): v is number => typeof v === 'number');
@@ -109,10 +141,23 @@ export class AtlasExecuteur implements Executeur {
   async execute(target: ExecutionTarget): Promise<ExecutionResult> {
     const { api, isSite } = this.options;
     const wanted = (type: DataType): boolean => target.dataTypes.includes(type);
+    const reports: BackupReport[] = [];
+    let threw = false;
+    // Appelé avant tout retour ou rejet : seules les charges réellement lancées sont classées.
+    const report = (): void => target.report?.(classifyBackup({ threw, reports }));
     if (await isSite(target.itemId)) {
       // Un site n'est sauvegardé que si le plan protège SharePoint : rien à faire sinon.
       if (!wanted('sharepoint')) return NO_CONTENT;
-      const outcomes = await api.sharepoint.backup(target.itemId);
+      let outcomes: readonly DriveOutcome[];
+      try {
+        outcomes = await api.sharepoint.backup(target.itemId);
+      } catch (err) {
+        threw = true;
+        report();
+        throw err;
+      }
+      reports.push(...outcomes.map(reportOf));
+      report();
       return { ...(check(outcomes) ? NO_CONTENT : {}), ...volumeOf(outcomes) };
     }
     const steps: (() => Promise<BackupOutcome>)[] = [];
@@ -124,14 +169,23 @@ export class AtlasExecuteur implements Executeur {
     let empty = true;
     const done: BackupOutcome[] = [];
     for (const step of steps) {
+      let outcome: BackupOutcome;
       try {
-        const outcome = await step();
+        outcome = await step();
+      } catch (err) {
+        threw = true;
+        failure ??= err;
+        continue;
+      }
+      reports.push(reportOf(outcome));
+      try {
         empty = check([outcome]) && empty;
         done.push(outcome);
       } catch (err) {
         failure ??= err;
       }
     }
+    if (steps.length > 0) report();
     if (failure !== undefined) throw failure;
     return { ...(empty ? NO_CONTENT : {}), ...volumeOf(done) };
   }

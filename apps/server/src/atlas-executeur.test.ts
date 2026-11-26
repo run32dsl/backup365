@@ -313,6 +313,87 @@ describe('AtlasExecuteur, calendar (#544)', () => {
   });
 });
 
+describe('AtlasExecuteur, backup result (#439)', () => {
+  const snap = { snapshot: {} };
+  async function resultOf(api: ReturnType<typeof fakeApi>, itemId: string) {
+    const records: unknown[] = [];
+    const report = (r: unknown) => void records.push(r);
+    await api.executeur.execute({ planId: 'p', itemId, dataTypes: ALL, report }).catch(() => 0);
+    return records;
+  }
+
+  it('counts folder errors and warnings, without keeping any name or message', async () => {
+    const api = fakeApi({
+      mail: () =>
+        Promise.resolve({
+          ...mailOk,
+          summary: { folderErrors: ['Boîte/Projet'], warnings: ['w'] },
+        }),
+      drive: () =>
+        Promise.resolve({ ...driveOk, ...snap, summary: { healthy: true, warnings: ['a', 'b'] } }),
+    });
+    const records = await resultOf(api, 'o');
+    expect(records).toEqual([{ result: 'warnings', folderErrorCount: 1, warningCount: 3 }]);
+    expect(JSON.stringify(records)).not.toContain('Projet');
+  });
+
+  it('« Réussie » when every backup produced a snapshot without error', async () => {
+    const api = fakeApi({ drive: () => Promise.resolve({ ...driveOk, ...snap }) });
+    expect(await resultOf(api, 'o')).toEqual([
+      { result: 'success', folderErrorCount: 0, warningCount: 0 },
+    ]);
+  });
+
+  it('« En échec » when backup() throws, returns no result or no snapshot', async () => {
+    const thrown = fakeApi({ mail: () => Promise.reject(new Error('x')) });
+    const none = fakeApi({ site: () => Promise.resolve([]) });
+    const cancelled = fakeApi({
+      mail: () => Promise.resolve({ ...mailOk, snapshotStored: false }),
+      drive: () => Promise.resolve({ ...driveOk, ...snap }),
+    });
+    const interrupted = fakeApi({
+      mail: () => Promise.resolve({ ...mailOk, interrupted: true }),
+      drive: () => Promise.resolve({ ...driveOk, ...snap }),
+    });
+    const unhealthy = fakeApi({
+      site: () =>
+        Promise.resolve([{ interrupted: false, summary: { healthy: false, errors: ['e'] } }]),
+    });
+    const siteThrown = fakeApi({ site: () => Promise.reject(new Error('x')) });
+    for (const [api, item] of [
+      [thrown, 'o'],
+      [none, 'site-1'],
+      [cancelled, 'o'],
+      [interrupted, 'o'],
+      [unhealthy, 'site-1'],
+      [siteThrown, 'site-1'],
+    ] as const) {
+      expect(await resultOf(api, item)).toMatchObject([{ result: 'failed' }]);
+    }
+  });
+
+  it('keeps the counts of the backups that returned when another one throws', async () => {
+    const api = fakeApi({
+      mail: () => Promise.reject(new Error('x')),
+      drive: () =>
+        Promise.resolve({ ...driveOk, ...snap, summary: { healthy: true, warnings: ['w'] } }),
+    });
+    expect(await resultOf(api, 'o')).toEqual([
+      { result: 'failed', folderErrorCount: 0, warningCount: 1 },
+    ]);
+  });
+
+  it('a clean run without changes keeps the previous snapshot: not a failure', async () => {
+    const api = fakeApi({
+      drive: () =>
+        Promise.resolve({ ...driveOk, summary: { healthy: true, noSnapshotReason: 'no_changes' } }),
+    });
+    expect(await resultOf(api, 'o')).toEqual([
+      { result: 'success', folderErrorCount: 0, warningCount: 0 },
+    ]);
+  });
+});
+
 describe('toBackupConfig', () => {
   it('carries the Microsoft 365 credentials and the storage settings', () => {
     const config = toBackupConfig(
