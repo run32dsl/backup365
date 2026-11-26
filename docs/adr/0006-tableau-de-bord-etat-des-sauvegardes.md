@@ -21,6 +21,10 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   compris. Un instantané daté du futur compte pour un âge nul.
 - Le calcul est une fonction pure du catalogue (`buildStatusReport`, `packages/core`), sans
   accès réseau propre ; l'horloge est injectable pour les tests.
+- `volume_octets` (issue #474) : somme des tailles (`sizeBytes`, lue par le SDK dans
+  `totalSizeBytes`) des instantanés que le tableau lit, donc ceux des charges suivies. Elle vaut
+  `0` sans instantané et `null` si un instantané n'a pas de taille, ou si la somme dépasse un
+  entier sûr. Elle ne fait ni appel Graph ni lecture de plus. Visible par tout rôle, comme `rows`.
 - Seuil : `BACKUP365_STATUS_MAX_AGE_HOURS`, 26 par défaut (nombre de 0 exclu à 8760).
   Un seuil unique pour toutes les charges.
 - Charges suivies : `BACKUP365_STATUS_WORKLOADS` (liste séparée par des virgules), `mail`,
