@@ -79,7 +79,7 @@ export function Backups({ report }: { report: StatusReport }) {
   return (
     <section className="status-section" aria-labelledby="backups-title">
       <h2 id="backups-title">Sauvegardes</h2>
-      <p className="help">{`Une sauvegarde est en retard au-delà de ${report.maxAgeHours} h.`}</p>
+      <p className="help">{`Une sauvegarde est dite en retard quand la dernière réussie date de plus de ${report.maxAgeHours} h.`}</p>
       <Counts counts={counts} />
       <div className={showOk ? 'backups show-ok' : 'backups'}>
         <DataTable

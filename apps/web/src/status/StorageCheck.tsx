@@ -15,8 +15,14 @@ export const CONDITIONAL_WRITES = {
     'La console n’a pas encore pu vérifier qu’une sauvegarde et une restauration de la même source ne peuvent pas s’écraser. Elle réessaie dans l’heure. D’ici là, ne restaurez pas une source pendant sa sauvegarde ; si ce message reste après la première sauvegarde, prévenez l’exploitant du serveur.',
   unknownLabel: 'Non vérifié',
   unknown: 'La vérification du stockage est impossible pour le moment.',
-  /** Mention ajoutée au bandeau de synthèse quand le stockage ne protège pas les données. */
-  summary: 'stockage à vérifier',
+  /** Titre du bandeau de synthèse quand le stockage est le seul problème. */
+  summaryTitle: 'Stockage à vérifier',
+  /** Phrase du bandeau de synthèse quand le stockage ne protège pas les données. */
+  summary:
+    'Stockage à vérifier : une restauration pendant une sauvegarde peut écraser des données.',
+  /** Même phrase, quand le titre dit déjà « Stockage à vérifier ». */
+  summaryAlone:
+    'Une restauration pendant une sauvegarde peut écraser des données : voir la section « Stockage ».',
 } as const;
 
 /**

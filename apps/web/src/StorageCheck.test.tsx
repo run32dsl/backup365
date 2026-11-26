@@ -59,9 +59,10 @@ describe('Sources page: storage section in product words (issues #567, #576)', (
       plans: { counts: { compliant: 0, late: 1, failed: 0 }, pending: 0, nonCompliant: [] },
       storage: { conditionalWrites: 'ignored' },
     };
-    expect(renderToStaticMarkup(<StatusView state={late} />)).toContain(
-      '1 plan en retard, stockage à vérifier',
-    );
+    const banner = renderToStaticMarkup(<StatusView state={late} />);
+    expect(banner).toContain('>1 plan en retard</strong>');
+    expect(banner).toContain(CONDITIONAL_WRITES.summary);
+    expect(html).toContain(`>Stockage à vérifier</strong>${CONDITIONAL_WRITES.summaryAlone}`);
   });
 
   it('explains the pending and unknown checks without a code', () => {

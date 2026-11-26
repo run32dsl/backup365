@@ -102,6 +102,15 @@ composant s'y ajoute avec ses tests de comportement.
   console sous le bloc. Le changement volontaire, dans la console, ne l'utilise pas.
 - **Bandeau d'alerte** : `role="alert"` pour une erreur, `role="status"` pour une information ;
   sans détail technique.
+- **Bandeau d'en-tête d'État des sources** (`status/Summary.tsx`) : un `Alert` d'erreur s'il y a
+  un échec (plan ou sauvegarde), d'avertissement sinon. Titre en gras : les deux problèmes les
+  plus graves, dans l'ordre plan en échec, sauvegarde en échec, plan en retard, sauvegarde en
+  retard (« 1 plan en échec et 1 sauvegarde en retard ») ; à défaut « N sources sans plan » ou
+  « Stockage à vérifier ». Corps : des phrases terminées par un point, la conduite à tenir
+  d'abord (« Ouvrez le plan concerné pour voir sa dernière exécution. »), puis les sources sans
+  plan et le stockage à vérifier. Le lien « Voir les plans de protection » passe dans la prop
+  `action` (`.alert-link`, sans retour à la ligne). Le bandeau ne répète pas la liste des
+  compteurs : les pastilles des sections la donnent.
 - **Échec d'une restauration** (messagerie, OneDrive, SharePoint) : un seul `Alert` d'erreur
   (`RestoreFailureAlert`), construit comme celui d'un plan. Première ligne en gras « Échec de la
   restauration de « élément » le jj/mm/aaaa hh:mm UTC », puis la cause, la conséquence et la
