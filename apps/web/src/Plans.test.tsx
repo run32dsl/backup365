@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { scheduleWindowLabel } from '@backup365/core';
+import { scheduleWindowLabel, type DataType } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
 import { DeleteForm } from './plans/DeleteDialog.js';
 import { PlanRecap } from './plans/PlanRecap.js';
@@ -292,6 +292,25 @@ describe('list labels', () => {
     expect(note({ scope: 'all', dataTypes: ['onedrive', 'sharepoint'] })).toBe(
       'Aucun compte OneDrive ni site SharePoint trouvé dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.',
     );
+    // Les contacts vivent dans une boîte (#543).
+    expect(note({ scope: 'all', dataTypes: ['contacts'] })).toBe(
+      'Aucune boîte trouvée dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.',
+    );
+    // L'agenda aussi (#544).
+    expect(note({ scope: 'all', dataTypes: ['calendar'] })).toBe(
+      'Aucune boîte trouvée dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.',
+    );
+    expect(
+      note({ scope: 'selection', dataTypes: ['calendar', 'onedrive'], selection: ['a'] }),
+    ).toBe(
+      'Rien à sauvegarder dans l’élément choisi : vérifiez qu’il existe (boîte, compte OneDrive) et contient des données.',
+    );
+    expect(note({ scope: 'all', dataTypes: ['contacts', 'onedrive'] })).toBe(
+      'Aucune source trouvée dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.',
+    );
+    expect(note({ scope: 'selection', dataTypes: ['mail', 'contacts'], selection: ['a'] })).toBe(
+      'Rien à sauvegarder dans l’élément choisi : vérifiez qu’il existe (boîte) et contient des données.',
+    );
     // En cours ou en file : la colonne garde le dernier résultat terminé.
     expect(lastRunLabel({ ...plan, running: true })).toBe(lastRunLabel(plan));
     expect(lastRunLabel({ ...plan, queued: true })).toBe(lastRunLabel(plan));
@@ -554,7 +573,7 @@ describe('PlanWizard', () => {
   });
 
   it('offers the sites only when SharePoint is ticked, once a selection is chosen', () => {
-    const render = (dataTypes: ('mail' | 'onedrive' | 'sharepoint')[]) =>
+    const render = (dataTypes: DataType[]) =>
       renderToStaticMarkup(
         <PlanWizard
           initial={{ ...emptyForm(), dataTypes, scope: 'selection' }}
@@ -575,6 +594,63 @@ describe('PlanWizard', () => {
     const onlySites = render(['sharepoint']);
     expect(onlySites).not.toContain('<legend>Boîtes et comptes</legend>');
     expect(onlySites).toContain('Équipe commerciale');
+    const onlyContacts = render(['contacts']);
+    expect(onlyContacts).toContain('<legend>Boîtes et comptes</legend>');
+    expect(onlyContacts).not.toContain('Équipe commerciale');
+  });
+
+  it('offers Contacts after Messagerie, unticked by default, with its help (#543)', () => {
+    const html = renderToStaticMarkup(
+      <PlanWizard
+        initial={emptyForm()}
+        editing={false}
+        mailboxes={[]}
+        onSubmit={() => Promise.resolve(undefined)}
+      />,
+    );
+    const box = (label: string) =>
+      new RegExp(`<input type="checkbox"([^>]*)>${label}`).exec(html)?.[1] ?? '';
+    expect(box('Messagerie')).toContain('checked');
+    expect(box('Contacts')).not.toContain('checked');
+    expect(box('Contacts')).toContain('aria-describedby="data-type-contacts-help"');
+    expect(html).toContain(
+      'id="data-type-contacts-help" class="state-note">Copie les contacts des boîtes couvertes par ce plan.<',
+    );
+    expect(html.indexOf('>Messagerie')).toBeLessThan(html.indexOf('>Contacts'));
+    expect(html.indexOf('>Contacts')).toBeLessThan(html.indexOf('>Agenda'));
+  });
+
+  it('offers Agenda after Contacts, unticked by default, with its help (#544)', () => {
+    const html = renderToStaticMarkup(
+      <PlanWizard
+        initial={emptyForm()}
+        editing={false}
+        mailboxes={[]}
+        onSubmit={() => Promise.resolve(undefined)}
+      />,
+    );
+    const box = (label: string) =>
+      new RegExp(`<input type="checkbox"([^>]*)>${label}`).exec(html)?.[1] ?? '';
+    expect(box('Agenda')).not.toContain('checked');
+    expect(box('Agenda')).toContain('aria-describedby="data-type-calendar-help"');
+    expect(html).toContain(
+      'id="data-type-calendar-help" class="state-note">Copie les événements des agendas des boîtes couvertes par ce plan.<',
+    );
+    expect(html.indexOf('>Agenda')).toBeLessThan(html.indexOf('>OneDrive'));
+    // La messagerie ne copie plus que les mails : l'aide « avec le calendrier » disparaît.
+    expect(html).not.toContain('avec le calendrier');
+    // Un plan existant garde sa liste : l'agenda n'est coché que s'il y figure.
+    const existing = renderToStaticMarkup(
+      <PlanWizard
+        initial={{ ...emptyForm(), dataTypes: ['mail', 'contacts'] }}
+        editing
+        mailboxes={[]}
+        onSubmit={() => Promise.resolve(undefined)}
+      />,
+    );
+    expect(
+      new RegExp('<input type="checkbox"([^>]*)>Agenda').exec(existing)?.[1] ?? '',
+    ).not.toContain('checked');
   });
 
   it('asks for the justification in one free text field with help and counter', () => {

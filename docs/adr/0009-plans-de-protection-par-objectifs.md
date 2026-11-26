@@ -202,6 +202,23 @@ simulation: true, computedAt, items }`, chaque élément portant `planId`, `rete
   suppression de toutes les données d'un propriétaire (`deleteMailboxData`, `deleteOwnerData`,
   `deleteSiteData`) ou celle du dernier instantané le sont. L'étape 2 devra partir de ce constat.
 
+### Historique des exécutions, page « Activités » (issue #258)
+
+- Migration 6 : `plan_runs` gagne `items_saved` et `source_bytes`, vides (`NULL`) si le moteur ne
+  les fournit pas, pour un échec et pour les exécutions antérieures. L'exécuteur additionne les
+  éléments copiés (`summary.stored` pour la messagerie, `summary.filesStored` pour OneDrive et
+  SharePoint) et la taille des données protégées (`totalSizeBytes` du manifeste ou de
+  l'instantané). Le SDK ne donne pas la taille stockée par exécution : elle n'est pas affichée.
+  Une exécution en échec n'enregistre aucun volume, même si une charge a déjà été copiée.
+- `GET /api/runs?planId=&result=` : les 20 dernières exécutions, tous plans ou un seul, de la plus
+  récente à la plus ancienne. `result` vaut `success`, `failed`, `interrupted` (un échec dont le
+  code est `interrupted`) ou `running`. Chaque ligne porte le nom du plan et, en cas d'échec,
+  `failureCause` (liste fermée), jamais le code brut. Ouverte à l'opérateur, en lecture seule,
+  comme `GET /api/plans` ; ce sont des métadonnées, hors journal d'audit (ADR 0002).
+- Écran `#/activites` (Activités › Sauvegardes) : filtres par plan et par résultat, cause et marche
+  à suivre en français dans la ligne. Le lien « Historique » de la liste des plans ouvre
+  `#/activites?plan=<id>`.
+
 ### Sécurité des identifiants
 
 Les identifiants Graph et les secrets viennent des variables d'environnement ou de fichiers montés

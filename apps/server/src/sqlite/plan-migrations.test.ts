@@ -67,6 +67,20 @@ describe('PLAN_MIGRATIONS', () => {
     expect(db.prepare('SELECT COUNT(*) AS n FROM plan_items').get()).toEqual({ n: 0 });
   });
 
+  it('adds the copied items and source size to runs, empty for older rows (v6)', () => {
+    const db = open();
+    insert(db, { scope: 'selection' });
+    db.prepare(
+      "INSERT INTO plan_runs (plan_id, item_id, started_at, status) VALUES ('p1', 'box-1', 's', 'success')",
+    ).run();
+    expect(db.prepare('SELECT items_saved, source_bytes FROM plan_runs').get()).toEqual({
+      items_saved: null,
+      source_bytes: null,
+    });
+    expect(() => db.prepare('UPDATE plan_runs SET items_saved = -1').run()).toThrow(/CHECK/);
+    expect(() => db.prepare('UPDATE plan_runs SET source_bytes = -1').run()).toThrow(/CHECK/);
+  });
+
   it('defaults the RPO to 24 hours', () => {
     const db = open();
     db.prepare(

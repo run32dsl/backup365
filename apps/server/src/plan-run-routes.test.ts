@@ -126,13 +126,9 @@ describe('historique et lancement manuel', () => {
   it('exposes the no_content reason of a run', async () => {
     const { app, plan, plans } = setup();
     const at = '2026-03-01T10:00:00.000Z';
-    plans.finishRun(
-      plans.startRun(plan.id, 'a', at) as number,
-      'success',
-      at,
-      undefined,
-      'no_content',
-    );
+    plans.finishRun(plans.startRun(plan.id, 'a', at) as number, 'success', at, undefined, {
+      noSnapshotReason: 'no_content',
+    });
     plans.finishRun(plans.startRun(plan.id, 'b', at) as number, 'success', at);
     const items = (await runs(app, plan.id)).json<{
       items: { itemId: string; noSnapshotReason: string | null }[];

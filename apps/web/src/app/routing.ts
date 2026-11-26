@@ -2,19 +2,21 @@ import { parseOneDriveHash } from '../onedrive.js';
 import { parseSharePointHash } from '../sharepoint.js';
 import { parseMailHash, parseSearchHash } from '../mail.js';
 import { parsePlansHash } from '../plans.js';
+import { RUNS_HASH, parseRunsHash } from '../activities/runs.js';
 import { COMPONENTS_HASH, LEGACY_STATUS_HASH, STATUS_HASH } from '../routes.js';
 
 /**
- * Écran demandé par l'ancre de l'URL : `#/audit` le journal, `#/search` la recherche,
- * `#/comptes` les comptes, `#/password` le changement de mot de passe, `#/mail/<boîte>/<message>`
- * la fiche d'un mail, `#/onedrive/<compte>/<chemin>` la restauration OneDrive,
- * `#/sharepoint/<site>/<granularité>` la restauration SharePoint, tout le reste
- * l'accueil.
+ * Écran demandé par l'ancre de l'URL : `#/audit` le journal, `#/activites` les exécutions des
+ * plans, `#/search` la recherche, `#/comptes` les comptes, `#/password` le changement de mot de
+ * passe, `#/mail/<boîte>/<message>` la fiche d'un mail, `#/onedrive/<compte>/<chemin>` la
+ * restauration OneDrive, `#/sharepoint/<site>/<granularité>` la restauration SharePoint, tout le
+ * reste l'accueil.
  */
 export function screenOf(
   hash: string,
 ):
   | 'audit'
+  | 'runs'
   | 'search'
   | 'accounts'
   | 'plans'
@@ -29,6 +31,7 @@ export function screenOf(
   if (parseOneDriveHash(hash)) return 'onedrive';
   if (parseSharePointHash(hash)) return 'sharepoint';
   if (hash === '#/audit') return 'audit';
+  if (parseRunsHash(hash) !== null) return 'runs';
   if (hash === '#/search' || parseSearchHash(hash) !== null) return 'search';
   if (hash === '#/comptes') return 'accounts';
   if (hash === STATUS_HASH) return 'status';
@@ -88,7 +91,12 @@ export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean)
         screen === 'onedrive' ||
         screen === 'sharepoint',
     },
-    { href: '#/audit', label: 'Activités', icon: '≡', current: screen === 'audit' },
+    {
+      href: RUNS_HASH,
+      label: 'Activités',
+      icon: '≡',
+      current: screen === 'runs' || screen === 'audit',
+    },
   ];
   if (admin) {
     entries.push({

@@ -438,7 +438,7 @@ test('navigation au clavier du menu replié à 390 px', async ({ page, context, 
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Activités' })).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/#\/audit$/);
+  await expect(page).toHaveURL(/#\/activites$/);
   await expect(page.getByRole('heading', { name: 'Activités' })).toBeVisible();
   // Le menu se referme après la navigation.
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');

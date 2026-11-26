@@ -605,8 +605,32 @@ function seedDemoPlans(plans: SqlitePlanStore, now: number): void {
     rpoHours: 24,
     retentionDays: 365,
   });
+  // Historique des nuits précédentes (page « Activités ») : réussites avec volume, un échec et une
+  // interruption. Antérieures au créneau courant, elles ne changent ni l'état des plans ni l'accueil.
+  const past = (
+    planId: string,
+    itemId: string,
+    days: number,
+    minutes: number,
+    end: { error?: string; itemsSaved?: number; sourceBytes?: number },
+  ) => {
+    const start = now - days * 24 * HOUR;
+    const id = plans.startRun(planId, itemId, new Date(start).toISOString());
+    if (id === undefined) return;
+    const finished = new Date(start + minutes * 60_000).toISOString();
+    if (end.error) plans.finishRun(id, 'failed', finished, end.error);
+    else plans.finishRun(id, 'success', finished, undefined, end);
+  };
+  past(compliant.id, first!.id, 4, 14, { itemsSaved: 1284, sourceBytes: 3_435_973_837 });
+  past(compliant.id, first!.id, 3, 9, { error: 'interrupted' });
+  past(compliant.id, first!.id, 2, 16, { itemsSaved: 412, sourceBytes: 3_445_973_837 });
+  past(compliant.id, first!.id, 1, 3, { itemsSaved: 37, sourceBytes: 3_447_000_000 });
+  past(failing.id, second!.id, 2, 65, { itemsSaved: 7712, sourceBytes: 4_144_643_031 });
+  past(failing.id, second!.id, 1, 3, { error: 'backup_errors' });
   const ok = plans.startRun(compliant.id, first!.id, at);
-  if (ok !== undefined) plans.finishRun(ok, 'success', at);
+  if (ok !== undefined) {
+    plans.finishRun(ok, 'success', at, undefined, { itemsSaved: 52, sourceBytes: 3_448_000_000 });
+  }
   const ko = plans.startRun(failing.id, second!.id, at);
   if (ko !== undefined) plans.finishRun(ko, 'failed', at, 'backup_errors');
   // Le plan des fichiers a produit les sauvegardes OneDrive et SharePoint du faux SDK : sa
@@ -625,5 +649,7 @@ function seedDemoPlans(plans: SqlitePlanStore, now: number): void {
   });
   const done = new Date(now - ONEDRIVE_SNAPSHOT_AGE_HOURS * HOUR).toISOString();
   const filesRun = plans.startRun(files.id, first!.id, done);
-  if (filesRun !== undefined) plans.finishRun(filesRun, 'success', done);
+  if (filesRun !== undefined) {
+    plans.finishRun(filesRun, 'success', done, undefined, { itemsSaved: 318 });
+  }
 }

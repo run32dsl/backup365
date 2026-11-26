@@ -30,6 +30,7 @@ import type { SiteRestoreService } from './site-restore-service.js';
 import { registerRestoreRoutes } from './restore-routes.js';
 import type { RestoreService } from './restore-service.js';
 import { registerPlanRoutes } from './plan-routes.js';
+import { registerRunRoutes } from './run-routes.js';
 import type { PlanScheduler } from './plan-scheduler.js';
 import { registerRetentionRoutes } from './retention-routes.js';
 import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
@@ -219,6 +220,7 @@ export function buildApp({
       workloads: status.workloads,
     });
     registerRetentionRoutes(scope, plans, catalog, audit);
+    registerRunRoutes(scope, plans);
     done();
   });
   void app.register((scope, _opts, done) => {

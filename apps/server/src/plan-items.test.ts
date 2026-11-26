@@ -1,3 +1,4 @@
+import type { DataType } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
 import { listPlanItems } from './plan-items.js';
 
@@ -5,15 +6,17 @@ const catalog = {
   listMailboxes: () => Promise.resolve([{ id: 'u1' }, { id: 'u2' }]),
   listSites: () => Promise.resolve([{ id: 's1' }]),
 };
-const all = (dataTypes: ('mail' | 'onedrive' | 'sharepoint')[]) => ({
+const all = (dataTypes: DataType[]) => ({
   scope: 'all' as const,
   selection: [],
   dataTypes,
 });
 
 describe('listPlanItems', () => {
-  it('lists mailboxes for mail or onedrive, sites for sharepoint', async () => {
+  it('lists mailboxes for mail, contacts, calendar or onedrive, sites for sharepoint', async () => {
     expect(await listPlanItems(all(['mail']), catalog)).toEqual(['u1', 'u2']);
+    expect(await listPlanItems(all(['contacts']), catalog)).toEqual(['u1', 'u2']);
+    expect(await listPlanItems(all(['calendar']), catalog)).toEqual(['u1', 'u2']);
     expect(await listPlanItems(all(['onedrive']), catalog)).toEqual(['u1', 'u2']);
     expect(await listPlanItems(all(['sharepoint']), catalog)).toEqual(['s1']);
     expect(await listPlanItems(all(['mail', 'onedrive', 'sharepoint']), catalog)).toEqual([

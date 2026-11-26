@@ -52,12 +52,19 @@ export interface Mailbox {
 
 export const DATA_TYPE_LABELS: Record<DataType, string> = {
   mail: 'Messagerie',
+  contacts: 'Contacts',
+  calendar: 'Agenda',
   onedrive: 'OneDrive',
   sharepoint: 'SharePoint',
 };
 
-/** Aide sous « Messagerie » : le SDK ne sépare pas calendrier et contacts de la boîte. */
-export const MAIL_HELP = 'avec le calendrier et les contacts';
+/** Aide sous « Contacts », une charge à part depuis le SDK 7.2.0 (issue #543). */
+export const CONTACTS_HELP = 'Copie les contacts des boîtes couvertes par ce plan.';
+/**
+ * Aide sous « Agenda », une charge à part depuis le SDK 7.2.0 (issue #544) : la sauvegarde de la
+ * messagerie ne lit que les dossiers de mails.
+ */
+export const CALENDAR_HELP = 'Copie les événements des agendas des boîtes couvertes par ce plan.';
 
 export const RPO_CHOICES: readonly RpoHours[] = [4, 12, 24];
 export const RTO_CHOICES: readonly number[] = [8, 24, 72];

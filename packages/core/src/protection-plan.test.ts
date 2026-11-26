@@ -32,13 +32,26 @@ describe('parseProtectionPlanInput', () => {
       plan: { rpoHours: 24, rtoHours: null, selection: [] },
     });
   });
-  it('protects every data type by default and orders a given list', () => {
+  it('protects every data type but contacts by default and orders a given list', () => {
     expect(parseProtectionPlanInput(valid)).toMatchObject({
       plan: { dataTypes: ['mail', 'onedrive', 'sharepoint'] },
     });
     expect(
       parseProtectionPlanInput({ ...valid, dataTypes: ['sharepoint', 'mail', 'mail'] }),
     ).toMatchObject({ ok: true, plan: { dataTypes: ['mail', 'sharepoint'] } });
+  });
+  it('accepts contacts as a data type, after mail (#543)', () => {
+    expect(
+      parseProtectionPlanInput({ ...valid, dataTypes: ['onedrive', 'contacts', 'mail'] }),
+    ).toMatchObject({ ok: true, plan: { dataTypes: ['mail', 'contacts', 'onedrive'] } });
+  });
+  it('accepts the calendar as a data type, after contacts, never by default (#544)', () => {
+    expect(
+      parseProtectionPlanInput({ ...valid, dataTypes: ['onedrive', 'calendar', 'contacts'] }),
+    ).toMatchObject({ ok: true, plan: { dataTypes: ['contacts', 'calendar', 'onedrive'] } });
+    expect(parseProtectionPlanInput(valid)).toMatchObject({
+      plan: { dataTypes: ['mail', 'onedrive', 'sharepoint'] },
+    });
   });
   it('refuses an empty or unknown list of data types', () => {
     for (const dataTypes of [[], ['teams'], 'mail', [1], null]) {

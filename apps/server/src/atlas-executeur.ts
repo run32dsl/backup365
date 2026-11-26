@@ -3,25 +3,34 @@ import type { DataType } from '@backup365/core';
 import type { M365Config, StorageConfig } from './config.js';
 import type { Executeur, ExecutionResult, ExecutionTarget } from './plan-scheduler.js';
 
-/** Ce que l'exécuteur lit d'un résultat du SDK : l'interruption et la santé du résumé. */
+/**
+ * Ce que l'exécuteur lit d'un résultat du SDK : l'interruption, la santé du résumé et, pour
+ * l'historique, les éléments copiés (`stored`) et la taille de la boîte (`manifest`).
+ */
 export interface MailOutcome {
   readonly interrupted: boolean;
-  readonly summary: { readonly folderErrors: readonly unknown[] };
+  readonly summary: { readonly folderErrors: readonly unknown[]; readonly stored?: number };
+  readonly manifest?: { readonly totalSizeBytes?: number } | undefined;
 }
-/** OneDrive et SharePoint : `healthy` est faux si une erreur a été rencontrée. */
+/** OneDrive, SharePoint, contacts et agenda : `healthy` est faux si une erreur a été rencontrée. */
 export interface DriveOutcome {
   readonly interrupted: boolean;
   readonly summary: {
     readonly healthy: boolean;
     /** Présent quand une exécution saine n'a créé aucun point de restauration. */
     readonly noSnapshotReason?: string | undefined;
+    readonly filesStored?: number;
   };
+  /** Absent quand aucun point de restauration n'a été créé. */
+  readonly snapshot?: { readonly totalSizeBytes?: number } | undefined;
 }
 type BackupOutcome = MailOutcome | DriveOutcome;
 
-/** Ce que l'exécuteur appelle du SDK : les trois sauvegardes, plus de quoi libérer l'instance. */
+/** Ce que l'exécuteur appelle du SDK : les cinq sauvegardes, plus de quoi libérer l'instance. */
 export interface AtlasBackupApi {
   outlook: { backup(mailboxId: string): Promise<MailOutcome> };
+  contacts: { backup(mailboxId: string): Promise<DriveOutcome> };
+  calendar: { backup(mailboxId: string): Promise<DriveOutcome> };
   onedrive: { backup(ownerId: string): Promise<DriveOutcome> };
   sharepoint: { backup(siteId: string): Promise<readonly DriveOutcome[]> };
   dispose(): Promise<void>;
@@ -65,12 +74,34 @@ function check(outcomes: readonly BackupOutcome[]): boolean {
 
 const NO_CONTENT: ExecutionResult = { noSnapshotReason: 'no_content' };
 
+/** Somme des valeurs fournies ; `undefined` si le moteur n'en a fourni aucune. */
+function sum(values: readonly (number | undefined)[]): number | undefined {
+  const known = values.filter((v): v is number => typeof v === 'number');
+  return known.length === 0 ? undefined : known.reduce((a, b) => a + b, 0);
+}
+
+/** Éléments copiés et taille source des résultats réussis, quand le SDK les donne. */
+function volumeOf(outcomes: readonly BackupOutcome[]): ExecutionResult {
+  const isDrive = (o: BackupOutcome): o is DriveOutcome => 'healthy' in o.summary;
+  const itemsSaved = sum(
+    outcomes.map((o) => (isDrive(o) ? o.summary.filesStored : o.summary.stored)),
+  );
+  const sourceBytes = sum(
+    outcomes.map((o) => (isDrive(o) ? o.snapshot?.totalSizeBytes : o.manifest?.totalSizeBytes)),
+  );
+  return {
+    ...(itemsSaved !== undefined ? { itemsSaved } : {}),
+    ...(sourceBytes !== undefined ? { sourceBytes } : {}),
+  };
+}
+
 /**
  * Exécuteur réel (ADR 0009) : un site est sauvegardé par `sharepoint.backup` ; un propriétaire par
- * `outlook.backup` puis `onedrive.backup`, chacun seulement si le plan protège cette charge. Les
- * charges voulues sont tentées même si la première échoue ; la première erreur est ensuite relancée. Le SDK choisit seul entre sauvegarde complète
- * (première exécution) et incrémentale (suivantes) : `forceFull` n'est jamais passé. Une
- * exécution interrompue ou avec des erreurs de dossier est un échec.
+ * `outlook.backup`, `contacts.backup`, `calendar.backup` puis `onedrive.backup`, chacun seulement
+ * si le plan protège cette charge. Les charges voulues sont tentées même si la première échoue ; la première erreur
+ * est ensuite relancée. Le SDK choisit seul entre sauvegarde complète (première exécution) et
+ * incrémentale (suivantes) : `forceFull` n'est jamais passé. Une exécution interrompue ou avec des
+ * erreurs de dossier est un échec.
  */
 export class AtlasExecuteur implements Executeur {
   constructor(private readonly options: AtlasExecuteurOptions) {}
@@ -81,22 +112,28 @@ export class AtlasExecuteur implements Executeur {
     if (await isSite(target.itemId)) {
       // Un site n'est sauvegardé que si le plan protège SharePoint : rien à faire sinon.
       if (!wanted('sharepoint')) return NO_CONTENT;
-      return check(await api.sharepoint.backup(target.itemId)) ? NO_CONTENT : {};
+      const outcomes = await api.sharepoint.backup(target.itemId);
+      return { ...(check(outcomes) ? NO_CONTENT : {}), ...volumeOf(outcomes) };
     }
     const steps: (() => Promise<BackupOutcome>)[] = [];
     if (wanted('mail')) steps.push(() => api.outlook.backup(target.itemId));
+    if (wanted('contacts')) steps.push(() => api.contacts.backup(target.itemId));
+    if (wanted('calendar')) steps.push(() => api.calendar.backup(target.itemId));
     if (wanted('onedrive')) steps.push(() => api.onedrive.backup(target.itemId));
     let failure: unknown;
     let empty = true;
+    const done: BackupOutcome[] = [];
     for (const step of steps) {
       try {
-        empty = check([await step()]) && empty;
+        const outcome = await step();
+        empty = check([outcome]) && empty;
+        done.push(outcome);
       } catch (err) {
         failure ??= err;
       }
     }
     if (failure !== undefined) throw failure;
-    return empty ? NO_CONTENT : {};
+    return { ...(empty ? NO_CONTENT : {}), ...volumeOf(done) };
   }
 }
 

@@ -27,6 +27,10 @@ conservation par charge, et ce qui est **exclu** (chats Teams, Entra ID, si c'es
 - **Mode lecture seule visé** : permissions `*.Read*` uniquement. Limite actuelle d'Atlas : la
   sauvegarde des mails demande `Mail.ReadWrite` (documentation d'Atlas) ; à lever avant la
   production ou à accepter explicitement ici.
+- Un plan qui protège les contacts demande en plus `Contacts.Read` (sauvegarde, SDK 7.2.0) ;
+  sans ce consentement, chacune de ses exécutions échoue (ADR 0020).
+- Un plan qui protège l'agenda demande en plus `Calendars.Read` (sauvegarde, SDK 7.2.0, lu dans
+  son code ; à confirmer sur un tenant de test, ADR 0021).
 - Restauration vers le tenant : **désactivée** par défaut ; restauration par export (EML,
   fichiers) remis à la personne concernée ou à l'IT.
 - Option recommandée : limiter l'accès Exchange de l'application à un groupe de boîtes
