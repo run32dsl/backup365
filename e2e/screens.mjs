@@ -246,7 +246,8 @@ async function homeAs(page, { plans, runs, lateBackups = [] }) {
   const failures = latests
     .filter((r) => r?.result === 'failed')
     .sort((a, b) => b.finishedAt.localeCompare(a.finishedAt));
-  const count = (state) => plans.filter((p) => stateOf(p) === state).length;
+  // Comme le serveur : un plan sans exécution terminée attend, il n'est compté dans aucun état.
+  const count = (state) => plans.filter((p, i) => latests[i] && stateOf(p) === state).length;
   const running = items.filter((p) => p.running).length;
   const overview = {
     state:
@@ -264,6 +265,7 @@ async function homeAs(page, { plans, runs, lateBackups = [] }) {
       queued: items.filter((p) => p.queued && !p.running).length,
       failed: count('failed'),
       late: count('late'),
+      waiting: latests.filter((r) => !r).length,
     },
     lastBackupAt: lastSuccess?.finishedAt ?? null,
     lastBackupPlan: lastSuccess?.planName ?? null,
@@ -579,6 +581,7 @@ export const SCREENS = [
       // Jamais exécuté, le plan est « En retard » pour le serveur (`planCompliance`).
       await homeAs(page, { plans: [{ ...MAIL_PLAN, state: 'late' }], runs: [] });
       await page.getByText('Aucune exécution pour le moment.').waitFor();
+      await page.getByText('1 plan, en attente de sa première sauvegarde').waitFor();
     },
   },
   {

@@ -126,9 +126,7 @@ export function NextBackup({
           <p>
             Prochaine sauvegarde dans <strong>{remainingLabel(next, now)}</strong>.
           </p>
-          <p className="overview-connection">
-            Calculée d’après l’objectif de fraîcheur (RPO) de vos plans.
-          </p>
+          <p className="overview-connection">Calculée d’après la fréquence de vos plans.</p>
           {admin ? (
             <>
               <Button disabled={busy} onClick={() => setOpen(true)}>
@@ -214,9 +212,12 @@ export function LatestEvents({
           </tbody>
         </table>
       )}
-      <p>
-        <a href={RUNS_HASH}>Tout voir dans Activités</a>
-      </p>
+      {/* Rien à voir dans Activités tant qu'aucune exécution n'est listée (#600). */}
+      {!(Array.isArray(items) && items.length === 0) && (
+        <p>
+          <a href={RUNS_HASH}>Tout voir dans Activités</a>
+        </p>
+      )}
     </section>
   );
 }

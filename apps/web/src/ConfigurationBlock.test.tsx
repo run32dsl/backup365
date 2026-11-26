@@ -12,7 +12,7 @@ const unlinked = { microsoft: { connected: false }, workloads: ['mail', 'onedriv
 const linked = { microsoft: { connected: true }, workloads: ['mail', 'onedrive', 'sharepoint'] };
 const operational = {
   state: 'operational' as const,
-  plans: { total: 2, operational: 2, running: 0, queued: 0, failed: 0, late: 0 },
+  plans: { total: 2, operational: 2, running: 0, queued: 0, failed: 0, late: 0, waiting: 0 },
   lastBackupAt: '2026-11-18T14:02:00Z',
   lastBackupPlan: 'Boîtes mail, quotidien',
   lastFailure: null,

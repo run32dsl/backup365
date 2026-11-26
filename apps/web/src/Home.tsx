@@ -58,6 +58,12 @@ export function agoLabel(iso: string, now: number): string {
 export const plansLabel = (operational: number, total: number): string =>
   `${operational} ${operational < 2 ? 'plan' : 'plans'} à jour sur ${total}`;
 
+/** Plans sans aucun résultat : `1 plan, en attente de sa première sauvegarde` (#600). */
+export const waitingLabel = (total: number): string =>
+  total < 2
+    ? `${total} plan, en attente de sa première sauvegarde`
+    : `${total} plans, en attente de leur première sauvegarde`;
+
 /** « Créer un plan » : directement l'assistant, sans passer par la liste vide. */
 const goToNewPlan = () => {
   window.location.hash = NEW_PLAN_HASH;
@@ -99,13 +105,15 @@ function PlanStates({ plans }: { plans: Overview['plans'] }) {
     { status: 'late', count: plans.late },
     { status: 'running', count: plans.running, label: PLAN_MESSAGES.running },
     { status: 'pending', count: plans.queued, label: PLAN_MESSAGES.queued },
+    // Sans exécution terminée : ni en retard ni à jour, en attente (#600).
+    { status: 'pending', count: plans.waiting, label: 'En attente' },
   ] as const;
   const shown = states.filter((s) => s.count > 0);
   if (shown.length === 0) return null;
   return (
     <ul className="plan-counts">
       {shown.map((s) => (
-        <li key={s.status}>
+        <li key={'label' in s ? s.label : s.status}>
           <StatusPill status={s.status} label={'label' in s ? s.label : undefined} />{' '}
           <strong>{s.count}</strong>
         </li>
@@ -209,6 +217,16 @@ export function OverviewView({
       <Card id="overview-plans" title="Plans">
         {plans.total === 0 ? (
           <p>Aucun plan pour l’instant.</p>
+        ) : plans.waiting === plans.total ? (
+          // Aucun plan n'a de résultat : la pastille de la carte « Sauvegarde », pas de retard (#600).
+          <>
+            <div>
+              <StatusPill status="pending" />
+            </div>
+            <p>{waitingLabel(plans.total)}</p>
+            <PlanStates plans={{ ...plans, waiting: 0 }} />
+            <PlansAction />
+          </>
         ) : (
           <>
             <p>{plansLabel(plans.operational, plans.total)}</p>
@@ -219,9 +237,11 @@ export function OverviewView({
       </Card>
       <Card id="overview-last" title="Dernière sauvegarde">
         {last === null || lastDate === '' ? (
+          // Même phrase que la carte « Sauvegarde » (#600) ; un échec, lui, a déjà terminé une exécution.
           <p>
-            Aucune sauvegarde pour l’instant. Elle apparaîtra ici après la première exécution d’un
-            plan.
+            {state.state === 'failed'
+              ? 'Aucune sauvegarde réussie pour l’instant.'
+              : MESSAGES.pending}
           </p>
         ) : (
           <>

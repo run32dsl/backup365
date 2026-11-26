@@ -58,7 +58,7 @@ describe('GET /api/overview', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json<Overview>()).toEqual({
       state: 'unconfigured',
-      plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
+      plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0, waiting: 0 },
       lastBackupAt: null,
       lastBackupPlan: null,
       lastFailure: null,
@@ -72,7 +72,7 @@ describe('GET /api/overview', () => {
     const body = (await get(plans)).json<Overview>();
     expect(body).toEqual({
       state: 'pending',
-      plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 1 },
+      plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 0, waiting: 1 },
       lastBackupAt: null,
       lastBackupPlan: null,
       lastFailure: null,
@@ -151,8 +151,18 @@ describe('GET /api/overview', () => {
       running: 1,
       queued: 0,
       failed: 0,
-      late: 1,
+      late: 0,
+      waiting: 1,
     });
+  });
+
+  it('counts a plan without any finished run as waiting, neither late nor up to date (#600)', async () => {
+    const plans = SqlitePlanStore.open(':memory:');
+    run(plans, plans.create(input('Fait')).id, 'success', 1);
+    plans.create(input('Jamais lancé'));
+    const body = (await get(plans)).json<Overview>();
+    expect(body.state).toBe('operational');
+    expect(body.plans).toMatchObject({ total: 2, operational: 1, late: 0, failed: 0, waiting: 1 });
   });
 
   it('counts running and queued plans like GET /api/plans, without changing the state', async () => {
@@ -177,6 +187,7 @@ describe('GET /api/overview', () => {
       queued: 1,
       failed: 0,
       late: 0,
+      waiting: 0,
     });
     expect(body.state).toBe('operational');
     // Sans planificateur (sauvegarde non configurée) : aucune file.
