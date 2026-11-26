@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import {
   CoverageTiles,
+  LATEST_RUNS,
   LatestEvents,
   NextBackup,
   coverageOf,
@@ -10,8 +11,11 @@ import {
   nextBackupAt,
   remainingLabel,
   runAll,
+  runSummary,
+  runTypeLabel,
   tileName,
 } from './HomeCoverage.js';
+import { fetchRuns, type RunItem } from './activities/runs.js';
 import type { PlanItem } from './plans.js';
 
 const row = (workload: StatusRow['workload'], sourceId: string, state: StatusRow['state']) =>
@@ -120,15 +124,65 @@ describe('runAll', () => {
   });
 });
 
+const runItem = (over: Partial<RunItem> = {}): RunItem => ({
+  id: 1,
+  planId: 'p1',
+  planName: 'Direction',
+  itemId: 'box-a',
+  startedAt: '2026-11-24T09:12:00Z',
+  finishedAt: '2026-11-24T09:26:00Z',
+  durationMs: 14 * 60_000,
+  result: 'success',
+  itemsSaved: 1284,
+  sourceBytes: 3_400_000_000,
+  ...over,
+});
+
 describe('LatestEvents', () => {
-  it('has a caption, column headers and the link to the journal', () => {
-    const items = [
-      { seq: 1, at: '2026-11-24T09:12:00Z', actor: 'admin', action: 'plan.run' },
-    ] as Parameters<typeof LatestEvents>[0]['items'];
-    const html = renderToStaticMarkup(<LatestEvents items={items} onRetry={() => undefined} />);
+  it('has a caption, the Heure, Type, Statut and Résumé columns and the link to Activités', () => {
+    const plans = [{ ...plan('p1'), dataTypes: ['onedrive', 'mail'] }] as PlanItem[];
+    const html = renderToStaticMarkup(
+      <LatestEvents items={[runItem()]} plans={plans} onRetry={() => undefined} />,
+    );
     expect(html).toContain('<caption');
-    expect(html).toContain('scope="col"');
-    expect(html).toContain('href="#/audit"');
+    const headers = [...html.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map((m) => m[1]);
+    expect(headers).toEqual(['Heure', 'Type', 'Statut', 'Résumé']);
+    expect(html).toContain('24/11/2026');
+    expect(html).toContain('Messagerie, OneDrive');
+    expect(html).toContain('Réussie');
+    expect(html).toContain('href="#/activites"');
+  });
+  it('writes the status in words: running, failed', () => {
+    const html = renderToStaticMarkup(
+      <LatestEvents
+        items={[
+          runItem({ id: 2, result: 'running', finishedAt: null, durationMs: null }),
+          runItem({ id: 3, result: 'failed', failureCause: 'backup_errors' }),
+        ]}
+        onRetry={() => undefined}
+      />,
+    );
+    expect(html).toContain('En cours');
+    expect(html).toContain('En échec');
+    expect(html).toContain('Sauvegarde</td>');
+  });
+  it('sums up a run: plan, copied items, volume and duration, or the cause', () => {
+    expect(runSummary(runItem())).toBe('« Direction » · 1 284 éléments copiés · 3,4 Go · 14 min');
+    expect(runSummary(runItem({ itemsSaved: 1, sourceBytes: null }))).toBe(
+      '« Direction » · 1 élément copié · 14 min',
+    );
+    expect(runSummary(runItem({ result: 'running' }))).toBe('« Direction » · sauvegarde en cours');
+    expect(runSummary(runItem({ result: 'interrupted' }))).toContain(
+      'cause : la console a été arrêtée',
+    );
+    expect(runTypeLabel(runItem(), [])).toBe('Sauvegarde');
+  });
+  it('asks the server for the 5 latest runs only', async () => {
+    const fetchFn = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ items: [], limit: 5 }))),
+    );
+    await fetchRuns({ planId: '', result: '', limit: LATEST_RUNS }, fetchFn);
+    expect(fetchFn).toHaveBeenCalledWith('/api/runs?limit=5');
   });
   it('shows the empty and error states', () => {
     expect(renderToStaticMarkup(<LatestEvents items={[]} onRetry={() => undefined} />)).toContain(

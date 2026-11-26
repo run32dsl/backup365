@@ -277,6 +277,42 @@ export const SCREENS = [
   { name: 'accueil-en-echec', hash: '#/', role: 'admin' },
   // Bloc « Couverture du tenant », « Prochaine sauvegarde » et « Derniers événements ».
   { name: 'accueil-couverture', hash: '#/', role: 'admin' },
+  {
+    // « Derniers événements » : une exécution de chaque statut, dont une « En cours » (#475).
+    name: 'accueil-derniers-evenements',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      const { items: plans } = await (await page.request.get('/api/plans')).json();
+      const [a, b = a] = plans;
+      const at = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString();
+      const run = (id, plan, minutes, result, extra = {}) => ({
+        id,
+        planId: plan.id,
+        planName: plan.name,
+        itemId: 'box',
+        startedAt: at(minutes),
+        finishedAt: result === 'running' ? null : at(minutes - 14),
+        durationMs: result === 'running' ? null : 14 * 60_000,
+        result,
+        itemsSaved: result === 'success' ? 1284 : null,
+        sourceBytes: result === 'success' ? 3_400_000_000 : null,
+        ...extra,
+      });
+      const items = [
+        run(5, a, 1, 'running'),
+        run(4, b, 60, 'failed', { failureCause: 'backup_errors' }),
+        run(3, a, 180, 'success'),
+        run(2, b, 600, 'interrupted', { failureCause: 'interrupted' }),
+        run(1, a, 1440, 'success', { itemsSaved: 1, sourceBytes: 840_000_000 }),
+      ];
+      await page.route(/\/api\/runs(\?|$)/, (route) =>
+        route.fulfill({ status: 200, json: { items, limit: 5 } }),
+      );
+      await page.reload();
+      await page.getByText('sauvegarde en cours').waitFor();
+    },
+  },
   { name: 'accueil-en-echec-sombre', hash: '#/', role: 'admin', scheme: 'dark' },
   {
     name: 'accueil-operationnelle',

@@ -98,6 +98,38 @@ describe('historique et lancement manuel', () => {
     });
   });
 
+  it('shows a manual run as running among the 5 latest runs of the home page (#475)', async () => {
+    const { auth } = testAuth();
+    const plans = SqlitePlanStore.open(':memory:');
+    let release = (): void => undefined;
+    const blocked = new Promise<void>((resolve) => (release = resolve));
+    const planScheduler = new PlanScheduler({
+      plans,
+      executeur: { execute: () => blocked },
+      listItems: (p) => Promise.resolve(p.selection),
+      logger: { info: () => undefined, error: () => undefined },
+    });
+    const audit = SqliteAuditLog.open(':memory:');
+    const options = { version: '1', auth, audit, plans, planScheduler };
+    const app = withHeaders(buildApp(options), sessionFor(auth, 'root', 'admin').headers);
+    const plan = plans.create({
+      name: 'Mails',
+      scope: 'selection',
+      dataTypes: ['mail'],
+      selection: ['a'],
+      rpoHours: 4,
+      rtoHours: null,
+      retentionDays: 30,
+      gdprJustification: 'Obligation de conservation.',
+    });
+    expect((await run(app, plan.id, { reason: 'Sauvegarder maintenant' })).statusCode).toBe(202);
+    const latest = await app.inject({ method: 'GET', url: '/api/runs?limit=5' });
+    expect(latest.json<{ items: { result: string }[] }>().items).toEqual([
+      expect.objectContaining({ planName: 'Mails', result: 'running' }),
+    ]);
+    release();
+  });
+
   it('answers 409 when every item is already running', async () => {
     const { app, plan, plans, audit } = setup();
     plans.startRun(plan.id, 'a', new Date().toISOString());

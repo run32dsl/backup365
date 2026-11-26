@@ -216,6 +216,8 @@ simulation: true, computedAt, items }`, chaque élément portant `planId`, `rete
   code est `interrupted`) ou `running`. Chaque ligne porte le nom du plan et, en cas d'échec,
   `failureCause` (liste fermée), jamais le code brut. Ouverte à l'opérateur, en lecture seule,
   comme `GET /api/plans` ; ce sont des métadonnées, hors journal d'audit (ADR 0002).
+  `limit` (entier de 1 à 20, 20 par défaut) réduit la liste : l'accueil en lit 5 pour
+  « Derniers événements » (Heure, Type, Statut, Résumé ; issue #475), sans toucher au journal.
 - Écran `#/activites` (Activités › Sauvegardes) : filtres par plan et par résultat, cause et marche
   à suivre en français dans la ligne. Le lien « Historique » de la liste des plans ouvre
   `#/activites?plan=<id>`.

@@ -1,13 +1,22 @@
-import { nextRunAt, type StatusReport, type StatusRow } from '@backup365/core';
+import { DATA_TYPES, nextRunAt, type StatusReport, type StatusRow } from '@backup365/core';
 import { useCallback, useEffect, useState } from 'react';
-import { fetchAudit, type AuditItem } from './audit.js';
-import { ACTION_LABELS, actorLabel, auditDate } from './auditLabels.js';
-import { plural, quoted } from './format.js';
+import {
+  RESULT_VIEW,
+  RUNS_HASH,
+  causeOf,
+  countLabel,
+  durationLabel,
+  fetchRuns,
+  volumeLabel,
+  type RunItem,
+} from './activities/runs.js';
+import { NBSP, dateTimeOf, plural, quoted } from './format.js';
 import { fetchPlans, runPlan, runReasonError, type PlanItem } from './plans.js';
+import { DATA_TYPE_LABELS } from './plans/model.js';
 import { REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
-import { AUDIT_HASH, STATUS_HASH } from './routes.js';
+import { STATUS_HASH } from './routes.js';
 import { fetchStatus } from './status.js';
-import { Alert, Button, Dialog } from './ui/index.js';
+import { Alert, Button, Dialog, StatusPill } from './ui/index.js';
 
 /** Éléments sauvegardés par service : au moins un instantané, tous types de données confondus. */
 export interface Coverage {
@@ -256,12 +265,41 @@ export function NextBackup({
   );
 }
 
-/** Les cinq derniers lancements manuels du journal d'audit, un par ligne. */
+/** Nombre d'exécutions de « Derniers événements ». */
+export const LATEST_RUNS = 5;
+
+/** Colonne « Type » : ce que le plan protège (« Messagerie, OneDrive ») ; `Sauvegarde` à défaut. */
+export function runTypeLabel(run: RunItem, plans: readonly PlanItem[]): string {
+  const plan = plans.find((p) => p.id === run.planId);
+  const types = DATA_TYPES.filter((t) => plan?.dataTypes?.includes(t));
+  return types.length === 0 ? 'Sauvegarde' : types.map((t) => DATA_TYPE_LABELS[t]).join(', ');
+}
+
+/** Colonne « Résumé » : le plan puis les compteurs connus, ou la cause d'un échec. */
+export function runSummary(run: RunItem): string {
+  const plan = quoted(run.planName);
+  if (run.result === 'running') return `${plan} · sauvegarde en cours`;
+  const cause = causeOf(run);
+  if (cause) return `${plan} · cause${NBSP}: ${cause.cause}`;
+  const parts = [
+    run.itemsSaved === null
+      ? ''
+      : `${countLabel(run.itemsSaved)} ${run.itemsSaved < 2 ? 'élément copié' : 'éléments copiés'}`,
+    volumeLabel(run.sourceBytes) ?? '',
+    run.durationMs === null ? '' : durationLabel(run.durationMs),
+  ];
+  return [plan, ...parts.filter(Boolean)].join(' · ');
+}
+
+/** Les cinq dernières exécutions des plans (`GET /api/runs`), hors journal d'audit. */
 export function LatestEvents({
   items,
+  plans = [],
   onRetry,
 }: {
-  items: AuditItem[] | 'loading' | 'error';
+  items: RunItem[] | 'loading' | 'error';
+  /** Plans déjà chargés par l'accueil : donnent la colonne « Type ». */
+  plans?: readonly PlanItem[];
   onRetry: () => void;
 }) {
   return (
@@ -276,27 +314,36 @@ export function LatestEvents({
       {Array.isArray(items) && items.length === 0 && <p>Aucune exécution pour le moment.</p>}
       {Array.isArray(items) && items.length > 0 && (
         <table className="events-table">
-          <caption className="sr-only">Cinq derniers événements du journal</caption>
+          <caption className="sr-only">Cinq dernières exécutions des plans</caption>
           <thead>
             <tr>
               <th scope="col">Heure</th>
-              <th scope="col">Événement</th>
-              <th scope="col">Par</th>
+              <th scope="col">Type</th>
+              <th scope="col">Statut</th>
+              <th scope="col">Résumé</th>
             </tr>
           </thead>
           <tbody>
-            {items.map((e) => (
-              <tr key={e.seq}>
-                <td data-label="Heure">{auditDate(e.at)} UTC</td>
-                <td data-label="Événement">{ACTION_LABELS[e.action]}</td>
-                <td data-label="Par">{actorLabel(e.actor)}</td>
+            {items.map((r) => (
+              <tr key={r.id}>
+                <td data-label="Heure">
+                  <time dateTime={r.startedAt}>{`${dateTimeOf(r.startedAt) || '—'} UTC`}</time>
+                </td>
+                <td data-label="Type">{runTypeLabel(r, plans)}</td>
+                <td data-label="Statut">
+                  <StatusPill
+                    status={RESULT_VIEW[r.result].status}
+                    label={RESULT_VIEW[r.result].label}
+                  />
+                </td>
+                <td data-label="Résumé">{runSummary(r)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
       <p>
-        <a href={AUDIT_HASH}>Tout voir dans le journal</a>
+        <a href={RUNS_HASH}>Tout voir dans Activités</a>
       </p>
     </section>
   );
@@ -306,14 +353,14 @@ export function LatestEvents({
 export function HomeCoverage({ admin }: { admin: boolean }) {
   const [coverage, setCoverage] = useState<Coverage | 'loading' | 'error'>('loading');
   const [plans, setPlans] = useState<PlanItem[] | 'loading' | 'error'>('loading');
-  const [events, setEvents] = useState<AuditItem[] | 'loading' | 'error'>('loading');
+  const [events, setEvents] = useState<RunItem[] | 'loading' | 'error'>('loading');
   const loadPlans = useCallback(() => {
     fetchPlans().then(setPlans, () => setPlans('error'));
   }, []);
   const loadEvents = useCallback(() => {
     if (!admin) return;
     setEvents('loading');
-    fetchAudit({ action: 'plan.run', limit: 5 }).then(
+    fetchRuns({ planId: '', result: '', limit: LATEST_RUNS }).then(
       (page) => setEvents(page.items),
       () => setEvents('error'),
     );
@@ -338,7 +385,13 @@ export function HomeCoverage({ admin }: { admin: boolean }) {
           loadEvents();
         }}
       />
-      {admin && <LatestEvents items={events} onRetry={loadEvents} />}
+      {admin && (
+        <LatestEvents
+          items={events}
+          plans={Array.isArray(plans) ? plans : []}
+          onRetry={loadEvents}
+        />
+      )}
     </div>
   );
 }

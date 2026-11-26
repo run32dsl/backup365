@@ -493,6 +493,10 @@ th {
   padding: var(--space-1) var(--space-2);
   text-align: left;
 }
+/* Heure, type et statut sur une ligne ; le résumé prend la place restante (#475). */
+.events-table td:not(:last-child) {
+  white-space: nowrap;
+}
 @media (max-width: 600px) {
   .events-table thead {
     position: absolute;
@@ -501,6 +505,7 @@ th {
   .events-table tr,
   .events-table td {
     display: block;
+    white-space: normal;
   }
   .events-table tr {
     padding: var(--space-2) 0;
