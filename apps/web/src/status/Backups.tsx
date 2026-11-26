@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { effectiveState, type ComplianceState, type StatusReport } from '@backup365/core';
 import { searchHref } from '../mail.js';
 import { dateTimeOf, dateTimeOrDash, ageLabel, workloadLabel } from '../format.js';
-import { Button, DataTable, type Column } from '../ui/index.js';
+import { Address, Button, DataTable, type Column } from '../ui/index.js';
 import { Counts } from './Counts.js';
 import { STATE_COMPLIANCE, StateBadge, cardLine, serviceOf, sortRows, type Row } from './model.js';
 import { unprotectedServices } from './Services.js';
@@ -23,12 +23,14 @@ export function failureNote(r: Row): string | undefined {
 const COLUMNS: Column<Row>[] = [
   {
     header: 'Source',
-    className: 'card-title',
+    className: 'card-title address',
     cell: (r) =>
       effectiveState(r) !== 'ok' && r.kind === 'mailbox' && r.workload === 'mail' ? (
-        <a href={searchHref(r.sourceId)}>{r.displayName}</a>
+        <a href={searchHref(r.sourceId)}>
+          <Address value={r.displayName} />
+        </a>
       ) : (
-        r.displayName
+        <Address value={r.displayName} />
       ),
   },
   { header: 'Contenu', cell: contentLabel, className: 'nowrap card-hidden' },
@@ -37,7 +39,7 @@ const COLUMNS: Column<Row>[] = [
     className: 'card-hidden',
     cell: (r) => dateTimeOrDash(r.lastSnapshotAt),
   },
-  { header: 'Ancienneté', className: 'card-hidden', cell: (r) => ageLabel(r.ageHours) },
+  { header: 'Ancienneté', className: 'nowrap card-hidden', cell: (r) => ageLabel(r.ageHours) },
   {
     header: 'État',
     className: 'card-nolabel',

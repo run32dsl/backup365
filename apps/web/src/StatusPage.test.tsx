@@ -110,8 +110,17 @@ describe('Sources cards on mobile', () => {
       expect(cls(header).split(' ')).toContain('card-title');
     expect(html).toMatch(/<th scope="row" role="rowheader" class="card-title">/);
     expect(html).toMatch(/<td[^>]*data-label="Plan"[^>]*class="card-title"/);
-    expect(html).toMatch(/<td[^>]*data-label="Source"[^>]*class="card-title"/);
+    expect(html).toMatch(/<td[^>]*data-label="Source"[^>]*class="card-title address"/);
     expect(html.match(/data-label="État" class="card-nolabel"/g)).toHaveLength(3);
+  });
+
+  it('keeps a source address whole, the age on one line', () => {
+    const row = { ...full.rows[0]!, displayName: 'paul.moreau@exemple.test' };
+    const withAddress = renderToString(<StatusView state={{ ...full, rows: [row] }} />);
+    expect(withAddress).toContain(
+      '<span class="addr addr-short"><span class="addr-local">paul.moreau@</span><span class="addr-domain">exemple.test</span>',
+    );
+    expect(cls('Ancienneté').split(' ')).toContain('nowrap');
   });
 
   it('folds the other values into one unlabelled muted line', () => {
@@ -127,9 +136,9 @@ describe('Sources cards on mobile', () => {
       expect(cls(header).split(' ')).toContain('card-hidden');
     const only = [...html.matchAll(/<td[^>]*class="card-only">([^<]*)</g)].map((m) => m[1]);
     expect(only).toEqual([
-      'Il y a 3 h · 24/11/2026 11:46 UTC · conservés 1 an · toutes les boîtes',
+      'il\u00a0y\u00a0a\u00a03\u00a0h · 24/11/2026 11:46 UTC · conservés 1 an · toutes les boîtes',
       'Dernière exécution : aucune',
-      'OneDrive · 21/11/2026 11:46 UTC · il y a 3 jours',
+      'OneDrive · 21/11/2026 11:46 UTC · il\u00a0y\u00a0a\u00a03\u00a0jours',
     ]);
   });
 });
