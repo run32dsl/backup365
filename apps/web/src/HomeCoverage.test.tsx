@@ -59,6 +59,13 @@ describe('CoverageTiles', () => {
     expect(html).toContain('Couverture du tenant');
     expect(html).not.toContain('total');
   });
+  it('binds the arrow to « Sources » with a no-break space, never alone on a line (#582)', () => {
+    const html = renderToStaticMarkup(
+      <CoverageTiles coverage={{ mail: 5, onedrive: 5, sharepoint: 3 }} />,
+    );
+    expect(html.match(/Voir dans Sources\u00a0→/g)).toHaveLength(3);
+    expect(html).not.toContain('Sources →');
+  });
   it('shows zero, never an error, when nothing is protected', () => {
     const html = renderToStaticMarkup(
       <CoverageTiles coverage={{ mail: 0, onedrive: 0, sharepoint: 0 }} />,

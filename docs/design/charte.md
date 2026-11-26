@@ -77,6 +77,11 @@ composant s'y ajoute avec ses tests de comportement.
   configuré. », sans « Sauvegarder maintenant ». Plans sans résultat : un `EmptyState`
   « Aucune sauvegarde n’est encore terminée. » à la place des tuiles, aucune exécution terminée
   listée. Connexion Microsoft 365 à configurer : ni échéance ni « Sauvegarder maintenant ».
+  Tuiles de « Couverture du tenant » : dès 900 px, trois tuiles sur une ligne (libellé, chiffre,
+  puis « Voir dans Sources → »). Sous 900 px, une seule colonne, comme les cartes : chaque tuile
+  prend toute la largeur, le libellé à gauche et le chiffre à droite sur une ligne, puis « Voir
+  dans Sources → » en ligne secondaire (`--muted`) ; cible d'au moins 44 px. La flèche est liée
+  au mot par une espace insécable, jamais seule à la ligne (#582).
 - **Connexion Microsoft 365 sur l'accueil** (administrateur) : aucune carte ni aucun bloc ne
   s'ajoute pour elle. Connexion configurée, une ligne secondaire (`--muted`) dans la carte
   « Sauvegarde » : « Microsoft 365 connecté · Messagerie, OneDrive, SharePoint ». Connexion à

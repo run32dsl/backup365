@@ -67,7 +67,7 @@ export function CoverageTiles({
               >
                 <span className="coverage-title">{t.title}</span>
                 <strong className="coverage-count">{coverage[t.key]}</strong>
-                <span className="coverage-more">Voir dans Sources →</span>
+                <span className="coverage-more">Voir dans Sources{'\u00a0'}→</span>
               </a>
             </li>
           ))}
