@@ -173,7 +173,6 @@ export function TransferFlow({
         <ConfirmView
           rows={confirmRows(mail, source, target, folder, reason)}
           folder={folder}
-          targetName={target.displayName}
           sending={sending}
           failure={failure}
           onCancel={onCancel}

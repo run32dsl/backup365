@@ -31,6 +31,45 @@ describe('DialogPanel', () => {
   });
 });
 
+describe('dialog zones (#590)', () => {
+  const css = readFileSync(new URL('../charte.css', import.meta.url), 'utf8');
+  const rule = (selector: string) => {
+    const start = css.indexOf(`\n${selector} {`);
+    return css.slice(start, css.indexOf('}', start));
+  };
+  const html = renderToStaticMarkup(
+    <DialogPanel titleId="t" title="Long" onClose={() => undefined}>
+      <form>
+        <p>Corps</p>
+        <div className="button-row dialog-actions">
+          <button type="submit">OK</button>
+        </div>
+      </form>
+    </DialogPanel>,
+  );
+
+  it('puts the header outside the body, which alone holds the content', () => {
+    const header = html.indexOf('class="dialog-header"');
+    const body = html.indexOf('class="dialog-body"');
+    expect(header).toBeGreaterThan(0);
+    expect(body).toBeGreaterThan(html.indexOf('</h2>'));
+    expect(html.indexOf('<p>Corps</p>')).toBeGreaterThan(body);
+  });
+
+  it('lets only the body scroll, and keeps the action bar at its bottom edge', () => {
+    expect(rule('.dialog')).toContain('overflow: hidden');
+    expect(rule('.dialog')).not.toContain('overflow-y: auto');
+    expect(rule('.dialog-header')).toContain('flex: none');
+    expect(rule('.dialog-body')).toContain('overflow-y: auto');
+    expect(rule('.dialog-body')).toContain('min-height: 0');
+    const actions = rule('.dialog-actions');
+    expect(actions).toContain('position: sticky');
+    expect(actions).toContain('bottom: 0');
+    expect(actions).toContain('border-top: 1px solid var(--border)');
+    expect(actions).toContain('background: var(--bg)');
+  });
+});
+
 describe('trapTab', () => {
   it('wraps Tab from the last element to the first', () => {
     const [a, b, c] = [el(), el(), el()];
