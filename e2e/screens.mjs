@@ -605,7 +605,8 @@ export const SCREENS = [
       await page.getByRole('table').waitFor();
       await page.getByLabel('Résultat', { exact: true }).selectOption({ label: 'En échec' });
       await page.getByRole('button', { name: 'Filtrer' }).click();
-      await page.getByText('Cause').first().waitFor();
+      // La pastille, visible en tableau comme en carte (« Cause : » n'est que dans le tableau).
+      await page.locator('td .badge', { hasText: 'En échec' }).first().waitFor();
     },
   },
   {

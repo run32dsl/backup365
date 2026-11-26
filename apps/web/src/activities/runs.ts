@@ -114,6 +114,12 @@ export function durationLabel(ms: number | null): string {
 export const countLabel = (n: number | null): string =>
   n === null ? '—' : n.toLocaleString('fr-FR');
 
+/** « 1 284 éléments copiés », « 1 élément copié » ; vide si le moteur ne l'a pas dit. */
+export function copiedLabel(n: number | null): string {
+  if (n === null) return '';
+  return `${countLabel(n)} ${n < 2 ? 'élément copié' : 'éléments copiés'}`;
+}
+
 /** « 3,2 Go », « 840 Mo » (unités décimales, virgule) ; `null` si la taille n'est pas connue. */
 export function volumeLabel(bytes: number | null): string | null {
   if (bytes === null) return null;

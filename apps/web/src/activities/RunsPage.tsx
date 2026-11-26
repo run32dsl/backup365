@@ -4,12 +4,14 @@ import type { Column } from '../ui/index.js';
 import { dateTimeOf } from '../format.js';
 import { fetchMailboxes, fetchPlans } from '../plans.js';
 import { AUDIT_HASH } from '../routes.js';
+import { cardLine } from '../status/model.js';
 import {
   RESULT_VIEW,
   RUNS_HASH,
   RUNS_MESSAGES,
   RUN_RESULTS,
   causeOf,
+  copiedLabel,
   countLabel,
   durationLabel,
   fetchRuns,
@@ -33,11 +35,21 @@ export function ActivitiesNav({ current }: { current: 'runs' | 'audit' }) {
   );
 }
 
+/** « À faire » d'un échec, avec le numéro d'exécution quand la cause est inconnue. */
+function todoOf(r: RunItem): string {
+  const todo = causeOf(r)?.todo ?? '';
+  return r.failureCause === 'unknown' ? `${todo} (exécution n° ${r.id})` : todo;
+}
+
+/** Sans « À faire : » devant, la consigne de la carte commence par une majuscule. */
+const capitalized = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 function runColumns(names: ReadonlyMap<string, string>): Column<RunItem>[] {
+  const mailboxOf = (r: RunItem) => names.get(r.itemId) ?? r.itemId;
   return [
     {
       header: 'Début (UTC)',
-      className: 'nowrap',
+      className: 'nowrap card-hidden',
       cell: (r) => <time dateTime={r.startedAt}>{dateTimeOf(r.startedAt) || '—'}</time>,
     },
     {
@@ -46,15 +58,15 @@ function runColumns(names: ReadonlyMap<string, string>): Column<RunItem>[] {
       cell: (r) => (
         <span>
           {r.planName}
-          <span className="cell-secondary">
-            <Address value={names.get(r.itemId) ?? r.itemId} />
+          <span className="cell-secondary table-only">
+            <Address value={mailboxOf(r)} />
           </span>
         </span>
       ),
     },
     {
       header: 'Résultat',
-      className: 'card-wide run-result',
+      className: 'card-nolabel',
       cell: (r) => {
         const view = RESULT_VIEW[r.result];
         const cause = causeOf(r);
@@ -62,27 +74,28 @@ function runColumns(names: ReadonlyMap<string, string>): Column<RunItem>[] {
           <div>
             <StatusPill status={view.status} label={view.label} />
             {cause && (
-              <>
+              <span className="table-only">
                 <span className="cell-secondary">{`Cause\u00a0: ${cause.cause}`}</span>
-                <span className="cell-secondary">
-                  {`À faire\u00a0: ${cause.todo}`}
-                  {r.failureCause === 'unknown' && ` (exécution n° ${r.id})`}
-                </span>
-              </>
+                <span className="cell-secondary">{`À faire\u00a0: ${todoOf(r)}`}</span>
+              </span>
             )}
           </div>
         );
       },
     },
-    { header: 'Durée', className: 'nowrap-wide', cell: (r) => durationLabel(r.durationMs) },
+    {
+      header: 'Durée',
+      className: 'nowrap-wide card-hidden',
+      cell: (r) => durationLabel(r.durationMs),
+    },
     {
       header: 'Éléments copiés',
-      className: 'num',
+      className: 'num card-hidden',
       cell: (r) => (r.result === 'running' ? '—' : countLabel(r.itemsSaved)),
     },
     {
       header: 'Taille source',
-      className: 'num',
+      className: 'num card-hidden',
       cell: (r) => {
         const size = volumeLabel(r.sourceBytes);
         if (size) return size;
@@ -91,6 +104,29 @@ function runColumns(names: ReadonlyMap<string, string>): Column<RunItem>[] {
             <span aria-hidden="true">—</span>
             <span className="sr-only">{RUNS_MESSAGES.unknownSize}</span>
           </span>
+        );
+      },
+    },
+    // Sous 900 px seulement : « boîte · 21/11/2026 02:00 UTC · 14 min · 1 284 éléments copiés · 3,4 Go »,
+    // puis la cause et ce qu'il faut faire, sans libellé ; un compteur inconnu est omis.
+    {
+      header: 'Détail',
+      className: 'card-only',
+      cell: (r) => {
+        const at = dateTimeOf(r.startedAt);
+        const cause = causeOf(r);
+        return (
+          <>
+            {cardLine([
+              mailboxOf(r),
+              at === '' ? '' : `${at} UTC`,
+              r.durationMs === null ? '' : durationLabel(r.durationMs),
+              r.result === 'running' ? '' : copiedLabel(r.itemsSaved),
+              volumeLabel(r.sourceBytes) ?? '',
+            ])}
+            {cause && <span className="cell-secondary">{capitalized(cause.cause)}</span>}
+            {cause && <span className="cell-secondary">{capitalized(todoOf(r))}</span>}
+          </>
         );
       },
     },
@@ -142,12 +178,14 @@ export function RunsView({
   }
   return (
     <>
-      <DataTable
-        caption="Dernières exécutions, de la plus récente à la plus ancienne"
-        columns={runColumns(names)}
-        rows={state.items}
-        rowKey={(r) => r.id}
-      />
+      <div className="runs-list">
+        <DataTable
+          caption="Dernières exécutions, de la plus récente à la plus ancienne"
+          columns={runColumns(names)}
+          rows={state.items}
+          rowKey={(r) => r.id}
+        />
+      </div>
       <p className="state-note">{RUNS_MESSAGES.footer(state.limit)}</p>
     </>
   );

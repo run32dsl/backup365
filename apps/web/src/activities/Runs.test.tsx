@@ -59,8 +59,54 @@ describe('historique des exécutions', () => {
       'Durée',
       'Éléments copiés',
       'Taille source',
+      'Détail',
     ]);
     expect(t).not.toContain('Cause');
+  });
+
+  it('mobile card: plan name as title, the pill, then one unlabelled line without dashes (#568)', () => {
+    const items = [
+      run({}),
+      run({ id: 2, result: 'running', durationMs: null, itemsSaved: null, sourceBytes: null }),
+      run({ id: 3, result: 'failed', failureCause: 'backup_errors', itemsSaved: null }),
+    ];
+    const html = renderToStaticMarkup(
+      <RunsView
+        state={{ items, limit: 20 }}
+        filter={all}
+        names={new Map([['camille@exemple.fr', 'Camille Test']])}
+      />,
+    );
+    const rows = html.split('<tr role="row"').slice(2);
+    expect(rows).toHaveLength(3);
+    const cell = (row: string, cls: string) =>
+      text(row.match(new RegExp(`<td[^>]*class="${cls}"[^>]*>(.*?)</td>`))?.[1] ?? '')
+        .replace(/[\u00a0\u202f]/g, ' ')
+        .trim();
+    // Seules ces trois cellules s'affichent dans la carte : les autres sont card-hidden.
+    for (const row of rows) {
+      const shown = [...row.matchAll(/<td[^>]*class="([^"]*)"/g)]
+        .map((m) => m[1] ?? '')
+        .filter((c) => !c.includes('card-hidden'));
+      expect(shown).toEqual(['keep-words card-title', 'card-nolabel', 'card-only']);
+    }
+    const [ok, running, failed] = rows as [string, string, string];
+    expect(cell(ok, 'keep-words card-title')).toContain('Boîtes de la direction');
+    expect(ok).toMatch(/class="cell-secondary table-only"/);
+    expect(cell(ok, 'card-nolabel')).toBe('✔ Réussie');
+    expect(ok).toMatch(/class="card-nolabel"><div><span class="badge /);
+    expect(cell(ok, 'card-only')).toBe(
+      'Camille Test · 18/11/2026 02:00 UTC · 14 min · 1 284 éléments copiés · 3,2 Go',
+    );
+    expect(cell(running, 'card-only')).toBe('Camille Test · 18/11/2026 02:00 UTC');
+    const detail = cell(failed, 'card-only');
+    expect(detail).toContain('Des dossiers ou des fichiers n’ont pas pu être sauvegardés.');
+    expect(detail).toContain('Vérifier l’autorisation');
+    // La cause libellée du tableau de bureau est masquée dans la carte.
+    expect(failed).toMatch(/<span class="table-only"><span class="cell-secondary">Cause/);
+    for (const row of rows) {
+      expect(cell(row, 'card-only')).not.toMatch(/—|\s:/);
+    }
   });
 
   it('explains a failure, an interruption and an unknown cause in French, never a raw code', () => {

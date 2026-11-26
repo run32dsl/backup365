@@ -497,7 +497,12 @@ th {
 .events-table td:not(:last-child) {
   white-space: nowrap;
 }
-@media (max-width: 600px) {
+/* Pastille et « type · heure » répétées dans la carte mobile : le tableau a leurs colonnes. */
+.events-table .card-only {
+  display: none;
+}
+/* Sous 900 px, carte titrée comme Activités : résumé et pastille, puis « type · heure UTC ». */
+@media (max-width: 900px) {
   .events-table thead {
     position: absolute;
     left: -9999px;
@@ -508,12 +513,29 @@ th {
     white-space: normal;
   }
   .events-table tr {
-    padding: var(--space-2) 0;
-    border-bottom: 1px solid var(--border-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    margin-bottom: var(--space-2);
+    padding: var(--space-1) var(--space-3);
   }
-  .events-table td::before {
-    content: attr(data-label) ' : ';
-    color: var(--muted);
+  .events-table td {
+    padding: 0;
+    border-bottom: 0;
+  }
+  .events-table td.table-only {
+    display: none;
+  }
+  .events-table td.card-title {
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  .events-table td.card-title .card-only {
+    display: inline;
+  }
+  .events-table td.card-title .cell-secondary {
+    display: block;
+    font-weight: 400;
+    font-size: 0.8125rem;
   }
 }
 @media (min-width: 900px) {
@@ -1183,16 +1205,31 @@ select[aria-disabled='true'] {
     /* Aligné sur le nom, sous le bouton radio (1,5 rem + espace). */
     padding-top: 0;
   }
-  /* État des sources : carte compacte, nom, pastille puis une ligne secondaire en petit. */
+  /* État des sources et Activités : carte compacte, nom, pastille puis une ligne secondaire en petit. */
   .status-section .data-table tbody th[scope='row'],
-  .status-section .data-table td {
+  .status-section .data-table td,
+  .runs-list .data-table td {
     border-bottom: 0;
     padding-block: 0.125rem;
   }
-  .status-section .data-table tr {
+  .status-section .data-table tr,
+  .runs-list .data-table tr {
     padding-block: var(--space-2);
   }
-  .status-section .data-table td.card-only {
+  .runs-list .data-table tr {
+    margin-bottom: var(--space-2);
+  }
+  /* Cause et « À faire » d'un échec : sous la ligne secondaire, à la taille du texte courant. */
+  .runs-list .data-table td.card-only .cell-secondary {
+    margin-top: var(--space-1);
+    font-size: 0.875rem;
+    color: var(--text);
+  }
+  .runs-list .data-table td.card-only .cell-secondary + .cell-secondary {
+    margin-top: 0;
+  }
+  .status-section .data-table td.card-only,
+  .runs-list .data-table td.card-only {
     font-size: 0.8125rem;
     line-height: 1.35;
   }

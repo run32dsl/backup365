@@ -1,22 +1,22 @@
 import { DATA_TYPES, nextRunAt, type StatusReport, type StatusRow } from '@backup365/core';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  RESULT_VIEW,
   RUNS_HASH,
   causeOf,
-  countLabel,
+  copiedLabel,
   durationLabel,
   fetchRuns,
   volumeLabel,
   type RunItem,
 } from './activities/runs.js';
-import { NBSP, dateTimeOf, plural, quoted } from './format.js';
+import { NBSP, plural, quoted } from './format.js';
 import { fetchPlans, runPlan, runReasonError, type PlanItem } from './plans.js';
 import { DATA_TYPE_LABELS } from './plans/model.js';
 import { REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
 import { STATUS_HASH } from './routes.js';
 import { fetchStatus } from './status.js';
-import { Alert, Button, Dialog, StatusPill } from './ui/index.js';
+import { LatestEventRow } from './LatestEventRow.js';
+import { Alert, Button, Dialog } from './ui/index.js';
 
 /** Éléments sauvegardés par service : au moins un instantané, tous types de données confondus. */
 export interface Coverage {
@@ -283,9 +283,7 @@ export function runSummary(run: RunItem): string {
   const cause = causeOf(run);
   if (cause) return `${plan} · cause${NBSP}: ${cause.cause}`;
   const parts = [
-    run.itemsSaved === null
-      ? ''
-      : `${countLabel(run.itemsSaved)} ${run.itemsSaved < 2 ? 'élément copié' : 'éléments copiés'}`,
+    copiedLabel(run.itemsSaved),
     volumeLabel(run.sourceBytes) ?? '',
     run.durationMs === null ? '' : durationLabel(run.durationMs),
   ];
@@ -326,19 +324,12 @@ export function LatestEvents({
           </thead>
           <tbody>
             {items.map((r) => (
-              <tr key={r.id}>
-                <td data-label="Heure">
-                  <time dateTime={r.startedAt}>{`${dateTimeOf(r.startedAt) || '—'} UTC`}</time>
-                </td>
-                <td data-label="Type">{runTypeLabel(r, plans)}</td>
-                <td data-label="Statut">
-                  <StatusPill
-                    status={RESULT_VIEW[r.result].status}
-                    label={RESULT_VIEW[r.result].label}
-                  />
-                </td>
-                <td data-label="Résumé">{runSummary(r)}</td>
-              </tr>
+              <LatestEventRow
+                key={r.id}
+                run={r}
+                type={runTypeLabel(r, plans)}
+                summary={runSummary(r)}
+              />
             ))}
           </tbody>
         </table>
