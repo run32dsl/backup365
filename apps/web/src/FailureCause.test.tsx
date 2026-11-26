@@ -61,10 +61,10 @@ describe('failure cause on the plans list', () => {
     expect(complianceView(failedPlan)).toEqual({
       status: 'failed',
       label: 'En échec',
-      note: 'Sauvegarde interrompue · Aucune sauvegarde réussie',
+      note: 'La console a été arrêtée pendant l’exécution · Aucune sauvegarde réussie',
     });
     const html = list([failedPlan], false);
-    expect(html).toContain('Sauvegarde interrompue');
+    expect(html).toContain('La console a été arrêtée pendant l’exécution');
     expect(html).not.toContain('interrupted');
   });
 
@@ -74,7 +74,7 @@ describe('failure cause on the plans list', () => {
       lastRun: { ...failedPlan.lastRun!, failureCause: 'owner_busy' },
     };
     expect(complianceView(busy).note).toBe(
-      'Une autre opération était en cours sur cette source · Aucune sauvegarde réussie',
+      'Une autre opération (sauvegarde ou restauration) était déjà en cours sur cette source · Aucune sauvegarde réussie',
     );
     expect(list([busy], false)).not.toMatch(/owner_busy|ATLAS_/u);
   });
@@ -93,37 +93,49 @@ describe('failure cause on the plans list', () => {
     const recent: PlanItem = { ...failedPlan, compliance: okPlan.compliance };
     expect(complianceView(recent)).toMatchObject({
       status: 'compliant',
-      note: 'Dernière exécution en échec : sauvegarde interrompue',
+      note: 'Dernière exécution en échec : la console a été arrêtée pendant l’exécution',
     });
+    // Un nom propre garde sa majuscule en milieu de phrase.
+    const refused: PlanItem = {
+      ...recent,
+      lastRun: { ...recent.lastRun!, failureCause: 'access_refused' },
+    };
+    expect(complianceView(refused).note).toBe(
+      'Dernière exécution en échec : Microsoft 365 a refusé l’accès à cette source',
+    );
     expect(list([okPlan, recent], true)).not.toContain('Messagerie Direction');
   });
 
   it.each([
-    ['interrupted', 'Sauvegarde interrompue'],
-    ['backup_errors', 'Des dossiers n’ont pas pu être sauvegardés'],
-    ['no_result', 'Aucune donnée n’a été sauvegardée'],
-    ['unknown', 'Cause non précisée'],
-  ] as const)('shows an error banner with name, UTC date and cause for %s', (cause, label) => {
-    const plan: PlanItem = {
-      ...failedPlan,
-      lastRun: { ...failedPlan.lastRun!, failureCause: cause },
-    };
-    const html = list([okPlan, plan], true);
-    expect(html).toContain('role="alert"');
-    expect(html).toContain('Échec de «\u202FPlan en échec\u202F» le 19/11/2026 17:55 UTC');
-    expect(html).toContain(`${label}.`);
-    expect(html).toContain('Ces données ne sont pas encore protégées.');
-    expect(html).toContain('prévenez l’exploitant du serveur');
-    expect(html).not.toContain('Voir tous les plans');
-  });
+    ['interrupted', 'La console a été arrêtée pendant l’exécution', 'Attendez'],
+    ['backup_errors', 'Des dossiers ou des fichiers n’ont pas pu être sauvegardés', 'Vérifiez'],
+    ['no_result', 'Aucune donnée n’a été sauvegardée pour cette source', 'Vérifiez'],
+    ['unknown', 'La sauvegarde a échoué pour une raison non identifiée', 'Relancez'],
+  ] as const)(
+    'shows an error banner with name, UTC date and cause for %s',
+    (cause, label, verb) => {
+      const plan: PlanItem = {
+        ...failedPlan,
+        lastRun: { ...failedPlan.lastRun!, failureCause: cause },
+      };
+      const html = list([okPlan, plan], true);
+      expect(html).toContain('role="alert"');
+      expect(html).toContain('Échec de «\u202FPlan en échec\u202F» le 19/11/2026 17:55 UTC');
+      expect(html).toContain(`${label}.`);
+      expect(html).toContain('Ces données ne sont pas encore protégées.');
+      expect(html).toContain(`protégées. ${verb} `);
+      expect(html).not.toContain('Voir tous les plans');
+    },
+  );
 
   it('offers a primary run button to an administrator only', () => {
+    // Même pour une interruption, la conduite à tenir de l'administrateur rejoint le bouton.
     const html = list([failedPlan], true);
-    expect(html).toContain('Relancez le plan');
+    expect(html).toContain('ou relancez le plan.');
     expect(html).toMatch(/class="btn btn-primary alert-run"[^>]*>Lancer maintenant/);
     const operator = renderToStaticMarkup(
       <PlansListView
-        state={[failedPlan]}
+        state={[{ ...failedPlan, lastRun: { ...failedPlan.lastRun!, failureCause: 'unknown' } }]}
         admin={false}
         configured
         failedOnly

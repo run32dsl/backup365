@@ -7,6 +7,7 @@ import type {
   RpoHours,
   RunStatus,
 } from '@backup365/core';
+import { FAILURE_TEXT } from '../failureText.js';
 
 /**
  * Plan tel que `GET /api/plans` le rend : le plan, sa conformité et sa dernière exécution. Les
@@ -126,16 +127,7 @@ export const MESSAGES = {
   runAlreadyQueued: 'Déjà en file d’attente',
 } as const;
 
-/** Cause d'un échec en une phrase, sans code ni détail technique. */
-export const FAILURE_LABELS: Record<FailureCause, string> = {
-  interrupted: 'Sauvegarde interrompue',
-  backup_errors: 'Des dossiers n’ont pas pu être sauvegardés',
-  no_result: 'Aucune donnée n’a été sauvegardée',
-  owner_busy: 'Une autre opération était en cours sur cette source',
-  access_refused: 'Microsoft 365 a refusé l’accès',
-  graph_unavailable: 'Microsoft 365 n’a pas répondu',
-  storage_unavailable: 'Le stockage n’a pas répondu',
-  format_unsupported: 'Format de sauvegarde non pris en charge',
-  write_refused: 'Écriture refusée par le moteur de sauvegarde',
-  unknown: 'Cause non précisée',
-};
+/** Cause d'un échec sans point final, pour les notes de la liste : celle de `FAILURE_TEXT`. */
+export const FAILURE_LABELS = Object.fromEntries(
+  Object.entries(FAILURE_TEXT).map(([k, t]) => [k, t.cause.replace(/\.$/, '')]),
+) as Record<FailureCause, string>;

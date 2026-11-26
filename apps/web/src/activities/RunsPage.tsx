@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Address, Alert, Button, DataTable, EmptyState, StatusPill, SubNav } from '../ui/index.js';
 import type { Column } from '../ui/index.js';
-import { dateTimeOf } from '../format.js';
+import { NBSP, dateTimeOf } from '../format.js';
+import { FAILURE_TEXT } from '../failureText.js';
+import { useAdmin } from '../role.js';
 import { fetchMailboxes, fetchPlans } from '../plans.js';
 import { AUDIT_HASH } from '../routes.js';
 import { cardLine } from '../status/model.js';
@@ -39,18 +41,28 @@ export function ActivitiesNav({ current }: { current: 'runs' | 'audit' }) {
   );
 }
 
-/** « À faire » d'un échec, avec le numéro d'exécution quand la cause est inconnue. */
-function todoOf(r: RunItem): string {
-  const todo = causeOf(r)?.todo ?? '';
-  return r.failureCause === 'unknown' ? `${todo} (exécution n° ${r.id})` : todo;
+/**
+ * Cause puis conduite à tenir d'un échec, chacune sur sa ligne, mêmes phrases que le bandeau de
+ * Plans de protection (#602) ; le numéro d'exécution, à transmettre, quand la cause est inconnue.
+ */
+function failureLines(r: RunItem, admin: boolean) {
+  const text = causeOf(r, admin);
+  if (!text) return null;
+  return (
+    <>
+      <span className="cell-secondary">{text.cause}</span>
+      <span className="cell-secondary">{text.advice}</span>
+      {r.result === 'failed' && text.cause === FAILURE_TEXT.unknown.cause && (
+        <span className="cell-secondary">{`Exécution n°${NBSP}${r.id}.`}</span>
+      )}
+    </>
+  );
 }
-
-/** Sans « À faire : » devant, la consigne de la carte commence par une majuscule. */
-const capitalized = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function runColumns(
   names: ReadonlyMap<string, string>,
   boxPlans: ReadonlySet<string>,
+  admin: boolean,
 ): Column<RunEvent>[] {
   // La source n'est nommée que s'il n'y en a qu'une ; sinon « 5 boîtes » (#571).
   const sourceOf = (r: RunEvent) =>
@@ -80,16 +92,11 @@ function runColumns(
       className: 'card-nolabel run-result',
       cell: (r) => {
         const view = RESULT_VIEW[r.result];
-        const cause = causeOf(r);
+        const lines = failureLines(r, admin);
         return (
           <div>
             <StatusPill status={view.status} label={view.label} />
-            {cause && (
-              <span className="table-only">
-                <span className="cell-secondary">{`Cause\u00a0: ${cause.cause}`}</span>
-                <span className="cell-secondary">{`À faire\u00a0: ${todoOf(r)}`}</span>
-              </span>
-            )}
+            {lines && <span className="table-only">{lines}</span>}
           </div>
         );
       },
@@ -128,7 +135,6 @@ function runColumns(
       className: 'card-only',
       cell: (r) => {
         const at = dateTimeOf(r.startedAt);
-        const cause = causeOf(r);
         return (
           <>
             {cardLine([
@@ -141,8 +147,7 @@ function runColumns(
                 : copiedLabel(r.result === 'success' ? (r.itemsSaved ?? 0) : r.itemsSaved),
               volumeLabel(r.sourceBytes) ?? '',
             ])}
-            {cause && <span className="cell-secondary">{capitalized(cause.cause)}</span>}
-            {cause && <span className="cell-secondary">{capitalized(todoOf(r))}</span>}
+            {failureLines(r, admin)}
           </>
         );
       },
@@ -167,6 +172,7 @@ export function RunsView({
   boxPlans?: ReadonlySet<string>;
   onRetry?: () => void;
 }) {
+  const admin = useAdmin();
   if (state === 'loading') {
     return (
       <p role="status" aria-busy="true">
@@ -203,7 +209,7 @@ export function RunsView({
           caption="Dernières exécutions, de la plus récente à la plus ancienne"
           // La phrase d'introduction dit déjà l'ordre : légende lue, pas affichée (#580).
           hideCaption
-          columns={runColumns(names, boxPlans)}
+          columns={runColumns(names, boxPlans, admin)}
           rows={completeRuns(state.items, state.limit)}
           rowKey={(r) => r.id}
         />
