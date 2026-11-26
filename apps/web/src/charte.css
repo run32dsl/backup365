@@ -2007,30 +2007,14 @@ main.auth {
 .reports-view > :not(h1, .subnav, .console-footer) {
   max-width: 40rem;
 }
-.reports-form textarea {
-  min-height: 5rem;
-  padding: var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  font-weight: 400;
-  resize: vertical;
-}
-.reports-form textarea[aria-invalid='true'] {
-  border-color: var(--err-fg);
-  border-width: 2px;
-}
-.reports-form textarea:disabled {
-  background: var(--surface);
-}
 .reports-form .field {
   max-width: none;
 }
-.reports-form .empty,
-.reports-audit {
+.reports-form .empty {
   margin-bottom: var(--space-3);
+}
+.recipient-intro {
+  margin: 0 0 var(--space-1);
 }
 .recipient-list {
   list-style: none;
@@ -2060,11 +2044,13 @@ main.auth {
   outline: none;
 }
 @media (max-width: 56.25rem) {
-  .reports-actions {
+  .reports-actions,
+  .reports-add .field-control {
     flex-direction: column;
     align-items: stretch;
   }
-  .reports-actions > .btn {
+  .reports-actions > .btn,
+  .reports-add .field-control > .btn {
     justify-content: center;
   }
 }

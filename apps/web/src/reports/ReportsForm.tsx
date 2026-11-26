@@ -1,10 +1,23 @@
-import { useId, useState, type FormEvent, type RefObject } from 'react';
-import { REPORT_LABELS as L, parseRecipients, type ReportFrequency } from '../reports.js';
-import { Alert, Button, ChoiceGroup, Dialog, EmptyState, StatusPill } from '../ui/index.js';
+import { useId, useState, type FormEvent, type KeyboardEvent, type RefObject } from 'react';
+import {
+  REPORT_LABELS as L,
+  addRecipient,
+  pendingEntryError,
+  type ReportFrequency,
+} from '../reports.js';
+import {
+  Alert,
+  Button,
+  ChoiceGroup,
+  Dialog,
+  EmptyState,
+  FormField,
+  StatusPill,
+} from '../ui/index.js';
 
-/** Brouillon du formulaire : le texte saisi tel quel, la fréquence et l'alerte. */
+/** Brouillon du formulaire : la liste des destinataires, la fréquence et l'alerte. */
 export interface ReportDraft {
-  text: string;
+  recipients: string[];
   frequency: ReportFrequency;
   failureAlert: boolean;
 }
@@ -23,9 +36,13 @@ function RecipientList({
   onRemove: (address: string) => void;
 }) {
   const [removing, setRemoving] = useState<string | null>(null);
+  const intro = useId();
   return (
     <>
-      <ul className="recipient-list" aria-label="Destinataires saisis">
+      <p id={intro} className="recipient-intro">
+        {L.recipientsHelp}
+      </p>
+      <ul className="recipient-list" aria-label={L.recipients} aria-describedby={intro}>
         {list.map((address) => (
           <li key={address}>
             <span className="recipient-address">{address}</span>
@@ -93,47 +110,65 @@ export function ReportsForm({
   error: string | null;
   testing: boolean;
   test: TestResult;
-  field: RefObject<HTMLTextAreaElement | null>;
+  field: RefObject<HTMLInputElement | null>;
   onChange: (draft: ReportDraft) => void;
   onTest: () => void;
   onContinue: () => void;
 }) {
-  const id = useId();
-  const list = parseRecipients(draft.text);
+  const [entry, setEntry] = useState('');
+  const [entryError, setEntryError] = useState<string | null>(null);
+  const list = draft.recipients;
+  // Une adresse tapée mais pas ajoutée bloque l'étape suivante, au lieu d'être perdue.
+  const unlessPending = (next: () => void) => () => {
+    const pending = pendingEntryError(entry);
+    setEntryError(pending);
+    if (pending) field.current?.focus();
+    else next();
+  };
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    onContinue();
+    unlessPending(onContinue)();
+  };
+  const add = () => {
+    const out = addRecipient(list, entry);
+    if (!out.ok) {
+      setEntryError(out.error);
+      field.current?.focus();
+      return;
+    }
+    setEntry('');
+    setEntryError(null);
+    onChange({ ...draft, recipients: out.list });
+  };
+  // Entrée dans le champ ajoute l'adresse, au lieu de soumettre le formulaire (« Continuer »).
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    add();
   };
   return (
     <form className="reports-form" noValidate onSubmit={submit}>
-      <div className="field">
-        <label htmlFor={id}>{L.recipients}</label>
-        <p id={`${id}-hint`} className="field-help">
-          {L.recipientsHint}
-        </p>
-        <textarea
+      <div className="reports-add">
+        <FormField
           ref={field}
-          id={id}
-          rows={3}
-          value={draft.text}
+          label={L.addRecipient}
+          type="email"
+          autoComplete="off"
+          value={entry}
           disabled={!ready}
-          placeholder="marie.durand@exemple.invalid"
-          aria-invalid={error ? true : undefined}
-          aria-describedby={[`${id}-hint`, `${id}-help`, error ? `${id}-error` : '']
-            .filter(Boolean)
-            .join(' ')}
+          placeholder="nom@domaine"
+          error={entryError ?? error ?? undefined}
           onChange={(e) => {
-            onChange({ ...draft, text: e.currentTarget.value });
+            setEntry(e.currentTarget.value);
+            setEntryError(null);
           }}
+          onKeyDown={onKeyDown}
+          adornment={() => (
+            <Button variant="secondary" disabled={!ready} onClick={add}>
+              Ajouter
+            </Button>
+          )}
         />
-        <p id={`${id}-help`} className="field-help">
-          {L.recipientsHelp}
-        </p>
-        {error && (
-          <p id={`${id}-error`} className="field-error">
-            <span aria-hidden="true">✖</span> {error}
-          </p>
-        )}
       </div>
       {list.length === 0 ? (
         <EmptyState
@@ -156,7 +191,7 @@ export function ReportsForm({
           list={list}
           disabled={!ready}
           onRemove={(address) => {
-            onChange({ ...draft, text: list.filter((a) => a !== address).join(', ') });
+            onChange({ ...draft, recipients: list.filter((a) => a !== address) });
           }}
         />
       )}
@@ -187,13 +222,11 @@ export function ReportsForm({
           <span>{L.alert}</span>
         </label>
       </fieldset>
-      <p className="field-help reports-audit">
-        <span aria-hidden="true">ℹ</span> {L.audit}
-      </p>
+      <Alert tone="info">{L.audit}</Alert>
       {error && <Alert tone="error">{error}</Alert>}
       <div className="button-row reports-actions">
         {ready && (
-          <Button variant="secondary" busy={testing} onClick={onTest}>
+          <Button variant="secondary" busy={testing} onClick={unlessPending(onTest)}>
             Envoyer un essai
           </Button>
         )}

@@ -944,9 +944,24 @@ export const SCREENS = [
       await page.route('**/api/reports/test', (route) =>
         route.fulfill({ json: { at: '2026-11-24T09:00:00.000Z', count: 1 } }),
       );
-      await page.getByLabel('Destinataires', { exact: true }).fill('admin@exemple.invalid');
+      await page
+        .getByLabel('Ajouter un destinataire', { exact: true })
+        .fill('admin@exemple.invalid');
+      await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
       await page.getByRole('button', { name: 'Envoyer un essai' }).click();
       await page.getByText('Vérifiez aussi le dossier des courriers indésirables.').waitFor();
+    },
+  },
+  {
+    // Adresse déjà dans la liste : l'erreur s'affiche sous le champ « Ajouter un destinataire ».
+    name: 'rapports-par-mail-adresse-deja-presente',
+    hash: '#/rapports',
+    role: 'admin',
+    prepare: async (page) => {
+      const field = page.getByLabel('Ajouter un destinataire', { exact: true });
+      await field.fill('marie.durand@exemple.invalid');
+      await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
+      await page.getByText('Cette adresse est déjà dans la liste.').waitFor();
     },
   },
   {

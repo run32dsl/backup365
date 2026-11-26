@@ -1,4 +1,4 @@
-import { useId, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useId, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
 
 /** Part du maximum à partir de laquelle le compteur est annoncé aux lecteurs d'écran. */
 const ANNOUNCE_RATIO = 0.9;
@@ -25,6 +25,8 @@ export interface FormFieldProps extends Omit<InputHTMLAttributes<HTMLInputElemen
   counterMax?: number;
   /** Élément placé après le champ (ex. bouton « Afficher ») ; reçoit l'identifiant du champ. */
   adornment?: (inputId: string) => ReactNode;
+  /** Accès au champ natif (focus programmatique). */
+  ref?: Ref<HTMLInputElement>;
 }
 
 /**

@@ -40,7 +40,7 @@ export const MAX_RECIPIENTS = 20;
 export const REPORT_LABELS = {
   recipients: 'Destinataires',
   recipientsHelp: 'Seules ces personnes reçoivent le rapport.',
-  recipientsHint: 'Adresses séparées par une virgule ou un retour à la ligne.',
+  addRecipient: 'Ajouter un destinataire',
   frequency: 'Fréquence du rapport',
   weekly: 'Chaque semaine, le lundi',
   daily: 'Chaque jour',
@@ -61,26 +61,35 @@ export const FIELD_ERRORS = {
   invalid: 'Adresse non valide : vérifiez « nom@domaine ».',
   none: 'Ajoutez au moins un destinataire pour activer le rapport.',
   tooMany: `${MAX_RECIPIENTS} destinataires au plus.`,
+  duplicate: 'Cette adresse est déjà dans la liste.',
+  pending: 'Cliquez sur « Ajouter » pour inscrire cette adresse, ou videz le champ.',
 } as const;
+
+/** Adresse tapée mais pas encore ajoutée : l'ignorer à « Continuer » ou à l'essai la perdrait sans le dire. */
+export const pendingEntryError = (entry: string): string | null =>
+  entry.trim() === '' ? null : FIELD_ERRORS.pending;
 
 const EMAIL = /^[A-Za-z0-9._%+'-]{1,64}@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
 
-/** Adresses saisies : séparées par virgule, point-virgule ou retour ; doublons retirés (casse ignorée). */
-export function parseRecipients(text: string): string[] {
-  const seen = new Set<string>();
-  return text
-    .split(/[\s,;]+/u)
-    .map((a) => a.trim())
-    .filter((a) => {
-      if (a === '' || seen.has(a.toLowerCase())) return false;
-      seen.add(a.toLowerCase());
-      return true;
-    });
+const isAddress = (a: string) => EMAIL.test(a) && a.length <= 254;
+
+/** Ajout par le champ « Ajouter un destinataire » : la nouvelle liste, ou l'erreur à afficher sous le champ. */
+export function addRecipient(
+  list: readonly string[],
+  entry: string,
+): { ok: true; list: string[] } | { ok: false; error: string } {
+  const address = entry.trim();
+  if (!isAddress(address)) return { ok: false, error: FIELD_ERRORS.invalid };
+  if (list.some((a) => a.toLowerCase() === address.toLowerCase())) {
+    return { ok: false, error: FIELD_ERRORS.duplicate };
+  }
+  if (list.length >= MAX_RECIPIENTS) return { ok: false, error: FIELD_ERRORS.tooMany };
+  return { ok: true, list: [...list, address] };
 }
 
-/** Erreur de saisie du champ « Destinataires », ou `null`. `required` : pour enregistrer et essayer. */
+/** Erreur de la liste des destinataires, ou `null`. `required` : pour enregistrer et essayer. */
 export function recipientsError(list: readonly string[], required: boolean): string | null {
-  if (list.some((a) => !EMAIL.test(a) || a.length > 254)) return FIELD_ERRORS.invalid;
+  if (!list.every(isAddress)) return FIELD_ERRORS.invalid;
   if (list.length > MAX_RECIPIENTS) return FIELD_ERRORS.tooMany;
   return required && list.length === 0 ? FIELD_ERRORS.none : null;
 }
@@ -106,6 +115,18 @@ const KIND_LABELS: Record<LastSend['kind'], string> = {
   alert: 'alerte',
   test: 'essai',
 };
+
+const SEND_SENTENCES: Record<LastSend['kind'], { ok: string; failed: string }> = {
+  report: { ok: 'Dernier rapport envoyé le', failed: 'Dernier rapport tenté le' },
+  alert: { ok: 'Dernière alerte envoyée le', failed: 'Dernière alerte tentée le' },
+  test: { ok: 'Dernier essai envoyé le', failed: 'Dernier essai tenté le' },
+};
+
+/** « Dernier rapport envoyé le 24/11/2026 07:00 UTC » : le dernier envoi, en phrase. */
+export function lastSendSentence(send: LastSend): string {
+  const words = SEND_SENTENCES[send.kind];
+  return `${send.ok ? words.ok : words.failed} ${dateTimeOf(send.at)} UTC`;
+}
 
 /** « 24/11/2026 07:00 UTC (rapport) » : date et nature du dernier envoi. */
 export function lastSendLine(send: LastSend): string {
