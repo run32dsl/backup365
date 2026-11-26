@@ -783,6 +783,80 @@ test('recherche à 1280 px : le tableau tient dans son conteneur, avec ou sans f
   expect(await overflow()).toEqual(fitted);
 });
 
+test('recherche à 1280 px : objet entier sur deux lignes au plus, colonne d’au moins 14rem', async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signInAs(context, baseURL!, 'admin');
+  const measure = () =>
+    page.evaluate(() => {
+      const ths = [...document.querySelectorAll('th')];
+      const subjectCol = ths.findIndex((h) => h.textContent === 'Objet');
+      const boxCol = ths.findIndex((h) => h.textContent === 'Boîte');
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const rows = [...document.querySelectorAll('tbody tr')].map((tr) => {
+        const a = tr.children[subjectCol]!.querySelector('a')!;
+        const box = boxCol < 0 ? null : (tr.children[boxCol] as HTMLElement);
+        // Partie locale et domaine chacun sur une seule ligne : la seule coupe possible est après le « @ ».
+        const afterAt =
+          !box ||
+          ['.addr-local', '.addr-domain'].every((s) => {
+            const r = document.createRange();
+            r.selectNodeContents(box.querySelector(s)!);
+            return new Set([...r.getClientRects()].map((c) => Math.round(c.top))).size === 1;
+          });
+        const lineHeight = parseFloat(getComputedStyle(a).lineHeight);
+        return {
+          subject: a.textContent!,
+          whole: a.scrollHeight <= a.clientHeight + 1 && a.scrollWidth <= a.clientWidth + 1,
+          lines: Math.round(a.clientHeight / lineHeight),
+          height: tr.getBoundingClientRect().height,
+          afterAt,
+        };
+      });
+      return { subjectWidth: ths[subjectCol]!.getBoundingClientRect().width / rem, rows };
+    });
+
+  await page.goto('/#/search');
+  await page.getByLabel('Recherche').fill('devis');
+  await page.getByRole('button', { name: 'Rechercher' }).click();
+  await page.getByRole('table').waitFor();
+  await expect(page.getByRole('columnheader', { name: 'Boîte' })).toHaveCount(1);
+  const all = await measure();
+  expect(all.subjectWidth).toBeGreaterThanOrEqual(14);
+  expect(all.rows.length).toBeGreaterThan(0);
+  for (const r of all.rows) {
+    expect(r.subject).toMatch(/^Devis atelier à valider \(\d+\)$/);
+    expect(r.whole).toBe(true);
+    expect(r.afterAt).toBe(true);
+    expect(r.height).toBeLessThanOrEqual(70);
+  }
+
+  // Un objet un peu plus long passe sur deux lignes, entier ; un objet très long s'arrête à deux lignes.
+  await page.evaluate(() => {
+    const links = document.querySelectorAll('td.subject a');
+    links[0]!.textContent = 'Devis atelier à valider avant la réunion du comité de direction (2)';
+    links[1]!.textContent = 'objet '.repeat(60);
+  });
+  const long = await measure();
+  expect(long.rows[0]!.lines).toBe(2);
+  expect(long.rows[0]!.whole).toBe(true);
+  expect(long.rows[1]!.lines).toBe(2);
+  for (const r of long.rows) expect(r.height).toBeLessThanOrEqual(70);
+
+  await page.goto('/#/search?mailbox=paul.moreau%40exemple.fr');
+  await page.getByRole('table').waitFor();
+  await expect(page.getByRole('columnheader', { name: 'Boîte' })).toHaveCount(0);
+  const one = await measure();
+  expect(one.subjectWidth).toBeGreaterThanOrEqual(14);
+  for (const r of one.rows) {
+    expect(r.whole).toBe(true);
+    expect(r.height).toBeLessThanOrEqual(70);
+  }
+});
+
 test('recherche à 1024 px : adresses entières ou coupées après le « @ », sans débordement', async ({
   page,
   context,

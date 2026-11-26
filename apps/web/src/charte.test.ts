@@ -103,9 +103,17 @@ describe('charte.css data tables', () => {
     expect(/\.data-table td > \.badge\s*\{\s*justify-self:\s*start;/.test(css)).toBe(true);
   });
 
-  it('keeps addresses and subjects on one line on desktop', () => {
+  it('keeps addresses on one line on desktop', () => {
     expect(/\.data-table \.address\s*\{\s*white-space:\s*nowrap;/.test(css)).toBe(true);
-    expect(/\.data-table \.subject a\s*\{[^}]*text-overflow:\s*ellipsis;/.test(css)).toBe(true);
+  });
+
+  it('wraps the subject on two lines at most, without ellipsis, in a column of at least 14rem', () => {
+    const subject = /\.data-table \.subject\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(subject).toMatch(/min-width:\s*14rem;/);
+    const link = /\.data-table \.subject a\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(link).toMatch(/-webkit-line-clamp:\s*2;/);
+    expect(link).not.toMatch(/white-space:\s*nowrap/);
+    expect(link).not.toMatch(/text-overflow:\s*ellipsis/);
   });
 
   it('lets the sub-navigation wrap, with 44 px targets, under 900 px', () => {
