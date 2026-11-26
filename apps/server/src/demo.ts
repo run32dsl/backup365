@@ -97,6 +97,8 @@ export function assertNoRealStorage(env: Record<string, string | undefined>): vo
 const HOUR = 3_600_000;
 /** Âge de la dernière sauvegarde OneDrive fictive : la réussite du plan des fichiers a la même heure. */
 const ONEDRIVE_SNAPSHOT_AGE_HOURS = 4;
+/** Âge de la dernière sauvegarde SharePoint fictive : le début de l'exécution du plan des fichiers. */
+const SHAREPOINT_SNAPSHOT_AGE_HOURS = 5;
 
 interface DemoMailbox {
   id: string;
@@ -369,7 +371,7 @@ export function createDemoHandle(now: number = Date.now()): AtlasHandle {
         const site = DEMO_SITES[i];
         if (!site) return Promise.resolve([]);
         return Promise.resolve(
-          [5, 29].map((age, k) => ({
+          [SHAREPOINT_SNAPSHOT_AGE_HOURS, 29].map((age, k) => ({
             siteUrl: site.url,
             siteDisplayName: site.name,
             snapshotId: `snap-sp-${i + 1}-${k + 1}`,
@@ -652,9 +654,10 @@ function seedDemoPlans(plans: SqlitePlanStore, now: number): void {
   }
   const ko = plans.startRun(failing.id, second!.id, at);
   if (ko !== undefined) plans.finishRun(ko, 'failed', at, 'backup_errors');
-  // Le plan des fichiers a produit les sauvegardes OneDrive et SharePoint du faux SDK : sa
-  // réussite est datée de la plus récente (OneDrive), pour que la page Sources et les plans
-  // en tirent le même constat.
+  // Le plan des fichiers a produit les sauvegardes OneDrive et SharePoint du faux SDK : une seule
+  // exécution sur toutes ses sources (#598), lancée à l'heure des sites SharePoint et terminée à
+  // celle des comptes OneDrive (la plus récente), pour que la page Sources, les plans et
+  // Activités en tirent le même constat.
   const files = plans.create({
     ...base,
     dataTypes: ['onedrive', 'sharepoint'],
@@ -666,9 +669,19 @@ function seedDemoPlans(plans: SqlitePlanStore, now: number): void {
     retentionDays: 1095,
     gdprJustification: 'Besoin métier : archives de projets',
   });
+  const started = new Date(now - SHAREPOINT_SNAPSHOT_AGE_HOURS * HOUR).toISOString();
   const done = new Date(now - ONEDRIVE_SNAPSHOT_AGE_HOURS * HOUR).toISOString();
-  const filesRun = plans.startRun(files.id, first!.id, done);
-  if (filesRun !== undefined) {
-    plans.finishRun(filesRun, 'success', done, undefined, { itemsSaved: 318 });
+  // Mêmes sources que le planificateur (`listPlanItems`), 5 × 30 + 3 × 56 = 318 éléments. Les
+  // sites d'abord : la dernière ligne inscrite, qui date le plan, finit avec OneDrive.
+  const sources = [
+    ...DEMO_SITES.map((s) => ({ id: s.id, finished: started, itemsSaved: 56 })),
+    ...DEMO_MAILBOXES.map((m) => ({ id: m.id, finished: done, itemsSaved: 30 })),
+  ];
+  for (const source of sources) {
+    const run = plans.startRun(files.id, source.id, started);
+    if (run === undefined) continue;
+    plans.finishRun(run, 'success', source.finished, undefined, {
+      itemsSaved: source.itemsSaved,
+    });
   }
 }
