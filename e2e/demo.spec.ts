@@ -426,7 +426,7 @@ test('navigation au clavier du menu replié à 390 px', async ({ page, context, 
   await page.goto('/#/');
   const toggle = page.getByRole('button', { name: 'Menu' });
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByRole('link', { name: 'Activités' })).toBeHidden();
+  await expect(page.getByRole('link', { name: 'Activités', exact: true })).toBeHidden();
 
   await toggle.focus();
   await page.keyboard.press('Enter');
@@ -436,7 +436,7 @@ test('navigation au clavier du menu replié à 390 px', async ({ page, context, 
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('link', { name: 'Activités' })).toBeFocused();
+  await expect(page.getByRole('link', { name: 'Activités', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/activites$/);
   await expect(page.getByRole('heading', { name: 'Activités' })).toBeVisible();
