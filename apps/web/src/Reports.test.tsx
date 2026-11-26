@@ -2,7 +2,7 @@ import { createRef } from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { navEntries, screenFor } from './app/routing.js';
-import { LastSendStatus } from './ReportsPage.js';
+import { LastSendStatus, ReportsLayout } from './ReportsPage.js';
 import {
   FIELD_ERRORS,
   addRecipient,
@@ -21,11 +21,10 @@ import { SettingsNav } from './ui/index.js';
 
 const noop = () => undefined;
 
-function form(ready: boolean, recipients = ['marie.durand@exemple.invalid']) {
-  return renderToString(
+function formElement(recipients: string[]) {
+  return (
     <ReportsForm
       draft={{ recipients, frequency: 'weekly', failureAlert: true }}
-      ready={ready}
       error={null}
       testing={false}
       test={null}
@@ -33,7 +32,26 @@ function form(ready: boolean, recipients = ['marie.durand@exemple.invalid']) {
       onChange={noop}
       onTest={noop}
       onContinue={noop}
-    />,
+    />
+  );
+}
+
+function form(recipients = ['marie.durand@exemple.invalid']) {
+  return renderToString(formElement(recipients));
+}
+
+/** La vue entière, avec le formulaire en enfant, pour un état d'envoi donné. */
+function page(mailer: ReportsView['mailer'], recipients: string[] = []) {
+  const view = {
+    settings: { recipients, frequency: 'weekly', failureAlert: true },
+    mailer,
+    lastSend: null,
+    plans: 0,
+  } satisfies ReportsView;
+  return renderToString(
+    <ReportsLayout view={view} checking={false} checkError={null} saved={false} onRecheck={noop}>
+      {formElement(recipients)}
+    </ReportsLayout>,
   );
 }
 
@@ -117,18 +135,42 @@ describe('mail reports screen', () => {
     expect(html).toContain('Envoi par mail à autoriser');
     expect(html).toContain('role="status"');
     expect(html).toContain('<code>Mail.Send</code>');
+    expect(html.split('Mail.Send')).toHaveLength(2);
+    expect(html.replace('<!-- -->', '')).toContain(
+      'Les rapports sont désactivés tant que l’envoi n’est pas autorisé.',
+    );
     expect(html).toContain('Vérifier à nouveau');
   });
 
-  it('greys out the form and hides the test button while sending is not allowed', () => {
-    const html = form(false);
-    expect(html).not.toContain('Envoyer un essai');
-    expect(html).toMatch(/<input[^>]*type="email"[^>]*disabled/u);
-    expect(form(true)).toContain('Envoyer un essai');
+  it('shows no form, field or « Continuer » while sending is not allowed', () => {
+    const html = page({ state: 'permission', sender: 's@x.invalid' });
+    expect(html).toContain('Envoi par mail à autoriser');
+    expect(html).toContain('Aucun rapport envoyé pour l’instant.');
+    expect(html).not.toContain('<form');
+    expect(html).not.toContain('Ajouter un destinataire');
+    expect(html).not.toContain('Continuer');
+    expect(html).not.toContain('disabled');
+    const ready = page({ state: 'ready', sender: 's@x.invalid' });
+    expect(ready).toContain('>Ajouter un destinataire</label>');
+    expect(ready).toContain('Continuer');
+    expect(ready).toContain('Envoyer un essai');
+  });
+
+  it('has a single « Ajouter » control and no « Rapport désactivé » pill', () => {
+    for (const html of [
+      page({ state: 'ready', sender: 's@x.invalid' }),
+      page({ state: 'ready', sender: 's@x.invalid' }, ['a@x.invalid']),
+      page({ state: 'permission', sender: 's@x.invalid' }),
+    ]) {
+      expect(html.match(/<button[^>]*>[^<]*Ajouter/gu) ?? []).toHaveLength(
+        html.includes('<form') ? 1 : 0,
+      );
+      expect(html).not.toContain('Rapport désactivé');
+    }
   });
 
   it('writes each recipient once, in the list, with no text area', () => {
-    const html = form(true, ['marie.durand@exemple.invalid', 'paul.martin@exemple.invalid']);
+    const html = form(['marie.durand@exemple.invalid', 'paul.martin@exemple.invalid']);
     expect(html).not.toContain('<textarea');
     for (const address of ['marie.durand@exemple.invalid', 'paul.martin@exemple.invalid']) {
       expect(html.split(`>${address}<`)).toHaveLength(2);
@@ -138,14 +180,15 @@ describe('mail reports screen', () => {
   });
 
   it('names each « Retirer » and shows the empty state without recipient', () => {
-    expect(form(true)).toContain('aria-label="Retirer marie.durand@exemple.invalid"');
-    const empty = form(true, []);
-    expect(empty).toContain('Aucun destinataire pour l’instant.');
-    expect(empty).toContain('>Ajouter un destinataire</button>');
+    expect(form()).toContain('aria-label="Retirer marie.durand@exemple.invalid"');
+    const empty = form([]);
+    expect(empty).toContain(
+      '<div class="empty" role="status"><p>Aucun destinataire pour l’instant.</p></div>',
+    );
   });
 
   it('gives the audit reminder as an information alert, with no typed glyph', () => {
-    const html = form(true);
+    const html = form();
     expect(html).toMatch(
       /<div class="alert alert-info" role="status"><span aria-hidden="true">ℹ<\/span><span class="alert-text">Chaque modification est inscrite au journal d’audit\.<\/span>/u,
     );

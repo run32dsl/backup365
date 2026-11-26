@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { requestIdOf } from './apiError.js';
 import {
   REPORT_LABELS as L,
@@ -102,7 +102,6 @@ export function ReportsPage() {
     );
   }
 
-  const ready = view.mailer.state === 'ready';
   const recipients = draft.recipients;
   const settings: ReportSettings = { ...draft, recipients };
   // Vider la liste désactive les rapports, mais seulement s'il y avait déjà des destinataires.
@@ -179,18 +178,16 @@ export function ReportsPage() {
   };
 
   return (
-    <main tabIndex={-1} className="reports-view">
-      <h1>Réglages</h1>
-      <SettingsNav current="reports" />
-      <h2 className="sr-only">Rapports par mail</h2>
-      <p>{L.intro}</p>
-      <MailerNotice mailer={view.mailer} checking={busy === 'check'} onRecheck={onRecheck} />
-      {checkError && <Alert tone="error">{checkError}</Alert>}
-      <div role="status">{saved && <Alert tone="success">{L.saved}</Alert>}</div>
+    <ReportsLayout
+      view={view}
+      checking={busy === 'check'}
+      checkError={checkError}
+      saved={saved}
+      onRecheck={onRecheck}
+    >
       {step === 'edit' ? (
         <ReportsForm
           draft={draft}
-          ready={ready}
           error={error}
           testing={busy === 'test'}
           test={test}
@@ -215,6 +212,36 @@ export function ReportsPage() {
           }}
         />
       )}
+    </ReportsLayout>
+  );
+}
+
+/** Cadre de la vue : les réglages (`children`) n'apparaissent qu'une fois l'envoi prêt. */
+export function ReportsLayout({
+  view,
+  checking,
+  checkError,
+  saved,
+  onRecheck,
+  children,
+}: {
+  view: ReportsView;
+  checking: boolean;
+  checkError: string | null;
+  saved: boolean;
+  onRecheck: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <main tabIndex={-1} className="reports-view">
+      <h1>Réglages</h1>
+      <SettingsNav current="reports" />
+      <h2 className="sr-only">Rapports par mail</h2>
+      <p>{L.intro}</p>
+      <MailerNotice mailer={view.mailer} checking={checking} onRecheck={onRecheck} />
+      {checkError && <Alert tone="error">{checkError}</Alert>}
+      <div role="status">{saved && <Alert tone="success">{L.saved}</Alert>}</div>
+      {view.mailer.state === 'ready' && children}
       <LastSendStatus view={view} />
     </main>
   );

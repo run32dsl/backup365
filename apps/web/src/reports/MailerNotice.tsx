@@ -7,10 +7,10 @@ const CAUSES: Record<'credentials' | 'sender' | 'permission' | 'refused' | 'unre
   {
     credentials: 'tant que la connexion Microsoft 365 n’est pas configurée sur le serveur.',
     sender: 'tant que la boîte d’envoi n’est pas renseignée sur le serveur.',
-    permission: 'tant que la permission Mail.Send manque.',
+    permission: 'tant que l’envoi n’est pas autorisé.',
     refused:
       'tant que Microsoft 365 refuse les identifiants de l’application (secret expiré ou erroné).',
-    unreachable: 'tant que Microsoft 365 ne confirme pas la permission Mail.Send.',
+    unreachable: 'tant que Microsoft 365 ne confirme pas l’autorisation d’envoi.',
   };
 
 /** Étapes de l'écran « Permission manquante » : tout se fait hors de la console. */
