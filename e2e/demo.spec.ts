@@ -458,7 +458,9 @@ test('plans : créer en 3 étapes, lancer avec un motif, supprimer', async ({
   await signInAs(context, baseURL!, 'admin');
   await page.goto('/#/plans');
   await expect(page.getByRole('heading', { name: 'Plans de protection', level: 1 })).toBeVisible();
-  await expect(page.getByText('Messagerie Direction', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('table').getByText('Messagerie Direction', { exact: true }),
+  ).toBeVisible();
 
   await page.getByRole('button', { name: 'Créer un plan' }).click();
   await expect(page.getByText('Étape 1 sur 3')).toBeVisible();
@@ -597,7 +599,9 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await expect(del.getByText('Identifiant de requête')).toHaveCount(0);
   await expect(refused.getByRole('link')).toHaveCount(0);
   await del.getByRole('button', { name: 'Annuler' }).click();
-  await expect(page.getByText('Messagerie Direction', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('table').getByText('Messagerie Direction', { exact: true }),
+  ).toBeVisible();
 });
 
 test('plans : un opérateur lit la liste sans pouvoir la modifier', async ({
