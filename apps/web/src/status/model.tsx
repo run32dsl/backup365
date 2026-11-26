@@ -4,7 +4,7 @@ import {
   type ComplianceState,
   type StatusReport,
 } from '@backup365/core';
-import { plural } from '../format.js';
+import { keepDateTogether, plural } from '../format.js';
 import { UNIT_NAMES, serviceOf } from '../plans.js';
 import { StatusPill } from '../ui/index.js';
 
@@ -32,6 +32,14 @@ export const STATE_LABELS: Record<ComplianceState, string> = {
 export function StateBadge({ state }: { state: BackupState }) {
   const status = STATE_COMPLIANCE[state];
   return <StatusPill status={status} label={STATE_LABELS[status]} />;
+}
+
+/**
+ * Ligne secondaire d'une carte mobile : les valeurs non vides séparées par « · », sans libellé ;
+ * la date et « UTC » ne passent jamais seuls à la ligne.
+ */
+export function cardLine(parts: readonly string[]): string {
+  return keepDateTogether(parts.filter((p) => p !== '').join(' · '));
 }
 
 const SEVERITY: Record<BackupState, number> = { missing: 0, stale: 1, ok: 2 };

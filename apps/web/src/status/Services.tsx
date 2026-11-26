@@ -11,6 +11,7 @@ import { RESTORE_BUTTONS } from '../RestoreJourney.js';
 import { Alert, DataTable, StatusPill, type Column } from '../ui/index.js';
 import {
   StateBadge,
+  cardLine,
   scopeLabel,
   lateCause,
   serviceOf,
@@ -153,10 +154,25 @@ const SERVICE_ICONS: Record<ServiceEntry['service'], string> = {
   sharepoint: '▤',
 };
 
+/** Carte mobile : « Il y a 3 h · 24/11/2026 11:46 UTC · conservés 1 an · toutes les boîtes ». */
+function serviceCardLine(s: ServiceEntry): string {
+  const exact = dateTimeOf(s.lastSnapshotAt);
+  const dated = s.lastSnapshotAt !== null && s.ageHours !== null && exact !== '';
+  const age = dated ? ageLabel(s.ageHours) : 'jamais';
+  const scope = scopeLabel(s);
+  return cardLine([
+    age.charAt(0).toUpperCase() + age.slice(1),
+    dated ? `${exact} UTC` : '',
+    s.retentionDays === null ? '' : `conservés ${retentionLabel(s.retentionDays)}`,
+    scope.charAt(0).toLowerCase() + scope.slice(1),
+  ]);
+}
+
 const serviceColumns = (rows: readonly Row[]): Column<ServiceEntry & Partial<Late>>[] => [
   {
     header: 'Service',
     rowHeader: true,
+    className: 'card-title',
     cell: (s) => (
       <>
         <span className="service-icon" aria-hidden="true">
@@ -168,14 +184,22 @@ const serviceColumns = (rows: readonly Row[]): Column<ServiceEntry & Partial<Lat
   },
   {
     header: 'Dernière sauvegarde',
+    className: 'card-hidden',
     cell: (s) => <LastBackup at={s.lastSnapshotAt} ageHours={s.ageHours} />,
   },
-  { header: 'État', cell: (s) => <ServiceState service={s} rows={rows} /> },
+  {
+    header: 'État',
+    className: 'card-nolabel',
+    cell: (s) => <ServiceState service={s} rows={rows} />,
+  },
   {
     header: 'Conservation',
+    className: 'card-hidden',
     cell: (s) => (s.retentionDays === null ? '' : retentionLabel(s.retentionDays)),
   },
-  { header: 'Périmètre', cell: scopeLabel },
+  { header: 'Périmètre', className: 'card-hidden', cell: scopeLabel },
+  // Sous 900 px seulement : les valeurs ci-dessus sur une ligne secondaire, sans libellé.
+  { header: 'Détail', className: 'card-only', cell: serviceCardLine },
 ];
 
 /** Une ligne par service ; un service sans plan est grisé (`--muted`, sans `opacity`). */

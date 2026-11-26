@@ -4,7 +4,7 @@ import { searchHref } from '../mail.js';
 import { dateTimeOf, dateTimeOrDash, ageLabel, workloadLabel } from '../format.js';
 import { Button, DataTable, type Column } from '../ui/index.js';
 import { Counts } from './Counts.js';
-import { STATE_COMPLIANCE, StateBadge, serviceOf, sortRows, type Row } from './model.js';
+import { STATE_COMPLIANCE, StateBadge, cardLine, serviceOf, sortRows, type Row } from './model.js';
 import { unprotectedServices } from './Services.js';
 
 /** Ce qui est sauvegardé, avec les noms de la navigation : un site est un « Site SharePoint ». */
@@ -23,6 +23,7 @@ export function failureNote(r: Row): string | undefined {
 const COLUMNS: Column<Row>[] = [
   {
     header: 'Source',
+    className: 'card-title',
     cell: (r) =>
       effectiveState(r) !== 'ok' && r.kind === 'mailbox' && r.workload === 'mail' ? (
         <a href={searchHref(r.sourceId)}>{r.displayName}</a>
@@ -30,11 +31,16 @@ const COLUMNS: Column<Row>[] = [
         r.displayName
       ),
   },
-  { header: 'Contenu', cell: contentLabel, className: 'nowrap' },
-  { header: 'Dernière sauvegarde (UTC)', cell: (r) => dateTimeOrDash(r.lastSnapshotAt) },
-  { header: 'Ancienneté', cell: (r) => ageLabel(r.ageHours) },
+  { header: 'Contenu', cell: contentLabel, className: 'nowrap card-hidden' },
+  {
+    header: 'Dernière sauvegarde (UTC)',
+    className: 'card-hidden',
+    cell: (r) => dateTimeOrDash(r.lastSnapshotAt),
+  },
+  { header: 'Ancienneté', className: 'card-hidden', cell: (r) => ageLabel(r.ageHours) },
   {
     header: 'État',
+    className: 'card-nolabel',
     cell: (r) => {
       const note = failureNote(r);
       return (
@@ -43,6 +49,15 @@ const COLUMNS: Column<Row>[] = [
           {note && <small className="state-note">{note}</small>}
         </div>
       );
+    },
+  },
+  // Sous 900 px seulement : « OneDrive · 21/11/2026 11:46 UTC · il y a 3 jours ».
+  {
+    header: 'Détail',
+    className: 'card-only',
+    cell: (r) => {
+      const at = dateTimeOf(r.lastSnapshotAt);
+      return cardLine([contentLabel(r), at === '' ? '' : `${at} UTC`, ageLabel(r.ageHours)]);
     },
   },
 ];

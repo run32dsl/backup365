@@ -610,7 +610,7 @@ describe('StatusView', () => {
       expect(table.match(/<span class="service-icon" aria-hidden="true">/g)).toHaveLength(3);
       expect(table).toMatch(/aria-hidden="true">✉<\/span> (<!-- -->)?Messagerie<\/th>/u);
       expect(table).toContain('<caption class="sr-only">État par service</caption>');
-      expect(table.match(/<th scope="col"/g)).toHaveLength(5);
+      expect(table.match(/<th scope="col"/g)).toHaveLength(6); // dont « Détail », colonne de la carte mobile
       expect(table.match(/<th scope="row"/g)).toHaveLength(3);
       // Un seul tableau, un seul exemplaire de chaque nom : la carte mobile est faite par le CSS.
       expect(table.match(/<table/g)).toHaveLength(1);
