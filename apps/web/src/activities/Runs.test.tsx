@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { navEntries, screenOf } from '../app/routing.js';
+import { AdminProvider } from '../role.js';
 import { RunsPage, RunsView } from './RunsPage.js';
 import {
   FAILED_RUNS_HASH,
@@ -110,9 +111,10 @@ describe('historique des exécutions', () => {
     expect(cell(running, 'card-only')).toBe('Camille Test · 18/11/2026 02:00 UTC');
     const detail = cell(failed, 'card-only');
     expect(detail).toContain('Des dossiers ou des fichiers n’ont pas pu être sauvegardés.');
-    expect(detail).toContain('Vérifier l’autorisation');
-    // La cause libellée du tableau de bureau est masquée dans la carte.
-    expect(failed).toMatch(/<span class="table-only"><span class="cell-secondary">Cause/);
+    // Sans rôle administrateur (contexte par défaut), la conduite à tenir passe par un administrateur.
+    expect(detail).toContain('Demandez à un administrateur de vérifier l’autorisation');
+    // La cause du tableau de bureau est masquée dans la carte, qui la répète sous la ligne.
+    expect(failed).toMatch(/<span class="table-only"><span class="cell-secondary">Des dossiers/);
     for (const row of rows) {
       expect(cell(row, 'card-only')).not.toMatch(/—|\s:/);
     }
@@ -120,28 +122,41 @@ describe('historique des exécutions', () => {
 
   it('explains a failure, an interruption and an unknown cause in French, never a raw code', () => {
     const html = renderToStaticMarkup(
-      <RunsView
-        state={{
-          items: [
-            run({ id: 3, result: 'failed', failureCause: 'backup_errors', itemsSaved: null }),
-            run({ id: 4, result: 'interrupted', failureCause: 'interrupted', sourceBytes: null }),
-            run({ id: 5, result: 'failed', failureCause: 'unknown' }),
-          ],
-          limit: 20,
-        }}
-        filter={all}
-      />,
+      <AdminProvider value>
+        <RunsView
+          state={{
+            items: [
+              run({ id: 3, result: 'failed', failureCause: 'backup_errors', itemsSaved: null }),
+              run({ id: 4, result: 'interrupted', failureCause: 'interrupted', sourceBytes: null }),
+              run({ id: 5, result: 'failed', failureCause: 'unknown' }),
+              // Un code que la console ne connaît pas encore : texte de repli et numéro.
+              run({ id: 6, result: 'failed', failureCause: 'nouveau' as RunItem['failureCause'] }),
+            ],
+            limit: 20,
+          }}
+          filter={all}
+        />
+      </AdminProvider>,
     );
-    const t = text(html);
+    const t = text(html).replace(/[\u00a0\u202f]/g, ' ');
     expect(t).toContain('En échec');
-    expect(t).toContain('Cause : des dossiers ou des fichiers n’ont pas pu être sauvegardés.');
-    expect(t).toContain('À faire : vérifier l’autorisation de l’application Microsoft 365');
+    expect(t).toContain('Des dossiers ou des fichiers n’ont pas pu être sauvegardés.');
+    expect(t).toContain('Vérifiez l’autorisation de l’application Microsoft 365');
     expect(t).toContain('Interrompue');
-    expect(t).toContain('À faire : rien, la prochaine exécution reprendra la sauvegarde.');
+    expect(t).toContain(
+      'Attendez la prochaine exécution, qui reprendra la sauvegarde, ou relancez',
+    );
     expect(t).toContain('raison non identifiée');
-    expect(t).toContain('(exécution n° 5)');
+    expect(t).toContain('Exécution n° 5.');
+    expect(t).toContain('Exécution n° 6.');
     expect(t).toContain('non communiquée');
-    expect(t).not.toMatch(/backup_errors|interrupted|unknown/);
+    expect(t).not.toMatch(/backup_errors|interrupted|unknown|Cause :|À faire/);
+    // Chaque ligne secondaire d'un échec est une phrase : majuscule initiale, point final.
+    const lines = [...html.matchAll(/<span class="cell-secondary">([^<]+)<\/span>/g)].map(
+      (m) => m[1] ?? '',
+    );
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) expect(line).toMatch(/^[A-ZÀ-Ý].*\.$/u);
   });
 
   it('groups the per-source results of one run into one event, « En échec » if one source failed (#571)', () => {

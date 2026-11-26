@@ -10,6 +10,7 @@ import {
   type RunEvent,
   type RunItem,
 } from './activities/runs.js';
+import { lowerFirst } from './failureText.js';
 import { NBSP, dateTimeOf, quoted } from './format.js';
 import type { PlanItem } from './plans.js';
 import { DATA_TYPE_LABELS } from './plans/model.js';
@@ -37,8 +38,9 @@ export function mailOnly(run: RunItem, plans: readonly PlanItem[]): boolean {
 export function runDetails(event: RunEvent, boxes = false): string[] {
   const sources = sourcesLabel(event.runs.length, boxes);
   if (event.result === 'running') return [sources, 'sauvegarde en cours'];
-  const cause = causeOf(event);
-  if (cause) return [sources, `cause${NBSP}: ${cause.cause}`];
+  // Seule la cause est reprise ici, identique pour tous les rôles.
+  const cause = causeOf(event, true);
+  if (cause) return [sources, `cause${NBSP}: ${lowerFirst(cause.cause)}`];
   const parts = [
     sources,
     copiedLabel(event.itemsSaved ?? 0),

@@ -8,6 +8,7 @@ import {
   type RpoHours,
   type StatusReport,
 } from '@backup365/core';
+import { failureText, lowerFirst } from '../failureText.js';
 import { dateTimeOf, plural, quoted, workloadLabel } from '../format.js';
 import type { PillStatus } from '../ui/index.js';
 import { FAILURE_LABELS, MESSAGES, type Mailbox, type PlanItem } from './model.js';
@@ -107,7 +108,7 @@ export function complianceView(
       status: 'compliant',
       label: 'À jour',
       ...(failure && {
-        note: `Dernière exécution en échec : ${FAILURE_LABELS[failure].toLowerCase()}`,
+        note: `Dernière exécution en échec : ${lowerFirst(FAILURE_LABELS[failure])}`,
       }),
     };
   }
@@ -264,13 +265,14 @@ export function failureBanner(
 ): { title: string; cause: string; consequence?: string; advice: string } {
   const run = plan.lastRun;
   const at = run?.status === 'failed' ? dateTimeOf(run.finishedAt ?? run.startedAt) : '';
+  const text = failureText(run?.failureCause, admin);
   return {
     title: `Échec de ${quoted(plan.name)}${at && ` le ${at} UTC`}`,
-    cause: `${FAILURE_LABELS[run?.failureCause ?? 'unknown']}.`,
+    cause: text.cause,
     ...(plan.compliance.lastSuccessAt === null && {
       consequence: coveredByOthers(plan.id, sources) ?? 'Ces données ne sont pas encore protégées.',
     }),
-    advice: `${admin ? 'Relancez' : 'Demandez à un administrateur de relancer'} le plan ; si l’échec se répète, prévenez l’exploitant du serveur.`,
+    advice: text.advice,
   };
 }
 
