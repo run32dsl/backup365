@@ -22,7 +22,7 @@ describe('Alert', () => {
         Avertissement : à voir.
       </Alert>,
     );
-    expect(html).toContain('<span aria-hidden="true">⚠</span>');
+    expect(html).toContain('<span class="alert-icon" aria-hidden="true">⚠</span>');
     expect(html).toContain('Avertissement : à voir.');
     expect(html).toContain('Réessayer');
   });
@@ -38,6 +38,28 @@ describe('Alert', () => {
     expect(html.indexOf('alert-title')).toBeLessThan(html.indexOf('Prévenez'));
     expect(html.indexOf('role="alert"')).toBeLessThan(html.indexOf('alert-title'));
     expect(renderToStaticMarkup(<Alert tone="info">Ok</Alert>)).not.toContain('<strong');
+  });
+
+  it('draws every icon in the shared, hidden icon box, apart from the message read aloud', () => {
+    const html = renderToStaticMarkup(
+      <Alert tone="info">Chaque modification est inscrite au journal d’audit.</Alert>,
+    );
+    expect(html).toContain('<span class="alert-icon" aria-hidden="true">i</span>');
+    expect(html).not.toContain('ℹ');
+    // Texte lu : le contenu de l’alerte, sans les éléments masqués aux lecteurs d’écran.
+    const read = html
+      .replace(/<span[^>]*aria-hidden="true"[^>]*>[^<]*<\/span>/gu, '')
+      .replace(/<[^>]+>/gu, '');
+    expect(read).toBe('Chaque modification est inscrite au journal d’audit.');
+    for (const [tone, icon] of [
+      ['success', '✔'],
+      ['warning', '⚠'],
+      ['error', '✖'],
+    ] as const) {
+      expect(renderToStaticMarkup(<Alert tone={tone}>Ok</Alert>)).toContain(
+        `<span class="alert-icon" aria-hidden="true">${icon}</span>`,
+      );
+    }
   });
 });
 

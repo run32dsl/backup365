@@ -190,7 +190,7 @@ describe('mail reports screen', () => {
   it('gives the audit reminder as an information alert, with no typed glyph', () => {
     const html = form();
     expect(html).toMatch(
-      /<div class="alert alert-info" role="status"><span aria-hidden="true">ℹ<\/span><span class="alert-text">Chaque modification est inscrite au journal d’audit\.<\/span>/u,
+      /<div class="alert alert-info" role="status"><span class="alert-icon" aria-hidden="true">i<\/span><span class="alert-text">Chaque modification est inscrite au journal d’audit\.<\/span>/u,
     );
     expect(html).not.toContain('field-help reports-audit');
   });
