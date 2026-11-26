@@ -3,7 +3,7 @@ import type { ReactNode, Ref } from 'react';
 export type AlertTone = 'info' | 'success' | 'warning' | 'error';
 
 const TONES: Record<AlertTone, { icon: string; role: 'alert' | 'status' }> = {
-  info: { icon: 'ℹ', role: 'status' },
+  info: { icon: 'i', role: 'status' },
   success: { icon: '✔', role: 'status' },
   warning: { icon: '⚠', role: 'alert' },
   error: { icon: '✖', role: 'alert' },
@@ -12,7 +12,11 @@ const TONES: Record<AlertTone, { icon: string; role: 'alert' | 'status' }> = {
 /** Rôle ARIA d'une alerte : `alert` pour l'erreur et l'avertissement, `status` sinon. */
 export const alertRole = (tone: AlertTone): 'alert' | 'status' => TONES[tone].role;
 
-/** Message d'alerte : icône et texte, jamais la couleur seule ; sans détail technique. */
+/**
+ * Message d'alerte : icône et texte, jamais la couleur seule ; sans détail technique.
+ * L'icône occupe un gabarit commun aux quatre tons (`.alert-icon`) ; pour `info`, c'est un « i »
+ * cerclé tracé en CSS, car le glyphe ℹ s'affiche comme une lettre nue.
+ */
 export function Alert({
   tone,
   title,
@@ -44,7 +48,9 @@ export function Alert({
       ref={focusRef}
       tabIndex={focusRef ? -1 : undefined}
     >
-      <span aria-hidden="true">{icon}</span>
+      <span className="alert-icon" aria-hidden="true">
+        {icon}
+      </span>
       <span className="alert-text">
         {title ? <strong className="alert-title">{title}</strong> : null}
         {children}

@@ -1320,6 +1320,27 @@ select[aria-disabled='true'] {
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+/* Icône d'alerte : même gabarit pour les quatre tons, centré sur la première ligne du texte
+   (hauteur de ligne 1,5 em, gabarit 1,25 em). */
+.alert-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 1.25em;
+  height: 1.25em;
+  margin-top: 0.125em;
+  line-height: 1;
+}
+/* Information : « i » en gras dans un cercle tracé en couleur du texte (le glyphe ℹ se lit
+   comme une lettre nue). */
+.alert-info .alert-icon {
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-weight: 700;
+  font-family: Georgia, 'Times New Roman', serif;
+}
 .alert-text {
   flex: 1;
   min-width: 12rem;

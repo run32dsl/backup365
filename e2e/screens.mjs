@@ -1718,6 +1718,16 @@ export const SCREENS = [
       await page.getByRole('heading', { name: 'Composants', level: 1 }).waitFor();
     },
   },
+  // Les quatre tons d'alerte en thème sombre : même gabarit d'icône, « i » cerclé (#588).
+  {
+    name: 'composants-alertes-sombre',
+    hash: '#/composants',
+    role: 'admin',
+    scheme: 'dark',
+    prepare: async (page) => {
+      await page.getByRole('heading', { name: 'Composants', level: 1 }).waitFor();
+    },
+  },
   {
     name: 'composants-dialogue',
     hash: '#/composants',
