@@ -859,6 +859,16 @@ export const SCREENS = [
     },
   },
   {
+    // Contacts cochés (issue #543) : la case n'est jamais cochée par défaut.
+    name: 'plans-creation-contacts',
+    hash: '#/plans/nouveau',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Nom du plan').fill('Carnets d’adresses');
+      await page.getByRole('checkbox', { name: /^Contacts/ }).check();
+    },
+  },
+  {
     name: 'plans-creation-etape-1-sombre',
     hash: '#/plans/nouveau',
     role: 'admin',

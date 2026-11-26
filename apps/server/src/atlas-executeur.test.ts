@@ -12,13 +12,21 @@ const ALL = ['mail', 'onedrive', 'sharepoint'] as const;
 const mailOk: MailOutcome = { interrupted: false, summary: { folderErrors: [] } };
 const driveOk: DriveOutcome = { interrupted: false, summary: { healthy: true } };
 
-function fakeApi(over: Partial<Record<'mail' | 'drive' | 'site', () => Promise<unknown>>> = {}) {
+function fakeApi(
+  over: Partial<Record<'mail' | 'contacts' | 'drive' | 'site', () => Promise<unknown>>> = {},
+) {
   const calls: string[] = [];
   const api = {
     outlook: {
       backup: vi.fn((id: string) => {
         calls.push(`mail:${id}`);
         return (over.mail ?? (() => Promise.resolve(mailOk)))() as Promise<MailOutcome>;
+      }),
+    },
+    contacts: {
+      backup: vi.fn((id: string) => {
+        calls.push(`contacts:${id}`);
+        return (over.contacts ?? (() => Promise.resolve(driveOk)))() as Promise<DriveOutcome>;
       }),
     },
     onedrive: {
@@ -196,6 +204,53 @@ describe('AtlasExecuteur, protected data types (#310)', () => {
     const { calls, executeur } = fakeApi();
     await executeur.execute({ planId: 'p', itemId: 'site-1', dataTypes: ['sharepoint'] });
     expect(calls).toEqual(['sharepoint:site-1']);
+  });
+});
+
+describe('AtlasExecuteur, contacts (#543)', () => {
+  it('backs up the contacts of a mailbox when the plan includes them', async () => {
+    const { api, calls, executeur } = fakeApi({
+      contacts: () => Promise.resolve({ ...driveOk, snapshot: { totalSizeBytes: 300 } }),
+    });
+    const result = await executeur.execute({
+      planId: 'p',
+      itemId: 'u1',
+      dataTypes: ['mail', 'contacts', 'onedrive'],
+    });
+    expect(calls).toEqual(['mail:u1', 'contacts:u1', 'onedrive:u1']);
+    // Un seul argument : boîte d'origine, le SDK choisit seul complète ou incrémentale.
+    expect(api.contacts.backup.mock.calls[0]).toEqual(['u1']);
+    expect(result).toEqual({ sourceBytes: 300 });
+  });
+
+  it('does not back up contacts when the plan lacks them, nor for a site', async () => {
+    const owner = fakeApi();
+    await owner.executeur.execute({ planId: 'p', itemId: 'u1', dataTypes: ALL });
+    expect(owner.api.contacts.backup).not.toHaveBeenCalled();
+    const site = fakeApi();
+    await site.executeur.execute({
+      planId: 'p',
+      itemId: 'site-1',
+      dataTypes: ['contacts', 'sharepoint'],
+    });
+    expect(site.calls).toEqual(['sharepoint:site-1']);
+  });
+
+  it('fails the run when the contacts backup has errors, after trying the other charges', async () => {
+    const { calls, executeur } = fakeApi({
+      contacts: () => Promise.resolve({ interrupted: false, summary: { healthy: false } }),
+    });
+    await expect(
+      executeur.execute({ planId: 'p', itemId: 'u1', dataTypes: ['contacts', 'onedrive'] }),
+    ).rejects.toMatchObject({ code: 'backup_errors' });
+    expect(calls).toEqual(['contacts:u1', 'onedrive:u1']);
+  });
+
+  it('reports no_content when a contacts-only plan finds an empty address book', async () => {
+    const { executeur } = fakeApi({ contacts: () => Promise.resolve(driveEmpty) });
+    await expect(
+      executeur.execute({ planId: 'p', itemId: 'u1', dataTypes: ['contacts'] }),
+    ).resolves.toEqual({ noSnapshotReason: 'no_content' });
   });
 });
 
