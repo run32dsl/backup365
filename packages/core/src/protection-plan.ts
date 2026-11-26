@@ -258,11 +258,38 @@ export interface PlanRun {
  * Causes d'échec exposées à l'interface : liste fermée, jamais le code ni le message du SDK. Le
  * libellé français de chaque cause est écrit dans l'interface.
  */
-export const FAILURE_CAUSES = ['interrupted', 'backup_errors', 'no_result', 'unknown'] as const;
+export const FAILURE_CAUSES = [
+  'interrupted',
+  'backup_errors',
+  'no_result',
+  'owner_busy',
+  'access_refused',
+  'graph_unavailable',
+  'storage_unavailable',
+  'format_unsupported',
+  'write_refused',
+  'unknown',
+] as const;
 export type FailureCause = (typeof FAILURE_CAUSES)[number];
+
+/**
+ * Codes d'erreur du SDK Atlas (7.2.0, docs/adr/0019) enregistrés tels quels par le planificateur,
+ * et la cause qu'ils donnent. `ATLAS_SNAPSHOT_NOT_NEWEST` ne concerne que les suppressions, que la
+ * console ne fait pas.
+ */
+const ATLAS_CAUSES: Readonly<Record<string, FailureCause>> = {
+  ATLAS_OWNER_BUSY: 'owner_busy',
+  ATLAS_ACCESS_REFUSED: 'access_refused',
+  ATLAS_AUTH_DENIED: 'access_refused',
+  ATLAS_GRAPH_UNAVAILABLE: 'graph_unavailable',
+  ATLAS_STORAGE_UNAVAILABLE: 'storage_unavailable',
+  ATLAS_FORMAT_UNSUPPORTED: 'format_unsupported',
+  ATLAS_WRITE_REFUSED: 'write_refused',
+};
 
 /** Cause (liste fermée) d'un code d'erreur enregistré ; `unknown` pour tout autre code. */
 export function failureCauseOf(code: string | null | undefined): FailureCause {
+  if (code && Object.hasOwn(ATLAS_CAUSES, code)) return ATLAS_CAUSES[code] ?? 'unknown';
   return FAILURE_CAUSES.find((c) => c === code && c !== 'unknown') ?? 'unknown';
 }
 

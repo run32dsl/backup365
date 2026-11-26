@@ -6,11 +6,12 @@ import {
   type DriveRestoreMode,
   type DriveRestorer,
 } from '@backup365/core';
+import { restoreFailureOf, type RestoreFailure } from './restore-failure.js';
 
 export type DriveRestoreStatus = 'running' | 'succeeded' | 'failed';
 
 /** Cause d'un échec : un code fermé, jamais le message du SDK. */
-export type DriveRestoreFailure = 'restore_error' | 'restore_unreachable';
+export type DriveRestoreFailure = RestoreFailure;
 
 /** Restauration d'un élément OneDrive : états et durées, jamais de contenu. */
 export interface DriveRestoreJob {
@@ -165,8 +166,8 @@ export class DriveRestoreService {
       call.then(release, release);
       const outcome = await Promise.race([call, timeout]);
       if (outcome.errors > 0 || outcome.restored < 1) error = 'restore_error';
-    } catch {
-      error = 'restore_unreachable';
+    } catch (err) {
+      error = restoreFailureOf(err);
     } finally {
       clearTimeout(timer);
     }

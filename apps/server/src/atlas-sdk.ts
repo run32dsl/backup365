@@ -5,6 +5,7 @@ import { AtlasSdkCatalog, type AtlasCatalogOptions, type AtlasSdkReader } from '
 import { AtlasSdkMailContentReader, type AtlasMessageReader } from './atlas-mail-content.js';
 import { AtlasSdkSnapshotMailReader, type AtlasManifestReader } from './atlas-mail-index.js';
 import type { StorageConfig } from './config.js';
+import { StorageCheck, type AtlasStorageChecker } from './storage-check.js';
 
 /**
  * Valeurs factices pour `clientId` et `clientSecret` : le SDK les exige non vides, mais le mode
@@ -20,6 +21,8 @@ export interface AtlasHandle extends AtlasSdkReader {
     AtlasManifestReader['outlook'];
   onedrive: AtlasSdkReader['onedrive'] & AtlasDriveReader['onedrive'];
   sharepoint: AtlasSdkReader['sharepoint'] & AtlasSiteReader['sharepoint'];
+  /** Sonde du stockage (SDK 7.2.0, S3 seulement) ; facultative pour les faux. */
+  checkStorage?: AtlasStorageChecker['checkStorage'];
   dispose(): Promise<void>;
 }
 
@@ -54,10 +57,14 @@ export function createAtlasCatalog(
   reader: AtlasSdkSnapshotMailReader;
   drive: AtlasSdkDriveBrowser;
   site: AtlasSdkSiteBrowser;
+  /** Absente si l'instance n'a pas `checkStorage`. */
+  storageCheck?: StorageCheck;
   dispose: () => Promise<void>;
 } {
   const atlas = factory(toAtlasConfig(storage));
+  const checkStorage = atlas.checkStorage?.bind(atlas);
   return {
+    ...(checkStorage ? { storageCheck: new StorageCheck({ checkStorage }) } : {}),
     catalog: new AtlasSdkCatalog(atlas, options),
     drive: new AtlasSdkDriveBrowser(atlas),
     site: new AtlasSdkSiteBrowser(atlas),

@@ -88,6 +88,32 @@ export const CAUSES: Record<FailureCause, { cause: string; todo: string }> = {
     cause: 'aucune donnée n’a été sauvegardée pour cette source.',
     todo: 'vérifier que la source existe toujours dans Microsoft 365, puis relancer le plan.',
   },
+  owner_busy: {
+    cause: 'une autre opération (sauvegarde ou restauration) était déjà en cours sur cette source.',
+    todo: 'rien, la prochaine exécution reprendra la sauvegarde ; pour la relancer tout de suite, attendre quelques minutes.',
+  },
+  access_refused: {
+    cause: 'Microsoft 365 a refusé l’accès à cette source.',
+    todo: 'vérifier les autorisations accordées à l’application Microsoft 365, puis relancer le plan.',
+  },
+  graph_unavailable: {
+    cause: 'Microsoft 365 n’a pas répondu, malgré plusieurs essais.',
+    todo: 'rien, la prochaine exécution reprendra la sauvegarde.',
+  },
+  storage_unavailable: {
+    cause: 'le stockage des sauvegardes n’a pas répondu, malgré plusieurs essais.',
+    todo: 'vérifier que le stockage est joignable, puis relancer le plan.',
+  },
+  format_unsupported: {
+    cause:
+      'les sauvegardes existantes sont dans un format que cette version ne prend pas en charge.',
+    todo: 'mettre la console à jour, puis relancer le plan.',
+  },
+  write_refused: {
+    cause:
+      'le moteur de sauvegarde a refusé d’écrire des données qu’il n’aurait pas pu relire ; rien n’a été écrit.',
+    todo: 'relancer le plan ; si cela se reproduit, transmettre le numéro d’exécution à un administrateur.',
+  },
   unknown: {
     cause: 'la sauvegarde a échoué pour une raison non identifiée.',
     todo: 'relancer le plan\u202f; si cela se reproduit, transmettre le numéro d’exécution à un administrateur.',

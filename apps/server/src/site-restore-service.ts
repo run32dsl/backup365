@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { copyNameOf, type AuditLog, type SiteRestorer, type SiteScope } from '@backup365/core';
+import { restoreFailureOf, type RestoreFailure } from './restore-failure.js';
 
 export type SiteRestoreStatus = 'running' | 'succeeded' | 'failed';
 
 /** Cause d'un échec : un code fermé, jamais le message du SDK. */
-export type SiteRestoreFailure = 'restore_error' | 'restore_unreachable';
+export type SiteRestoreFailure = RestoreFailure;
 
 /** Restauration d'un site SharePoint : états, comptes et durées, jamais de contenu. */
 export interface SiteRestoreJob {
@@ -156,8 +157,8 @@ export class SiteRestoreService {
       call.then(release, release);
       counts = await Promise.race([call, timeout]);
       if (counts.errors > 0 || counts.restored + counts.skipped < 1) error = 'restore_error';
-    } catch {
-      error = 'restore_unreachable';
+    } catch (err) {
+      error = restoreFailureOf(err);
     } finally {
       clearTimeout(timer);
     }

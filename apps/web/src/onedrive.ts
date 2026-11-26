@@ -1,3 +1,4 @@
+import { isUncertainError, sdkRefusalCause, type RestoreError } from './restoreFailure.js';
 import { API_ERRORS } from './apiError.js';
 import { REASON } from './RestoreJourney.js';
 import { RESTORE_LABELS } from './restoreLabels.js';
@@ -26,7 +27,7 @@ export interface DriveJob {
   finishedAt: string | null;
   durationMs: number | null;
   copyName: string | null;
-  error: 'restore_error' | 'restore_unreachable' | 'restore_lost' | null;
+  error: RestoreError | null;
 }
 
 export const ONEDRIVE_MESSAGES = {
@@ -142,15 +143,15 @@ export function replaceWarningOf(name: string, versionAt: string | null): string
 }
 
 export function failureCause(error: DriveJob['error']): string {
+  const refusal = sdkRefusalCause(error, 'ce OneDrive');
+  if (refusal) return refusal;
   if (error === 'restore_unreachable') return 'OneDrive injoignable pour le moment';
   if (error === 'restore_lost') return 'le suivi a été perdu (service redémarré)';
   return 'le service de restauration a signalé une erreur';
 }
 
 /** Vrai si l'appel a pu aboutir malgré l'échec affiché. */
-export function isOutcomeUncertain(error: DriveJob['error']): boolean {
-  return error === 'restore_unreachable' || error === 'restore_lost';
-}
+export const isOutcomeUncertain = isUncertainError;
 
 export type Loaded<T> =
   { status: 'ok'; data: T } | { status: 'unconfigured' | 'no_backup' | 'error' };

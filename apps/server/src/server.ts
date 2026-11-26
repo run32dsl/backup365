@@ -263,6 +263,7 @@ export function createServer(
           : { configured: false, reason: "journal d'audit indisponible" },
       maxAgeHours: parseMaxAgeHours(env['BACKUP365_STATUS_MAX_AGE_HOURS']),
       workloads: parseStatusWorkloads(env['BACKUP365_STATUS_WORKLOADS']),
+      storage: startup.status === 'ready' ? startup.atlas.storageCheck : undefined,
     },
     ...(startup.status === 'ready' ? { mailContent: startup.atlas.content } : {}),
     ...(opened.index ? { searchIndex: opened.index } : {}),

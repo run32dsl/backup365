@@ -910,6 +910,24 @@ export const SCREENS = [
     },
   },
   {
+    // En démo le stockage accepte les écritures conditionnelles : la réponse est modifiée pour
+    // montrer l'avertissement de la section « Stockage » (issue #567).
+    name: 'sources-stockage-sans-ecritures-conditionnelles',
+    hash: '#/sources',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/status', async (route) => {
+        const res = await route.fetch();
+        const body = await res.json();
+        body.storage = { conditionalWrites: 'ignored' };
+        await route.fulfill({ response: res, json: body });
+      });
+      await page.reload();
+      await page.getByText('Le stockage ignore les écritures conditionnelles').waitFor();
+      await page.getByRole('heading', { name: 'Stockage' }).scrollIntoViewIfNeeded();
+    },
+  },
+  {
     // Un plan sans aucune sauvegarde, avant l'échéance de sa première exécution : « En attente ».
     name: 'sources-en-attente',
     hash: '#/sources',

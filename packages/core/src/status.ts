@@ -51,7 +51,21 @@ export interface StatusReport {
   plans?: PlanComplianceReport | null;
   /** Ajouté par `GET /api/status` pour les administrateurs : une ligne par service ; `null` si la base des plans ne répond pas. */
   services?: ServiceSummary[] | null;
+  /**
+   * Ajouté par `GET /api/status` pour les administrateurs, avec un stockage configuré : le stockage
+   * refuse-t-il les écritures conditionnelles (`checkStorage()` du SDK 7.2.0) ? `null` si la
+   * vérification a échoué.
+   */
+  storage?: { conditionalWrites: ConditionalWrites | null };
 }
+
+/**
+ * Écritures conditionnelles du stockage, d'après la sonde du SDK : `supported`, elles sont
+ * refusées comme il faut ; `ignored`, le stockage en accepte au moins une, et deux opérations
+ * simultanées sur un même élément ne sont plus exclues ; `not_probed`, la sonde n'a pas pu
+ * écrire (pas encore de bucket, ou pas de droit d'écriture).
+ */
+export type ConditionalWrites = 'supported' | 'ignored' | 'not_probed';
 
 /**
  * État d'une sauvegarde. Un instantané daté du futur (horloges décalées) compte pour un âge nul ;

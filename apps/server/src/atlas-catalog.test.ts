@@ -88,6 +88,74 @@ backupCatalogContract('AtlasSdkCatalog (fake SDK)', () =>
   Promise.resolve(new AtlasSdkCatalog(fakeAtlas())),
 );
 
+/**
+ * Faux du SDK 7.2.0 : les listes viennent de `listSnapshotSummaries` (l'index), et relire les
+ * manifestes par `listSnapshots` échoue. Seul le détail OneDrive (`getSnapshotDetail`) les lit
+ * encore : il lui faut le nombre de fichiers, absent de l'index.
+ */
+function summariesOnly(): { atlas: AtlasSdkReader; manifestReads: string[] } {
+  const base = fakeAtlas();
+  const manifestReads: string[] = [];
+  const refuse = (workload: string) => (id: string) => {
+    manifestReads.push(`${workload}:${id}`);
+    return Promise.reject(new Error('manifests must not be read for a list'));
+  };
+  return {
+    manifestReads,
+    atlas: {
+      ...base,
+      outlook: {
+        ...base.outlook,
+        listSnapshots: refuse('mail'),
+        listSnapshotSummaries: (id) => base.outlook.listSnapshots(id),
+      },
+      onedrive: {
+        listSnapshots: refuse('onedrive'),
+        listSnapshotSummaries: (id) => base.onedrive.listSnapshots(id),
+      },
+      sharepoint: {
+        listSnapshots: refuse('sharepoint'),
+        listSnapshotSummaries: (id) => base.sharepoint.listSnapshots(id),
+      },
+    },
+  };
+}
+
+backupCatalogContract('AtlasSdkCatalog (SDK 7.2.0 snapshot summaries, #567)', () =>
+  Promise.resolve(new AtlasSdkCatalog(summariesOnly().atlas)),
+);
+
+describe('AtlasSdkCatalog: snapshot summaries (SDK 7.2.0, issue #567)', () => {
+  it('lists mail, OneDrive and SharePoint snapshots from the index, without reading a manifest', async () => {
+    const { atlas, manifestReads } = summariesOnly();
+    const catalog = new AtlasSdkCatalog(atlas);
+    expect((await catalog.listSnapshots('mbx-1', 'mail')).length).toBeGreaterThan(0);
+    expect((await catalog.listSnapshots('mbx-1', 'onedrive')).map((s) => s.id)).toEqual([
+      'od-new',
+      'od-old',
+    ]);
+    expect(await catalog.listSites()).toEqual([CONTRACT_FIXTURE.site]);
+    expect(await catalog.listSiteSnapshots(CONTRACT_FIXTURE.site.id)).toHaveLength(
+      CONTRACT_FIXTURE.siteSnapshots.length,
+    );
+    expect(manifestReads).toEqual([]);
+  });
+
+  it('carries the size from the index row', async () => {
+    const at = new Date('2026-01-05T00:00:00Z');
+    const catalog = new AtlasSdkCatalog(
+      fakeAtlas({
+        listSnapshots: () => Promise.reject(new Error('not this one')),
+        listSnapshotSummaries: () =>
+          Promise.resolve([{ snapshotId: 's1', createdAt: at, totalSizeBytes: 4096 }]),
+      }),
+    );
+    expect(await catalog.listSnapshots('mbx-1', 'mail')).toEqual([
+      { id: 's1', workload: 'mail', createdAt: at.toISOString(), sizeBytes: 4096 },
+    ]);
+  });
+});
+
 describe('AtlasSdkCatalog', () => {
   it('falls back to ownerId when the mailbox has no address', async () => {
     const catalog = new AtlasSdkCatalog(

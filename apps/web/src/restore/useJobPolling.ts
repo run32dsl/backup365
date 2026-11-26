@@ -1,10 +1,11 @@
+import type { RestoreError } from '../restoreFailure.js';
 import { useEffect } from 'react';
 
 /** Ce qu'il faut savoir d'une restauration pour la suivre, quelle que soit la source. */
 interface PolledJob {
   id: string;
   status: string;
-  error: 'restore_error' | 'restore_unreachable' | 'restore_lost' | null;
+  error: RestoreError | null;
   durationMs: number | null;
 }
 

@@ -131,5 +131,11 @@ export const FAILURE_LABELS: Record<FailureCause, string> = {
   interrupted: 'Sauvegarde interrompue',
   backup_errors: 'Des dossiers n’ont pas pu être sauvegardés',
   no_result: 'Aucune donnée n’a été sauvegardée',
+  owner_busy: 'Une autre opération était en cours sur cette source',
+  access_refused: 'Microsoft 365 a refusé l’accès',
+  graph_unavailable: 'Microsoft 365 n’a pas répondu',
+  storage_unavailable: 'Le stockage n’a pas répondu',
+  format_unsupported: 'Format de sauvegarde non pris en charge',
+  write_refused: 'Écriture refusée par le moteur de sauvegarde',
   unknown: 'Cause non précisée',
 };

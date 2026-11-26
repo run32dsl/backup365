@@ -3,6 +3,7 @@ import type { SiteEntry, SiteScope, SiteScopeSummary } from '@backup365/core';
 import { dayOf, dateTimeOf, sizeOf } from './onedrive.js';
 import { elementsInError, elementsWhich } from './format.js';
 import type { SiteJob } from './sharepoint/model.js';
+import { isUncertainError, sdkRefusalCause } from './restoreFailure.js';
 
 // Modèle et accès au serveur : un fichier chacun sous `sharepoint/`, réunis ici pour les écrans.
 export * from './sharepoint/model.js';
@@ -231,6 +232,8 @@ export function successSummary(
 }
 
 export function failureCause(error: SiteJob['error']): string {
+  const refusal = sdkRefusalCause(error, 'ce site');
+  if (refusal) return refusal;
   if (error === 'restore_unreachable') return 'SharePoint injoignable pour le moment';
   if (error === 'restore_lost') return 'le suivi a été perdu (service redémarré)';
   return 'le service de restauration a signalé une erreur';
@@ -256,6 +259,4 @@ export function errorItemLabel(job: Pick<SiteJob, 'scope' | 'path' | 'errors'>):
 }
 
 /** Vrai si l'appel a pu aboutir malgré l'échec affiché. */
-export function isOutcomeUncertain(error: SiteJob['error']): boolean {
-  return error === 'restore_unreachable' || error === 'restore_lost';
-}
+export const isOutcomeUncertain = isUncertainError;

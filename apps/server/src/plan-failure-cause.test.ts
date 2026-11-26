@@ -41,6 +41,12 @@ describe('GET /api/plans: failure cause (issue #311)', () => {
     expect(FAILURE_CAUSES).toContain(run?.failureCause);
     expect(JSON.stringify(run)).not.toContain('ECONNRESET');
 
+    // Bail du SDK 7.2.0 (issue #567) : une autre opération tient l'élément.
+    fail('ATLAS_OWNER_BUSY', '2026-11-19T11:30:00.000Z');
+    const busy = await lastRun();
+    expect(busy?.failureCause).toBe('owner_busy');
+    expect(JSON.stringify(busy)).not.toContain('ATLAS_');
+
     // Une réussite ne porte pas de cause.
     plans.finishRun(
       plans.startRun(plan.id, 'a', '2026-11-19T12:00:00.000Z') as number,
