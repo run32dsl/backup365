@@ -46,11 +46,12 @@ export function runView(run: RecentRun): RunView {
 
 /**
  * `GET /api/runs` : dernières exécutions des plans, la plus récente en tête, filtrables par plan
- * (`planId`) et par résultat (`result`). Ouvert à l'opérateur, en lecture seule comme la liste des
- * plans. Des compteurs et des dates, aucun contenu sauvegardé : hors journal d'audit (ADR 0002).
+ * (`planId`) et par résultat (`result`) ; `limit` (1 à 20) en réduit le nombre (5 sur l'accueil).
+ * Ouvert à l'opérateur, en lecture seule comme la liste des plans. Des compteurs et des dates,
+ * aucun contenu sauvegardé : hors journal d'audit (ADR 0002).
  */
 export function registerRunRoutes(scope: FastifyInstance, plans: SqlitePlanStore | undefined) {
-  scope.get<{ Querystring: { planId?: string; result?: RunResult } }>(
+  scope.get<{ Querystring: { planId?: string; result?: RunResult; limit?: number } }>(
     '/api/runs',
     {
       schema: {
@@ -60,6 +61,7 @@ export function registerRunRoutes(scope: FastifyInstance, plans: SqlitePlanStore
           properties: {
             planId: { type: 'string', minLength: 1, maxLength: 64 },
             result: { type: 'string', enum: [...RUN_RESULTS] },
+            limit: { type: 'integer', minimum: 1, maximum: RECENT_RUNS_LIMIT },
           },
         },
       },
@@ -67,13 +69,13 @@ export function registerRunRoutes(scope: FastifyInstance, plans: SqlitePlanStore
     async (req, reply) => {
       if (!req.session) return reply.code(401).send({ error: 'unauthenticated' });
       if (!plans) return reply.code(503).send({ error: 'plans_unavailable' });
-      const { planId, result } = req.query;
+      const { planId, result, limit = RECENT_RUNS_LIMIT } = req.query;
       const items = plans.listRecentRuns({
         ...(planId !== undefined && { planId }),
         ...(result !== undefined && { result }),
-        limit: RECENT_RUNS_LIMIT,
+        limit,
       });
-      return { items: items.map(runView), limit: RECENT_RUNS_LIMIT };
+      return { items: items.map(runView), limit };
     },
   );
 }

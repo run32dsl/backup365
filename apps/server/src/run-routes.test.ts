@@ -104,6 +104,17 @@ describe('GET /api/runs', () => {
     expect(body.items[0]!.result).toBe('running');
   });
 
+  it('returns only the requested number of runs, from 1 to 20 (home page: 5)', async () => {
+    const { app } = setup();
+    const { status, body } = await get(app, '?limit=2');
+    expect(status).toBe(200);
+    expect(body.items.map((r) => r.result)).toEqual(['running', 'failed']);
+    expect(body).toMatchObject({ limit: 2 });
+    for (const bad of ['0', '21', 'deux', '1.5']) {
+      expect((await get(app, `?limit=${bad}`)).status).toBe(400);
+    }
+  });
+
   it('refuses an unknown result, answers 401 without a session and is open to operators', async () => {
     const { app, raw } = setup();
     expect((await get(app, '?result=deleted')).status).toBe(400);

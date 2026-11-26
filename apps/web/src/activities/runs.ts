@@ -46,6 +46,8 @@ export interface RunsResponse {
 export interface RunsFilter {
   planId: string;
   result: RunResult | '';
+  /** Nombre d'exécutions (1 à 20) ; le serveur en rend 20 sans limite. */
+  limit?: number;
 }
 
 /** Dernières exécutions selon le filtre ; lève si la réponse n'est pas en 2xx. */
@@ -56,6 +58,7 @@ export async function fetchRuns(
   const params = new URLSearchParams();
   if (filter.planId) params.set('planId', filter.planId);
   if (filter.result) params.set('result', filter.result);
+  if (filter.limit !== undefined) params.set('limit', String(filter.limit));
   const query = params.toString();
   const res = await fetchFn(`/api/runs${query ? `?${query}` : ''}`);
   if (!res.ok) throw requestError(res);
