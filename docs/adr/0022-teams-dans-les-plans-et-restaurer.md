@@ -1,6 +1,7 @@
 # ADR 0022 : Teams dans les plans, la page Sources et Restaurer
 
-Statut : **proposé** (issue #34)
+Statut : **accepté** le 2026-11-26 par le Product Owner (issue #34) ; remise dans le canal
+d'origine reportée à #558
 
 ## Contexte
 
