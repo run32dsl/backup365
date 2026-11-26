@@ -1,5 +1,4 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import type { IndexedMail } from '@backup365/core';
 import { apiErrorFor, type Problem } from './apiError.js';
 import { ConfigurationLink } from './ConfigurationBlock.js';
 import { useAdmin } from './role.js';
@@ -25,16 +24,12 @@ import {
   startRestore,
   type RestoreJob,
 } from './restore.js';
-import { dateTimeOf, folderLabel, quoted } from './format.js';
+import { folderRows, recallRows, WhatHappens, type RestorableMail } from './restoreRows.js';
 import { Alert, Button, Dialog, ResultList } from './ui/index.js';
-import { transferTitle } from './transfer/model.js';
 import { TransferFlow } from './transfer/TransferFlow.js';
 import { DestinationChoice, TransferOutcome } from './transfer/TransferViews.js';
 
-export type RestorableMail = Pick<
-  IndexedMail,
-  'mailboxId' | 'messageId' | 'subject' | 'date' | 'folder'
->;
+export { copyBullet, folderRows, recallRows, type RestorableMail } from './restoreRows.js';
 
 /**
  * Message affiché sous le bouton quand la restauration n'est pas configurée : c'est le cas où
@@ -56,40 +51,6 @@ export function dialogTitle(job: RestoreJob | null): string {
   if (job.status === 'running') return T.runningTitle;
   return job.status === 'succeeded' ? T.succeededTitle : T.failedTitle;
 }
-
-/** Rappel du mail et de la boîte, commun aux états en cours, réussi et échoué. */
-export function recallRows(mail: RestorableMail): [string, string][] {
-  const date = dateTimeOf(mail.date);
-  const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
-  return [
-    ['Mail', date ? `${subject} · ${date} UTC` : subject],
-    ['Boîte', mail.mailboxId],
-  ];
-}
-
-/** Dossier d'origine du mail et dossier de destination, nouveau dans la boîte. */
-export function folderRows(
-  mail: RestorableMail,
-  folder: string,
-  failed = false,
-): [string, ReactNode][] {
-  return [
-    ['Dossier d’origine', folderLabel(mail.folder)],
-    failed
-      ? ['Dossier visé', folder]
-      : [
-          'Restauré dans le dossier',
-          <>
-            {folder}
-            <span className="meta-note">nouveau dossier créé dans la boîte</span>
-          </>,
-        ],
-  ];
-}
-
-/** Puce « Ce qui va se passer » : nomme le dossier de destination entre guillemets. */
-export const copyBullet = (folder: string): string =>
-  `Le mail sera copié dans le dossier ${quoted(folder)} de la boîte d’origine.`;
 
 /** Rappel du formulaire : les lignes des résultats, avec le dossier que la restauration créera. */
 export function formRows(mail: RestorableMail, now: number): [string, ReactNode][] {
@@ -302,11 +263,7 @@ export function RestoreAction({
       >
         Restaurer
       </Button>
-      <Dialog
-        open={open}
-        title={job === null && other ? transferTitle(subject) : dialogTitle(job)}
-        onClose={closePanel}
-      >
+      <Dialog open={open} title={dialogTitle(job)} onClose={closePanel}>
         {job === null && other && (
           <TransferFlow
             mail={mail}
@@ -330,12 +287,7 @@ export function RestoreAction({
               error={fieldError}
               onChange={setReason}
             />
-            <h3>Ce qui va se passer</h3>
-            <ul>
-              <li>{copyBullet(restoreFolderName(new Date(now)))}</li>
-              <li>Aucun mail existant ne sera modifié ni écrasé.</li>
-              <li>Le contenu du mail n’est jamais inscrit au journal d’audit.</li>
-            </ul>
+            <WhatHappens folder={restoreFolderName(new Date(now))} />
             {failure && <FailureAlert problem={failure} />}
             <div className="button-row dialog-actions">
               <Button variant="secondary" data-safe onClick={closePanel}>
@@ -350,7 +302,7 @@ export function RestoreAction({
         {job?.transfer && (
           <TransferOutcome
             job={{ ...job, transfer: job.transfer }}
-            subject={subject}
+            mail={mail}
             onClose={closePanel}
             onRetry={() => {
               setJob(null);

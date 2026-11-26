@@ -9,11 +9,25 @@ import {
   ReasonField,
   RunningProgress,
 } from '../RestoreJourney.js';
-import { failureCause, isOutcomeUncertain, RESTORE_MESSAGES, type RestoreJob } from '../restore.js';
+import {
+  failureCause,
+  formatDuration,
+  isOutcomeUncertain,
+  RESTORE_MESSAGES,
+  type RestoreJob,
+} from '../restore.js';
 import { RestoreFailureAlert, restoreFailureBanner, sdkRefusalCause } from '../restoreFailure.js';
+import { folderRows, recallRows, WhatHappens, type RestorableMail } from '../restoreRows.js';
 import { quoted } from '../format.js';
 import { Alert, Button, ChoiceGroup, FormField, ResultList } from '../ui/index.js';
-import { TRANSFER as T, accountLabel, confirmLabel, foundLabel, readWarning } from './model.js';
+import {
+  TRANSFER as T,
+  CONFIRM_LABEL,
+  accountLabel,
+  foundLabel,
+  readWarning,
+  transferBoxes,
+} from './model.js';
 
 /** Résultat de la recherche : pas encore lancée, en cours, en échec, ou les comptes trouvés. */
 export type SearchState = 'idle' | 'loading' | 'error' | Mailbox[];
@@ -60,6 +74,7 @@ export function DestinationChoice({
 
 /** A1. Destination : le choix « compte d'origine / autre compte », la recherche, le compte visé. */
 export function DestinationView({
+  recall,
   source,
   choice,
   query,
@@ -72,6 +87,8 @@ export function DestinationView({
   onCancel,
   onContinue,
 }: {
+  /** Mail et boîte d'origine, dans la liste libellée commune aux deux destinations. */
+  recall: [string, ReactNode][];
   source: Mailbox;
   choice: ReactNode;
   query: string;
@@ -93,10 +110,9 @@ export function DestinationView({
   };
   return (
     <form onSubmit={onContinue} noValidate>
-      <p>
-        <strong>Source :</strong>{' '}
-        <span className="wrap-anywhere">{`Boîte de ${accountLabel(source)}`}</span>
-      </p>
+      <div className="wrap-anywhere">
+        <ResultList rows={recall} />
+      </div>
       {choice}
       <FormField
         label={T.search}
@@ -152,17 +168,33 @@ export function DestinationView({
   );
 }
 
+/** « Annuler » puis « Précédent », devant l'action principale, comme à l'étape 1 (#574). */
+function CancelAndBack({ onCancel, onBack }: { onCancel: () => void; onBack: () => void }) {
+  return (
+    <>
+      <Button variant="secondary" data-safe onClick={onCancel}>
+        {B.cancel}
+      </Button>
+      <Button variant="secondary" data-safe onClick={onBack}>
+        {B.back}
+      </Button>
+    </>
+  );
+}
+
 /** A2. Motif : rappel d'audit et motif obligatoire. */
 export function ReasonView({
   reason,
   error,
   onReason,
+  onCancel,
   onBack,
   onContinue,
 }: {
   reason: string;
   error?: string | undefined;
   onReason: (r: string) => void;
+  onCancel: () => void;
   onBack: () => void;
   onContinue: (e: FormEvent<HTMLFormElement>) => void;
 }) {
@@ -175,32 +207,45 @@ export function ReasonView({
         error={error}
         onChange={onReason}
       />
-      <Actions
-        back={
-          <Button variant="secondary" data-safe onClick={onBack}>
-            {B.back}
-          </Button>
-        }
-      >
+      <Actions back={<CancelAndBack onCancel={onCancel} onBack={onBack} />}>
         <Button type="submit">{B.next}</Button>
       </Actions>
     </form>
   );
 }
 
-/** A3. Confirmation : récapitulatif source → destination, avertissement, puis « Restaurer vers… ». */
+/** Récapitulatif de la confirmation : la liste libellée de la boîte d'origine, puis le motif. */
+export function confirmRows(
+  mail: RestorableMail,
+  source: Mailbox,
+  target: Mailbox,
+  folder: string,
+  reason: string,
+): [string, ReactNode][] {
+  return [
+    ...recallRows(mail, transferBoxes(source, target)),
+    ...folderRows(mail, folder, false, true),
+    ['Motif', reason.trim()],
+  ];
+}
+
+/** A3. Confirmation : liste libellée, « Ce qui va se passer », avertissement, puis l'action. */
 export function ConfirmView({
   rows,
+  folder,
   targetName,
   sending,
   failure,
+  onCancel,
   onBack,
   onConfirm,
 }: {
-  rows: [string, string][];
+  rows: [string, ReactNode][];
+  folder: string;
   targetName: string;
   sending: boolean;
   failure?: Problem | undefined;
+  onCancel: () => void;
   onBack: () => void;
   onConfirm: () => void;
 }) {
@@ -209,44 +254,52 @@ export function ConfirmView({
       <div className="wrap-anywhere">
         <ResultList rows={rows} />
       </div>
-      <Alert tone="warning">{readWarning(targetName)}</Alert>
+      <WhatHappens folder={folder} transfer />
+      <Alert tone="warning">
+        <span className="wrap-anywhere">{readWarning(targetName)}</span>
+      </Alert>
       {sending && (
         <p role="status" className="sr-only">
           {T.sending}
         </p>
       )}
       {failure && <FailureAlert problem={failure} />}
-      <Actions
-        back={
-          <Button variant="secondary" data-safe onClick={onBack}>
-            {B.back}
-          </Button>
-        }
-      >
+      <Actions back={<CancelAndBack onCancel={onCancel} onBack={onBack} />}>
         <Button busy={sending} onClick={onConfirm}>
-          {confirmLabel(targetName)}
+          {CONFIRM_LABEL}
         </Button>
       </Actions>
     </>
   );
 }
 
-/** A4. Suivi puis résultat d'une restauration vers un autre compte. */
+/** A4. Suivi puis résultat : bandeau court et la même liste libellée que la boîte d'origine. */
 export function TransferOutcome({
   job,
-  subject,
+  mail,
   onClose,
   onRetry,
 }: {
   job: RestoreJob & { transfer: NonNullable<RestoreJob['transfer']> };
-  subject: string;
+  mail: RestorableMail;
   onClose: () => void;
   onRetry: () => void;
 }) {
-  const { sourceName, targetName } = job.transfer;
-  const folder = <p className="wrap-anywhere">{`Dossier : ${job.folder}`}</p>;
+  const { sourceName, targetId, targetName } = job.transfer;
+  const failed = job.status === 'failed';
+  const boxes = transferBoxes(
+    { id: job.mailboxId, displayName: sourceName },
+    { id: targetId, displayName: targetName },
+  );
+  const rows = (
+    <div className="wrap-anywhere">
+      <ResultList
+        rows={[...recallRows(mail, boxes), ...folderRows(mail, job.folder, failed, true)]}
+      />
+    </div>
+  );
   const close = (
-    <Button variant={job.status === 'failed' ? 'secondary' : 'primary'} onClick={onClose}>
+    <Button variant={failed ? 'secondary' : 'primary'} onClick={onClose}>
       Fermer
     </Button>
   );
@@ -259,7 +312,7 @@ export function TransferOutcome({
     return (
       <>
         <RunningProgress detail={`Restauration vers ${targetName}`} />
-        {folder}
+        {rows}
         <Actions back={audit}>{close}</Actions>
       </>
     );
@@ -267,14 +320,13 @@ export function TransferOutcome({
   if (job.status === 'succeeded') {
     return (
       <>
-        <Alert tone="success">
-          {`${quoted(subject)} de ${sourceName} a été restauré vers ${targetName}.`}
-        </Alert>
-        {folder}
+        <Alert tone="success">Mail restauré en {formatDuration(job.durationMs ?? 0)}.</Alert>
+        {rows}
         <Actions back={audit}>{close}</Actions>
       </>
     );
   }
+  const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
   const uncertain = isOutcomeUncertain(job.error);
   const destination = `la boîte de ${targetName}`;
   return (
@@ -292,6 +344,7 @@ export function TransferOutcome({
           uncertain,
         })}
       />
+      {rows}
       <Actions back={audit}>
         {close}
         <Button onClick={onRetry}>{B.retry}</Button>

@@ -43,14 +43,9 @@ const RESTORE_TIMEOUT_MS = 10 * 60_000;
 
 const pad = (n: number): string => String(n).padStart(2, '0');
 
-/** `Restauré par backup365 jj/mm/aaaa` (date UTC). */
+/** `Restauré par backup365 jj/mm/aaaa` (date UTC), dans la boîte d'origine comme chez un autre compte. */
 export function restoreFolderName(at: Date): string {
   return `Restauré par backup365 ${pad(at.getUTCDate())}/${pad(at.getUTCMonth() + 1)}/${at.getUTCFullYear()}`;
-}
-
-/** `Restauration de {source} jj-mm-aaaa` (date UTC) : dossier créé chez l'autre compte. */
-export function transferFolderName(sourceName: string, at: Date): string {
-  return `Restauration de ${sourceName} ${pad(at.getUTCDate())}-${pad(at.getUTCMonth() + 1)}-${at.getUTCFullYear()}`;
 }
 
 /** Champs système du motif d'audit d'une restauration vers un autre compte : de qui, vers qui. */
@@ -109,9 +104,8 @@ export class RestoreService {
       startedAt: new Date(startedMs).toISOString(),
       finishedAt: null,
       durationMs: null,
-      folder: transfer
-        ? transferFolderName(transfer.sourceName, new Date(startedMs))
-        : restoreFolderName(new Date(startedMs)),
+      // Même dossier quelle que soit la boîte visée (issue #574).
+      folder: restoreFolderName(new Date(startedMs)),
       error: null,
       ...(transfer ? { transfer } : {}),
     };

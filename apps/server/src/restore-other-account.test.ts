@@ -7,7 +7,7 @@ import {
   type MailRestorer,
 } from '@backup365/core';
 import { AtlasSdkMailRestorer } from './atlas-mail-restore.js';
-import { RestoreService, transferFolderName } from './restore-service.js';
+import { RestoreService } from './restore-service.js';
 import { SqliteSearchIndex } from './sqlite/sqlite-search-index.js';
 import { buildTestApp } from './test-support.js';
 
@@ -88,14 +88,14 @@ async function setup(
 const reason = 'Ticket INC-12345 : départ d’un agent';
 
 describe('restore a mail to another account', () => {
-  it('restores into the other mailbox, in a new dated folder named after the source', async () => {
+  it('restores into the other mailbox, in the same dated folder as an origin restore', async () => {
     const t = await setup('admin');
     const res = await t.post({ reason, targetMailbox: TARGET });
     expect(res.statusCode).toBe(202);
     const { job } = res.json<{ job: Record<string, unknown> }>();
     expect(job).toMatchObject({
       status: 'running',
-      folder: expect.stringMatching(/^Restauration de Camille Exemple \d\d-\d\d-\d{4}$/) as string,
+      folder: expect.stringMatching(/^Restauré par backup365 \d\d\/\d\d\/\d{4}$/) as string,
       transfer: { sourceName: 'Camille Exemple', targetId: TARGET, targetName: 'Dominique Fictif' },
     });
     // Le SDK reçoit la boîte de destination : sans elle, il restaurerait chez la source.
@@ -165,12 +165,6 @@ describe('restore a mail to another account', () => {
 });
 
 describe('transfer support', () => {
-  it('names the folder after the source with a dd-mm-yyyy UTC date', () => {
-    expect(transferFolderName('Camille Exemple', new Date('2026-11-26T23:30:00Z'))).toBe(
-      'Restauration de Camille Exemple 26-11-2026',
-    );
-  });
-
   it('passes targetMailbox to the SDK only for another account', async () => {
     const seen: unknown[] = [];
     const restorer = new AtlasSdkMailRestorer({
