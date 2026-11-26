@@ -36,6 +36,11 @@ export interface Overview {
     /** Plans « en échec » et « en retard », au sens de la liste des plans. */
     failed: number;
     late: number;
+    /**
+     * Plans sans aucune exécution terminée (jamais lancés, ou première exécution en cours) : ni à
+     * jour, ni en retard, ni en échec ; ils attendent leur première sauvegarde.
+     */
+    waiting: number;
   };
   /** Fin de la dernière exécution réussie, tous plans confondus ; `null` si aucune. */
   lastBackupAt: string | null;
@@ -93,6 +98,7 @@ export function registerOverviewRoutes(
     let failed = 0;
     let failedPlans = 0;
     let latePlans = 0;
+    let waiting = 0;
     const now = new Date();
     let ran = 0;
     let running = 0;
@@ -124,7 +130,9 @@ export function registerOverviewRoutes(
         plan,
         rows,
       ).state;
-      if (compliance === 'failed' || runs[0]?.status === 'failed') failedPlans += 1;
+      // Sans exécution terminée, un plan n'a pas encore de retard : il attend (#600).
+      if (!latest) waiting += 1;
+      else if (compliance === 'failed' || runs[0]?.status === 'failed') failedPlans += 1;
       else if (compliance === 'compliant') operational += 1;
       else latePlans += 1;
       // Mêmes règles que `GET /api/plans` : en cours prime, la file est celle du planificateur.
@@ -159,6 +167,7 @@ export function registerOverviewRoutes(
         queued,
         failed: failedPlans,
         late: latePlans,
+        waiting,
       },
       lastBackupAt,
       lastBackupPlan,

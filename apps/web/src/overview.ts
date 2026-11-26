@@ -11,6 +11,8 @@ export interface Overview {
     /** Plans en échec et en retard, comme dans la liste des plans. */
     failed: number;
     late: number;
+    /** Plans sans aucune exécution terminée : ni à jour, ni en retard, ni en échec. */
+    waiting: number;
   };
   lastBackupAt: string | null;
   /** Nom du plan de cette exécution. */

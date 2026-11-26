@@ -77,6 +77,14 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   exécution en cours ; connexion Microsoft 365 à configurer, ni échéance ni lancement. Les
   captures simulent `overview`, `plans` et `runs` à partir d'un même scénario (`homeAs` dans
   `e2e/screens.mjs`), avec les règles du serveur ; les tuiles restent celles du catalogue de démo.
+- Issue #600 : `plans.waiting` compte les plans sans aucune exécution terminée (jamais lancés, ou
+  première exécution en cours) ; ils ne sont comptés ni à jour, ni en retard, ni en échec. Quand
+  tous les plans attendent, la carte « Plans » porte la pastille « En attente » de la carte
+  « Sauvegarde » et « 1 plan, en attente de sa première sauvegarde » ; sinon une pastille
+  « En attente » avec leur nombre s'ajoute aux autres. « Dernière sauvegarde » reprend la phrase
+  « Aucune sauvegarde n'est encore terminée. », « Derniers événements » n'a plus de lien
+  « Tout voir dans Activités » quand la liste est vide, et la ligne d'aide de « Prochaine
+  sauvegarde » dit « Calculée d'après la fréquence de vos plans. », sans sigle.
 
 ### Sites SharePoint sauvegardés (issue #31)
 

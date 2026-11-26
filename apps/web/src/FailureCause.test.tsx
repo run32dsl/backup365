@@ -165,7 +165,15 @@ describe('plans card of the dashboard', () => {
     renderToStaticMarkup(<OverviewView state={overview(plans)} admin={admin} onRetry={noop} />);
 
   it('names the failed and late plans with pills, not in the counter text', () => {
-    const plans = { total: 4, operational: 2, running: 0, queued: 0, failed: 1, late: 1 };
+    const plans = {
+      total: 4,
+      operational: 2,
+      running: 0,
+      queued: 0,
+      failed: 1,
+      late: 1,
+      waiting: 0,
+    };
     const page = render(plans, false);
     const html = page.slice(page.indexOf('>Plans<'), page.indexOf('>Dernière sauvegarde<'));
     expect(html).toContain('2 plans à jour sur 4</p>');
@@ -176,7 +184,15 @@ describe('plans card of the dashboard', () => {
   });
 
   it('without plan: one plain line, no empty state and no button, for both roles', () => {
-    const none = { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 };
+    const none = {
+      total: 0,
+      operational: 0,
+      running: 0,
+      queued: 0,
+      failed: 0,
+      late: 0,
+      waiting: 0,
+    };
     for (const admin of [true, false]) {
       const html = render(none, admin);
       expect(html).toContain('<p>Aucun plan pour l’instant.</p>');

@@ -12,6 +12,7 @@ import {
   lateMessage,
   loadOverview,
   plansLabel,
+  waitingLabel,
   type OverviewState,
 } from './Home.js';
 import { fetchHealth } from './health.js';
@@ -25,7 +26,7 @@ const render = (state: Parameters<typeof OverviewView>[0]['state'], admin = true
 
 const operational: Overview = {
   state: 'operational',
-  plans: { total: 4, operational: 4, running: 0, queued: 0, failed: 0, late: 0 },
+  plans: { total: 4, operational: 4, running: 0, queued: 0, failed: 0, late: 0, waiting: 0 },
   lastBackupAt: '2026-11-18T14:02:00Z',
   lastBackupPlan: 'Boîtes mail, quotidien',
   lastFailure: null,
@@ -33,7 +34,7 @@ const operational: Overview = {
 };
 const unconfigured: Overview = {
   state: 'unconfigured',
-  plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
+  plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0, waiting: 0 },
   lastBackupAt: null,
   lastBackupPlan: null,
   lastFailure: null,
@@ -41,7 +42,7 @@ const unconfigured: Overview = {
 };
 const pending: Overview = {
   state: 'pending',
-  plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
+  plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 0, waiting: 1 },
   lastBackupAt: null,
   lastBackupPlan: null,
   lastFailure: null,
@@ -49,7 +50,7 @@ const pending: Overview = {
 };
 const failed: Overview = {
   state: 'failed',
-  plans: { total: 4, operational: 2, running: 0, queued: 0, failed: 1, late: 1 },
+  plans: { total: 4, operational: 2, running: 0, queued: 0, failed: 1, late: 1, waiting: 0 },
   lastBackupAt: '2026-11-16T02:00:00Z',
   lastBackupPlan: 'Boîtes mail, quotidien',
   lastFailure: { plan: 'Boîte direction, quotidien', at: '2026-11-24T18:58:30Z' },
@@ -93,7 +94,7 @@ describe('OverviewView, late backups', () => {
   it('counts the plan covering the late backup as late on the Plans card (#495)', () => {
     const html = render({
       ...operational,
-      plans: { total: 2, operational: 1, running: 0, queued: 0, failed: 0, late: 1 },
+      plans: { total: 2, operational: 1, running: 0, queued: 0, failed: 0, late: 1, waiting: 0 },
       lateBackups: [oneDrive],
     });
     expect(html).not.toContain('2 plans à jour sur 2');
@@ -139,9 +140,7 @@ describe('OverviewView', () => {
     expect(html).toContain('Non configurée');
     expect(html.match(/protégée/g)).toHaveLength(1);
     expect(html).toContain('<p>Aucun plan pour l’instant.</p>');
-    expect(html).toContain(
-      'Aucune sauvegarde pour l’instant. Elle apparaîtra ici après la première exécution d’un plan.',
-    );
+    expect(html).toContain('<p>Aucune sauvegarde n’est encore terminée.</p>');
     expect(html.match(/<button/g)).toHaveLength(1);
     const backupCard = html.split('<section')[1] ?? '';
     expect(backupCard).toContain('Créer un plan</button>');
@@ -196,11 +195,28 @@ describe('OverviewView', () => {
       expect(html).toContain('role="status"');
       expect(html.match(/<button/g)).toHaveLength(1);
       expect(html).toContain('Aucune sauvegarde n’est encore terminée.');
-      expect(html).toContain('0 plan à jour sur 1');
       expect(html).toContain('Voir les plans');
+      // #600 : les cartes ne se contredisent pas, une seule phrase pour la même absence.
+      const cards = html.split('<section').slice(1);
+      expect(cards[1]).toContain('<span aria-hidden="true">◷</span> En attente');
+      expect(cards[1]).toContain('1 plan, en attente de sa première sauvegarde');
+      expect(cards[1]).not.toContain('En retard');
+      expect(cards[1]).not.toContain('à jour');
+      expect(cards[2]).toContain('<p>Aucune sauvegarde n’est encore terminée.</p>');
+      expect(html.match(/Aucune sauvegarde n’est encore terminée\./g)).toHaveLength(2);
       expect(html.match(/<section/g)).toHaveLength(3);
       expect(html).not.toContain('Erreur inattendue');
     }
+  });
+
+  it('a plan without any finished run beside others: counted En attente, never late (#600)', () => {
+    const plans = { ...operational.plans, total: 2, operational: 1, waiting: 1 };
+    const card = render({ ...operational, plans }).split('<section')[2] ?? '';
+    expect(card).toContain('1 plan à jour sur 2');
+    expect(card).toContain(
+      '<span aria-hidden="true">◷</span> En attente</span> <strong>1</strong>',
+    );
+    expect(card).not.toContain('En retard');
   });
 
   it('failed: Voir l’erreur and Voir les plans buttons, a plain message, last success date', () => {
@@ -253,7 +269,7 @@ describe('OverviewView', () => {
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(card.match(/class="badge /g)).toHaveLength(4);
     expect(card).toContain('2 plans à jour sur 4</p>');
-    const none = render({ ...failed, plans: { ...failed.plans, failed: 0, late: 0 } });
+    const none = render({ ...failed, plans: { ...failed.plans, failed: 0, late: 0, waiting: 0 } });
     expect(none).not.toContain('plan-counts');
   });
 
@@ -326,6 +342,8 @@ describe('labels', () => {
     expect(plansLabel(1, 1)).toBe('1 plan à jour sur 1');
     expect(plansLabel(0, 3)).toBe('0 plan à jour sur 3');
     expect(plansLabel(3, 4)).toBe('3 plans à jour sur 4');
+    expect(waitingLabel(1)).toBe('1 plan, en attente de sa première sauvegarde');
+    expect(waitingLabel(2)).toBe('2 plans, en attente de leur première sauvegarde');
   });
 
   it('writes the age in hours then days', () => {

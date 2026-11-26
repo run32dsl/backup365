@@ -367,9 +367,13 @@ describe('LatestEvents', () => {
     expect(fetchFn).toHaveBeenCalledWith('/api/runs?limit=20');
   });
   it('shows the empty and error states', () => {
-    expect(renderToStaticMarkup(<LatestEvents items={[]} onRetry={() => undefined} />)).toContain(
-      'Aucune exécution pour le moment.',
-    );
+    const empty = renderToStaticMarkup(<LatestEvents items={[]} onRetry={() => undefined} />);
+    expect(empty).toContain('Aucune exécution pour le moment.');
+    // #600 : pas de lien vers une liste vide.
+    expect(empty).not.toContain('Tout voir dans Activités');
+    expect(
+      renderToStaticMarkup(<LatestEvents items={[runItem()]} onRetry={() => undefined} />),
+    ).toContain('Tout voir dans Activités');
     const html = renderToStaticMarkup(<LatestEvents items="error" onRetry={() => undefined} />);
     expect(html).toContain('role="alert"');
     expect(html).toContain('Réessayer');
@@ -380,7 +384,7 @@ describe('HomeCoverage follows the three cards (#578)', () => {
   const now = new Date('2026-11-24T10:00:00Z');
   const overview = (state: Overview['state'], total: number): Overview => ({
     state,
-    plans: { total, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
+    plans: { total, operational: 0, running: 0, queued: 0, failed: 0, late: 0, waiting: 0 },
     lastBackupAt: null,
     lastBackupPlan: null,
     lastFailure: null,
@@ -442,6 +446,9 @@ describe('HomeCoverage follows the three cards (#578)', () => {
     expect(html).toContain('Boîtes protégées : 5');
     expect(html).toContain('Sauvegarder maintenant');
     expect(html).toContain('Réussie');
+    // #600 : pas de sigle technique sur l'accueil.
+    expect(html).toContain('Calculée d’après la fréquence de vos plans.');
+    expect(html).not.toContain('RPO');
   });
   it('nothing before the cards are known, nor after their error', () => {
     expect(render('loading')).toBe('');
