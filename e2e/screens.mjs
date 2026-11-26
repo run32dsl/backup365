@@ -476,8 +476,8 @@ export const SCREENS = [
     },
   },
   {
-    // Échec partiel du lancement : un plan refusé, bandeau lisible, motif conservé (#476). Les
-    // lancements sont simulés : la démo ne lance rien.
+    // Lancement partiel : un plan refusé, la boîte passe en résultat (bilan, plan non lancé,
+    // motif rappelé, seul « Fermer ») (#476, #596). Les lancements sont simulés.
     name: 'accueil-sauvegarder-maintenant-echec',
     hash: '#/',
     role: 'admin',
@@ -491,7 +491,7 @@ export const SCREENS = [
       });
       const dialog = await openRunAll(page);
       await dialog.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
-      await dialog.getByRole('alert').waitFor();
+      await page.getByRole('dialog', { name: 'Lancement partiel' }).waitFor();
     },
   },
   { name: 'accueil-en-echec-sombre', hash: '#/', role: 'admin', scheme: 'dark' },
