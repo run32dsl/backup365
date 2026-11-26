@@ -13,7 +13,9 @@ const mailOk: MailOutcome = { interrupted: false, summary: { folderErrors: [] } 
 const driveOk: DriveOutcome = { interrupted: false, summary: { healthy: true } };
 
 function fakeApi(
-  over: Partial<Record<'mail' | 'contacts' | 'drive' | 'site', () => Promise<unknown>>> = {},
+  over: Partial<
+    Record<'mail' | 'contacts' | 'calendar' | 'drive' | 'site', () => Promise<unknown>>
+  > = {},
 ) {
   const calls: string[] = [];
   const api = {
@@ -27,6 +29,12 @@ function fakeApi(
       backup: vi.fn((id: string) => {
         calls.push(`contacts:${id}`);
         return (over.contacts ?? (() => Promise.resolve(driveOk)))() as Promise<DriveOutcome>;
+      }),
+    },
+    calendar: {
+      backup: vi.fn((id: string) => {
+        calls.push(`calendar:${id}`);
+        return (over.calendar ?? (() => Promise.resolve(driveOk)))() as Promise<DriveOutcome>;
       }),
     },
     onedrive: {
@@ -250,6 +258,57 @@ describe('AtlasExecuteur, contacts (#543)', () => {
     const { executeur } = fakeApi({ contacts: () => Promise.resolve(driveEmpty) });
     await expect(
       executeur.execute({ planId: 'p', itemId: 'u1', dataTypes: ['contacts'] }),
+    ).resolves.toEqual({ noSnapshotReason: 'no_content' });
+  });
+});
+
+describe('AtlasExecuteur, calendar (#544)', () => {
+  it('backs up the calendar of a mailbox after contacts and before OneDrive', async () => {
+    const { api, calls, executeur } = fakeApi({
+      calendar: () => Promise.resolve({ ...driveOk, snapshot: { totalSizeBytes: 700 } }),
+    });
+    const result = await executeur.execute({
+      planId: 'p',
+      itemId: 'u1',
+      dataTypes: ['mail', 'contacts', 'calendar', 'onedrive'],
+    });
+    expect(calls).toEqual(['mail:u1', 'contacts:u1', 'calendar:u1', 'onedrive:u1']);
+    // Un seul argument : boîte d'origine, le SDK choisit seul complète ou incrémentale.
+    expect(api.calendar.backup.mock.calls[0]).toEqual(['u1']);
+    expect(result).toEqual({ sourceBytes: 700 });
+  });
+
+  it('does not back up the calendar when the plan lacks it, nor for a site', async () => {
+    const owner = fakeApi();
+    await owner.executeur.execute({
+      planId: 'p',
+      itemId: 'u1',
+      dataTypes: ['mail', 'contacts', 'onedrive'],
+    });
+    expect(owner.api.calendar.backup).not.toHaveBeenCalled();
+    const site = fakeApi();
+    await site.executeur.execute({
+      planId: 'p',
+      itemId: 'site-1',
+      dataTypes: ['calendar', 'sharepoint'],
+    });
+    expect(site.calls).toEqual(['sharepoint:site-1']);
+  });
+
+  it('fails the run when the calendar backup has errors, after trying the other charges', async () => {
+    const { calls, executeur } = fakeApi({
+      calendar: () => Promise.resolve({ interrupted: false, summary: { healthy: false } }),
+    });
+    await expect(
+      executeur.execute({ planId: 'p', itemId: 'u1', dataTypes: ['calendar', 'onedrive'] }),
+    ).rejects.toMatchObject({ code: 'backup_errors' });
+    expect(calls).toEqual(['calendar:u1', 'onedrive:u1']);
+  });
+
+  it('reports no_content when a calendar-only plan finds no event', async () => {
+    const { executeur } = fakeApi({ calendar: () => Promise.resolve(driveEmpty) });
+    await expect(
+      executeur.execute({ planId: 'p', itemId: 'u1', dataTypes: ['calendar'] }),
     ).resolves.toEqual({ noSnapshotReason: 'no_content' });
   });
 });

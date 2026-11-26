@@ -1,8 +1,8 @@
 import { DATA_TYPES, type DataType } from '@backup365/core';
 import {
+  CALENDAR_HELP,
   CONTACTS_HELP,
   DATA_TYPE_LABELS,
-  MAIL_HELP,
   type FormErrors,
   type Mailbox,
   type PlanForm,
@@ -11,7 +11,10 @@ import { ChoiceGroup, FormField } from '../../ui/index.js';
 import { ErrorText } from '../ErrorText.js';
 
 /** Aide sous une case de charge, quand elle en a une. */
-const HELP: Partial<Record<DataType, string>> = { mail: MAIL_HELP, contacts: CONTACTS_HELP };
+const HELP: Partial<Record<DataType, string>> = {
+  contacts: CONTACTS_HELP,
+  calendar: CALENDAR_HELP,
+};
 
 function toggle<T>(list: T[], item: T): T[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];

@@ -72,6 +72,7 @@ export const folderLabel = (folder: string): string =>
 const WORKLOADS: Record<string, string> = {
   mail: 'Messagerie',
   contacts: 'Contacts',
+  calendar: 'Agenda',
   onedrive: 'OneDrive',
   sharepoint: 'SharePoint',
   teams: 'Teams',

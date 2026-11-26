@@ -28,7 +28,7 @@ export interface PlanForm {
   justification: string;
 }
 
-/** Valeurs par défaut sûres : tout protégé sauf les contacts (à cocher), 12 h, 24 h, 1 an. */
+/** Valeurs par défaut sûres : tout protégé sauf contacts et agenda (à cocher), 12 h, 24 h, 1 an. */
 export function emptyForm(): PlanForm {
   return {
     name: '',

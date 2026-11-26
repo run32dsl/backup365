@@ -8,13 +8,13 @@ export const DEFAULT_RPO_HOURS: RpoHours = 24;
 export type PlanScope = 'all' | 'selection';
 
 /**
- * Charges qu'un plan protège, dans l'ordre de l'accueil (ADR 0011). Le calendrier suit « mail » ;
- * les contacts sont une charge à part depuis le SDK 7.2.0 (issue #543).
+ * Charges qu'un plan protège, dans l'ordre de l'accueil (ADR 0011). Les contacts et l'agenda sont
+ * des charges à part depuis le SDK 7.2.0 (issues #543 et #544).
  */
-export const DATA_TYPES = ['mail', 'contacts', 'onedrive', 'sharepoint'] as const;
+export const DATA_TYPES = ['mail', 'contacts', 'calendar', 'onedrive', 'sharepoint'] as const;
 export type DataType = (typeof DATA_TYPES)[number];
 
-/** Charges d'un plan qui ne les précise pas : les contacts restent à cocher (issue #543). */
+/** Charges d'un plan qui ne les précise pas : contacts et agenda restent à cocher (#543, #544). */
 export const DEFAULT_DATA_TYPES: readonly DataType[] = ['mail', 'onedrive', 'sharepoint'];
 
 export interface ProtectionPlanInput {

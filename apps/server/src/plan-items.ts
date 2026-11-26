@@ -7,7 +7,7 @@ export interface PlanItemsCatalog {
 
 /**
  * Éléments d'un plan : la sélection telle quelle, ou pour « toute l'organisation » les boîtes
- * (messagerie, contacts, OneDrive) et les sites (SharePoint) selon les charges choisies. Un site jamais
+ * (messagerie, contacts, agenda, OneDrive) et les sites (SharePoint) selon les charges choisies. Un site jamais
  * sauvegardé n'est pas connu du catalogue : il n'est pas listé.
  */
 export async function listPlanItems(
