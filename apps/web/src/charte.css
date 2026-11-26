@@ -1361,6 +1361,15 @@ select[aria-disabled='true'] {
   justify-content: flex-end;
   margin-bottom: 0;
 }
+/* Noms et adresses longs (restauration vers un autre compte) : passent à la ligne sur mobile. */
+.wrap-anywhere {
+  overflow-wrap: anywhere;
+}
+/* Comptes trouvés : une liste verticale, un compte par ligne, à toutes les largeurs. */
+.account-results .choice-row {
+  flex-direction: column;
+  align-items: flex-start;
+}
 /* Parcours en étapes : retour à gauche, action principale à droite, à chaque étape. */
 .wizard-actions {
   display: flex;

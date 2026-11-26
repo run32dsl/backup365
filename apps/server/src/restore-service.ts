@@ -17,9 +17,19 @@ export interface RestoreJob {
   finishedAt: string | null;
   /** Durée mesurée ; `null` tant que la restauration est en cours. Alimente le RTO observé. */
   durationMs: number | null;
-  /** Dossier créé dans la boîte d'origine. */
+  /** Dossier créé dans la boîte visée. */
   folder: string;
   error: RestoreFailure | null;
+  /** Restauration vers la boîte d'un autre compte (docs/adr/0024) ; absent : boîte d'origine. */
+  transfer?: RestoreTransfer;
+}
+
+/** Comptes source et destination d'une restauration vers un autre compte. */
+export interface RestoreTransfer {
+  /** Nom d'affichage du compte source, repris dans le nom du dossier créé. */
+  sourceName: string;
+  targetId: string;
+  targetName: string;
 }
 
 export interface RestoreTarget {
@@ -37,6 +47,15 @@ const pad = (n: number): string => String(n).padStart(2, '0');
 export function restoreFolderName(at: Date): string {
   return `Restauré par backup365 ${pad(at.getUTCDate())}/${pad(at.getUTCMonth() + 1)}/${at.getUTCFullYear()}`;
 }
+
+/** `Restauration de {source} jj-mm-aaaa` (date UTC) : dossier créé chez l'autre compte. */
+export function transferFolderName(sourceName: string, at: Date): string {
+  return `Restauration de ${sourceName} ${pad(at.getUTCDate())}-${pad(at.getUTCMonth() + 1)}-${at.getUTCFullYear()}`;
+}
+
+/** Champs système du motif d'audit d'une restauration vers un autre compte : de qui, vers qui. */
+const transferFields = (mail: RestoreTarget, transfer: RestoreTransfer | undefined): string =>
+  transfer ? `from=${mail.mailboxId};to=${transfer.targetId};` : '';
 
 /**
  * Restaurations de mails : une à la fois par mail, en arrière-plan, la dernière de chaque mail
@@ -76,6 +95,7 @@ export class RestoreService {
     actor: string,
     mail: RestoreTarget,
     reason: string,
+    transfer?: RestoreTransfer,
   ): Promise<RestoreJob | 'in_progress'> {
     const key = this.key(mail.mailboxId, mail.messageId);
     const previous = this.jobs.get(key);
@@ -89,8 +109,11 @@ export class RestoreService {
       startedAt: new Date(startedMs).toISOString(),
       finishedAt: null,
       durationMs: null,
-      folder: restoreFolderName(new Date(startedMs)),
+      folder: transfer
+        ? transferFolderName(transfer.sourceName, new Date(startedMs))
+        : restoreFolderName(new Date(startedMs)),
       error: null,
+      ...(transfer ? { transfer } : {}),
     };
     // Réserve le mail avant tout `await` : deux demandes simultanées ne passent pas ensemble.
     this.jobs.set(key, job);
@@ -101,7 +124,7 @@ export class RestoreService {
         action: 'restore.request',
         resource: 'mail.restore',
         target: `${mail.mailboxId}/${mail.messageId}`,
-        reason,
+        reason: transfer ? `${transferFields(mail, transfer)}reason=${reason}` : reason,
       });
     } catch (err) {
       if (previous) this.jobs.set(key, previous);
@@ -138,7 +161,12 @@ export class RestoreService {
         }, this.options.timeoutMs ?? RESTORE_TIMEOUT_MS);
       });
       const outcome = await Promise.race([
-        this.options.restorer.restoreMessage(mail.snapshotId, mail.messageId, job.folder),
+        this.options.restorer.restoreMessage(
+          mail.snapshotId,
+          mail.messageId,
+          job.folder,
+          job.transfer?.targetId,
+        ),
         timeout,
       ]);
       if (outcome.errors > 0 || outcome.restored < 1) error = 'restore_error';
@@ -164,7 +192,7 @@ export class RestoreService {
         resource: 'mail.restore',
         target: `${mail.mailboxId}/${mail.messageId}`,
         count: error ? 0 : 1,
-        reason: `outcome=${done.status};duration_ms=${done.durationMs ?? 0};reason=${reason}`,
+        reason: `outcome=${done.status};duration_ms=${done.durationMs ?? 0};${transferFields(mail, job.transfer)}reason=${reason}`,
       });
     } catch {
       this.options.onError?.('audit_result_failed');

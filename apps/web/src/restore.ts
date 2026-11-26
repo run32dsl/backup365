@@ -16,6 +16,8 @@ export interface RestoreJob {
   durationMs: number | null;
   folder: string;
   error: RestoreError | null;
+  /** Restauration vers la boîte d'un autre compte (issue #546) ; absent : boîte d'origine. */
+  transfer?: { sourceName: string; targetId: string; targetName: string };
 }
 
 export type RestoreResult =
@@ -93,6 +95,9 @@ const SERVER_MESSAGES: Record<string, string> = {
   forbidden: RESTORE_MESSAGES.forbidden,
   restore_in_progress: RESTORE_MESSAGES.alreadyRunning,
   audit_unavailable: RESTORE_MESSAGES.auditUnavailable,
+  admin_required: 'Action réservée aux administrateurs.',
+  target_same: 'Choisissez un compte différent du compte d’origine.',
+  target_unknown: 'Ce compte n’a pas de boîte sauvegardée : choisissez-en un autre.',
 };
 
 function restoreUrl(mailboxId: string, messageId: string): string {
@@ -121,18 +126,22 @@ export async function fetchLastRestore(
   return ((await res.json()) as { last: RestoreJob | null }).last;
 }
 
-/** Lance la restauration avec son motif. `message` est en français, sans détail technique. */
+/**
+ * Lance la restauration avec son motif ; avec `targetMailbox`, dans la boîte de cet autre compte
+ * (administrateurs seulement). `message` est en français, sans détail technique.
+ */
 export async function startRestore(
   mailboxId: string,
   messageId: string,
   reason: string,
   fetchFn: typeof fetch = fetch,
+  targetMailbox?: string,
 ): Promise<RestoreResult> {
   try {
     const res = await fetchFn(restoreUrl(mailboxId, messageId), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ reason: reason.trim() }),
+      body: JSON.stringify({ reason: reason.trim(), ...(targetMailbox ? { targetMailbox } : {}) }),
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: unknown } | null;

@@ -65,7 +65,8 @@ describe('restore journey', () => {
 
   it('shows the reminder in the restore dialog only on the input step', () => {
     const text = source('RestoreAction.tsx');
-    expect(text).toContain('{job === null && <AuditReminder />}');
+    // Vers un autre compte (#546), le rappel est à l'étape « Motif » (transfer/TransferViews.tsx).
+    expect(text).toContain('{job === null && !other && <AuditReminder />}');
     expect(text.match(/<AuditReminder/g)).toHaveLength(1);
   });
 

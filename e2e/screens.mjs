@@ -49,6 +49,31 @@ async function openRestorePanel(page, n) {
   await page.getByRole('dialog', { name: 'Restaurer ce mail' }).waitFor();
 }
 
+/**
+ * Restauration vers un autre compte (issue #546, administrateur) : ouvre la boîte du mail n° `n`,
+ * choisit « Un autre compte » et lance la recherche `query` (Entrée).
+ */
+async function openOtherAccount(page, n, query) {
+  await openMailFor(page, n);
+  await page.getByRole('button', { name: /^Restaurer /u }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('radio', { name: 'Un autre compte' }).check();
+  await dialog.getByText('Étape 1 sur 3').waitFor();
+  await dialog.getByLabel('Rechercher un compte (nom ou adresse)').fill(query);
+  await dialog.getByLabel('Rechercher un compte (nom ou adresse)').press('Enter');
+  await dialog.getByText(/comptes? trouvés?\./u).waitFor();
+}
+
+/** Choisit le compte `account`, saisit un motif et va jusqu'à la confirmation (A3). */
+async function toOtherAccountConfirmation(page, account) {
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('radio', { name: account }).check();
+  await dialog.getByRole('button', { name: 'Continuer' }).click();
+  await dialog.getByLabel(RESTORE_REASON_LABEL).fill('Ticket INC-12345 : départ d’un agent');
+  await dialog.getByRole('button', { name: 'Continuer' }).click();
+  await dialog.getByText('Étape 3 sur 3').waitFor();
+}
+
 /** Saisit un motif et confirme la restauration. */
 async function confirmRestore(page) {
   const dialog = page.getByRole('dialog');
@@ -1258,6 +1283,37 @@ export const SCREENS = [
       await openRestorePanel(page, 25);
       await confirmRestore(page);
       await page.getByText(/Échec de la restauration de /u).waitFor();
+    },
+  },
+  {
+    // A1 de l'issue #546 : un administrateur choisit « Un autre compte » et cherche le compte.
+    name: 'restauration-autre-compte-destination',
+    hash: DEMO_MAIL_HASH,
+    role: 'admin',
+    prepare: async (page) => {
+      await openOtherAccount(page, 13, 'exemple.fr');
+    },
+  },
+  {
+    // A3 : récapitulatif source → destination (adresse longue : elle passe à la ligne).
+    name: 'restauration-autre-compte-confirmation',
+    hash: DEMO_MAIL_HASH,
+    role: 'admin',
+    prepare: async (page) => {
+      await openOtherAccount(page, 14, 'direction');
+      await toOtherAccountConfirmation(page, /^direction\.administrative/u);
+    },
+  },
+  {
+    // A4 : restauration terminée chez l'autre compte.
+    name: 'restauration-autre-compte-terminee',
+    hash: DEMO_MAIL_HASH,
+    role: 'admin',
+    prepare: async (page) => {
+      await openOtherAccount(page, 15, 'sophie');
+      await toOtherAccountConfirmation(page, /^sophie\.bernard/u);
+      await page.getByRole('button', { name: /^Restaurer vers /u }).click();
+      await page.getByRole('dialog', { name: 'Restauration terminée' }).waitFor();
     },
   },
   {

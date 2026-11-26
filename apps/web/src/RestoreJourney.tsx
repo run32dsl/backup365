@@ -64,6 +64,7 @@ export const REASON_EXAMPLES = {
   resetPassword: 'Ticket INC-12345 : mot de passe oublié',
   changeRole: 'Ticket INC-12345 : changement de poste',
   disableAccount: 'Ticket INC-12345 : départ de l’agent',
+  transfer: 'Ticket INC-12345 : départ d’un agent',
 } as const;
 
 /** Libellé du motif : « Motif <of> (obligatoire) », ex. « du lancement ». */

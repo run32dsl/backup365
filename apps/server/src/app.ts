@@ -239,7 +239,7 @@ export function buildApp({
   });
   void app.register((scope, _opts, done) => {
     registerMailRoutes(scope, searchIndex, mailContent, audit);
-    registerRestoreRoutes(scope, searchIndex, restore, audit);
+    registerRestoreRoutes(scope, searchIndex, restore, audit, catalog);
     done();
   });
   void app.register((scope, _opts, done) => {
