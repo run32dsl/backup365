@@ -5,15 +5,7 @@ import {
   pendingEntryError,
   type ReportFrequency,
 } from '../reports.js';
-import {
-  Alert,
-  Button,
-  ChoiceGroup,
-  Dialog,
-  EmptyState,
-  FormField,
-  StatusPill,
-} from '../ui/index.js';
+import { Alert, Button, ChoiceGroup, Dialog, EmptyState, FormField } from '../ui/index.js';
 
 /** Brouillon du formulaire : la liste des destinataires, la fréquence et l'alerte. */
 export interface ReportDraft {
@@ -28,11 +20,9 @@ export type TestResult = { ok: true; text: string } | { ok: false; text: string 
 /** Liste des destinataires saisis, chacun avec « Retirer » (confirmation). */
 function RecipientList({
   list,
-  disabled,
   onRemove,
 }: {
   list: string[];
-  disabled: boolean;
   onRemove: (address: string) => void;
 }) {
   const [removing, setRemoving] = useState<string | null>(null);
@@ -48,7 +38,6 @@ function RecipientList({
             <span className="recipient-address">{address}</span>
             <Button
               variant="danger"
-              disabled={disabled}
               aria-label={`Retirer ${address}`}
               onClick={() => {
                 setRemoving(address);
@@ -92,10 +81,9 @@ function RecipientList({
   );
 }
 
-/** Étapes 1 et 2 : régler, et éventuellement envoyer un essai. */
+/** Étapes 1 et 2 : régler, et éventuellement envoyer un essai. Affiché seulement envoi prêt. */
 export function ReportsForm({
   draft,
-  ready,
   error,
   testing,
   test,
@@ -105,8 +93,6 @@ export function ReportsForm({
   onContinue,
 }: {
   draft: ReportDraft;
-  /** Envoi prêt ; faux : champs grisés, pas de bouton d'essai. */
-  ready: boolean;
   error: string | null;
   testing: boolean;
   test: TestResult;
@@ -155,7 +141,6 @@ export function ReportsForm({
           type="email"
           autoComplete="off"
           value={entry}
-          disabled={!ready}
           placeholder="nom@domaine"
           error={entryError ?? error ?? undefined}
           onChange={(e) => {
@@ -164,32 +149,17 @@ export function ReportsForm({
           }}
           onKeyDown={onKeyDown}
           adornment={() => (
-            <Button variant="secondary" disabled={!ready} onClick={add}>
+            <Button variant="secondary" onClick={add}>
               Ajouter
             </Button>
           )}
         />
       </div>
       {list.length === 0 ? (
-        <EmptyState
-          action={
-            <Button
-              variant="secondary"
-              disabled={!ready}
-              onClick={() => {
-                field.current?.focus();
-              }}
-            >
-              Ajouter un destinataire
-            </Button>
-          }
-        >
-          {L.empty} <StatusPill status="pending" label="Rapport désactivé" />
-        </EmptyState>
+        <EmptyState>{L.empty}</EmptyState>
       ) : (
         <RecipientList
           list={list}
-          disabled={!ready}
           onRemove={(address) => {
             onChange({ ...draft, recipients: list.filter((a) => a !== address) });
           }}
@@ -200,8 +170,8 @@ export function ReportsForm({
         name="report-frequency"
         value={draft.frequency}
         options={[
-          { value: 'weekly', label: L.weekly, disabled: !ready },
-          { value: 'daily', label: L.daily, disabled: !ready },
+          { value: 'weekly', label: L.weekly },
+          { value: 'daily', label: L.daily },
         ]}
         help={L.contentHelp}
         onChange={(frequency) => {
@@ -214,7 +184,6 @@ export function ReportsForm({
           <input
             type="checkbox"
             checked={draft.failureAlert}
-            disabled={!ready}
             onChange={(e) => {
               onChange({ ...draft, failureAlert: e.currentTarget.checked });
             }}
@@ -225,14 +194,10 @@ export function ReportsForm({
       <Alert tone="info">{L.audit}</Alert>
       {error && <Alert tone="error">{error}</Alert>}
       <div className="button-row reports-actions">
-        {ready && (
-          <Button variant="secondary" busy={testing} onClick={unlessPending(onTest)}>
-            Envoyer un essai
-          </Button>
-        )}
-        <Button type="submit" disabled={!ready}>
-          Continuer
+        <Button variant="secondary" busy={testing} onClick={unlessPending(onTest)}>
+          Envoyer un essai
         </Button>
+        <Button type="submit">Continuer</Button>
       </div>
       <div role="status">
         {test?.ok && (

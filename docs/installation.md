@@ -162,7 +162,8 @@ sauvegardés par Atlas.
 La console peut envoyer un rapport quotidien ou hebdomadaire (lundi, vers 07:00 UTC) et une
 alerte à chaque échec de sauvegarde (Réglages, « Rapports par mail », ADR 0023). L'envoi passe par
 Microsoft Graph `sendMail`, avec l'application de la sauvegarde ci-dessus. Il reste désactivé
-tant que l'une de ces étapes manque, et l'écran le dit :
+tant que l'une de ces étapes manque ; l'écran les rappelle avec « Vérifier à nouveau » et
+n'affiche les réglages (destinataires, fréquence, alerte) qu'une fois l'envoi prêt :
 
 1. Dans Entra ID, ajouter à l'application la permission d'application **`Mail.Send`** (Microsoft
    Graph), puis accorder le consentement administrateur.
