@@ -3,8 +3,7 @@ import { requestIdOf } from './apiError.js';
 import {
   REPORT_LABELS as L,
   fetchReports,
-  lastSendLine,
-  parseRecipients,
+  lastSendSentence,
   recheckMailer,
   recipientsError,
   saveReports,
@@ -20,18 +19,18 @@ import { UNREACHABLE } from './session.js';
 import { Alert, Button, SettingsNav } from './ui/index.js';
 
 const draftOf = (s: ReportSettings): ReportDraft => ({
-  text: s.recipients.join(', '),
+  recipients: [...s.recipients],
   frequency: s.frequency,
   failureAlert: s.failureAlert,
 });
 
-/** « Dernier envoi » : date, nature et résultat, jamais la couleur seule. */
+/** Dernier envoi : une phrase (nature et date) puis le résultat, jamais la couleur seule. */
 export function LastSendStatus({ view }: { view: ReportsView }) {
   const send = view.lastSend;
-  if (!send) return <p className="field-help">Dernier envoi : aucun pour l’instant.</p>;
+  if (!send) return <p className="field-help">Aucun rapport envoyé pour l’instant.</p>;
   return (
     <p className="field-help">
-      Dernier envoi : {lastSendLine(send)}{' '}
+      {lastSendSentence(send)}{' '}
       <span className={`badge badge-${send.ok ? 'ok' : 'err'}`}>
         <span aria-hidden="true">{send.ok ? '✔' : '✖'}</span> {send.ok ? 'Envoyé' : 'En échec'}
       </span>
@@ -44,7 +43,7 @@ export function ReportsPage() {
   const [view, setView] = useState<ReportsView | 'loading' | 'error'>('loading');
   const [requestId, setRequestId] = useState<string>();
   const [draft, setDraft] = useState<ReportDraft>({
-    text: '',
+    recipients: [],
     frequency: 'weekly',
     failureAlert: true,
   });
@@ -55,7 +54,7 @@ export function ReportsPage() {
   const [test, setTest] = useState<TestResult>(null);
   const [saved, setSaved] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
-  const field = useRef<HTMLTextAreaElement>(null);
+  const field = useRef<HTMLInputElement>(null);
 
   const load = useCallback((keepDraft = false) => {
     fetchReports().then(
@@ -104,7 +103,7 @@ export function ReportsPage() {
   }
 
   const ready = view.mailer.state === 'ready';
-  const recipients = parseRecipients(draft.text);
+  const recipients = draft.recipients;
   const settings: ReportSettings = { ...draft, recipients };
   // Vider la liste désactive les rapports, mais seulement s'il y avait déjà des destinataires.
   const check = (required: boolean) => {
@@ -198,6 +197,7 @@ export function ReportsPage() {
           field={field}
           onChange={(next) => {
             setSaved(false);
+            setError(null);
             setDraft(next);
           }}
           onTest={onTest}

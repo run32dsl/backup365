@@ -2,13 +2,17 @@ import { createRef } from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { navEntries, screenFor } from './app/routing.js';
+import { LastSendStatus } from './ReportsPage.js';
 import {
   FIELD_ERRORS,
-  parseRecipients,
+  addRecipient,
+  lastSendSentence,
+  pendingEntryError,
   recapLines,
   recipientsError,
   sendTestReport,
   testSentMessage,
+  type ReportsView,
 } from './reports.js';
 import { MailerNotice } from './reports/MailerNotice.js';
 import { isDeliveryFailure } from './reports/ReportFailureNotice.js';
@@ -17,10 +21,10 @@ import { SettingsNav } from './ui/index.js';
 
 const noop = () => undefined;
 
-function form(ready: boolean, text = 'marie.durand@exemple.invalid') {
+function form(ready: boolean, recipients = ['marie.durand@exemple.invalid']) {
   return renderToString(
     <ReportsForm
-      draft={{ text, frequency: 'weekly', failureAlert: true }}
+      draft={{ recipients, frequency: 'weekly', failureAlert: true }}
       ready={ready}
       error={null}
       testing={false}
@@ -34,11 +38,27 @@ function form(ready: boolean, text = 'marie.durand@exemple.invalid') {
 }
 
 describe('report recipients', () => {
-  it('splits on commas and new lines and drops duplicates', () => {
-    expect(parseRecipients('a@x.invalid, b@x.invalid\nA@x.invalid;\n')).toEqual([
-      'a@x.invalid',
-      'b@x.invalid',
-    ]);
+  it('adds one trimmed address at the end of the list', () => {
+    expect(addRecipient(['a@x.invalid'], '  b@x.invalid ')).toEqual({
+      ok: true,
+      list: ['a@x.invalid', 'b@x.invalid'],
+    });
+  });
+
+  it('refuses an invalid, duplicate or extra address with the error to show under the field', () => {
+    expect(addRecipient([], 'nom')).toEqual({ ok: false, error: FIELD_ERRORS.invalid });
+    expect(addRecipient([], '')).toEqual({ ok: false, error: FIELD_ERRORS.invalid });
+    expect(addRecipient(['a@x.invalid'], 'A@X.invalid')).toEqual({
+      ok: false,
+      error: 'Cette adresse est déjà dans la liste.',
+    });
+    const full = Array.from({ length: 20 }, (_, i) => `r${i}@x.invalid`);
+    expect(addRecipient(full, 'z@x.invalid')).toEqual({ ok: false, error: FIELD_ERRORS.tooMany });
+  });
+
+  it('holds « Continuer » and the test while an address is typed but not added', () => {
+    expect(pendingEntryError('  ')).toBeNull();
+    expect(pendingEntryError('b@x.invalid')).toBe(FIELD_ERRORS.pending);
   });
 
   it('gives the field errors of the mock-up', () => {
@@ -103,15 +123,53 @@ describe('mail reports screen', () => {
   it('greys out the form and hides the test button while sending is not allowed', () => {
     const html = form(false);
     expect(html).not.toContain('Envoyer un essai');
-    expect(html).toMatch(/<textarea[^>]*disabled/u);
+    expect(html).toMatch(/<input[^>]*type="email"[^>]*disabled/u);
     expect(form(true)).toContain('Envoyer un essai');
+  });
+
+  it('writes each recipient once, in the list, with no text area', () => {
+    const html = form(true, ['marie.durand@exemple.invalid', 'paul.martin@exemple.invalid']);
+    expect(html).not.toContain('<textarea');
+    for (const address of ['marie.durand@exemple.invalid', 'paul.martin@exemple.invalid']) {
+      expect(html.split(`>${address}<`)).toHaveLength(2);
+    }
+    expect(html).toContain('>Ajouter un destinataire</label>');
+    expect(html).toMatch(/<p id="[^"]+" class="recipient-intro">Seules ces personnes/u);
   });
 
   it('names each « Retirer » and shows the empty state without recipient', () => {
     expect(form(true)).toContain('aria-label="Retirer marie.durand@exemple.invalid"');
-    const empty = form(true, '');
+    const empty = form(true, []);
     expect(empty).toContain('Aucun destinataire pour l’instant.');
-    expect(empty).toContain('Ajouter un destinataire');
+    expect(empty).toContain('>Ajouter un destinataire</button>');
+  });
+
+  it('gives the audit reminder as an information alert, with no typed glyph', () => {
+    const html = form(true);
+    expect(html).toMatch(
+      /<div class="alert alert-info" role="status"><span aria-hidden="true">ℹ<\/span><span class="alert-text">Chaque modification est inscrite au journal d’audit\.<\/span>/u,
+    );
+    expect(html).not.toContain('field-help reports-audit');
+  });
+
+  it('says the last send in a sentence, without the internal kind', () => {
+    const at = '2026-11-23T07:00:00.000Z';
+    expect(lastSendSentence({ at, kind: 'report', ok: true })).toBe(
+      'Dernier rapport envoyé le 23/11/2026 07:00 UTC',
+    );
+    expect(lastSendSentence({ at, kind: 'alert', ok: true })).toBe(
+      'Dernière alerte envoyée le 23/11/2026 07:00 UTC',
+    );
+    const view = {
+      settings: { recipients: [], frequency: 'weekly', failureAlert: true },
+      mailer: { state: 'ready', sender: 's@x.invalid' },
+      lastSend: { at, kind: 'report', ok: true },
+      plans: 1,
+    } satisfies ReportsView;
+    const html = renderToString(<LastSendStatus view={view} />);
+    expect(html).toContain('Dernier rapport envoyé le 23/11/2026 07:00 UTC');
+    expect(html).toContain('Envoyé');
+    expect(html).not.toMatch(/\((rapport|alerte)\)/u);
   });
 
   it('is a Réglages view for administrators only', () => {
