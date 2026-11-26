@@ -77,6 +77,11 @@ composant s'y ajoute avec ses tests de comportement.
   configuré. », sans « Sauvegarder maintenant ». Plans sans résultat : un `EmptyState`
   « Aucune sauvegarde n’est encore terminée. » à la place des tuiles, aucune exécution terminée
   listée. Connexion Microsoft 365 à configurer : ni échéance ni « Sauvegarder maintenant ».
+  Lancement de tous les plans avec au moins un refus : la boîte passe en résultat, comme
+  `RunDialog` (#596). Titre « Lancement partiel » (bandeau d'avertissement) ou « Lancement
+  impossible » (bandeau d'erreur) ; bilan en gras (« 3 sauvegardes lancées, 1 non lancée ») puis
+  les plans non lancés, raison en minuscule après les deux-points ; motif rappelé en lecture
+  seule ; seul « Fermer » reste.
   Tuiles de « Couverture du tenant » : dès 900 px, trois tuiles sur une ligne (libellé, chiffre,
   puis « Voir dans Sources → »). Sous 900 px, une seule colonne, comme les cartes : chaque tuile
   prend toute la largeur, le libellé à gauche et le chiffre à droite sur une ligne, puis « Voir

@@ -9,12 +9,17 @@ import {
   NextBackup,
   HomeCoverage,
   coverageOf,
-  launchedLabel,
   nextBackupAt,
   remainingLabel,
-  runAll,
   tileName,
 } from './HomeCoverage.js';
+import {
+  launchedLabel,
+  runAll,
+  runAllTitle,
+  RunAllOutcome,
+  type RunAllResult,
+} from './RunAllDialog.js';
 import { runSummary, runTypeLabel } from './LatestEventRow.js';
 import { fetchRuns, groupRuns, type RunItem } from './activities/runs.js';
 import type { HomeData } from './HomeData.js';
@@ -129,7 +134,7 @@ describe('runAll', () => {
     const result = await runAll([plan('a'), plan('b')], 'Test', run);
     expect(run).toHaveBeenCalledTimes(2);
     expect(run).toHaveBeenCalledWith('a', 'Test');
-    expect(result).toEqual({ launched: 1, failures: ['«\u202FPlan b\u202F» : Refusé'] });
+    expect(result).toEqual({ launched: 1, failures: ['«\u202FPlan b\u202F» : refusé'] });
     expect(launchedLabel(1)).toBe('1 sauvegarde lancée');
   });
   it('sends the reason trimmed of its spaces in each request body', async () => {
@@ -158,8 +163,52 @@ describe('runAll', () => {
     );
     expect(result.launched).toBe(1);
     expect(result.failures).toHaveLength(1);
-    expect(result.failures[0]).toContain('Une sauvegarde est déjà en cours pour ce plan.');
+    expect(result.failures[0]).toBe('« Plan b » : une sauvegarde est déjà en cours pour ce plan.');
     expect(result.failures.join()).not.toMatch(/run_in_progress|req-9|409/u);
+  });
+});
+
+describe('RunAllDialog result', () => {
+  const partial: RunAllResult = {
+    launched: 3,
+    failures: ['« Boîtes mail, quotidien » : une sauvegarde est déjà en cours pour ce plan.'],
+  };
+  it('titles a partial launch and gives the tally and the plan not launched with its reason', () => {
+    expect(runAllTitle(partial)).toBe('Lancement partiel');
+    const html = renderToStaticMarkup(
+      <RunAllOutcome result={partial} reason=" Ticket INC-1 " onClose={() => {}} />,
+    );
+    expect(html).toContain('3 sauvegardes lancées, 1 non lancée');
+    expect(html).toContain(
+      '« Boîtes mail, quotidien » : une sauvegarde est déjà en cours pour ce plan.',
+    );
+    expect(html).toContain('alert-warning');
+    expect(html).toContain('<dt>Motif</dt><dd>Ticket INC-1</dd>');
+  });
+  it('titles a launch where nothing started « Lancement impossible »', () => {
+    const none: RunAllResult = { launched: 0, failures: ['« A » : refusé', '« B » : refusé'] };
+    expect(runAllTitle(none)).toBe('Lancement impossible');
+    const html = renderToStaticMarkup(
+      <RunAllOutcome result={none} reason="Test" onClose={() => {}} />,
+    );
+    expect(html).toContain('Aucune sauvegarde n’a été lancée.');
+    expect(html).toContain('alert-error');
+  });
+  it('leaves only « Fermer »: no reason field, no future sentence, no launch or cancel', () => {
+    const html = renderToStaticMarkup(
+      <RunAllOutcome result={partial} reason="Test" onClose={() => {}} />,
+    );
+    expect(html).not.toMatch(/<textarea|<input|seront lancés|Lancer la sauvegarde|Annuler/u);
+    expect(html.match(/<button/gu)).toHaveLength(1);
+    expect(html).toContain('Fermer');
+  });
+  it('keeps an acronym capitalised after the colon', async () => {
+    const result = await runAll([plan('a')], 'Test', () =>
+      Promise.resolve({ ok: false, message: 'URL refusée.' } as Awaited<
+        ReturnType<typeof runPlan>
+      >),
+    );
+    expect(result.failures[0]).toBe('« Plan a » : URL refusée.');
   });
 });
 

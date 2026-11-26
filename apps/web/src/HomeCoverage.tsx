@@ -1,14 +1,13 @@
 import { nextRunAt, type StatusRow } from '@backup365/core';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { RUNS_HASH, completeRuns, type RunItem } from './activities/runs.js';
-import { plural, quoted } from './format.js';
 import type { HomeData } from './HomeData.js';
-import { runPlan, runReasonError, type PlanItem } from './plans.js';
-import { REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
+import type { PlanItem } from './plans.js';
+import { RunAllDialog, launchedLabel } from './RunAllDialog.js';
 import { STATUS_HASH } from './routes.js';
 import { LatestEventRow, mailOnly, runTypeLabel } from './LatestEventRow.js';
 import type { Overview } from './overview.js';
-import { Alert, Button, Dialog, EmptyState } from './ui/index.js';
+import { Alert, Button, EmptyState } from './ui/index.js';
 
 /** Éléments sauvegardés par service : au moins un instantané, tous types de données confondus. */
 export interface Coverage {
@@ -89,120 +88,6 @@ export function remainingLabel(at: Date, now: Date): string {
   const h = Math.floor(minutes / 60);
   const m = String(minutes % 60).padStart(2, '0');
   return h === 0 ? `${minutes} min` : `${h} h ${m}`;
-}
-
-/** `1 sauvegarde lancée`, `3 sauvegardes lancées`. */
-export const launchedLabel = (n: number): string =>
-  plural(n, 'sauvegarde lancée', 'sauvegardes lancées');
-
-/** Résultat du lancement de tous les plans : démarrés ou mis en file, et échecs (message du serveur). */
-export interface RunAllResult {
-  launched: number;
-  failures: string[];
-}
-
-/** Lance chaque plan l'un après l'autre avec le même motif (`POST /api/plans/:id/run`). */
-export async function runAll(
-  plans: readonly PlanItem[],
-  reason: string,
-  run: typeof runPlan = runPlan,
-): Promise<RunAllResult> {
-  const result: RunAllResult = { launched: 0, failures: [] };
-  for (const plan of plans) {
-    const outcome = await run(plan.id, reason);
-    if (outcome.ok) result.launched += 1;
-    else result.failures.push(`${quoted(plan.name)} : ${outcome.message}`);
-  }
-  return result;
-}
-
-function RunAllDialog({
-  plans,
-  open,
-  onClose,
-  onDone,
-  onReload,
-}: {
-  plans: readonly PlanItem[];
-  open: boolean;
-  onClose: () => void;
-  onDone: (result: RunAllResult) => void;
-  /** Échec partiel : le dialogue reste ouvert avec les échecs, la liste se recharge. */
-  onReload: () => void;
-}) {
-  const [reason, setReason] = useState('');
-  const [error, setError] = useState<string>();
-  const [failures, setFailures] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    if (open) {
-      setReason('');
-      setError(undefined);
-      setFailures([]);
-      setBusy(false);
-    }
-  }, [open]);
-  return (
-    <Dialog
-      open={open}
-      title="Sauvegarder maintenant"
-      onClose={() => {
-        // Fermer ne coupe pas les lancements en cours : on attend leur fin.
-        if (!busy) onClose();
-      }}
-    >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (busy) return;
-          const missing = runReasonError(reason);
-          setError(missing);
-          if (missing !== undefined) return;
-          setBusy(true);
-          setFailures([]);
-          void runAll(plans, reason).then((result) => {
-            setBusy(false);
-            if (result.failures.length === 0) onDone(result);
-            else {
-              setFailures(result.failures);
-              if (result.launched > 0) onReload();
-            }
-          });
-        }}
-      >
-        <ReasonField
-          of="du lancement"
-          placeholder={REASON_EXAMPLES.run}
-          value={reason}
-          error={error}
-          onChange={setReason}
-        />
-        <p>
-          {plural(plans.length, 'plan sera lancé', 'plans seront lancés')} maintenant. Le motif et
-          le lancement sont inscrits au journal d’audit.
-        </p>
-        {failures.length === 1 && <Alert tone="error">{failures[0]}</Alert>}
-        {failures.length > 1 && (
-          <Alert tone="error">
-            <ul className="alert-steps">
-              {failures.map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-            </ul>
-          </Alert>
-        )}
-        <div className="button-row dialog-actions">
-          <Button variant="secondary" data-safe disabled={busy} onClick={onClose}>
-            Annuler
-          </Button>
-          <Button type="submit" busy={busy}>
-            Lancer la sauvegarde
-          </Button>
-        </div>
-      </form>
-    </Dialog>
-  );
 }
 
 /** « Prochaine sauvegarde » et, pour l'administrateur, « Sauvegarder maintenant ». */
