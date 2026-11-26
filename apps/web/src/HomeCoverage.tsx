@@ -95,6 +95,7 @@ export function NextBackup({
   plans,
   admin,
   connected = true,
+  interrupted = false,
   now,
   onLaunched,
 }: {
@@ -102,6 +103,8 @@ export function NextBackup({
   admin: boolean;
   /** Connexion Microsoft 365 à configurer : aucune échéance annoncée, aucun lancement proposé. */
   connected?: boolean;
+  /** Connexion configurée puis interrompue : elle est à rétablir, non à configurer (#604). */
+  interrupted?: boolean;
   now: Date;
   onLaunched: () => void;
 }) {
@@ -118,7 +121,8 @@ export function NextBackup({
       {Array.isArray(plans) && next === null && <p>Aucun plan de protection n’est configuré.</p>}
       {next && !connected && (
         <p>
-          Aucune sauvegarde ne partira tant que la connexion Microsoft 365 n’est pas configurée.
+          Aucune sauvegarde ne partira tant que la connexion Microsoft 365 n’est pas{' '}
+          {interrupted ? 'rétablie' : 'configurée'}.
         </p>
       )}
       {next && connected && (
@@ -233,6 +237,7 @@ export function HomeCoverage({
   data,
   admin,
   connected = true,
+  interrupted = false,
   now = new Date(),
   onLaunched,
   onRetryEvents,
@@ -240,8 +245,10 @@ export function HomeCoverage({
   overview: Overview | 'loading' | 'error';
   data: HomeData;
   admin: boolean;
-  /** Faux quand la connexion Microsoft 365 est à configurer. */
+  /** Faux quand la connexion Microsoft 365 est à configurer ou interrompue. */
   connected?: boolean;
+  /** Connexion interrompue (au moins une exécution dans l'historique). */
+  interrupted?: boolean;
   now?: Date;
   onLaunched: () => void;
   onRetryEvents: () => void;
@@ -252,6 +259,7 @@ export function HomeCoverage({
       plans={plans}
       admin={admin}
       connected={connected}
+      interrupted={interrupted}
       now={now}
       onLaunched={onLaunched}
     />

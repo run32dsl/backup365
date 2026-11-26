@@ -282,6 +282,15 @@ async function homeAs(page, { plans, runs, lateBackups = [] }) {
   await page.getByRole('heading', { name: 'Prochaine sauvegarde', level: 2 }).waitFor();
 }
 
+/** Simule une console sans identifiants Microsoft 365 utilisables (`/api/configuration`). */
+async function unlinkMicrosoft(page) {
+  await page.route('**/api/configuration', (route) =>
+    route.fulfill({
+      json: { microsoft: { connected: false }, workloads: ['mail', 'onedrive'] },
+    }),
+  );
+}
+
 /** Plans de l'accueil simulé : ce que chacun protège. */
 const MAIL_PLAN = { name: 'Boîtes mail, quotidien', dataTypes: ['mail'] };
 const FILES_PLAN = { name: 'Fichiers, quotidien', dataTypes: ['onedrive', 'sharepoint'] };
@@ -591,18 +600,37 @@ export const SCREENS = [
     prepare: (page) => homeAs(page, { plans: [], runs: [] }),
   },
   {
-    // Démo exposée sans identifiants Microsoft 365 : le bloc montre les étapes côté serveur.
+    // Installation jamais terminée (aucune exécution) : le bloc montre les étapes côté serveur.
     name: 'tableau-de-bord-non-configure',
     hash: '#/',
     role: 'admin',
     prepare: async (page) => {
-      await page.route('**/api/configuration', (route) =>
-        route.fulfill({
-          json: { microsoft: { connected: false }, workloads: ['mail', 'onedrive'] },
-        }),
-      );
-      await page.reload();
+      await unlinkMicrosoft(page);
+      await homeAs(page, { plans: [MAIL_PLAN], runs: [] });
       await page.getByText('Connexion Microsoft 365 à configurer').waitFor();
+    },
+  },
+  {
+    // Connexion perdue après des sauvegardes (#604) : erreur, date de la dernière exécution.
+    name: 'accueil-connexion-interrompue',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      await unlinkMicrosoft(page);
+      await page.reload();
+      await page.getByRole('alert').getByText('Connexion Microsoft 365 interrompue').waitFor();
+      await page.getByRole('button', { name: 'Voir la conduite à tenir' }).waitFor();
+    },
+  },
+  {
+    name: 'plans-connexion-interrompue',
+    hash: '#/plans',
+    role: 'admin',
+    prepare: async (page) => {
+      await unlinkMicrosoft(page);
+      await page.reload();
+      await page.getByRole('alert').getByText('Connexion Microsoft 365 interrompue').waitFor();
+      await page.getByText('Lancement impossible tant que').first().waitFor();
     },
   },
   {

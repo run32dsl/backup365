@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { type Problem } from '../apiError.js';
+import { ConnectionInterrupted } from '../ConfigurationBlock.js';
 import { runReasonError, type Mailbox, type PlanItem } from '../plans.js';
 import { REASON_EXAMPLES, ReasonField } from '../RestoreJourney.js';
 import { Button, Dialog, ResultList } from '../ui/index.js';
@@ -11,21 +12,27 @@ export function isRunBlocked(problem: Problem | undefined): problem is Problem {
   return problem?.code === 'backup_not_configured';
 }
 
-/** Résultat d'un lancement impossible : avertissement, rappel de la demande, « Fermer ». */
+/**
+ * Résultat d'un lancement impossible : erreur, rappel de la demande, « Fermer ». Avec au moins une
+ * exécution dans l'historique (`since`), la connexion a été perdue : même bandeau que la page.
+ */
 export function RunBlocked({
   problem,
   planName,
   reason,
+  since = null,
   onClose,
 }: {
   problem: Problem;
   planName: string;
   reason: string;
+  /** Dernière exécution connue des plans ; `null` sans aucune exécution. */
+  since?: string | null;
   onClose: () => void;
 }) {
   return (
     <>
-      <PlanFailure problem={problem} />
+      {since !== null ? <ConnectionInterrupted since={since} /> : <PlanFailure problem={problem} />}
       <ResultList
         rows={[
           ['Plan', planName],
@@ -71,11 +78,14 @@ export function RunFeedback({
 export function RunDialog({
   plan,
   mailboxes,
+  since = null,
   onClose,
   onRun,
 }: {
   plan: PlanItem | null;
   mailboxes: readonly Mailbox[];
+  /** Dernière exécution connue des plans, pour un lancement refusé faute de connexion. */
+  since?: string | null;
   onClose: () => void;
   onRun: (plan: PlanItem, reason: string) => Promise<Problem | undefined>;
 }) {
@@ -103,6 +113,7 @@ export function RunDialog({
           problem={problem}
           planName={plan?.name ?? ''}
           reason={reason.trim()}
+          since={since}
           onClose={onClose}
         />
       ) : (

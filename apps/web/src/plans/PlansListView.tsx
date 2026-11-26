@@ -8,6 +8,7 @@ import {
   type PlanItem,
   type SourcesReport,
 } from '../plans.js';
+import { RUN_BLOCKED_TEXT } from '../ConfigurationBlock.js';
 import { Alert, Button, DataTable, EmptyState } from '../ui/index.js';
 import { goTo } from './goTo.js';
 import { planColumns } from './planColumns.js';
@@ -22,12 +23,15 @@ export function PlansListView({
   mailboxes = [],
   sources = null,
   failedOnly = false,
+  runBlocked = false,
   onRetry,
   onRun,
   onDelete,
 }: {
   state: PlansState;
   admin: boolean;
+  /** Connexion Microsoft 365 interrompue : aucun « Lancer maintenant », une phrase à la place. */
+  runBlocked?: boolean;
   /** Rapport d'état des sources : un plan en retard y nomme ses sources en retard. */
   sources?: SourcesReport | null;
   /** Réduit la liste aux plans en échec (s'il y en a) ; un lien rend la liste entière. */
@@ -121,7 +125,7 @@ export function PlansListView({
                 tone="error"
                 title={banner.title}
                 action={
-                  admin ? (
+                  admin && !runBlocked ? (
                     <Button
                       className="alert-run"
                       aria-label={`Lancer ${p.name} maintenant`}
@@ -137,7 +141,8 @@ export function PlansListView({
                 }
               >
                 {[banner.cause, banner.consequence, banner.advice].filter(Boolean).join(' ')}
-                {busy && (
+                {admin && runBlocked && <small className="state-note">{RUN_BLOCKED_TEXT}</small>}
+                {busy && !runBlocked && (
                   <small className="state-note" id={`banner-run-hint-${p.id}`}>
                     {p.running ? MESSAGES.runBusy : MESSAGES.runAlreadyQueued}
                   </small>
@@ -157,6 +162,7 @@ export function PlansListView({
           sources,
           { onRun, onDelete },
           filtered,
+          runBlocked,
         )}
         rows={filtered ? failed : state}
         rowKey={(p) => p.id}
