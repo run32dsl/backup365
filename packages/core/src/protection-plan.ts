@@ -8,11 +8,14 @@ export const DEFAULT_RPO_HOURS: RpoHours = 24;
 export type PlanScope = 'all' | 'selection';
 
 /**
- * Charges qu'un plan protège, dans l'ordre de l'accueil (ADR 0011). Le SDK ne sépare pas le
- * calendrier ni les contacts de la boîte : ils suivent « mail ».
+ * Charges qu'un plan protège, dans l'ordre de l'accueil (ADR 0011). Le calendrier suit « mail » ;
+ * les contacts sont une charge à part depuis le SDK 7.2.0 (issue #543).
  */
-export const DATA_TYPES = ['mail', 'onedrive', 'sharepoint'] as const;
+export const DATA_TYPES = ['mail', 'contacts', 'onedrive', 'sharepoint'] as const;
 export type DataType = (typeof DATA_TYPES)[number];
+
+/** Charges d'un plan qui ne les précise pas : les contacts restent à cocher (issue #543). */
+export const DEFAULT_DATA_TYPES: readonly DataType[] = ['mail', 'onedrive', 'sharepoint'];
 
 export interface ProtectionPlanInput {
   name: string;
@@ -78,7 +81,7 @@ export function parseProtectionPlanInput(raw: unknown): PlanParseResult {
     errors.push('Un périmètre « all » n’accepte pas de sélection.');
   }
 
-  let dataTypes: DataType[] = [...DATA_TYPES];
+  let dataTypes: DataType[] = [...DEFAULT_DATA_TYPES];
   if (raw.dataTypes !== undefined) {
     const given = raw.dataTypes;
     if (

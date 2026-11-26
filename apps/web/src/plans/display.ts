@@ -30,11 +30,13 @@ function emptyNote(
 ): string {
   const types = DATA_TYPES.filter((t) => plan.dataTypes.includes(t));
   const mailOnly = types.length === 1 && types[0] === 'mail';
+  // Messagerie et contacts vivent dans une boîte.
+  const inMailbox = (t: DataType) => t === 'mail' || t === 'contacts';
   if (plan.scope === 'all') {
     const found = (what: string, feminine: boolean) =>
       `${what} trouvé${feminine ? 'e' : ''} dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.`;
-    if (mailOnly) return found('Aucune boîte', true);
-    if (types.includes('mail')) return found('Aucune source', true);
+    if (types.every(inMailbox)) return found('Aucune boîte', true);
+    if (types.some(inMailbox)) return found('Aucune source', true);
     const nouns = types.map((t) => (t === 'onedrive' ? 'compte OneDrive' : 'site SharePoint'));
     return found(`Aucun ${nouns.join(' ni ')}`, false);
   }
@@ -50,9 +52,13 @@ function emptyNote(
       ? `Rien à sauvegarder dans les ${ids.length} boîtes choisies : vérifiez que ces boîtes existent et contiennent des mails.`
       : 'Rien à sauvegarder dans la boîte choisie : vérifiez qu’elle existe et contient des mails.';
   }
-  const nouns = types
-    .map((t) => (t === 'mail' ? 'boîte' : t === 'onedrive' ? 'compte OneDrive' : 'site SharePoint'))
-    .join(', ');
+  const nouns = [
+    ...new Set(
+      types.map((t) =>
+        inMailbox(t) ? 'boîte' : t === 'onedrive' ? 'compte OneDrive' : 'site SharePoint',
+      ),
+    ),
+  ].join(', ');
   return ids.length > 1
     ? `Rien à sauvegarder dans les ${ids.length} éléments choisis : vérifiez qu’ils existent (${nouns}) et contiennent des données.`
     : `Rien à sauvegarder dans l’élément choisi : vérifiez qu’il existe (${nouns}) et contient des données.`;
@@ -128,13 +134,14 @@ export function complianceView(
 export type SourcesReport = Pick<StatusReport, 'rows' | 'maxAgeHours' | 'generatedAt'>;
 
 /** Le service d'une ligne du catalogue : un site est toujours SharePoint. */
-export function serviceOf(r: StatusReport['rows'][number]): DataType {
+export function serviceOf(r: StatusReport['rows'][number]): Exclude<DataType, 'contacts'> {
   if (r.kind === 'site') return 'sharepoint';
   return r.workload === 'onedrive' ? 'onedrive' : 'mail';
 }
 
 export const UNIT_NAMES: Record<DataType, string> = {
   mail: 'boîte',
+  contacts: 'boîte',
   onedrive: 'compte',
   sharepoint: 'site',
 };

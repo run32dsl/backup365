@@ -1,5 +1,6 @@
 import { DATA_TYPES, type DataType } from '@backup365/core';
 import {
+  CONTACTS_HELP,
   DATA_TYPE_LABELS,
   MAIL_HELP,
   type FormErrors,
@@ -8,6 +9,9 @@ import {
 } from '../../plans.js';
 import { ChoiceGroup, FormField } from '../../ui/index.js';
 import { ErrorText } from '../ErrorText.js';
+
+/** Aide sous une case de charge, quand elle en a une. */
+const HELP: Partial<Record<DataType, string>> = { mail: MAIL_HELP, contacts: CONTACTS_HELP };
 
 function toggle<T>(list: T[], item: T): T[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
@@ -86,17 +90,15 @@ export function StepWhat({
         aria-describedby={errors.dataTypes ? 'data-types-error' : undefined}
       >
         <legend>Données à sauvegarder</legend>
-        <div className="choice-row">
+        {/* Une charge par ligne : les aides de Messagerie et Contacts déséquilibraient la rangée. */}
+        <div className="choice-list">
           {DATA_TYPES.map((t: DataType) => (
             <label key={t} className="choice">
               <input
                 type="checkbox"
                 aria-invalid={invalid('dataTypes')}
                 aria-describedby={
-                  [
-                    t === 'mail' ? 'data-type-mail-help' : '',
-                    errors.dataTypes ? 'data-types-error' : '',
-                  ]
+                  [HELP[t] ? `data-type-${t}-help` : '', errors.dataTypes ? 'data-types-error' : '']
                     .filter(Boolean)
                     .join(' ') || undefined
                 }
@@ -117,9 +119,9 @@ export function StepWhat({
                 }}
               />
               {DATA_TYPE_LABELS[t]}
-              {t === 'mail' && (
-                <small id="data-type-mail-help" className="state-note">
-                  {MAIL_HELP}
+              {HELP[t] && (
+                <small id={`data-type-${t}-help`} className="state-note">
+                  {HELP[t]}
                 </small>
               )}
             </label>

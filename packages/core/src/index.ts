@@ -91,6 +91,7 @@ export {
 } from './search.js';
 export {
   DATA_TYPES,
+  DEFAULT_DATA_TYPES,
   DEFAULT_RPO_HOURS,
   FAILURE_CAUSES,
   failureCauseOf,

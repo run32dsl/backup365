@@ -12,7 +12,7 @@ export interface MailOutcome {
   readonly summary: { readonly folderErrors: readonly unknown[]; readonly stored?: number };
   readonly manifest?: { readonly totalSizeBytes?: number } | undefined;
 }
-/** OneDrive et SharePoint : `healthy` est faux si une erreur a été rencontrée. */
+/** OneDrive, SharePoint et contacts : `healthy` est faux si une erreur a été rencontrée. */
 export interface DriveOutcome {
   readonly interrupted: boolean;
   readonly summary: {
@@ -26,9 +26,10 @@ export interface DriveOutcome {
 }
 type BackupOutcome = MailOutcome | DriveOutcome;
 
-/** Ce que l'exécuteur appelle du SDK : les trois sauvegardes, plus de quoi libérer l'instance. */
+/** Ce que l'exécuteur appelle du SDK : les quatre sauvegardes, plus de quoi libérer l'instance. */
 export interface AtlasBackupApi {
   outlook: { backup(mailboxId: string): Promise<MailOutcome> };
+  contacts: { backup(mailboxId: string): Promise<DriveOutcome> };
   onedrive: { backup(ownerId: string): Promise<DriveOutcome> };
   sharepoint: { backup(siteId: string): Promise<readonly DriveOutcome[]> };
   dispose(): Promise<void>;
@@ -95,10 +96,11 @@ function volumeOf(outcomes: readonly BackupOutcome[]): ExecutionResult {
 
 /**
  * Exécuteur réel (ADR 0009) : un site est sauvegardé par `sharepoint.backup` ; un propriétaire par
- * `outlook.backup` puis `onedrive.backup`, chacun seulement si le plan protège cette charge. Les
- * charges voulues sont tentées même si la première échoue ; la première erreur est ensuite relancée. Le SDK choisit seul entre sauvegarde complète
- * (première exécution) et incrémentale (suivantes) : `forceFull` n'est jamais passé. Une
- * exécution interrompue ou avec des erreurs de dossier est un échec.
+ * `outlook.backup`, `contacts.backup` puis `onedrive.backup`, chacun seulement si le plan protège
+ * cette charge. Les charges voulues sont tentées même si la première échoue ; la première erreur
+ * est ensuite relancée. Le SDK choisit seul entre sauvegarde complète (première exécution) et
+ * incrémentale (suivantes) : `forceFull` n'est jamais passé. Une exécution interrompue ou avec des
+ * erreurs de dossier est un échec.
  */
 export class AtlasExecuteur implements Executeur {
   constructor(private readonly options: AtlasExecuteurOptions) {}
@@ -114,6 +116,7 @@ export class AtlasExecuteur implements Executeur {
     }
     const steps: (() => Promise<BackupOutcome>)[] = [];
     if (wanted('mail')) steps.push(() => api.outlook.backup(target.itemId));
+    if (wanted('contacts')) steps.push(() => api.contacts.backup(target.itemId));
     if (wanted('onedrive')) steps.push(() => api.onedrive.backup(target.itemId));
     let failure: unknown;
     let empty = true;

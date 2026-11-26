@@ -10,10 +10,11 @@ dans la liste la conformité et la dernière exécution, et laisser un opérateu
 
 ## Décision
 
-- **Types de données.** Un plan porte `dataTypes`, sous-ensemble non vide de `mail`, `onedrive`,
-  `sharepoint` (colonne `data_types`), avec les mots et l'ordre de l'accueil. Le SDK ne sépare pas
-  le calendrier ni les contacts de la boîte : l'écran dit « avec le calendrier et les contacts »
-  sous « Messagerie ». L'exécuteur applique chaque choix : sans `mail` pas d'`outlook.backup`, sans
+- **Types de données.** Un plan porte `dataTypes`, sous-ensemble non vide de `mail`, `contacts`,
+  `onedrive`, `sharepoint` (colonne `data_types`), avec les mots et l'ordre de l'accueil.
+  `contacts` est une charge à part depuis le SDK 7.2.0, jamais cochée par défaut (ADR 0020). Le
+  SDK ne sépare pas le calendrier de la boîte : l'écran dit « avec le calendrier » sous
+  « Messagerie ». L'exécuteur applique chaque choix : sans `mail` pas d'`outlook.backup`, sans
   `onedrive` pas d'`onedrive.backup`, sans `sharepoint` aucun site (pour « toute l'organisation »,
   les sites ne sont listés que si `sharepoint` est choisi). La migration 5 convertit les anciennes
   valeurs : `files` devient `onedrive` et `sharepoint` ; `mail`, `calendar` et `contacts` deviennent
