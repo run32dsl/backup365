@@ -181,6 +181,38 @@ describe('LatestEvents', () => {
     expect(html).toContain('Réussie');
     expect(html).toContain('href="#/activites"');
   });
+  it('mobile card: summary as title, the pill, then « type · heure UTC » without label (#568)', () => {
+    const plans = [{ ...plan('p1'), dataTypes: ['mail'] }] as PlanItem[];
+    const html = renderToStaticMarkup(
+      <LatestEvents
+        items={[runItem(), runItem({ id: 2, startedAt: '' })]}
+        plans={plans}
+        onRetry={() => undefined}
+      />,
+    );
+    const rows = html.split('<tr>').slice(2);
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      // Heure, type et statut : colonnes du tableau seulement ; la carte n'a que la dernière.
+      expect([...row.matchAll(/<td class="([^"]*)"/g)].map((m) => m[1])).toEqual([
+        'table-only',
+        'table-only',
+        'table-only',
+        'card-title',
+      ]);
+      expect(row).not.toContain('data-label');
+    }
+    const card = (row: string) =>
+      (row.match(/<td class="card-title">(.*?)<\/td>/)?.[1] ?? '')
+        .replace(/[\u00a0\u202f]/g, ' ')
+        .replace(/<[^>]+>/g, '|');
+    const [first, noDate] = rows.map(card) as [string, string];
+    expect(first).toMatch(/^« Direction » · 1 284 éléments copiés · 3,4 Go · 14 min\|.*Réussie/);
+    expect(rows[0]).toMatch(/<span class="card-only"> <span class="badge /);
+    expect(first).toMatch(/\|Boîtes mail · 24\/11\/2026 \d\d:\d\d UTC\|/);
+    expect(noDate).toContain('|Boîtes mail|');
+    expect(noDate).not.toContain('—');
+  });
   it('writes the status in words: running, failed', () => {
     const html = renderToStaticMarkup(
       <LatestEvents
