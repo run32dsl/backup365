@@ -448,21 +448,24 @@ th {
   gap: var(--space-3);
   margin-top: var(--space-3);
 }
+/* Sous 900 px, une tuile par ligne : libellé à gauche, chiffre à droite, lien en dessous (#582). */
 .coverage-tiles {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
   gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .coverage-tile {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  column-gap: var(--space-2);
   min-height: 2.75rem;
   height: 100%;
-  padding: var(--space-3);
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
   background: var(--surface);
@@ -475,9 +478,10 @@ th {
   outline-offset: 2px;
 }
 .coverage-count {
-  font-size: 1.75rem;
+  font-size: 1.25rem;
 }
 .coverage-more {
+  grid-column: 1 / -1;
   color: var(--muted);
 }
 .home-coverage .btn {
@@ -548,6 +552,15 @@ th {
 @media (min-width: 900px) {
   .coverage-tiles {
     grid-template-columns: repeat(3, 1fr);
+  }
+  .coverage-tile {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-3);
+  }
+  .coverage-count {
+    font-size: 1.75rem;
   }
   .home-coverage .btn {
     width: auto;
