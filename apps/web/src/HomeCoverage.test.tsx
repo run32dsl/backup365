@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import {
   CoverageTiles,
+  LATEST_RESULTS,
   LATEST_RUNS,
   LatestEvents,
   NextBackup,
@@ -11,11 +12,10 @@ import {
   nextBackupAt,
   remainingLabel,
   runAll,
-  runSummary,
-  runTypeLabel,
   tileName,
 } from './HomeCoverage.js';
-import { fetchRuns, type RunItem } from './activities/runs.js';
+import { runSummary, runTypeLabel } from './LatestEventRow.js';
+import { fetchRuns, groupRuns, type RunItem } from './activities/runs.js';
 import { runPlan, type PlanItem } from './plans.js';
 
 const row = (workload: StatusRow['workload'], sourceId: string, state: StatusRow['state']) =>
@@ -181,7 +181,7 @@ describe('LatestEvents', () => {
     expect(html).toContain('Réussie');
     expect(html).toContain('href="#/activites"');
   });
-  it('mobile card: summary as title, the pill, then « type · heure UTC » without label (#568)', () => {
+  it('mobile card: plan name alone as title, the pill below, then « type · heure UTC · détails » (#568, #571)', () => {
     const plans = [{ ...plan('p1'), dataTypes: ['mail'] }] as PlanItem[];
     const html = renderToStaticMarkup(
       <LatestEvents
@@ -207,18 +207,59 @@ describe('LatestEvents', () => {
         .replace(/[\u00a0\u202f]/g, ' ')
         .replace(/<[^>]+>/g, '|');
     const [first, noDate] = rows.map(card) as [string, string];
-    expect(first).toMatch(/^« Direction » · 1 284 éléments copiés · 3,4 Go · 14 min\|.*Réussie/);
-    expect(rows[0]).toMatch(/<span class="card-only"> <span class="badge /);
-    expect(first).toMatch(/\|Boîtes mail · 24\/11\/2026 \d\d:\d\d UTC\|/);
-    expect(noDate).toContain('|Boîtes mail|');
+    // Tableau : le résumé avec le plan ; carte : le plan seul, sans guillemets ni durée.
+    expect(first).toMatch(
+      /^\|« Direction » · 1 boîte · 1 284 éléments copiés · 3,4 Go · 14 min\|\|Direction\|\|/,
+    );
+    // La pastille a son propre bloc, après le titre : jamais sur la ligne du titre.
+    expect(rows[0]).toMatch(
+      /<span class="card-only">Direction<\/span><span class="card-only card-pill"><span class="badge /,
+    );
+    expect(first).toMatch(
+      /\|Boîtes mail · 24\/11\/2026 \d\d:\d\d UTC · 1 boîte · 1 284 éléments copiés · 3,4 Go · 14 min\|/,
+    );
+    expect(noDate).toContain('|Boîtes mail · 1 boîte · ');
     expect(noDate).not.toContain('—');
+  });
+  it('shows one event per plan run: five results of one run make one « En échec » line (#571)', () => {
+    const plans = [{ ...plan('p1'), dataTypes: ['mail'] }] as PlanItem[];
+    const boxes = ['a', 'b', 'c', 'd', 'e'].map((box, i) =>
+      runItem({ id: 10 + i, itemId: box, itemsSaved: null, sourceBytes: null, durationMs: 1000 }),
+    );
+    boxes[3] = { ...boxes[3]!, result: 'failed', failureCause: 'backup_errors' };
+    const other = runItem({ id: 2, planId: 'p2', planName: 'Boîtes mail, quotidien' });
+    const html = renderToStaticMarkup(
+      <LatestEvents items={[...boxes, other]} plans={plans} onRetry={() => undefined} />,
+    );
+    const rows = html.split('<tr>').slice(2);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toContain('En échec');
+    expect(rows[0]).not.toContain('Réussie');
+    expect(rows[0]?.replace(/[\u00a0\u202f]/g, ' ')).toContain('« Direction » · 5 boîtes · cause');
+    expect(rows[1]).toContain('Boîtes mail, quotidien');
+  });
+  it('keeps the five latest runs, not the five latest results', () => {
+    const items = Array.from({ length: 12 }, (_, i) =>
+      runItem({
+        id: i + 1,
+        itemId: `box-${i % 2}`,
+        startedAt: `2026-11-2${Math.floor(i / 2)}T09:00:00Z`,
+      }),
+    );
+    const html = renderToStaticMarkup(<LatestEvents items={items} onRetry={() => undefined} />);
+    expect(html.split('<tr>').slice(2)).toHaveLength(LATEST_RUNS);
   });
   it('writes the status in words: running, failed', () => {
     const html = renderToStaticMarkup(
       <LatestEvents
         items={[
           runItem({ id: 2, result: 'running', finishedAt: null, durationMs: null }),
-          runItem({ id: 3, result: 'failed', failureCause: 'backup_errors' }),
+          runItem({
+            id: 3,
+            result: 'failed',
+            failureCause: 'backup_errors',
+            startedAt: '2026-11-23T09:12:00Z',
+          }),
         ]}
         onRetry={() => undefined}
       />,
@@ -227,23 +268,44 @@ describe('LatestEvents', () => {
     expect(html).toContain('En échec');
     expect(html).toContain('Sauvegarde</td>');
   });
-  it('sums up a run: plan, copied items, volume and duration, or the cause', () => {
-    expect(runSummary(runItem())).toBe('« Direction » · 1 284 éléments copiés · 3,4 Go · 14 min');
-    expect(runSummary(runItem({ itemsSaved: 1, sourceBytes: null }))).toBe(
-      '« Direction » · 1 élément copié · 14 min',
+  const summary = (items: RunItem[], boxes = false) =>
+    runSummary(groupRuns(items)[0]!, boxes).replace(/[\u00a0\u202f]/g, ' ');
+  it('sums up a run: plan, sources, copied items, volume and duration, or the cause', () => {
+    expect(summary([runItem()], true)).toBe(
+      '« Direction » · 1 boîte · 1 284 éléments copiés · 3,4 Go · 14 min',
     );
-    expect(runSummary(runItem({ result: 'running' }))).toBe('« Direction » · sauvegarde en cours');
-    expect(runSummary(runItem({ result: 'interrupted' }))).toContain(
-      'cause : la console a été arrêtée',
+    expect(summary([runItem({ itemsSaved: 1, sourceBytes: null })])).toBe(
+      '« Direction » · 1 source · 1 élément copié · 14 min',
+    );
+    expect(summary([runItem({ result: 'running' })])).toBe(
+      '« Direction » · 1 source · sauvegarde en cours',
+    );
+    expect(summary([runItem({ result: 'interrupted' })])).toContain(
+      'cause : la console a été arrêtée',
     );
     expect(runTypeLabel(runItem(), [])).toBe('Sauvegarde');
   });
-  it('asks the server for the 5 latest runs only', async () => {
-    const fetchFn = vi.fn(() =>
-      Promise.resolve(new Response(JSON.stringify({ items: [], limit: 5 }))),
+  it('never sums up a successful run with its duration alone: sources and copied items, 0 included (#571)', () => {
+    const boxes = ['a', 'b', 'c', 'd', 'e'].map((box, i) =>
+      runItem({
+        id: i + 1,
+        itemId: box,
+        itemsSaved: null,
+        sourceBytes: null,
+        finishedAt: '2026-11-24T09:12:20Z',
+        durationMs: 20_000,
+      }),
     );
-    await fetchRuns({ planId: '', result: '', limit: LATEST_RUNS }, fetchFn);
-    expect(fetchFn).toHaveBeenCalledWith('/api/runs?limit=5');
+    expect(summary(boxes, true)).toBe(
+      '« Direction » · 5 boîtes · 0 élément copié · moins d’une minute',
+    );
+  });
+  it('asks the server for enough results to gather the 5 latest runs', async () => {
+    const fetchFn = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ items: [], limit: 20 }))),
+    );
+    await fetchRuns({ planId: '', result: '', limit: LATEST_RESULTS }, fetchFn);
+    expect(fetchFn).toHaveBeenCalledWith('/api/runs?limit=20');
   });
   it('shows the empty and error states', () => {
     expect(renderToStaticMarkup(<LatestEvents items={[]} onRetry={() => undefined} />)).toContain(

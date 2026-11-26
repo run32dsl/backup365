@@ -1,20 +1,72 @@
-import { RESULT_VIEW, type RunItem } from './activities/runs.js';
-import { dateTimeOf } from './format.js';
+import { DATA_TYPES } from '@backup365/core';
+import {
+  RESULT_VIEW,
+  causeOf,
+  copiedLabel,
+  durationLabel,
+  mailOnlyTypes,
+  sourcesLabel,
+  volumeLabel,
+  type RunEvent,
+  type RunItem,
+} from './activities/runs.js';
+import { NBSP, dateTimeOf, quoted } from './format.js';
+import type { PlanItem } from './plans.js';
+import { DATA_TYPE_LABELS } from './plans/model.js';
 import { cardLine } from './status/model.js';
 import { StatusPill } from './ui/index.js';
 
+const planOf = (run: RunItem, plans: readonly PlanItem[]) => plans.find((p) => p.id === run.planId);
+
+/** Colonne « Type » : ce que le plan protège (« Boîtes mail, OneDrive ») ; `Sauvegarde` à défaut. */
+export function runTypeLabel(run: RunItem, plans: readonly PlanItem[]): string {
+  const plan = planOf(run, plans);
+  const types = DATA_TYPES.filter((t) => plan?.dataTypes?.includes(t));
+  return types.length === 0 ? 'Sauvegarde' : types.map((t) => DATA_TYPE_LABELS[t]).join(', ');
+}
+
+/** Vrai si le plan ne sauvegarde que des boîtes mail : ses sources se comptent en « boîtes ». */
+export function mailOnly(run: RunItem, plans: readonly PlanItem[]): boolean {
+  return mailOnlyTypes(planOf(run, plans)?.dataTypes);
+}
+
+/**
+ * Ce qu'a fait une exécution, sans le plan : le nombre de sources, puis les éléments copiés
+ * (« 0 » compris), la taille et la durée ; ou « sauvegarde en cours » ; ou la cause d'un échec.
+ */
+export function runDetails(event: RunEvent, boxes = false): string[] {
+  const sources = sourcesLabel(event.runs.length, boxes);
+  if (event.result === 'running') return [sources, 'sauvegarde en cours'];
+  const cause = causeOf(event);
+  if (cause) return [sources, `cause${NBSP}: ${cause.cause}`];
+  const parts = [
+    sources,
+    copiedLabel(event.itemsSaved ?? 0),
+    volumeLabel(event.sourceBytes) ?? '',
+    event.durationMs === null ? '' : durationLabel(event.durationMs),
+  ];
+  return parts.filter(Boolean);
+}
+
+/** Colonne « Résumé » : le plan puis ce qu'a fait l'exécution. */
+export function runSummary(event: RunEvent, boxes = false): string {
+  return [quoted(event.planName), ...runDetails(event, boxes)].join(' · ');
+}
+
 /**
  * Une ligne de « Derniers événements » : Heure, Type, Statut, Résumé en tableau. Sous 900 px,
- * carte titrée : le résumé, la pastille, puis « type · heure UTC » (colonnes `table-only` masquées).
+ * carte titrée comme Activités : le nom du plan seul, la pastille dessous, puis
+ * « type · heure UTC · détails » (colonnes `table-only` masquées).
  */
 export function LatestEventRow({
   run,
   type,
-  summary,
+  boxes,
 }: {
-  run: RunItem;
+  run: RunEvent;
   type: string;
-  summary: string;
+  /** Le plan ne sauvegarde que des boîtes mail : « 5 boîtes » plutôt que « 5 sources ». */
+  boxes: boolean;
 }) {
   const at = dateTimeOf(run.startedAt);
   const pill = <StatusPill {...RESULT_VIEW[run.result]} />;
@@ -26,10 +78,11 @@ export function LatestEventRow({
       <td className="table-only">{type}</td>
       <td className="table-only">{pill}</td>
       <td className="card-title">
-        {summary}
-        <span className="card-only"> {pill}</span>
+        <span className="table-summary">{runSummary(run, boxes)}</span>
+        <span className="card-only">{run.planName}</span>
+        <span className="card-only card-pill">{pill}</span>
         <span className="card-only cell-secondary">
-          {cardLine([type, at === '' ? '' : `${at} UTC`])}
+          {cardLine([type, at === '' ? '' : `${at} UTC`, ...runDetails(run, boxes)])}
         </span>
       </td>
     </tr>

@@ -1,21 +1,12 @@
-import { DATA_TYPES, nextRunAt, type StatusReport, type StatusRow } from '@backup365/core';
+import { nextRunAt, type StatusReport, type StatusRow } from '@backup365/core';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  RUNS_HASH,
-  causeOf,
-  copiedLabel,
-  durationLabel,
-  fetchRuns,
-  volumeLabel,
-  type RunItem,
-} from './activities/runs.js';
-import { NBSP, plural, quoted } from './format.js';
+import { RUNS_HASH, completeRuns, fetchRuns, type RunItem } from './activities/runs.js';
+import { plural, quoted } from './format.js';
 import { fetchPlans, runPlan, runReasonError, type PlanItem } from './plans.js';
-import { DATA_TYPE_LABELS } from './plans/model.js';
 import { REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
 import { STATUS_HASH } from './routes.js';
 import { fetchStatus } from './status.js';
-import { LatestEventRow } from './LatestEventRow.js';
+import { LatestEventRow, mailOnly, runTypeLabel } from './LatestEventRow.js';
 import { Alert, Button, Dialog } from './ui/index.js';
 
 /** Éléments sauvegardés par service : au moins un instantané, tous types de données confondus. */
@@ -269,26 +260,11 @@ export function NextBackup({
 /** Nombre d'exécutions de « Derniers événements ». */
 export const LATEST_RUNS = 5;
 
-/** Colonne « Type » : ce que le plan protège (« Boîtes mail, OneDrive ») ; `Sauvegarde` à défaut. */
-export function runTypeLabel(run: RunItem, plans: readonly PlanItem[]): string {
-  const plan = plans.find((p) => p.id === run.planId);
-  const types = DATA_TYPES.filter((t) => plan?.dataTypes?.includes(t));
-  return types.length === 0 ? 'Sauvegarde' : types.map((t) => DATA_TYPE_LABELS[t]).join(', ');
-}
-
-/** Colonne « Résumé » : le plan puis les compteurs connus, ou la cause d'un échec. */
-export function runSummary(run: RunItem): string {
-  const plan = quoted(run.planName);
-  if (run.result === 'running') return `${plan} · sauvegarde en cours`;
-  const cause = causeOf(run);
-  if (cause) return `${plan} · cause${NBSP}: ${cause.cause}`;
-  const parts = [
-    copiedLabel(run.itemsSaved),
-    volumeLabel(run.sourceBytes) ?? '',
-    run.durationMs === null ? '' : durationLabel(run.durationMs),
-  ];
-  return [plan, ...parts.filter(Boolean)].join(' · ');
-}
+/**
+ * Résultats par source demandés au serveur (son maximum) : un lancement en produit un par boîte,
+ * il en faut davantage pour réunir cinq exécutions distinctes.
+ */
+export const LATEST_RESULTS = 20;
 
 /** Les cinq dernières exécutions des plans (`GET /api/runs`), hors journal d'audit. */
 export function LatestEvents({
@@ -301,6 +277,10 @@ export function LatestEvents({
   plans?: readonly PlanItem[];
   onRetry: () => void;
 }) {
+  // Une exécution de plan = un événement, même si elle a sauvegardé plusieurs boîtes (#571).
+  const events = Array.isArray(items)
+    ? completeRuns(items, LATEST_RESULTS).slice(0, LATEST_RUNS)
+    : [];
   return (
     <section aria-labelledby="home-events" aria-busy={items === 'loading'}>
       <h2 id="home-events">Derniers événements</h2>
@@ -323,12 +303,12 @@ export function LatestEvents({
             </tr>
           </thead>
           <tbody>
-            {items.map((r) => (
+            {events.map((e) => (
               <LatestEventRow
-                key={r.id}
-                run={r}
-                type={runTypeLabel(r, plans)}
-                summary={runSummary(r)}
+                key={e.id}
+                run={e}
+                type={runTypeLabel(e, plans)}
+                boxes={mailOnly(e, plans)}
               />
             ))}
           </tbody>
@@ -352,7 +332,7 @@ export function HomeCoverage({ admin }: { admin: boolean }) {
   const loadEvents = useCallback(() => {
     if (!admin) return;
     setEvents('loading');
-    fetchRuns({ planId: '', result: '', limit: LATEST_RUNS }).then(
+    fetchRuns({ planId: '', result: '', limit: LATEST_RESULTS }).then(
       (page) => setEvents(page.items),
       () => setEvents('error'),
     );

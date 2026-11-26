@@ -216,10 +216,16 @@ simulation: true, computedAt, items }`, chaque élément portant `planId`, `rete
   code est `interrupted`) ou `running`. Chaque ligne porte le nom du plan et, en cas d'échec,
   `failureCause` (liste fermée), jamais le code brut. Ouverte à l'opérateur, en lecture seule,
   comme `GET /api/plans` ; ce sont des métadonnées, hors journal d'audit (ADR 0002).
-  `limit` (entier de 1 à 20, 20 par défaut) réduit la liste : l'accueil en lit 5 pour
-  « Derniers événements » (Heure, Type, Statut, Résumé ; issue #475), sans toucher au journal.
-- Écran `#/activites` (Activités › Sauvegardes) : filtres par plan et par résultat, cause et marche
-  à suivre en français dans la ligne. Le lien « Historique » de la liste des plans ouvre
+  `limit` (entier de 1 à 20, 20 par défaut) réduit la liste. Chaque ligne est le résultat d'une
+  source : l'interface les regroupe en exécutions (issue #571), même plan, chaque source une
+  fois, et même début (lancement manuel) ou début à moins de 60 s de la fin de la source
+  précédente (passage du planificateur). Une exécution est « En échec » si une source a échoué ;
+  son résumé donne le nombre de sources (« 5 boîtes ») et d'éléments copiés, « 0 » compris. Le
+  dernier groupe d'une liste pleine, peut-être coupé, n'est pas affiché. L'accueil lit 20 lignes
+  et en montre les 5 dernières exécutions dans « Derniers événements » (Heure, Type, Statut,
+  Résumé ; issues #475, #571), sans toucher au journal.
+- Écran `#/activites` (Activités › Sauvegardes) : une ligne par exécution, filtres par plan et
+  par résultat, cause et marche à suivre en français dans la ligne. Le lien « Historique » de la liste des plans ouvre
   `#/activites?plan=<id>`.
 
 ### Sécurité des identifiants

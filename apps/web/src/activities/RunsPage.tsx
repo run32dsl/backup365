@@ -14,8 +14,12 @@ import {
   copiedLabel,
   countLabel,
   durationLabel,
+  completeRuns,
   fetchRuns,
+  mailOnlyTypes,
+  sourcesLabel,
   volumeLabel,
+  type RunEvent,
   type RunItem,
   type RunResult,
   type RunsFilter,
@@ -44,8 +48,15 @@ function todoOf(r: RunItem): string {
 /** Sans « À faire : » devant, la consigne de la carte commence par une majuscule. */
 const capitalized = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-function runColumns(names: ReadonlyMap<string, string>): Column<RunItem>[] {
-  const mailboxOf = (r: RunItem) => names.get(r.itemId) ?? r.itemId;
+function runColumns(
+  names: ReadonlyMap<string, string>,
+  boxPlans: ReadonlySet<string>,
+): Column<RunEvent>[] {
+  // La source n'est nommée que s'il n'y en a qu'une ; sinon « 5 boîtes » (#571).
+  const sourceOf = (r: RunEvent) =>
+    r.runs.length === 1
+      ? (names.get(r.itemId) ?? r.itemId)
+      : sourcesLabel(r.runs.length, boxPlans.has(r.planId));
   return [
     {
       header: 'Début (UTC)',
@@ -59,7 +70,7 @@ function runColumns(names: ReadonlyMap<string, string>): Column<RunItem>[] {
         <span>
           {r.planName}
           <span className="cell-secondary table-only">
-            <Address value={mailboxOf(r)} />
+            {r.runs.length === 1 ? <Address value={sourceOf(r)} /> : sourceOf(r)}
           </span>
         </span>
       ),
@@ -91,7 +102,10 @@ function runColumns(names: ReadonlyMap<string, string>): Column<RunItem>[] {
     {
       header: 'Éléments copiés',
       className: 'num card-hidden',
-      cell: (r) => (r.result === 'running' ? '—' : countLabel(r.itemsSaved)),
+      cell: (r) =>
+        r.result === 'running'
+          ? '—'
+          : countLabel(r.result === 'success' ? (r.itemsSaved ?? 0) : r.itemsSaved),
     },
     {
       header: 'Taille source',
@@ -118,10 +132,13 @@ function runColumns(names: ReadonlyMap<string, string>): Column<RunItem>[] {
         return (
           <>
             {cardLine([
-              mailboxOf(r),
+              sourceOf(r),
               at === '' ? '' : `${at} UTC`,
               r.durationMs === null ? '' : durationLabel(r.durationMs),
-              r.result === 'running' ? '' : copiedLabel(r.itemsSaved),
+              // Une réussite dit toujours ce qu'elle a copié, « 0 » compris (#571).
+              r.result === 'running'
+                ? ''
+                : copiedLabel(r.result === 'success' ? (r.itemsSaved ?? 0) : r.itemsSaved),
               volumeLabel(r.sourceBytes) ?? '',
             ])}
             {cause && <span className="cell-secondary">{capitalized(cause.cause)}</span>}
@@ -140,11 +157,14 @@ export function RunsView({
   state,
   filter,
   names = new Map(),
+  boxPlans = new Set(),
   onRetry,
 }: {
   state: State;
   filter: RunsFilter;
   names?: ReadonlyMap<string, string>;
+  /** Plans qui ne sauvegardent que des boîtes mail : leurs sources se comptent en « boîtes ». */
+  boxPlans?: ReadonlySet<string>;
   onRetry?: () => void;
 }) {
   if (state === 'loading') {
@@ -181,8 +201,8 @@ export function RunsView({
       <div className="runs-list">
         <DataTable
           caption="Dernières exécutions, de la plus récente à la plus ancienne"
-          columns={runColumns(names)}
-          rows={state.items}
+          columns={runColumns(names, boxPlans)}
+          rows={completeRuns(state.items, state.limit)}
           rowKey={(r) => r.id}
         />
       </div>
@@ -196,7 +216,7 @@ export function RunsPage({ planId = '' }: { planId?: string }) {
   const [filter, setFilter] = useState<RunsFilter>({ planId, result: '' });
   const [state, setState] = useState<State>('loading');
   const [attempt, setAttempt] = useState(0);
-  const [plans, setPlans] = useState<{ id: string; name: string }[]>([]);
+  const [plans, setPlans] = useState<{ id: string; name: string; mailOnly: boolean }[]>([]);
   const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map());
 
   useEffect(() => {
@@ -213,7 +233,14 @@ export function RunsPage({ planId = '' }: { planId?: string }) {
 
   useEffect(() => {
     fetchPlans().then(
-      (list) => setPlans(list.map((p) => ({ id: p.id, name: p.name }))),
+      (list) =>
+        setPlans(
+          list.map((p) => ({
+            id: p.id,
+            name: p.name,
+            mailOnly: mailOnlyTypes(p.dataTypes),
+          })),
+        ),
       () => undefined,
     );
     void fetchMailboxes().then(({ mailboxes }) =>
@@ -263,7 +290,13 @@ export function RunsPage({ planId = '' }: { planId?: string }) {
         </div>
         <Button type="submit">Filtrer</Button>
       </form>
-      <RunsView state={state} filter={filter} names={names} onRetry={retry} />
+      <RunsView
+        state={state}
+        filter={filter}
+        names={names}
+        boxPlans={new Set(plans.filter((p) => p.mailOnly).map((p) => p.id))}
+        onRetry={retry}
+      />
     </main>
   );
 }

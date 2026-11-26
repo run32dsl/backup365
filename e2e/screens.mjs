@@ -312,7 +312,10 @@ export const SCREENS = [
       const items = [
         run(5, a, 1, 'running'),
         run(4, b, 60, 'failed', { failureCause: 'backup_errors' }),
-        run(3, a, 180, 'success'),
+        // Une exécution sur cinq boîtes : une seule ligne « 5 boîtes » (#571).
+        ...['b1', 'b2', 'b3', 'b4', 'b5'].map((itemId, i) =>
+          run(30 + i, a, 180, 'success', { itemId, itemsSaved: 0, sourceBytes: null }),
+        ),
         run(2, b, 600, 'interrupted', { failureCause: 'interrupted' }),
         run(1, a, 1440, 'success', { itemsSaved: 1, sourceBytes: 840_000_000 }),
       ];
@@ -320,7 +323,8 @@ export const SCREENS = [
         route.fulfill({ status: 200, json: { items, limit: 5 } }),
       );
       await page.reload();
-      await page.getByText('sauvegarde en cours').waitFor();
+      // Le résumé du tableau et la ligne de la carte le disent : un seul est visible par largeur.
+      await page.getByText('sauvegarde en cours').filter({ visible: true }).first().waitFor();
     },
   },
   {

@@ -38,6 +38,111 @@ export interface RunItem {
   failureCause?: FailureCause;
 }
 
+/**
+ * Une exécution de plan : les résultats par source d'un même lancement (le serveur inscrit une
+ * ligne par boîte). Les champs de `RunItem` sont ceux de l'ensemble.
+ */
+export interface RunEvent extends RunItem {
+  /** Les résultats par source, dans l'ordre du serveur ; au moins un. */
+  runs: RunItem[];
+}
+
+/** Le pire résultat l'emporte : une source en échec met toute l'exécution « En échec ». */
+const RESULT_RANK: Record<RunResult, number> = {
+  failed: 0,
+  running: 1,
+  interrupted: 2,
+  success: 3,
+};
+
+const sumOf = (values: readonly (number | null)[]): number | null => {
+  const known = values.filter((v): v is number => v !== null);
+  return known.length === 0 ? null : known.reduce((a, b) => a + b, 0);
+};
+
+/**
+ * Écart toléré entre la fin d'une source et le début de la suivante d'une même exécution : le
+ * planificateur sauvegarde les sources d'un plan l'une après l'autre, chacune avec son début.
+ */
+export const RUN_CHAIN_GAP_MS = 60_000;
+
+/** Vrai si `older` appartient à la même exécution que `next`, la source suivante du même plan. */
+function chained(older: RunItem, next: RunItem): boolean {
+  if (older.startedAt === next.startedAt) return true;
+  if (older.finishedAt === null) return false;
+  const gap = Date.parse(next.startedAt) - Date.parse(older.finishedAt);
+  return gap >= 0 && gap <= RUN_CHAIN_GAP_MS;
+}
+
+/**
+ * Regroupe les résultats par source (`GET /api/runs`, du plus récent au plus ancien) en exécutions :
+ * même plan, chaque source une fois, et même début (lancement manuel) ou début qui suit la fin de
+ * la source précédente (passage du planificateur). L'ordre du serveur est conservé.
+ */
+export function groupRuns(items: readonly RunItem[]): RunEvent[] {
+  const groups: RunItem[][] = [];
+  const current = new Map<string, RunItem[]>();
+  for (const run of items) {
+    const runs = current.get(run.planId);
+    const earliest = runs?.[runs.length - 1];
+    if (runs && earliest && !runs.some((r) => r.itemId === run.itemId) && chained(run, earliest)) {
+      runs.push(run);
+      continue;
+    }
+    const group = [run];
+    groups.push(group);
+    current.set(run.planId, group);
+  }
+  return groups.map((runs) => {
+    const [first] = runs as [RunItem, ...RunItem[]];
+    const worst = runs.reduce((a, b) => (RESULT_RANK[b.result] < RESULT_RANK[a.result] ? b : a));
+    const open = runs.some((r) => r.durationMs === null || r.finishedAt === null);
+    const started = runs.map((r) => r.startedAt).sort()[0] ?? first.startedAt;
+    const finished = runs.map((r) => r.finishedAt ?? '').sort()[runs.length - 1] ?? null;
+    const span = finished === null ? NaN : Date.parse(finished) - Date.parse(started);
+    const event: RunEvent = {
+      ...first,
+      // Le numéro d'exécution cité par « À faire » est celui de la source en échec.
+      id: worst.id,
+      // Le début de l'exécution est celui de sa première source.
+      startedAt: started,
+      result: worst.result,
+      finishedAt: open ? null : finished,
+      durationMs: open
+        ? null
+        : Number.isFinite(span)
+          ? Math.max(0, span)
+          : Math.max(...runs.map((r) => r.durationMs ?? 0)),
+      itemsSaved: sumOf(runs.map((r) => r.itemsSaved)),
+      sourceBytes: sumOf(runs.map((r) => r.sourceBytes)),
+      runs,
+    };
+    delete event.failureCause;
+    if (worst.failureCause !== undefined) event.failureCause = worst.failureCause;
+    return event;
+  });
+}
+
+/**
+ * Exécutions d'une liste de `limit` résultats au plus : si la liste est pleine, la plus ancienne
+ * exécution a pu perdre des sources au-delà de la limite, elle n'est pas montrée (sauf si seule).
+ */
+export function completeRuns(items: readonly RunItem[], limit: number): RunEvent[] {
+  const events = groupRuns(items);
+  return items.length >= limit && events.length > 1 ? events.slice(0, -1) : events;
+}
+
+/** Vrai si le plan ne sauvegarde que des boîtes mail : ses sources se comptent en « boîtes ». */
+export const mailOnlyTypes = (types: readonly string[] | undefined): boolean =>
+  (types?.length ?? 0) > 0 && !!types?.every((t) => t === 'mail');
+
+/** « 5 boîtes », « 1 source » : le nom des sources dépend de ce que le plan sauvegarde. */
+export function sourcesLabel(n: number, mailOnly: boolean): string {
+  return mailOnly
+    ? `${n}${NBSP}${n < 2 ? 'boîte' : 'boîtes'}`
+    : `${n}${NBSP}${n < 2 ? 'source' : 'sources'}`;
+}
+
 export interface RunsResponse {
   items: RunItem[];
   limit: number;
