@@ -71,8 +71,14 @@ composant s'y ajoute avec ses tests de comportement.
   sans bouton, avec la phrase « Aucune sauvegarde n’est encore terminée. »).
 - **Carte d'accueil** (`.overview-card`) : `<section aria-labelledby>` avec un `h2` ; trois cartes
   en grille, deux colonnes dès 900 px, une seule dessous (bouton pleine largeur).
-- **Connexion Microsoft 365 sur l'accueil** (administrateur) : les trois cartes restent les seuls
-  blocs de la page. Connexion configurée, une ligne secondaire (`--muted`) dans la carte
+- **Blocs sous les cartes** (« Couverture du tenant », « Prochaine sauvegarde », « Derniers
+  événements ») : ils lisent les mêmes données que les cartes, chargées une fois, et ne les
+  contredisent jamais (#578). Sans plan, seule reste la phrase « Aucun plan de protection n’est
+  configuré. », sans « Sauvegarder maintenant ». Plans sans résultat : un `EmptyState`
+  « Aucune sauvegarde n’est encore terminée. » à la place des tuiles, aucune exécution terminée
+  listée. Connexion Microsoft 365 à configurer : ni échéance ni « Sauvegarder maintenant ».
+- **Connexion Microsoft 365 sur l'accueil** (administrateur) : aucune carte ni aucun bloc ne
+  s'ajoute pour elle. Connexion configurée, une ligne secondaire (`--muted`) dans la carte
   « Sauvegarde » : « Microsoft 365 connecté · Messagerie, OneDrive, SharePoint ». Connexion à
   configurer, un `Alert` d'avertissement (`role="status"`) sous le `h1`, titré « Connexion
   Microsoft 365 à configurer », avec les trois étapes numérotées ; commandes et chemins en

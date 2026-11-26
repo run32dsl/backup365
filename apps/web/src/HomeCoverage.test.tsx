@@ -7,6 +7,7 @@ import {
   LATEST_RUNS,
   LatestEvents,
   NextBackup,
+  HomeCoverage,
   coverageOf,
   launchedLabel,
   nextBackupAt,
@@ -16,6 +17,8 @@ import {
 } from './HomeCoverage.js';
 import { runSummary, runTypeLabel } from './LatestEventRow.js';
 import { fetchRuns, groupRuns, type RunItem } from './activities/runs.js';
+import type { HomeData } from './HomeData.js';
+import type { Overview } from './overview.js';
 import { runPlan, type PlanItem } from './plans.js';
 
 const row = (workload: StatusRow['workload'], sourceId: string, state: StatusRow['state']) =>
@@ -314,5 +317,78 @@ describe('LatestEvents', () => {
     const html = renderToStaticMarkup(<LatestEvents items="error" onRetry={() => undefined} />);
     expect(html).toContain('role="alert"');
     expect(html).toContain('Réessayer');
+  });
+});
+
+describe('HomeCoverage follows the three cards (#578)', () => {
+  const now = new Date('2026-11-24T10:00:00Z');
+  const overview = (state: Overview['state'], total: number): Overview => ({
+    state,
+    plans: { total, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
+    lastBackupAt: null,
+    lastBackupPlan: null,
+    lastFailure: null,
+    lateBackups: [],
+  });
+  // Données qu'affichaient les blocs du bas quand ils se chargeaient seuls.
+  const data: HomeData = {
+    coverage: { mail: 5, onedrive: 5, sharepoint: 3 },
+    plans: [plan('p1')],
+    events: [runItem(), runItem({ id: 2, result: 'running', finishedAt: null, durationMs: null })],
+  };
+  const render = (
+    state: Overview | 'loading' | 'error',
+    { admin = true, connected = true, home = data } = {},
+  ) =>
+    renderToStaticMarkup(
+      <HomeCoverage
+        overview={state}
+        data={home}
+        admin={admin}
+        connected={connected}
+        now={now}
+        onLaunched={() => undefined}
+        onRetryEvents={() => undefined}
+      />,
+    );
+
+  it('no plan: no non-zero tile, no Sauvegarder maintenant, no event, only the no-plan line', () => {
+    for (const admin of [true, false]) {
+      const html = render(overview('unconfigured', 0), { admin });
+      expect(html).not.toContain('Couverture du tenant');
+      expect(html).not.toMatch(/protégée?s : [1-9]/);
+      expect(html).not.toContain('Sauvegarder maintenant');
+      expect(html).not.toContain('Prochaine sauvegarde dans');
+      expect(html).not.toContain('Derniers événements');
+      expect(html).not.toContain('<tr>');
+      expect(html).toContain('Aucun plan de protection n’est configuré.');
+    }
+  });
+  it('plans without a result: the empty state instead of tiles, no Réussie line', () => {
+    const html = render(overview('pending', 1));
+    expect(html).toContain('Aucune sauvegarde n’est encore terminée.');
+    expect(html).not.toContain('coverage-tile');
+    expect(html).not.toContain('Réussie');
+    // Une première exécution en cours reste listée : elle ne contredit pas « En attente ».
+    expect(html).toContain('sauvegarde en cours');
+    const idle = render(overview('pending', 1), { home: { ...data, events: [runItem()] } });
+    expect(idle).toContain('Aucune exécution pour le moment.');
+    expect(idle).not.toContain('Réussie');
+  });
+  it('Microsoft 365 connection to configure: no next backup time, no Sauvegarder maintenant', () => {
+    const html = render(overview('operational', 1), { connected: false });
+    expect(html).not.toContain('Prochaine sauvegarde dans');
+    expect(html).not.toContain('Sauvegarder maintenant');
+    expect(html).toContain('connexion Microsoft 365 n’est pas configurée');
+  });
+  it('plans with results: tiles, next backup and events', () => {
+    const html = render(overview('operational', 1));
+    expect(html).toContain('Boîtes protégées : 5');
+    expect(html).toContain('Sauvegarder maintenant');
+    expect(html).toContain('Réussie');
+  });
+  it('nothing before the cards are known, nor after their error', () => {
+    expect(render('loading')).toBe('');
+    expect(render('error')).toBe('');
   });
 });
