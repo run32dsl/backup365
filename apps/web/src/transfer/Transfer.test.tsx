@@ -103,7 +103,6 @@ describe('confirmation (A3)', () => {
     <ConfirmView
       rows={confirmRows(mail, camille, dominique, folder, ' Ticket INC-12345 ')}
       folder={folder}
-      targetName="Dominique Fictif"
       sending={false}
       onCancel={noop}
       onBack={noop}
@@ -142,7 +141,6 @@ describe('confirmation (A3)', () => {
     expect(confirm).toContain(
       'dossier « Restauré par backup365 26/11/2026 » de la boîte de destination',
     );
-    expect(confirm).toContain('Dominique Fictif pourra lire cet élément.');
     const actions = confirm.slice(confirm.indexOf('dialog-actions'));
     expect([...actions.matchAll(/<button[^>]*>([^<]*)</g)].map((m) => m[1])).toEqual([
       'Annuler',
@@ -150,6 +148,15 @@ describe('confirmation (A3)', () => {
       'Restaurer vers ce compte',
     ]);
     expect(accountLabel({ id: 'a@x', displayName: 'a@x' })).toBe('a@x');
+  });
+
+  it('opens on the read warning, before the list, without repeating the destination (#590)', () => {
+    const warning = confirm.indexOf('La boîte de destination pourra lire ce mail.');
+    expect(warning).toBeGreaterThanOrEqual(0);
+    expect(warning).toBeLessThan(confirm.indexOf('<dt>Mail</dt>'));
+    expect(confirm).not.toContain('pourra lire cet élément');
+    expect(confirm.split('dominique@example.org')).toHaveLength(2);
+    expect(confirm.split('Dominique Fictif')).toHaveLength(2);
   });
 
   it('offers Annuler at the reason step too', () => {

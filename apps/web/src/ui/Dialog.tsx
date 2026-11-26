@@ -9,7 +9,11 @@ import {
   trapTab,
 } from './dialog-focus.js';
 
-/** Contenu de la boîte, sans portail ni effet : `role="dialog"`, `aria-modal`, titre relié. */
+/**
+ * Contenu de la boîte, sans portail ni effet : `role="dialog"`, `aria-modal`, titre relié.
+ * Trois zones : l'en-tête, le corps (seul à défiler) et la barre `.dialog-actions` du contenu,
+ * qui reste visible au bas du corps quel que soit le défilement.
+ */
 export function DialogPanel({
   titleId,
   title,
@@ -46,7 +50,8 @@ export function DialogPanel({
             </Button>
           )}
         </div>
-        {children}
+        {/* Seul le corps défile : l'en-tête reste en haut, `.dialog-actions` collée au bas (#590). */}
+        <div className="dialog-body">{children}</div>
       </div>
     </div>
   );

@@ -25,7 +25,7 @@ import {
   CONFIRM_LABEL,
   accountLabel,
   foundLabel,
-  readWarning,
+  READ_WARNING,
   transferBoxes,
 } from './model.js';
 
@@ -229,11 +229,13 @@ export function confirmRows(
   ];
 }
 
-/** A3. Confirmation : liste libellée, « Ce qui va se passer », avertissement, puis l'action. */
+/**
+ * A3. Confirmation : avertissement en tête (#590), liste libellée, « Ce qui va se passer », puis
+ * l'action. L'adresse de destination n'est écrite qu'une fois, dans la liste.
+ */
 export function ConfirmView({
   rows,
   folder,
-  targetName,
   sending,
   failure,
   onCancel,
@@ -242,7 +244,6 @@ export function ConfirmView({
 }: {
   rows: [string, ReactNode][];
   folder: string;
-  targetName: string;
   sending: boolean;
   failure?: Problem | undefined;
   onCancel: () => void;
@@ -251,13 +252,11 @@ export function ConfirmView({
 }) {
   return (
     <>
+      <Alert tone="warning">{READ_WARNING}</Alert>
       <div className="wrap-anywhere">
         <ResultList rows={rows} />
       </div>
       <WhatHappens folder={folder} transfer />
-      <Alert tone="warning">
-        <span className="wrap-anywhere">{readWarning(targetName)}</span>
-      </Alert>
       {sending && (
         <p role="status" className="sr-only">
           {T.sending}

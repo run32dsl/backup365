@@ -15,6 +15,7 @@ import {
   type PillStatus,
 } from './ui/index.js';
 import { AuditReminder, REASON, REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
+import { LongDialogExample } from './LongDialogExample.js';
 
 /** Sections de la page, dans l'ordre du sommaire. */
 export const SECTIONS = [
@@ -189,6 +190,7 @@ function Playground() {
         >
           Supprimer
         </Button>
+        <LongDialogExample />
         <Dialog
           open={destructiveOpen}
           title="Supprimer cet exemple ?"

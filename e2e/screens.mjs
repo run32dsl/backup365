@@ -1421,8 +1421,8 @@ export const SCREENS = [
     },
   },
   {
-    // A3, bas de la boîte (#574) : « Annuler », « Précédent » et « Restaurer vers ce compte » sur
-    // une ligne dès 900 px, empilés pleine largeur sur mobile.
+    // A3, corps défilé jusqu'en bas (#574, #590) : le titre et le « ✕ » restent visibles en haut,
+    // les trois boutons sur une ligne dès 900 px, empilés pleine largeur sur mobile.
     name: 'restauration-autre-compte-confirmation-actions',
     hash: DEMO_MAIL_HASH,
     role: 'admin',
@@ -1430,7 +1430,9 @@ export const SCREENS = [
     prepare: async (page) => {
       await openOtherAccount(page, 14, 'direction');
       await toOtherAccountConfirmation(page, /^direction\.administrative/u);
-      await page.getByRole('button', { name: 'Restaurer vers ce compte' }).scrollIntoViewIfNeeded();
+      await page.locator('.dialog-body').evaluate((body) => {
+        body.scrollTop = body.scrollHeight;
+      });
     },
   },
   {
@@ -1735,6 +1737,16 @@ export const SCREENS = [
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Ouvrir l’exemple de dialogue' }).click();
       await page.getByRole('dialog', { name: 'Exporter cette boîte ?' }).waitFor();
+    },
+  },
+  {
+    // Contenu plus haut que l'écran (#590) : seul le corps défile, en-tête et actions visibles.
+    name: 'composants-dialogue-long',
+    hash: '#/composants',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('button', { name: 'Ouvrir une boîte au contenu long' }).click();
+      await page.getByRole('dialog', { name: 'Boîte au contenu long' }).waitFor();
     },
   },
   {

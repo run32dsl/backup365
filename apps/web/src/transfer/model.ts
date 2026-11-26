@@ -27,8 +27,8 @@ export const TRANSFER = {
 /** Bouton de confirmation, court : l'adresse est déjà dans la liste et l'avertissement (#574). */
 export const CONFIRM_LABEL = 'Restaurer vers ce compte';
 
-/** Avertissement de la confirmation. */
-export const readWarning = (name: string): string => `${name} pourra lire cet élément.`;
+/** Avertissement en tête de la confirmation, sans l'adresse : elle est déjà dans la liste (#590). */
+export const READ_WARNING = 'La boîte de destination pourra lire ce mail.';
 
 /** Nombre de comptes trouvés, annoncé (`role="status"`). */
 export function foundLabel(n: number): string {
