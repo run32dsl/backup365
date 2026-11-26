@@ -806,11 +806,15 @@ export const SCREENS = [
     },
   },
   {
-    // Écran C : l'essai part vers une adresse fictive ; la démo n'envoie rien.
+    // Écran C : réponse simulée. Le serveur limite à un essai par 30 s et chaque largeur
+    // rejoue l'écran : sans simulation, la seconde capture reçoit 429.
     name: 'rapports-par-mail-essai',
     hash: '#/rapports',
     role: 'admin',
     prepare: async (page) => {
+      await page.route('**/api/reports/test', (route) =>
+        route.fulfill({ json: { at: '2026-11-24T09:00:00.000Z', count: 1 } }),
+      );
       await page.getByLabel('Destinataires', { exact: true }).fill('admin@exemple.invalid');
       await page.getByRole('button', { name: 'Envoyer un essai' }).click();
       await page.getByText('Vérifiez aussi le dossier des courriers indésirables.').waitFor();
