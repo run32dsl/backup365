@@ -7,6 +7,7 @@ import {
   buildServiceSummaries,
   buildStatusReport,
   lateBackups,
+  serviceOfRow,
   type StatusRow,
 } from './status.js';
 
@@ -93,6 +94,19 @@ describe('buildStatusReport', () => {
     expect(report.generatedAt).toBe('2026-11-12T12:00:00.000Z');
   });
 
+  it('reports one row per backed-up team, never one per mailbox (#34)', async () => {
+    const withTeams = new FakeBackupCatalog({
+      mailboxes: [{ id: 'a', displayName: 'Boîte A' }],
+      teams: [{ id: 't1', displayName: 'Équipe Voirie' }],
+      snapshots: { t1: [{ id: 'tm1', workload: 'teams', createdAt: '2026-11-12T02:00:00Z' }] },
+    });
+    const report = await buildStatusReport(withTeams, ['teams'], 26, now);
+    expect(report.rows.map((r) => [r.kind, r.sourceId, r.workload, r.state])).toEqual([
+      ['team', 't1', 'teams', 'ok'],
+    ]);
+    expect(serviceOfRow(report.rows[0]!)).toBe('teams');
+  });
+
   it('picks the latest snapshot whatever the order and ignores unreadable dates', async () => {
     const messy = {
       listMailboxes: () => Promise.resolve([{ id: 'a', displayName: 'A' }]),
@@ -167,7 +181,7 @@ describe('buildServiceSummaries', () => {
 
   it('gives one line per service, in display order, even without row or plan', () => {
     expect(buildServiceSummaries([], [], 26, now)).toEqual(
-      ['mail', 'onedrive', 'sharepoint'].map((service) => ({
+      ['mail', 'onedrive', 'sharepoint', 'teams'].map((service) => ({
         service,
         hasPlan: false,
         lastSnapshotAt: null,
@@ -208,13 +222,13 @@ describe('buildServiceSummaries', () => {
   it('maps each plan workload to its own service', () => {
     const files = buildServiceSummaries(
       [],
-      [plan({ dataTypes: ['onedrive', 'sharepoint'] })],
+      [plan({ dataTypes: ['onedrive', 'sharepoint', 'teams'] })],
       26,
       now,
     );
-    expect(files.map((s) => s.hasPlan)).toEqual([false, true, true]);
+    expect(files.map((s) => s.hasPlan)).toEqual([false, true, true, true]);
     const mail = buildServiceSummaries([], [plan()], 26, now);
-    expect(mail.map((s) => s.hasPlan)).toEqual([true, false, false]);
+    expect(mail.map((s) => s.hasPlan)).toEqual([true, false, false, false]);
   });
 
   it('takes the longest retention among several plans', () => {

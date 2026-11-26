@@ -13,6 +13,7 @@ import { MailPage } from '../MailPage.js';
 import { OneDrivePage } from '../OneDrivePage.js';
 import { parseOneDriveHash } from '../onedrive.js';
 import { SharePointPage } from '../SharePointPage.js';
+import { TeamsPage } from '../TeamsPage.js';
 import { parseSharePointHash } from '../sharepoint.js';
 import { SearchPage } from '../SearchPage.js';
 import { StatusPage } from '../StatusPage.js';
@@ -109,6 +110,7 @@ export function Console({
             admin={admin}
           />
         )}
+        {screen === 'teams' && <TeamsPage admin={admin} />}
         {screen === 'onedrive' && (
           <OneDrivePage route={parseOneDriveHash(hash) ?? { account: '', path: '/' }} />
         )}

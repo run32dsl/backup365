@@ -1,4 +1,4 @@
-import type { StatusRow } from './status.js';
+import { serviceOfRow, type StatusRow } from './status.js';
 
 /** RPO autorisés, en heures. */
 export const RPO_HOURS = [4, 12, 24] as const;
@@ -8,13 +8,23 @@ export const DEFAULT_RPO_HOURS: RpoHours = 24;
 export type PlanScope = 'all' | 'selection';
 
 /**
- * Charges qu'un plan protège, dans l'ordre de l'accueil (ADR 0011). Les contacts et l'agenda sont
- * des charges à part depuis le SDK 7.2.0 (issues #543 et #544).
+ * Charges qu'un plan protège, dans l'ordre de l'accueil (ADR 0011). Les contacts, l'agenda et
+ * Teams sont des charges à part depuis le SDK 7.2.0 (issues #543, #544 et #34).
  */
-export const DATA_TYPES = ['mail', 'contacts', 'calendar', 'onedrive', 'sharepoint'] as const;
+export const DATA_TYPES = [
+  'mail',
+  'contacts',
+  'calendar',
+  'onedrive',
+  'sharepoint',
+  'teams',
+] as const;
 export type DataType = (typeof DATA_TYPES)[number];
 
-/** Charges d'un plan qui ne les précise pas : contacts et agenda restent à cocher (#543, #544). */
+/**
+ * Charges d'un plan qui ne les précise pas : contacts, agenda et Teams restent à cocher (#543,
+ * #544, #34) ; Teams demande d'autres autorisations Microsoft 365 (docs/adr/0022).
+ */
 export const DEFAULT_DATA_TYPES: readonly DataType[] = ['mail', 'onedrive', 'sharepoint'];
 
 export interface ProtectionPlanInput {
@@ -324,11 +334,13 @@ type CoverageFacts = {
 /** Lignes de la page « Sources » que couvre un plan : ses services et, en sélection, ses sources. */
 function coveredRows(plan: CoverageFacts, rows: readonly StatusRow[]): StatusRow[] {
   return rows.filter((r) => {
-    const service =
-      r.kind === 'site' ? 'sharepoint' : r.workload === 'onedrive' ? 'onedrive' : 'mail';
+    const service = serviceOfRow(r);
     return (
       (plan.dataTypes ?? []).includes(service) &&
-      (plan.scope !== 'selection' || (plan.selection ?? []).includes(r.sourceId))
+      // Teams couvre toutes les équipes, quel que soit le périmètre (docs/adr/0022).
+      (plan.scope !== 'selection' ||
+        service === 'teams' ||
+        (plan.selection ?? []).includes(r.sourceId))
     );
   });
 }

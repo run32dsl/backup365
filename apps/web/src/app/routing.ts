@@ -1,5 +1,6 @@
 import { parseOneDriveHash } from '../onedrive.js';
 import { parseSharePointHash } from '../sharepoint.js';
+import { TEAMS_HASH } from '../teams.js';
 import { parseMailHash, parseSearchHash } from '../mail.js';
 import { parsePlansHash } from '../plans.js';
 import { RUNS_HASH, parseRunsHash } from '../activities/runs.js';
@@ -26,10 +27,12 @@ export function screenOf(
   | 'mail'
   | 'onedrive'
   | 'sharepoint'
+  | 'teams'
   | 'home' {
   if (parsePlansHash(hash)) return 'plans';
   if (parseOneDriveHash(hash)) return 'onedrive';
   if (parseSharePointHash(hash)) return 'sharepoint';
+  if (hash === TEAMS_HASH) return 'teams';
   if (hash === '#/audit') return 'audit';
   if (parseRunsHash(hash) !== null) return 'runs';
   if (hash === '#/search' || parseSearchHash(hash) !== null) return 'search';
@@ -89,7 +92,8 @@ export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean)
         screen === 'search' ||
         screen === 'mail' ||
         screen === 'onedrive' ||
-        screen === 'sharepoint',
+        screen === 'sharepoint' ||
+        screen === 'teams',
     },
     {
       href: RUNS_HASH,

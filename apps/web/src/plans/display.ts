@@ -3,9 +3,11 @@ import {
   effectiveState,
   isNightPlan,
   nextRunAt,
+  serviceOfRow,
   type DataType,
   type PlanScope,
   type RpoHours,
+  type Service,
   type StatusReport,
 } from '@backup365/core';
 import { dateTimeOf, plural, quoted, workloadLabel } from '../format.js';
@@ -18,6 +20,10 @@ const pad = (n: number): string => String(n).padStart(2, '0');
 
 /** `18:00`, à l'heure locale. */
 export const timeOf = (date: Date): string => `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+
+/** Nom d'un élément hors boîte, dans les notes d'un plan vide. */
+const nounOf = (t: DataType): string =>
+  t === 'onedrive' ? 'compte OneDrive' : t === 'teams' ? 'équipe Teams' : 'site SharePoint';
 
 /**
  * Note d'un plan qui n'a rien copié, selon son périmètre et ses services : un périmètre choisi
@@ -37,7 +43,7 @@ function emptyNote(
       `${what} trouvé${feminine ? 'e' : ''} dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.`;
     if (types.every(inMailbox)) return found('Aucune boîte', true);
     if (types.some(inMailbox)) return found('Aucune source', true);
-    const nouns = types.map((t) => (t === 'onedrive' ? 'compte OneDrive' : 'site SharePoint'));
+    const nouns = types.map(nounOf);
     return found(`Aucun ${nouns.join(' ni ')}`, false);
   }
   const ids = plan.selection ?? [];
@@ -52,13 +58,7 @@ function emptyNote(
       ? `Rien à sauvegarder dans les ${ids.length} boîtes choisies : vérifiez que ces boîtes existent et contiennent des mails.`
       : 'Rien à sauvegarder dans la boîte choisie : vérifiez qu’elle existe et contient des mails.';
   }
-  const nouns = [
-    ...new Set(
-      types.map((t) =>
-        inMailbox(t) ? 'boîte' : t === 'onedrive' ? 'compte OneDrive' : 'site SharePoint',
-      ),
-    ),
-  ].join(', ');
+  const nouns = [...new Set(types.map((t) => (inMailbox(t) ? 'boîte' : nounOf(t))))].join(', ');
   return ids.length > 1
     ? `Rien à sauvegarder dans les ${ids.length} éléments choisis : vérifiez qu’ils existent (${nouns}) et contiennent des données.`
     : `Rien à sauvegarder dans l’élément choisi : vérifiez qu’il existe (${nouns}) et contient des données.`;
@@ -133,13 +133,8 @@ export function complianceView(
 /** Ce que le rapport d'état dit des sources : leurs lignes et le seuil de retard. */
 export type SourcesReport = Pick<StatusReport, 'rows' | 'maxAgeHours' | 'generatedAt'>;
 
-/** Le service d'une ligne du catalogue : un site est toujours SharePoint. */
-export function serviceOf(
-  r: StatusReport['rows'][number],
-): Exclude<DataType, 'contacts' | 'calendar'> {
-  if (r.kind === 'site') return 'sharepoint';
-  return r.workload === 'onedrive' ? 'onedrive' : 'mail';
-}
+/** Le service d'une ligne du catalogue : un site est SharePoint, une équipe Teams (même règle que le serveur). */
+export const serviceOf = (r: StatusReport['rows'][number]): Service => serviceOfRow(r);
 
 export const UNIT_NAMES: Record<DataType, string> = {
   mail: 'boîte',
@@ -147,6 +142,7 @@ export const UNIT_NAMES: Record<DataType, string> = {
   calendar: 'boîte',
   onedrive: 'compte',
   sharepoint: 'site',
+  teams: 'équipe',
 };
 
 /**
@@ -173,7 +169,9 @@ export function lateSourcesNote(
   if (plan.scope === 'selection' && plan.selection === undefined) return undefined;
   const picked = plan.scope === 'selection' ? new Set(plan.selection) : null;
   const own = report.rows.filter(
-    (r) => types.includes(serviceOf(r)) && (picked === null || picked.has(r.sourceId)),
+    (r) =>
+      types.includes(serviceOf(r)) &&
+      (picked === null || r.kind === 'team' || picked.has(r.sourceId)),
   );
   const late = own.filter((r) => effectiveState(r) !== 'ok');
   const [first] = late;

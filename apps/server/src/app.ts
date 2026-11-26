@@ -26,6 +26,8 @@ import { registerMailRoutes } from './mail-routes.js';
 import type { DriveRestoreService } from './drive-restore-service.js';
 import { registerOneDriveRoutes } from './onedrive-routes.js';
 import { registerSharePointRoutes } from './sharepoint-routes.js';
+import { registerTeamsRoutes } from './teams-routes.js';
+import type { TeamsArchive } from './atlas-teams.js';
 import type { SiteRestoreService } from './site-restore-service.js';
 import { registerRestoreRoutes } from './restore-routes.js';
 import type { RestoreService } from './restore-service.js';
@@ -77,6 +79,8 @@ export interface AppOptions {
   site?: SiteBrowser;
   /** Restauration SharePoint ; absente, elle n'est pas configurée (503, boutons désactivés). */
   siteRestore?: SiteRestoreService;
+  /** Sauvegardes Teams (canaux, export zip) ; absentes tant que le stockage n'est pas configuré. */
+  teams?: TeamsArchive;
   /** Sauvegarde réelle configurée (identifiants Microsoft 365) ? Faux : aucun plan ne s'exécute (ADR 0009). */
   backupConfigured?: boolean;
   /** Derrière un proxy inverse de confiance : `X-Forwarded-Proto` et `-For` sont lus (cookie `Secure`, IP). */
@@ -134,10 +138,14 @@ export function buildApp({
   driveRestore,
   site,
   siteRestore,
+  teams,
   backupConfigured = true,
   trustProxy = false,
   indexer,
-  status = { maxAgeHours: DEFAULT_MAX_AGE_HOURS, workloads: ['mail', 'onedrive', 'sharepoint'] },
+  status = {
+    maxAgeHours: DEFAULT_MAX_AGE_HOURS,
+    workloads: ['mail', 'onedrive', 'sharepoint', 'teams'],
+  },
   webDir,
   demo = false,
 }: AppOptions): FastifyInstance {
@@ -240,6 +248,10 @@ export function buildApp({
   });
   void app.register((scope, _opts, done) => {
     registerSharePointRoutes(scope, catalog, site, siteRestore, audit);
+    done();
+  });
+  void app.register((scope, _opts, done) => {
+    registerTeamsRoutes(scope, catalog, teams, audit);
     done();
   });
   if (webDir) registerWebRoutes(app, webDir);

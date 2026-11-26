@@ -56,6 +56,7 @@ export const DATA_TYPE_LABELS: Record<DataType, string> = {
   calendar: 'Agenda',
   onedrive: 'OneDrive',
   sharepoint: 'SharePoint',
+  teams: 'Teams',
 };
 
 /** Aide sous « Contacts », une charge à part depuis le SDK 7.2.0 (issue #543). */
@@ -65,6 +66,17 @@ export const CONTACTS_HELP = 'Copie les contacts des boîtes couvertes par ce pl
  * messagerie ne lit que les dossiers de mails.
  */
 export const CALENDAR_HELP = 'Copie les événements des agendas des boîtes couvertes par ce plan.';
+/**
+ * Ce que Teams sauvegarde (SDK 7.2.0, issue #34, docs/adr/0022) : les messages des canaux de
+ * toutes les équipes. Les fichiers d'un canal sont dans le site SharePoint de l'équipe, et le
+ * moteur ne lit pas les conversations privées.
+ */
+export const TEAMS_HELP =
+  'Teams : messages des canaux de toutes les équipes. Les fichiers des canaux sont protégés avec le site SharePoint de l’équipe.';
+/** Rappel de la maquette (#34), sur le formulaire de plan, la page Sources et Restaurer. */
+export const TEAMS_PRIVATE_CHATS = 'Les conversations privées ne sont pas sauvegardées.';
+/** Nom d'une équipe dans la page Sources : ce qui est sauvegardé, dit comme dans la maquette. */
+export const TEAMS_SOURCE_LABEL = 'Teams (équipes et canaux)';
 
 export const RPO_CHOICES: readonly RpoHours[] = [4, 12, 24];
 export const RTO_CHOICES: readonly number[] = [8, 24, 72];

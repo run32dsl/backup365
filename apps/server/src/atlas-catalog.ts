@@ -5,6 +5,7 @@ import {
   type Mailbox,
   type Site,
   type Snapshot,
+  type Team,
   type SnapshotDetail,
   type Workload,
 } from '@backup365/core';
@@ -38,6 +39,19 @@ export interface AtlasSdkReader {
       }[]
     >;
   };
+  /**
+   * Index des instantanés d'une équipe, lus dans le stockage sans Graph (docs/adr/0022) ; absent
+   * d'un faux qui ne lit pas Teams.
+   */
+  teams?: {
+    listSnapshots(teamId: string): Promise<{
+      indexes: readonly {
+        snapshotId: string;
+        createdAt: Date;
+        teamDisplayName?: string | undefined;
+      }[];
+    }>;
+  };
   /** Recensement du stockage : parcourt tout le bucket (docs/adr/0006). */
   getStorageUsage(options: { breakdown: 'owner' }): Promise<{
     complete: boolean;
@@ -55,9 +69,16 @@ export interface AtlasCatalogOptions {
   now?: () => number;
 }
 
+/** Un site ou une équipe, avec ses instantanés du plus récent au plus ancien. */
 interface SiteEntry {
   site: Site;
   snapshots: Snapshot[];
+}
+
+/** Résultat d'un recensement du stockage : les sites et les équipes sauvegardés. */
+interface ScanEntries {
+  sites: SiteEntry[];
+  teams: SiteEntry[];
 }
 
 /**
@@ -87,16 +108,17 @@ function toIso(value: Date): string {
 /**
  * Adaptateur du port `BackupCatalog` au-dessus du SDK Atlas (lecture seule). Charges prises en
  * charge : `mail` et `onedrive` (par boîte), `sharepoint` (par site, via `listSites` et
- * `listSiteSnapshots`). Les autres répondent sans instantané.
+ * `listSiteSnapshots`), `teams` (par équipe, via `listTeams` et `listTeamSnapshots`). Les autres
+ * répondent sans instantané.
  *
- * Les sites sauvegardés se déduisent du recensement du stockage, qui parcourt tout le bucket :
- * le résultat (sites et instantanés) est gardé en cache `siteCacheTtlMs`, jamais recalculé à
- * chaque requête. Les appels simultanés partagent le même calcul ; un échec n'est pas mis en cache.
+ * Les sites et les équipes sauvegardés se déduisent du recensement du stockage, qui parcourt tout
+ * le bucket : le résultat (sites, équipes et instantanés) est gardé en cache `siteCacheTtlMs`,
+ * jamais recalculé à chaque requête. Les appels simultanés partagent le même calcul ; un échec n'est pas mis en cache.
  */
 export class AtlasSdkCatalog implements BackupCatalog {
   private readonly siteCacheTtlMs: number;
   private readonly now: () => number;
-  private siteCache: { entries: Promise<SiteEntry[]>; expiresAt: number } | undefined;
+  private siteCache: { entries: Promise<ScanEntries>; expiresAt: number } | undefined;
 
   constructor(
     private readonly atlas: AtlasSdkReader,
@@ -107,18 +129,28 @@ export class AtlasSdkCatalog implements BackupCatalog {
   }
 
   async listSites(): Promise<Site[]> {
-    return (await this.siteEntries()).map((e) => ({ ...e.site }));
+    return (await this.siteEntries()).sites.map((e) => ({ ...e.site }));
   }
 
   async listSiteSnapshots(siteId: string): Promise<Snapshot[]> {
-    const entry = (await this.siteEntries()).find((e) => e.site.id === siteId);
+    const entry = (await this.siteEntries()).sites.find((e) => e.site.id === siteId);
     return entry ? entry.snapshots.map((s) => ({ ...s })) : [];
   }
 
-  private siteEntries(): Promise<SiteEntry[]> {
+  /** Équipes sauvegardées, tirées du même recensement que les sites (et du même cache). */
+  async listTeams(): Promise<Team[]> {
+    return (await this.siteEntries()).teams.map((e) => ({ ...e.site }));
+  }
+
+  async listTeamSnapshots(teamId: string): Promise<Snapshot[]> {
+    const entry = (await this.siteEntries()).teams.find((e) => e.site.id === teamId);
+    return entry ? entry.snapshots.map((s) => ({ ...s })) : [];
+  }
+
+  private siteEntries(): Promise<ScanEntries> {
     if (this.siteCache && this.now() < this.siteCache.expiresAt) return this.siteCache.entries;
     const cache = {
-      entries: this.call(() => this.scanSites()),
+      entries: this.call(() => this.scanOwners()),
       expiresAt: Number.POSITIVE_INFINITY,
     };
     this.siteCache = cache;
@@ -133,16 +165,59 @@ export class AtlasSdkCatalog implements BackupCatalog {
     return cache.entries;
   }
 
-  /** Ni `listSites()` ni `validate()` : ils passent par Graph (docs/adr/0006). */
-  private async scanSites(): Promise<SiteEntry[]> {
+  /**
+   * Ni `listSites()`, ni `teams.listTeams()`, ni `validate()` : ils passent par Graph
+   * (docs/adr/0006, docs/adr/0022).
+   */
+  private async scanOwners(): Promise<ScanEntries> {
     const usage = await this.atlas.getStorageUsage({ breakdown: 'owner' });
     // Un recensement interrompu donnerait une liste muette sur les sites manquants.
     if (!usage.complete) throw new CatalogUnavailableError('Recensement du stockage incomplet');
-    const ids = new Set(
-      (usage.byOwner ?? [])
-        .filter((o) => o.workload === 'sharepoint' && o.ownerId !== '')
-        .map((o) => o.ownerId),
-    );
+    const owners = (workload: string) =>
+      new Set(
+        (usage.byOwner ?? [])
+          .filter((o) => o.workload === workload && o.ownerId !== '')
+          .map((o) => o.ownerId),
+      );
+    return {
+      sites: await this.siteRows(owners('sharepoint')),
+      teams: this.atlas.teams ? await this.teamRows(owners('teams'), this.atlas.teams) : [],
+    };
+  }
+
+  private async teamRows(
+    ids: ReadonlySet<string>,
+    teams: NonNullable<AtlasSdkReader['teams']>,
+  ): Promise<SiteEntry[]> {
+    const entries: SiteEntry[] = [];
+    for (const id of ids) {
+      let indexes;
+      try {
+        indexes = (await teams.listSnapshots(id)).indexes;
+      } catch {
+        // Une équipe illisible ne doit pas rendre les sites indisponibles (même recensement) :
+        // elle reste listée sans point de restauration, donc « En échec » sur la page Sources.
+        entries.push({ site: { id, displayName: id }, snapshots: [] });
+        continue;
+      }
+      const rows = indexes
+        .map((row) => ({ row, createdAt: toIso(row.createdAt) }))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      // Une équipe dont aucun index n'est lisible n'a pas de point de restauration : pas listée.
+      if (rows.length === 0) continue;
+      entries.push({
+        site: { id, displayName: rows[0]?.row.teamDisplayName || id },
+        snapshots: rows.map(({ row, createdAt }) => ({
+          id: row.snapshotId,
+          workload: 'teams',
+          createdAt,
+        })),
+      });
+    }
+    return entries;
+  }
+
+  private async siteRows(ids: ReadonlySet<string>): Promise<SiteEntry[]> {
     const entries: SiteEntry[] = [];
     for (const id of ids) {
       const rows = (await this.atlas.sharepoint.listSnapshots(id))

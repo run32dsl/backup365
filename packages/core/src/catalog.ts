@@ -12,6 +12,12 @@ export interface Mailbox {
   displayName: string;
 }
 
+/** Équipe Teams sauvegardée. L'identifiant est opaque. */
+export interface Team {
+  id: string;
+  displayName: string;
+}
+
 /** Site SharePoint sauvegardé. L'identifiant est opaque. */
 export interface Site {
   id: string;
@@ -54,6 +60,13 @@ export interface BackupCatalog {
   listSites(): Promise<Site[]>;
   /** Instantanés `sharepoint` d'un site, du plus récent au plus ancien. */
   listSiteSnapshots(siteId: string): Promise<Snapshot[]>;
+  /**
+   * Équipes Teams dont une sauvegarde existe ; absent si l'adaptateur ne lit pas Teams (aucune
+   * équipe). Le SDK 7.2.0 ne copie que les messages des canaux (docs/adr/0022).
+   */
+  listTeams?(): Promise<Team[]>;
+  /** Instantanés `teams` d'une équipe, du plus récent au plus ancien. */
+  listTeamSnapshots?(teamId: string): Promise<Snapshot[]>;
   /** `null` si l'instantané n'existe pas. */
   getSnapshotDetail(workload: Workload, snapshotId: string): Promise<SnapshotDetail | null>;
 }

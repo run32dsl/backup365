@@ -177,6 +177,7 @@ describe('GET /api/status', () => {
         ['mail', true, 'stale', 365, { kind: 'all' }],
         ['onedrive', false, 'missing', null, null],
         ['sharepoint', false, 'missing', null, null],
+        ['teams', false, 'missing', null, null],
       ]);
     });
 
@@ -302,7 +303,7 @@ describe('status configuration', () => {
     }
   });
   it('parses the workloads', () => {
-    expect(parseStatusWorkloads(undefined)).toEqual(['mail', 'onedrive', 'sharepoint']);
+    expect(parseStatusWorkloads(undefined)).toEqual(['mail', 'onedrive', 'sharepoint', 'teams']);
     expect(parseStatusWorkloads('mail, contacts,mail')).toEqual(['mail', 'contacts']);
     expect(() => parseStatusWorkloads('mail,chat')).toThrow('BACKUP365_STATUS_WORKLOADS');
   });

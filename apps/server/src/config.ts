@@ -55,7 +55,7 @@ export function parseSiteCacheTtlMs(raw: string | undefined): number {
  */
 export function parseStatusWorkloads(
   raw: string | undefined,
-  fallback: readonly Workload[] = ['mail', 'onedrive', 'sharepoint'],
+  fallback: readonly Workload[] = ['mail', 'onedrive', 'sharepoint', 'teams'],
 ): Workload[] {
   if (raw === undefined || raw.trim() === '') return [...fallback];
   const names = raw.split(',').map((name) => name.trim());

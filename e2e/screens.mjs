@@ -880,6 +880,16 @@ export const SCREENS = [
     },
   },
   {
+    // Teams coché (issue #34) : ce qu'il sauvegarde et le rappel sur les conversations privées.
+    name: 'plans-creation-teams',
+    hash: '#/plans/nouveau',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Nom du plan').fill('Teams de la mairie');
+      await page.getByRole('checkbox', { name: /^Teams/ }).check();
+    },
+  },
+  {
     name: 'plans-creation-etape-1-sombre',
     hash: '#/plans/nouveau',
     role: 'admin',
@@ -1273,6 +1283,90 @@ export const SCREENS = [
     prepare: async (page) => {
       await reachSiteSummary(page, SITES.commerce, 'site');
       await page.getByText('Restauration du site entier').waitFor();
+    },
+  },
+  // Restaurer depuis Teams (issue #34) : choisir, motif, récapitulatif, archive téléchargée.
+  {
+    name: 'teams-choisir',
+    hash: '#/teams',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.getByLabel('Canal').and(page.locator(':enabled')).waitFor();
+    },
+  },
+  {
+    name: 'teams-motif',
+    hash: '#/teams',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.getByLabel('Canal').and(page.locator(':enabled')).waitFor();
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket INC-12345 : message supprimé');
+    },
+  },
+  {
+    name: 'teams-recapitulatif',
+    hash: '#/teams',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.getByLabel('Canal').and(page.locator(':enabled')).waitFor();
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket INC-12345 : message supprimé');
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await page.getByText(/^Vous allez exporter les messages/u).waitFor();
+    },
+  },
+  {
+    name: 'teams-terminee',
+    hash: '#/teams',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.getByLabel('Canal').and(page.locator(':enabled')).waitFor();
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket INC-12345 : message supprimé');
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
+      await page.getByText('Restauration terminée.', { exact: false }).waitFor();
+    },
+  },
+  {
+    name: 'teams-echec',
+    hash: '#/teams',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.route('**/api/teams/*/export', (route) =>
+        route.fulfill({ status: 503, json: { error: 'catalog_unavailable' } }),
+      );
+      await page.getByLabel('Canal').and(page.locator(':enabled')).waitFor();
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await page.getByLabel(RESTORE_REASON_LABEL).fill('Ticket INC-12345 : message supprimé');
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await page.getByRole('button', { name: 'Restaurer', exact: true }).click();
+      await page.getByText(/Échec de la restauration de /u).waitFor();
+    },
+  },
+  {
+    name: 'teams-non-protege',
+    hash: '#/teams',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.route('**/api/teams/teams', (route) =>
+        route.fulfill({ status: 200, json: { teams: [] } }),
+      );
+      await page.reload();
+      await page.getByText('Teams n’est pas encore protégé.').waitFor();
+    },
+  },
+  {
+    name: 'teams-erreur',
+    hash: '#/teams',
+    role: 'operator',
+    prepare: async (page) => {
+      await page.route('**/api/teams/*/snapshots', (route) =>
+        route.fulfill({ status: 500, json: { error: 'internal' } }),
+      );
+      await page.reload();
+      await page.getByText('Impossible de lire les sauvegardes Teams.').waitFor();
     },
   },
   {

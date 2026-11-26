@@ -5,6 +5,7 @@ import {
   type AtlasBackupApi,
   type DriveOutcome,
   type MailOutcome,
+  type TeamsOutcome,
 } from './atlas-executeur.js';
 import { errorCode } from './plan-scheduler.js';
 
@@ -14,7 +15,7 @@ const driveOk: DriveOutcome = { interrupted: false, summary: { healthy: true } }
 
 function fakeApi(
   over: Partial<
-    Record<'mail' | 'contacts' | 'calendar' | 'drive' | 'site', () => Promise<unknown>>
+    Record<'mail' | 'contacts' | 'calendar' | 'drive' | 'site' | 'team', () => Promise<unknown>>
   > = {},
 ) {
   const calls: string[] = [];
@@ -48,6 +49,13 @@ function fakeApi(
         calls.push(`sharepoint:${id}`);
         return (over.site ?? (() => Promise.resolve([driveOk])))() as Promise<DriveOutcome[]>;
       }),
+    },
+    teams: {
+      backup: vi.fn((id: string) => {
+        calls.push(`teams:${id}`);
+        return (over.team ?? (() => Promise.resolve(driveOk)))() as Promise<TeamsOutcome>;
+      }),
+      listTeams: () => Promise.resolve([{ id: 'team-1' }]),
     },
     dispose: () => Promise.resolve(),
   } satisfies AtlasBackupApi;
@@ -113,6 +121,47 @@ describe('AtlasExecuteur', () => {
     expect(calls).toEqual(['mail:owner-1', 'onedrive:owner-1']);
     // Un seul argument : le SDK décide seul entre complète et incrémentale.
     expect(api.outlook.backup.mock.calls[0]).toEqual(['owner-1']);
+  });
+
+  it('backs up a team with teams.backup only, without asking the catalog (#34)', async () => {
+    const { api, calls } = fakeApi({
+      team: () =>
+        Promise.resolve({
+          interrupted: false,
+          summary: { healthy: true, messagesStored: 7 },
+          snapshot: { totals: { sizeBytes: 900 } },
+        }),
+    });
+    const isSite = vi.fn(() => Promise.resolve(false));
+    const executeur = new AtlasExecuteur({ api, isSite });
+    const withTeams = [...ALL, 'teams'] as const;
+    await expect(
+      executeur.execute({ planId: 'p', itemId: 'teams:team-1', dataTypes: withTeams }),
+    ).resolves.toEqual({ itemsSaved: 7, sourceBytes: 900 });
+    expect(calls).toEqual(['teams:team-1']);
+    expect(isSite).not.toHaveBeenCalled();
+  });
+
+  it('fails a team run with errors, and skips a team the plan no longer protects (#34)', async () => {
+    const broken = fakeApi({
+      team: () => Promise.resolve({ interrupted: false, summary: { healthy: false } }),
+    });
+    const err = await broken.executeur
+      .execute({ planId: 'p', itemId: 'teams:team-1', dataTypes: ['teams'] })
+      .catch((e: unknown) => e);
+    expect(errorCode(err)).toBe('backup_errors');
+    // Équipes non listées (autorisations Teams absentes) : échec sans appel au SDK.
+    const unlisted = fakeApi();
+    const refused = await unlisted.executeur
+      .execute({ planId: 'p', itemId: 'teams:', dataTypes: ['teams'] })
+      .catch((e: unknown) => e);
+    expect(errorCode(refused)).toBe('teams_unlisted');
+    expect(unlisted.calls).toEqual([]);
+    const { calls, executeur } = fakeApi();
+    await expect(
+      executeur.execute({ planId: 'p', itemId: 'teams:team-1', dataTypes: ALL }),
+    ).resolves.toEqual({ noSnapshotReason: 'no_content' });
+    expect(calls).toEqual([]);
   });
 
   it('backs up a known SharePoint site with sharepoint.backup only', async () => {

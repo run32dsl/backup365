@@ -2,6 +2,8 @@ import { DATA_TYPES, type DataType } from '@backup365/core';
 import {
   CALENDAR_HELP,
   CONTACTS_HELP,
+  TEAMS_HELP,
+  TEAMS_PRIVATE_CHATS,
   DATA_TYPE_LABELS,
   type FormErrors,
   type Mailbox,
@@ -14,7 +16,11 @@ import { ErrorText } from '../ErrorText.js';
 const HELP: Partial<Record<DataType, string>> = {
   contacts: CONTACTS_HELP,
   calendar: CALENDAR_HELP,
+  teams: `${TEAMS_HELP} ${TEAMS_PRIVATE_CHATS}`,
 };
+
+/** Charges dont la sélection se fait parmi les boîtes : ni SharePoint (sites) ni Teams (toutes les équipes). */
+const inMailboxGroup = (t: DataType): boolean => t !== 'sharepoint' && t !== 'teams';
 
 function toggle<T>(list: T[], item: T): T[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
@@ -110,9 +116,7 @@ export function StepWhat({
                   const dataTypes = DATA_TYPES.filter((d) => toggle(form.dataTypes, t).includes(d));
                   // Un groupe qui disparaît emporte ses choix ; les ids inconnus du catalogue restent.
                   const hidden = new Set<string>([
-                    ...(dataTypes.some((d) => d !== 'sharepoint') ? [] : mailboxes).map(
-                      (m) => m.id,
-                    ),
+                    ...(dataTypes.some(inMailboxGroup) ? [] : mailboxes).map((m) => m.id),
                     ...(dataTypes.includes('sharepoint') ? [] : sites).map((s) => s.id),
                   ]);
                   patch({
@@ -146,7 +150,7 @@ export function StepWhat({
       />
       {form.scope === 'selection' && (
         <>
-          {form.dataTypes.some((t) => t !== 'sharepoint') && (
+          {form.dataTypes.some(inMailboxGroup) && (
             <SelectionGroup
               legend="Boîtes et comptes"
               empty="Aucune boîte à choisir pour l’instant."

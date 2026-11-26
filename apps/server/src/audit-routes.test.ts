@@ -127,6 +127,22 @@ describe('GET /api/audit', () => {
     expect(unknown).not.toHaveProperty('targetName');
   });
 
+  it('adds the team name to a channel listing and a channel export (#34)', async () => {
+    const audit = SqliteAuditLog.open(':memory:');
+    const base = { at: '2026-01-01T10:00:00.000Z', actor: 'alice' } as const;
+    await audit.record({ ...base, action: 'list.view', resource: 'teams.channels', target: 't1' });
+    await audit.record({ ...base, action: 'item.export', resource: 'teams', target: 't1/c1' });
+    const catalog = new FakeBackupCatalog({
+      mailboxes: [],
+      teams: [{ id: 't1', displayName: 'Équipe Voirie' }],
+      snapshots: {},
+    });
+    const app = buildTestApp({ version: '1', audit, catalog });
+    const res = await app.inject({ method: 'GET', url: '/api/audit' });
+    const items = res.json<{ items: Record<string, unknown>[] }>().items;
+    expect(items.filter((e) => e['targetName'] === 'Équipe Voirie')).toHaveLength(2);
+  });
+
   it('still answers when the search index fails, and names restore targets too', async () => {
     const audit = SqliteAuditLog.open(':memory:');
     const at = '2026-01-01T10:00:00.000Z';

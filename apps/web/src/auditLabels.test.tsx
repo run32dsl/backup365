@@ -63,6 +63,14 @@ describe('audit labels', () => {
       name: 'Plan supprimé',
     });
     expect(targetView({ resource: 'plan', target: ID }, null)).toEqual({ name: '—' });
+    // Teams (#34) : l'équipe par son nom, jamais `t1/c1`.
+    expect(
+      targetView({ resource: 'teams', target: 't1/c1', targetName: 'Équipe Voirie' }, null),
+    ).toEqual({ name: 'Équipe Voirie', secondary: 'Teams' });
+    expect(targetView({ resource: 'teams', target: 't1/c1' }, null)).toEqual({ name: 'Teams' });
+    expect(
+      targetView({ resource: 'teams.channels', target: 't1', targetName: 'Équipe Voirie' }, null),
+    ).toEqual({ name: 'Teams', secondary: 'Équipe Voirie' });
     expect(
       targetView(
         {

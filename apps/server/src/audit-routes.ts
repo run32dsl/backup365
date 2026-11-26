@@ -43,15 +43,24 @@ async function withMailName(entry: AuditEntry, index: SearchIndex | undefined): 
 }
 
 const SITE_RESOURCES: ReadonlySet<string> = new Set(['sharepoint.items', 'sharepoint.scope']);
+/** Consultation des canaux et export d'un canal : la cible commence par l'équipe (#34). */
+const TEAM_RESOURCES: ReadonlySet<string> = new Set(['teams.channels', 'teams']);
 
 /**
- * Ajoute à la consultation d'un site (`<site>/<dossier>`) le nom du site, lu dans le catalogue ;
- * site absent du catalogue : rien.
+ * Ajoute à la consultation d'un site (`<site>/<dossier>`) ou d'une équipe (`<équipe>/<canal>`) son
+ * nom, lu dans le catalogue ; site ou équipe absent du catalogue : rien.
  */
-function withSiteName(entry: AuditItem, sites: ReadonlyMap<string, string> | undefined): AuditItem {
-  const name = SITE_RESOURCES.has(entry.resource)
-    ? sites?.get(entry.target?.split('/')[0] ?? '')
-    : undefined;
+function withSiteName(
+  entry: AuditItem,
+  sites: ReadonlyMap<string, string> | undefined,
+  teams: ReadonlyMap<string, string> | undefined,
+): AuditItem {
+  const names = SITE_RESOURCES.has(entry.resource)
+    ? sites
+    : TEAM_RESOURCES.has(entry.resource)
+      ? teams
+      : undefined;
+  const name = names?.get(entry.target?.split('/')[0] ?? '');
   return name ? { ...entry, targetName: name } : entry;
 }
 
@@ -109,12 +118,20 @@ export function registerAuditRoutes(
           // Enrichissement facultatif, comme pour les mails.
         }
       }
+      let teams: Map<string, string> | undefined;
+      if (catalog?.listTeams && page.items.some((e) => TEAM_RESOURCES.has(e.resource))) {
+        try {
+          teams = new Map((await catalog.listTeams()).map((t) => [t.id, t.displayName]));
+        } catch {
+          // Enrichissement facultatif.
+        }
+      }
       return {
         total: page.total,
         limit: req.query.limit,
         offset: req.query.offset,
         items: (await Promise.all(page.items.map((e) => withMailName(e, index)))).map((e) =>
-          withSiteName(e, sites),
+          withSiteName(e, sites, teams),
         ),
       };
     },

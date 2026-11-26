@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { RestoreSourceNav, SourcesNav } from './SubNav.js';
 
 describe('RestoreSourceNav', () => {
-  it('lists the three sources as native links, in order, marking the current one', () => {
+  it('lists the four sources as native links, in order, marking the current one', () => {
     const html = renderToStaticMarkup(<RestoreSourceNav current="onedrive" />);
     expect(html).toContain('aria-label="Source à restaurer"');
     expect(
@@ -12,6 +12,7 @@ describe('RestoreSourceNav', () => {
       ['#/search', 'Mails'],
       ['#/onedrive', 'Fichiers OneDrive'],
       ['#/sharepoint', 'Sites SharePoint'],
+      ['#/teams', 'Teams'],
     ]);
     expect(html.match(/aria-current="page"/g)).toHaveLength(1);
     expect(html).toContain('<a href="#/onedrive" aria-current="page">Fichiers OneDrive</a>');

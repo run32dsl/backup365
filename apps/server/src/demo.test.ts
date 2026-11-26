@@ -73,7 +73,8 @@ describe('mode démo', () => {
     const status = await app.inject({ url: '/api/status', headers });
     expect(status.json<{ plans: { counts: object } }>().plans.counts).toEqual({
       compliant: 1,
-      late: 1,
+      // OneDrive et SharePoint, et Teams (une équipe en retard, #34).
+      late: 2,
       failed: 1,
     });
 

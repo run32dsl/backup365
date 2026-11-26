@@ -19,6 +19,7 @@ import {
 import { SimulatedOidcProvider } from './oidc-simulated.js';
 import type { Role } from './sqlite/sqlite-account-store.js';
 import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
+import { DEMO_TEAMS, demoTeamsApi } from './demo-teams.js';
 
 /**
  * Mode démo (`BACKUP365_DEMO=1`) : un faux SDK Atlas en mémoire et un jeu de données entièrement
@@ -379,10 +380,14 @@ export function createDemoHandle(now: number = Date.now()): AtlasHandle {
         );
       },
     },
+    teams: demoTeamsApi(now),
     getStorageUsage: () =>
       Promise.resolve({
         complete: true,
-        byOwner: DEMO_SITES.map((s) => ({ workload: 'sharepoint', ownerId: s.id })),
+        byOwner: [
+          ...DEMO_SITES.map((s) => ({ workload: 'sharepoint', ownerId: s.id })),
+          ...DEMO_TEAMS.map((t) => ({ workload: 'teams', ownerId: t.id })),
+        ],
       }),
     dispose: () => Promise.resolve(),
   };
@@ -646,5 +651,23 @@ function seedDemoPlans(plans: SqlitePlanStore, now: number): void {
   const filesRun = plans.startRun(files.id, first!.id, done);
   if (filesRun !== undefined) {
     plans.finishRun(filesRun, 'success', done, undefined, { itemsSaved: 318 });
+  }
+  // Teams (#34) : sa réussite est datée de la plus récente sauvegarde d'équipe ; l'autre équipe
+  // reste en retard, comme la ligne « En retard » de la maquette.
+  const teams = plans.create({
+    ...base,
+    dataTypes: ['teams'],
+    name: 'Teams, quotidien',
+    scope: 'all',
+    selection: [],
+    rpoHours: 24,
+    retentionDays: 365,
+    gdprJustification: 'Besoin métier : échanges des équipes',
+  });
+  const [voirie] = DEMO_TEAMS;
+  const teamDone = new Date(now - voirie.ageHours * HOUR).toISOString();
+  const teamRun = plans.startRun(teams.id, `teams:${voirie.id}`, teamDone);
+  if (teamRun !== undefined) {
+    plans.finishRun(teamRun, 'success', teamDone, undefined, { itemsSaved: 246 });
   }
 }

@@ -4,6 +4,7 @@ import type {
   Site,
   Snapshot,
   SnapshotDetail,
+  Team,
   Workload,
 } from './catalog.js';
 
@@ -11,7 +12,9 @@ export interface FakeCatalogData {
   mailboxes: Mailbox[];
   /** Sites SharePoint sauvegardés. */
   sites?: Site[];
-  /** Instantanés par boîte ou par site. */
+  /** Équipes Teams sauvegardées. */
+  teams?: Team[];
+  /** Instantanés par boîte, par site ou par équipe. */
   snapshots: Record<string, Snapshot[]>;
   details?: Record<string, SnapshotDetail>;
 }
@@ -30,6 +33,14 @@ export class FakeBackupCatalog implements BackupCatalog {
 
   listSiteSnapshots(siteId: string): Promise<Snapshot[]> {
     return this.listSnapshots(siteId, 'sharepoint');
+  }
+
+  listTeams(): Promise<Team[]> {
+    return Promise.resolve([...(this.data.teams ?? [])]);
+  }
+
+  listTeamSnapshots(teamId: string): Promise<Snapshot[]> {
+    return this.listSnapshots(teamId, 'teams');
   }
 
   listSnapshots(mailboxId: string, workload: Workload): Promise<Snapshot[]> {
