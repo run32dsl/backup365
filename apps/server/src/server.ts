@@ -45,7 +45,7 @@ import {
 import { SearchIndexer } from './search-indexer.js';
 import { tryOpenAccountStore } from './sqlite/open-account-store.js';
 import { tryOpenAuditLog } from './sqlite/open-audit-log.js';
-import { listPlanItems } from './plan-items.js';
+import { listPlanItems, type PlanItemsCatalog } from './plan-items.js';
 import { tryOpenPlanStore } from './sqlite/open-plan-store.js';
 import { tryOpenSearchIndex } from './sqlite/open-search-index.js';
 
@@ -168,7 +168,19 @@ export function createServer(
       : undefined;
 
   // Sans identifiants Microsoft 365 (hors démo), pas de planificateur : aucune exécution.
-  const catalogForPlans = startup.status === 'ready' ? startup.atlas.catalog : undefined;
+  const readCatalog = startup.status === 'ready' ? startup.atlas.catalog : undefined;
+  // Les équipes d'un plan viennent de Graph (instance de sauvegarde) : une équipe jamais
+  // sauvegardée doit l'être. Sans elle (démo), le catalogue liste les équipes déjà sauvegardées.
+  const backupApi = backup?.api;
+  const catalogForPlans: PlanItemsCatalog | undefined =
+    readCatalog &&
+    (backupApi
+      ? {
+          listMailboxes: () => readCatalog.listMailboxes(),
+          listSites: () => readCatalog.listSites(),
+          listTeams: () => backupApi.teams.listTeams(),
+        }
+      : readCatalog);
   const executeur = demo ? executeurSimule : backup?.executeur;
   const planScheduler =
     openedPlans.store && openedAudit.audit && executeur
@@ -246,6 +258,7 @@ export function createServer(
     ...(driveRestoreService ? { driveRestore: driveRestoreService } : {}),
     ...(startup.status === 'ready' ? { site: startup.atlas.site } : {}),
     ...(siteRestoreService ? { siteRestore: siteRestoreService } : {}),
+    ...(startup.status === 'ready' && startup.atlas.teams ? { teams: startup.atlas.teams } : {}),
     backupConfigured: executeur !== undefined,
     trustProxy,
     ...(demo ? { demo } : {}),

@@ -386,7 +386,7 @@ describe('API des plans', () => {
 
   it('refuses an empty or unknown dataTypes list (400)', async () => {
     const { app } = setup();
-    for (const dataTypes of [[], ['teams']]) {
+    for (const dataTypes of [[], ['yammer']]) {
       const res = await send(app, 'POST', '/api/plans', { ...valid, dataTypes });
       expect(res.statusCode).toBe(400);
     }

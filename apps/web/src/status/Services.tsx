@@ -4,7 +4,13 @@ import {
   type PlanComplianceReport,
   type StatusReport,
 } from '@backup365/core';
-import { PLANS_HASH, lateNote, retentionLabel } from '../plans.js';
+import {
+  PLANS_HASH,
+  TEAMS_PRIVATE_CHATS,
+  TEAMS_SOURCE_LABEL,
+  lateNote,
+  retentionLabel,
+} from '../plans.js';
 import { dateTimeOf, ageLabel, workloadLabel } from '../format.js';
 import { AUDIT_HASH } from '../routes.js';
 import { RESTORE_BUTTONS } from '../RestoreJourney.js';
@@ -151,6 +157,7 @@ const SERVICE_ICONS: Record<ServiceEntry['service'], string> = {
   mail: '✉',
   onedrive: '☁',
   sharepoint: '▤',
+  teams: '☷',
 };
 
 const serviceColumns = (rows: readonly Row[]): Column<ServiceEntry & Partial<Late>>[] => [
@@ -162,7 +169,8 @@ const serviceColumns = (rows: readonly Row[]): Column<ServiceEntry & Partial<Lat
         <span className="service-icon" aria-hidden="true">
           {SERVICE_ICONS[s.service]}
         </span>{' '}
-        {workloadLabel(s.service)}
+        {s.service === 'teams' ? TEAMS_SOURCE_LABEL : workloadLabel(s.service)}
+        {s.service === 'teams' && <small className="state-note">{TEAMS_PRIVATE_CHATS}</small>}
       </>
     ),
   },

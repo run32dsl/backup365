@@ -31,8 +31,12 @@ conservation par charge, et ce qui est **exclu** (chats Teams, Entra ID, si c'es
   sans ce consentement, chacune de ses exécutions échoue (ADR 0020).
 - Un plan qui protège l'agenda demande en plus `Calendars.Read` (sauvegarde, SDK 7.2.0, lu dans
   son code ; à confirmer sur un tenant de test, ADR 0021).
+- Un plan qui protège Teams demande en plus, pour la sauvegarde (SDK 7.2.0, liste lue dans son
+  code) : `Team.ReadBasic.All`, `TeamSettings.Read.All`, `TeamMember.Read.All`,
+  `Channel.ReadBasic.All`, `ChannelMember.Read.All`, `ChannelMessage.Read.All` et
+  `TeamsTab.Read.All` ; sans eux, chacune de ses exécutions échoue (ADR 0022).
 - Restauration vers le tenant : **désactivée** par défaut ; restauration par export (EML,
-  fichiers) remis à la personne concernée ou à l'IT.
+  fichiers, archive zip d’un canal Teams) remis à la personne concernée ou à l’IT.
 - Option recommandée : limiter l'accès Exchange de l'application à un groupe de boîtes
   (Application RBAC d'Exchange Online).
 - Authentification par certificat (clé privée non exportable) plutôt que par secret ;
@@ -59,7 +63,7 @@ avant la production ; `audit-verify` en contrôle les ancres.
 
 Surveillance : l'accueil de la console et `GET /api/status` indiquent, par boîte, par site SharePoint et par charge,
 l'âge de la dernière sauvegarde (À jour, En retard, En échec). Seuil d'alerte `BACKUP365_STATUS_MAX_AGE_HOURS`
-(26 h par défaut), charges suivies `BACKUP365_STATUS_WORKLOADS` (`mail,onedrive,sharepoint` par défaut) ; les sites sauvegardés viennent d'un recensement du stockage, gardé en cache `BACKUP365_CATALOG_CACHE_MINUTES` (60 min par défaut) ;
+(26 h par défaut), charges suivies `BACKUP365_STATUS_WORKLOADS` (`mail,onedrive,sharepoint,teams` par défaut) ; les sites et les équipes Teams sauvegardés viennent d'un recensement du stockage, gardé en cache `BACKUP365_CATALOG_CACHE_MINUTES` (60 min par défaut) ;
 voir l'ADR 0006.
 
 Recherche : la console indexe les métadonnées des mails sauvegardés au démarrage, puis toutes les

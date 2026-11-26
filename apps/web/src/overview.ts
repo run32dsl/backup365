@@ -19,7 +19,7 @@ export interface Overview {
   lastFailure: { plan: string; at: string } | null;
   /** Sauvegardes au-delà du seuil de retard, calculées par le serveur comme la page Sources. */
   lateBackups: {
-    service: 'mail' | 'onedrive' | 'sharepoint';
+    service: 'mail' | 'onedrive' | 'sharepoint' | 'teams';
     name: string;
     lastSnapshotAt: string;
   }[];

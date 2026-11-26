@@ -39,7 +39,7 @@ export function lateMessage(late: Overview['lateBackups']): string {
     const at = dateTimeOf(first.lastSnapshotAt);
     return `1 sauvegarde en retard : ${workloadLabel(first.service)}, ${first.name}${at && `, dernière réussite le ${at} UTC`}.`;
   }
-  const services = (['mail', 'onedrive', 'sharepoint'] as const)
+  const services = (['mail', 'onedrive', 'sharepoint', 'teams'] as const)
     .filter((s) => late.some((l) => l.service === s))
     .map(workloadLabel);
   return `${late.length} sauvegardes en retard (${services.join(', ')}).`;

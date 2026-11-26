@@ -12,8 +12,8 @@ export const DEFAULT_MAX_AGE_HOURS = 26;
 /** `ok` : instantané récent ; `stale` (« ancien ») : au-delà du seuil ; `missing` (« absent ») : aucun instantané. */
 export type BackupState = 'ok' | 'stale' | 'missing';
 
-/** Nature de la source : une boîte aux lettres ou un site SharePoint. */
-export type SourceKind = 'mailbox' | 'site';
+/** Nature de la source : une boîte aux lettres, un site SharePoint ou une équipe Teams. */
+export type SourceKind = 'mailbox' | 'site' | 'team';
 
 export interface StatusRow {
   kind: SourceKind;
@@ -108,7 +108,7 @@ export async function buildStatusReport(
       ...backupState(last, now, maxAgeHours),
     });
   };
-  const mailWorkloads = workloads.filter((w) => w !== 'sharepoint');
+  const mailWorkloads = workloads.filter((w) => w !== 'sharepoint' && w !== 'teams');
   const mailboxes = mailWorkloads.length > 0 ? await catalog.listMailboxes() : [];
   for (const mailbox of mailboxes) {
     for (const workload of mailWorkloads) {
@@ -120,6 +120,11 @@ export async function buildStatusReport(
       add('site', site, 'sharepoint', await catalog.listSiteSnapshots(site.id));
     }
   }
+  if (workloads.includes('teams') && catalog.listTeams && catalog.listTeamSnapshots) {
+    for (const team of await catalog.listTeams()) {
+      add('team', team, 'teams', await catalog.listTeamSnapshots(team.id));
+    }
+  }
   return {
     generatedAt: now.toISOString(),
     maxAgeHours,
@@ -129,8 +134,15 @@ export async function buildStatusReport(
 }
 
 /** Services présentés sur la page « Sources », dans l'ordre d'affichage. */
-export const SERVICES = ['mail', 'onedrive', 'sharepoint'] as const;
+export const SERVICES = ['mail', 'onedrive', 'sharepoint', 'teams'] as const;
 export type Service = (typeof SERVICES)[number];
+
+/** Le service d'une ligne : un site est SharePoint, une équipe Teams, une boîte sa charge. */
+export function serviceOfRow(r: Pick<StatusRow, 'kind' | 'workload'>): Service {
+  if (r.kind === 'site') return 'sharepoint';
+  if (r.kind === 'team') return 'teams';
+  return r.workload === 'onedrive' ? 'onedrive' : 'mail';
+}
 
 export interface ServiceSummary {
   service: Service;
@@ -186,7 +198,8 @@ export function buildServiceSummaries(
     const scope: ServiceSummary['scope'] =
       covering.length === 0
         ? null
-        : covering.some((p) => p.scope === 'all')
+        : // Teams couvre toutes les équipes, quel que soit le périmètre (docs/adr/0022).
+          service === 'teams' || covering.some((p) => p.scope === 'all')
           ? { kind: 'all' }
           : { kind: 'selection', count: selected.size };
     return {
@@ -220,11 +233,9 @@ export interface LateBackup {
  * n'en fait pas partie.
  */
 export function lateBackups(rows: readonly StatusRow[]): LateBackup[] {
-  const serviceOf = (r: StatusRow): Service =>
-    r.kind === 'site' ? 'sharepoint' : r.workload === 'onedrive' ? 'onedrive' : 'mail';
   return rows.flatMap((r) =>
     r.state === 'stale' && r.lastSnapshotAt !== null
-      ? [{ service: serviceOf(r), name: r.displayName, lastSnapshotAt: r.lastSnapshotAt }]
+      ? [{ service: serviceOfRow(r), name: r.displayName, lastSnapshotAt: r.lastSnapshotAt }]
       : [],
   );
 }

@@ -1,6 +1,7 @@
 import { createAtlasInstance, type AtlasInstanceConfig } from '@wisecom/atlas-sdk';
 import { AtlasSdkDriveBrowser, type AtlasDriveReader } from './atlas-drive.js';
 import { AtlasSdkSiteBrowser, type AtlasSiteReader } from './atlas-site.js';
+import { AtlasSdkTeamsArchive, type AtlasTeamsReader } from './atlas-teams.js';
 import { AtlasSdkCatalog, type AtlasCatalogOptions, type AtlasSdkReader } from './atlas-catalog.js';
 import { AtlasSdkMailContentReader, type AtlasMessageReader } from './atlas-mail-content.js';
 import { AtlasSdkSnapshotMailReader, type AtlasManifestReader } from './atlas-mail-index.js';
@@ -20,6 +21,8 @@ export interface AtlasHandle extends AtlasSdkReader {
     AtlasManifestReader['outlook'];
   onedrive: AtlasSdkReader['onedrive'] & AtlasDriveReader['onedrive'];
   sharepoint: AtlasSdkReader['sharepoint'] & AtlasSiteReader['sharepoint'];
+  /** Absent d'un faux qui ne lit pas Teams ; l'instance réelle le fournit (SDK 7.2.0). */
+  teams?: NonNullable<AtlasSdkReader['teams']> & AtlasTeamsReader['teams'];
   dispose(): Promise<void>;
 }
 
@@ -54,6 +57,7 @@ export function createAtlasCatalog(
   reader: AtlasSdkSnapshotMailReader;
   drive: AtlasSdkDriveBrowser;
   site: AtlasSdkSiteBrowser;
+  teams: AtlasSdkTeamsArchive | undefined;
   dispose: () => Promise<void>;
 } {
   const atlas = factory(toAtlasConfig(storage));
@@ -61,6 +65,7 @@ export function createAtlasCatalog(
     catalog: new AtlasSdkCatalog(atlas, options),
     drive: new AtlasSdkDriveBrowser(atlas),
     site: new AtlasSdkSiteBrowser(atlas),
+    teams: atlas.teams ? new AtlasSdkTeamsArchive({ teams: atlas.teams }) : undefined,
     content: new AtlasSdkMailContentReader(atlas),
     reader: new AtlasSdkSnapshotMailReader(atlas),
     dispose: () => atlas.dispose(),

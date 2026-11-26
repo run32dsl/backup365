@@ -1,6 +1,6 @@
 import type { DataType } from '@backup365/core';
 import { describe, expect, it } from 'vitest';
-import { listPlanItems } from './plan-items.js';
+import { listPlanItems, teamOfItem } from './plan-items.js';
 
 const catalog = {
   listMailboxes: () => Promise.resolve([{ id: 'u1' }, { id: 'u2' }]),
@@ -24,6 +24,32 @@ describe('listPlanItems', () => {
       'u2',
       's1',
     ]);
+  });
+
+  it('adds every team, prefixed, for Teams whatever the scope (#34)', async () => {
+    const withTeams = { ...catalog, listTeams: () => Promise.resolve([{ id: 't1' }]) };
+    expect(await listPlanItems(all(['teams']), withTeams)).toEqual(['teams:t1']);
+    expect(await listPlanItems(all(['mail', 'teams']), withTeams)).toEqual([
+      'u1',
+      'u2',
+      'teams:t1',
+    ]);
+    const picked = {
+      scope: 'selection' as const,
+      selection: ['x'],
+      dataTypes: ['mail', 'teams'] as DataType[],
+    };
+    expect(await listPlanItems(picked, withTeams)).toEqual(['x', 'teams:t1']);
+    expect(teamOfItem('teams:t1')).toBe('t1');
+    expect(teamOfItem('u1')).toBeUndefined();
+    // Sans liste d'équipes, Teams n'ajoute rien.
+    expect(await listPlanItems(all(['teams']), catalog)).toEqual([]);
+  });
+
+  it('still lists mailboxes when the teams cannot be listed, with a failing marker (#34)', async () => {
+    const refused = { ...catalog, listTeams: () => Promise.reject(new Error('403')) };
+    expect(await listPlanItems(all(['mail', 'teams']), refused)).toEqual(['u1', 'u2', 'teams:']);
+    expect(teamOfItem('teams:')).toBe('');
   });
 
   it('returns the selection as is, and nothing without a catalog', async () => {

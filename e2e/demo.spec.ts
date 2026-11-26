@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { BrowserContext } from '@playwright/test';
 import { DEMO_LOGINS } from './demo-server.mjs';
 import { expect, test } from './fixtures.js';
-import { RESTORE_REASON_LABEL, SCREENS, SITES, WIDTHS } from './screens.mjs';
+import { RESTORE_REASON_LABEL, SITES, WIDTHS, bannerPages } from './screens.mjs';
 import { signInAs } from './browser.mjs';
 
 const BANNER = 'Mode démo : données fictives';
@@ -661,12 +661,14 @@ for (const width of WIDTHS) {
 
 test('le bandeau du mode démo est présent sur chaque écran', async ({ browser, baseURL }) => {
   // Les variantes de thème ou de version reprennent des écrans déjà parcourus.
-  // Le test parcourt tous les écrans de `screens.mjs` : sa durée croît avec la liste.
+  // Une visite par page (rôle et ancre), pas par capture : le test ne joue pas les gestes
+  // (`prepare`), ouvrir dix fois la même page ne prouvait rien de plus. Sa durée ne croît donc
+  // qu'avec les pages de la console ; elle approchait le délai à chaque écran ajouté (#198, #34).
   test.setTimeout(120_000);
   // Une seule connexion par rôle : la session est reprise d'un écran à l'autre. Une connexion
   // par écran faisait dépasser le délai du test à mesure que la liste des écrans grandissait.
   const sessions = new Map<string, Awaited<ReturnType<BrowserContext['storageState']>>>();
-  for (const screen of SCREENS.filter((s) => !s.scheme && !s.buildCommit)) {
+  for (const screen of bannerPages()) {
     let storageState = screen.role ? sessions.get(screen.role) : undefined;
     if (screen.role && !storageState) {
       const login = await browser.newContext({ baseURL: baseURL! });

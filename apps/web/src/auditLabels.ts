@@ -182,6 +182,7 @@ const LIST_SOURCES: Record<string, string> = {
   'onedrive.items': 'OneDrive',
   'sharepoint.items': 'SharePoint',
   'sharepoint.scope': 'SharePoint',
+  'teams.channels': 'Teams',
   audit: 'Journal d’audit',
 };
 
@@ -217,7 +218,8 @@ export function targetView(
   if (list) {
     if (e.resource === 'audit') return { name: list, secondary: auditFilters(e.target) };
     // Consultation d'une liste : la source, puis le compte ou le site ; jamais les termes cherchés.
-    const scope = e.resource.startsWith('sharepoint')
+    // Un site ou une équipe se nomme par `targetName` : jamais son identifiant.
+    const scope = /^(sharepoint|teams)\./.test(e.resource)
       ? e.targetName
       : e.resource === 'onedrive.items'
         ? e.target?.split('/')[0]
@@ -229,6 +231,10 @@ export function targetView(
   if (!e.target) return { name: NO_TARGET };
   if (e.resource === 'plan') {
     return { name: planNames?.get(e.target) ?? (planNames ? 'Plan supprimé' : NO_TARGET) };
+  }
+  // Export d'un canal Teams : le nom de l'équipe, jamais son identifiant (#34).
+  if (e.resource === 'teams') {
+    return e.targetName ? { name: e.targetName, secondary: 'Teams' } : { name: 'Teams' };
   }
   if (e.resource === 'mail' || e.resource === 'mail.restore') {
     return e.targetName

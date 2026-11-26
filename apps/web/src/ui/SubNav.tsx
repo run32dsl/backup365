@@ -33,8 +33,12 @@ export function SubNav({ label, links }: { label: string; links: SubNavLink[] })
   );
 }
 
-/** Les trois sources de restauration, dans cet ordre. */
-export function RestoreSourceNav({ current }: { current: 'mail' | 'onedrive' | 'sharepoint' }) {
+/** Les quatre sources de restauration, dans cet ordre. */
+export function RestoreSourceNav({
+  current,
+}: {
+  current: 'mail' | 'onedrive' | 'sharepoint' | 'teams';
+}) {
   return (
     <SubNav
       label="Source à restaurer"
@@ -42,6 +46,7 @@ export function RestoreSourceNav({ current }: { current: 'mail' | 'onedrive' | '
         { href: '#/search', label: 'Mails', current: current === 'mail' },
         { href: '#/onedrive', label: 'Fichiers OneDrive', current: current === 'onedrive' },
         { href: '#/sharepoint', label: 'Sites SharePoint', current: current === 'sharepoint' },
+        { href: '#/teams', label: 'Teams', current: current === 'teams' },
       ]}
     />
   );

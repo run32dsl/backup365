@@ -2,6 +2,7 @@ import { createAtlasInstance, type AtlasInstanceConfig } from '@wisecom/atlas-sd
 import type { DataType } from '@backup365/core';
 import type { M365Config, StorageConfig } from './config.js';
 import type { Executeur, ExecutionResult, ExecutionTarget } from './plan-scheduler.js';
+import { teamOfItem } from './plan-items.js';
 
 /**
  * Ce que l'exécuteur lit d'un résultat du SDK : l'interruption, la santé du résumé et, pour
@@ -26,14 +27,52 @@ export interface DriveOutcome {
 }
 type BackupOutcome = MailOutcome | DriveOutcome;
 
-/** Ce que l'exécuteur appelle du SDK : les cinq sauvegardes, plus de quoi libérer l'instance. */
+/** Ce que l'exécuteur appelle du SDK : les six sauvegardes, les équipes, de quoi libérer l'instance. */
 export interface AtlasBackupApi {
   outlook: { backup(mailboxId: string): Promise<MailOutcome> };
   contacts: { backup(mailboxId: string): Promise<DriveOutcome> };
   calendar: { backup(mailboxId: string): Promise<DriveOutcome> };
   onedrive: { backup(ownerId: string): Promise<DriveOutcome> };
   sharepoint: { backup(siteId: string): Promise<readonly DriveOutcome[]> };
+  teams: {
+    /** Messages des canaux d'une équipe (SDK 7.2.0, docs/adr/0022). */
+    backup(teamId: string): Promise<TeamsOutcome>;
+    /** Équipes de l'organisation, lues dans Graph : aussi celles jamais sauvegardées. */
+    listTeams(): Promise<readonly { id: string }[]>;
+  };
   dispose(): Promise<void>;
+}
+
+/** Teams : comme OneDrive, mais le volume se lit en messages et en octets du dernier index. */
+export interface TeamsOutcome {
+  readonly interrupted: boolean;
+  readonly summary: {
+    readonly healthy: boolean;
+    readonly noSnapshotReason?: string | undefined;
+    readonly messagesStored?: number;
+  };
+  readonly snapshot?: { readonly totals?: { readonly sizeBytes?: number } } | undefined;
+}
+
+/** Résultat Teams lu comme un résultat OneDrive : mêmes règles de santé et de volume. */
+function teamsAsDrive(outcome: TeamsOutcome): DriveOutcome {
+  const { summary, snapshot } = outcome;
+  return {
+    interrupted: outcome.interrupted,
+    summary: {
+      healthy: summary.healthy,
+      ...(summary.noSnapshotReason !== undefined && { noSnapshotReason: summary.noSnapshotReason }),
+      ...(summary.messagesStored !== undefined && { filesStored: summary.messagesStored }),
+    },
+    snapshot:
+      snapshot === undefined
+        ? undefined
+        : {
+            ...(snapshot.totals?.sizeBytes !== undefined && {
+              totalSizeBytes: snapshot.totals.sizeBytes,
+            }),
+          },
+  };
 }
 
 export type BackupFactory = (config: AtlasInstanceConfig) => AtlasBackupApi;
@@ -96,7 +135,8 @@ function volumeOf(outcomes: readonly BackupOutcome[]): ExecutionResult {
 }
 
 /**
- * Exécuteur réel (ADR 0009) : un site est sauvegardé par `sharepoint.backup` ; un propriétaire par
+ * Exécuteur réel (ADR 0009) : une équipe (`teams:<id>`) est sauvegardée par `teams.backup`, un
+ * site par `sharepoint.backup` ; un propriétaire par
  * `outlook.backup`, `contacts.backup`, `calendar.backup` puis `onedrive.backup`, chacun seulement
  * si le plan protège cette charge. Les charges voulues sont tentées même si la première échoue ; la première erreur
  * est ensuite relancée. Le SDK choisit seul entre sauvegarde complète (première exécution) et
@@ -109,6 +149,14 @@ export class AtlasExecuteur implements Executeur {
   async execute(target: ExecutionTarget): Promise<ExecutionResult> {
     const { api, isSite } = this.options;
     const wanted = (type: DataType): boolean => target.dataTypes.includes(type);
+    const teamId = teamOfItem(target.itemId);
+    if (teamId !== undefined) {
+      if (!wanted('teams')) return NO_CONTENT;
+      // Équipes illisibles au moment de lister le plan (plan-items.ts) : échec visible.
+      if (teamId === '') throw new BackupRunError('teams_unlisted');
+      const outcome = teamsAsDrive(await api.teams.backup(teamId));
+      return { ...(check([outcome]) ? NO_CONTENT : {}), ...volumeOf([outcome]) };
+    }
     if (await isSite(target.itemId)) {
       // Un site n'est sauvegardé que si le plan protège SharePoint : rien à faire sinon.
       if (!wanted('sharepoint')) return NO_CONTENT;

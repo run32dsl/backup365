@@ -50,6 +50,7 @@ const SCOPE_UNITS: Record<ServiceEntry['service'], { one: string; all: string } 
   mail: { one: 'boîte', all: 'Toutes les boîtes' },
   onedrive: { one: 'compte', all: 'Tous les comptes' },
   sharepoint: null,
+  teams: { one: 'équipe', all: 'Toutes les équipes' },
 };
 
 /** `12 boîtes`, `Tous les comptes` ; chaîne vide sans plan. */

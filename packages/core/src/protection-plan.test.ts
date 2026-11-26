@@ -53,8 +53,16 @@ describe('parseProtectionPlanInput', () => {
       plan: { dataTypes: ['mail', 'onedrive', 'sharepoint'] },
     });
   });
+  it('accepts Teams as the last data type, never by default (#34)', () => {
+    expect(
+      parseProtectionPlanInput({ ...valid, dataTypes: ['teams', 'sharepoint', 'mail'] }),
+    ).toMatchObject({ ok: true, plan: { dataTypes: ['mail', 'sharepoint', 'teams'] } });
+    expect(parseProtectionPlanInput(valid)).toMatchObject({
+      plan: { dataTypes: ['mail', 'onedrive', 'sharepoint'] },
+    });
+  });
   it('refuses an empty or unknown list of data types', () => {
-    for (const dataTypes of [[], ['teams'], 'mail', [1], null]) {
+    for (const dataTypes of [[], ['yammer'], 'mail', [1], null]) {
       expect(parseProtectionPlanInput({ ...valid, dataTypes }).ok).toBe(false);
     }
   });

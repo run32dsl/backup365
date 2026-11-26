@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { effectiveState, type ComplianceState, type StatusReport } from '@backup365/core';
 import { searchHref } from '../mail.js';
+import { TEAMS_SOURCE_LABEL } from '../plans.js';
 import { dateTimeOf, dateTimeOrDash, ageLabel, workloadLabel } from '../format.js';
 import { Button, DataTable, type Column } from '../ui/index.js';
 import { Counts } from './Counts.js';
@@ -9,7 +10,8 @@ import { unprotectedServices } from './Services.js';
 
 /** Ce qui est sauvegardé, avec les noms de la navigation : un site est un « Site SharePoint ». */
 function contentLabel(r: Row): string {
-  return r.kind === 'site' ? 'Site SharePoint' : workloadLabel(r.workload);
+  if (r.kind === 'site') return 'Site SharePoint';
+  return r.kind === 'team' ? TEAMS_SOURCE_LABEL : workloadLabel(r.workload);
 }
 
 /** Ligne secondaire d'une source dont un plan a échoué : le plan, la date, et qui la couvre. */

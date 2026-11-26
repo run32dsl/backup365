@@ -89,6 +89,78 @@ backupCatalogContract('AtlasSdkCatalog (fake SDK)', () =>
 );
 
 describe('AtlasSdkCatalog', () => {
+  it('lists backed-up teams from the storage census, newest snapshot first (#34)', async () => {
+    const listSnapshots = vi.fn((teamId: string) =>
+      Promise.resolve({
+        indexes:
+          teamId === 'team-1'
+            ? [
+                { snapshotId: 'tm-old', createdAt: new Date('2026-01-03T00:00:00Z') },
+                {
+                  snapshotId: 'tm-new',
+                  createdAt: new Date('2026-02-03T00:00:00Z'),
+                  teamDisplayName: 'Équipe de test',
+                },
+              ]
+            : [],
+      }),
+    );
+    const catalog = new AtlasSdkCatalog(
+      fakeAtlas(
+        {},
+        {
+          teams: { listSnapshots },
+          getStorageUsage: () =>
+            Promise.resolve({
+              complete: true,
+              byOwner: [
+                { workload: 'teams', ownerId: 'team-1' },
+                // Aucun index lisible : l'équipe n'a pas de point de restauration.
+                { workload: 'teams', ownerId: 'team-empty' },
+                { workload: 'sharepoint', ownerId: CONTRACT_FIXTURE.site.id },
+              ],
+            }),
+        },
+      ),
+    );
+    expect(await catalog.listTeams()).toEqual([{ id: 'team-1', displayName: 'Équipe de test' }]);
+    expect((await catalog.listTeamSnapshots('team-1')).map((s) => [s.id, s.workload])).toEqual([
+      ['tm-new', 'teams'],
+      ['tm-old', 'teams'],
+    ]);
+    expect(await catalog.listTeamSnapshots('absent')).toEqual([]);
+    // Équipes et sites viennent du même recensement : un seul appel par équipe.
+    expect(await catalog.listSites()).toContainEqual(CONTRACT_FIXTURE.site);
+    expect(listSnapshots).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the sites readable when a team index cannot be read (#34)', async () => {
+    const catalog = new AtlasSdkCatalog(
+      fakeAtlas(
+        {},
+        {
+          teams: { listSnapshots: () => Promise.reject(new Error('https://bucket/secret')) },
+          getStorageUsage: () =>
+            Promise.resolve({
+              complete: true,
+              byOwner: [
+                { workload: 'teams', ownerId: 'team-1' },
+                { workload: 'sharepoint', ownerId: CONTRACT_FIXTURE.site.id },
+              ],
+            }),
+        },
+      ),
+    );
+    expect(await catalog.listSites()).toContainEqual(CONTRACT_FIXTURE.site);
+    // L'équipe reste visible, sans point de restauration : la page Sources la dit en échec.
+    expect(await catalog.listTeams()).toEqual([{ id: 'team-1', displayName: 'team-1' }]);
+    expect(await catalog.listTeamSnapshots('team-1')).toEqual([]);
+  });
+
+  it('lists no team when the SDK reader has no Teams API', async () => {
+    expect(await new AtlasSdkCatalog(fakeAtlas()).listTeams()).toEqual([]);
+  });
+
   it('falls back to ownerId when the mailbox has no address', async () => {
     const catalog = new AtlasSdkCatalog(
       fakeAtlas({ listMailboxes: () => Promise.resolve([{ ownerId: 'owner-9' }]) }),
