@@ -164,7 +164,7 @@ function enumerate(items: string[]): string {
 
 /**
  * Synthèse d'un plan en une ligne pour la liste, avec les termes du récapitulatif de l'assistant :
- * « Messagerie, OneDrive et SharePoint · toute l'organisation · toutes les 12 h · conservés 1 an ».
+ * « Boîtes mail, OneDrive et SharePoint · toute l'organisation · toutes les 12 h · conservés 1 an ».
  */
 export function planSummary(
   plan: Pick<PlanItem, 'dataTypes' | 'scope' | 'selection' | 'rpoHours' | 'retentionDays'>,

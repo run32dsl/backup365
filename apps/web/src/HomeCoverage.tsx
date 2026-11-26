@@ -269,7 +269,7 @@ export function NextBackup({
 /** Nombre d'exécutions de « Derniers événements ». */
 export const LATEST_RUNS = 5;
 
-/** Colonne « Type » : ce que le plan protège (« Messagerie, OneDrive ») ; `Sauvegarde` à défaut. */
+/** Colonne « Type » : ce que le plan protège (« Boîtes mail, OneDrive ») ; `Sauvegarde` à défaut. */
 export function runTypeLabel(run: RunItem, plans: readonly PlanItem[]): string {
   const plan = plans.find((p) => p.id === run.planId);
   const types = DATA_TYPES.filter((t) => plan?.dataTypes?.includes(t));
