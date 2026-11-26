@@ -69,22 +69,23 @@ passe ; les deux premiers secrets sont alors l'identifiant et le mot de passe ra
 
 ## Variables d'environnement
 
-| Variable                                                                                          | Rôle                                                                                                  |
-| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `BACKUP365_TENANT_ID`, `BACKUP365_S3_ENDPOINT`                                                    | tenant et URL du stockage S3 (obligatoires)                                                           |
-| `BACKUP365_S3_REGION`                                                                             | région S3 (`eu-west-3`)                                                                               |
-| `BACKUP365_S3_ACCESS_KEY_ID`, `BACKUP365_S3_SECRET_ACCESS_KEY`, `BACKUP365_ENCRYPTION_PASSPHRASE` | secrets, **fournis par fichier** : variante `…_FILE`                                                  |
-| `BACKUP365_M365_CLIENT_ID`, `BACKUP365_M365_CLIENT_SECRET`                                        | application Entra de la sauvegarde (secret : variante `…_FILE`) ; sans elles, aucun plan ne s'exécute |
-| `BACKUP365_STATUS_MAX_AGE_HOURS`, `BACKUP365_STATUS_WORKLOADS`                                    | tableau de bord : seuil d'alerte (26 h), charges                                                      |
-| `BACKUP365_CATALOG_CACHE_MINUTES`                                                                 | cache du recensement des sites SharePoint (60 min)                                                    |
-| `BACKUP365_INDEX_INTERVAL_MINUTES`                                                                | intervalle d'indexation de la recherche (60 min)                                                      |
-| `BACKUP365_AUDIT_ANCHOR_DIR`, `BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN`                               | ancres du journal d'audit : dossier (`/anchors` dans `compose.yaml`), intervalle (60 min)             |
-| `BACKUP365_TRUST_PROXY`                                                                           | adresse(s) du proxy inverse HTTPS devant la console (`false` par défaut, voir ci-dessous)             |
-| `BACKUP365_OIDC_TENANT_ID`, `_CLIENT_ID`, `_CLIENT_SECRET`, `_REDIRECT_URI`                       | connexion avec un compte Microsoft (secret : variante `…_FILE`) ; voir ci-dessous                     |
-| `BACKUP365_OIDC_ADMIN_GROUPS`, `BACKUP365_OIDC_OPERATOR_GROUPS`                                   | identifiants d'objet des groupes Entra (séparés par des virgules) qui donnent chaque rôle             |
-| `BACKUP365_PORT`, `LOG_LEVEL`                                                                     | port publié sur 127.0.0.1 (3000), journal (`info`)                                                    |
-| `BACKUP365_DATA_DIR`, `BACKUP365_WEB_DIR`                                                         | fixés par l'image (`/data`, `/app/web`)                                                               |
-| `BACKUP365_DEMO`                                                                                  | `1` : mode démo, données fictives, développement seulement (ADR 0010) ; jamais en production          |
+| Variable                                                                                          | Rôle                                                                                                     |
+| ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `BACKUP365_TENANT_ID`, `BACKUP365_S3_ENDPOINT`                                                    | tenant et URL du stockage S3 (obligatoires)                                                              |
+| `BACKUP365_S3_REGION`                                                                             | région S3 (`eu-west-3`)                                                                                  |
+| `BACKUP365_S3_ACCESS_KEY_ID`, `BACKUP365_S3_SECRET_ACCESS_KEY`, `BACKUP365_ENCRYPTION_PASSPHRASE` | secrets, **fournis par fichier** : variante `…_FILE`                                                     |
+| `BACKUP365_M365_CLIENT_ID`, `BACKUP365_M365_CLIENT_SECRET`                                        | application Entra de la sauvegarde (secret : variante `…_FILE`) ; sans elles, aucun plan ne s'exécute    |
+| `BACKUP365_REPORT_SENDER`                                                                         | boîte d'envoi des rapports par mail (`Mail.Send`) ; vide, les rapports sont désactivés (voir ci-dessous) |
+| `BACKUP365_STATUS_MAX_AGE_HOURS`, `BACKUP365_STATUS_WORKLOADS`                                    | tableau de bord : seuil d'alerte (26 h), charges                                                         |
+| `BACKUP365_CATALOG_CACHE_MINUTES`                                                                 | cache du recensement des sites SharePoint (60 min)                                                       |
+| `BACKUP365_INDEX_INTERVAL_MINUTES`                                                                | intervalle d'indexation de la recherche (60 min)                                                         |
+| `BACKUP365_AUDIT_ANCHOR_DIR`, `BACKUP365_AUDIT_ANCHOR_INTERVAL_MIN`                               | ancres du journal d'audit : dossier (`/anchors` dans `compose.yaml`), intervalle (60 min)                |
+| `BACKUP365_TRUST_PROXY`                                                                           | adresse(s) du proxy inverse HTTPS devant la console (`false` par défaut, voir ci-dessous)                |
+| `BACKUP365_OIDC_TENANT_ID`, `_CLIENT_ID`, `_CLIENT_SECRET`, `_REDIRECT_URI`                       | connexion avec un compte Microsoft (secret : variante `…_FILE`) ; voir ci-dessous                        |
+| `BACKUP365_OIDC_ADMIN_GROUPS`, `BACKUP365_OIDC_OPERATOR_GROUPS`                                   | identifiants d'objet des groupes Entra (séparés par des virgules) qui donnent chaque rôle                |
+| `BACKUP365_PORT`, `LOG_LEVEL`                                                                     | port publié sur 127.0.0.1 (3000), journal (`info`)                                                       |
+| `BACKUP365_DATA_DIR`, `BACKUP365_WEB_DIR`                                                         | fixés par l'image (`/data`, `/app/web`)                                                                  |
+| `BACKUP365_DEMO`                                                                                  | `1` : mode démo, données fictives, développement seulement (ADR 0010) ; jamais en production             |
 
 Un secret se donne soit en variable, soit par `<NOM>_FILE` (chemin d'un fichier monté), jamais les
 deux. `compose.yaml` utilise les fichiers de `./secrets/` montés dans `/run/secrets/`.
@@ -104,6 +105,27 @@ doit exister, car Compose refuse de démarrer sans lui : la commande `: >` de la
 mettre l'identifiant dans `.env`, écrire le secret dans ce fichier (comme les autres secrets),
 puis `docker compose up -d`. Donner l'identifiant sans le secret (ou l'inverse) arrête le démarrage, avec le nom de la variable manquante. Avec un identifiant et un fichier vides, la console démarre et
 répond `backup_not_configured`. Les administrateurs voient l'état de cette connexion, en lecture seule, sur la page d'accueil : une ligne dans la carte « Sauvegarde » quand elle est établie, un bandeau « Connexion Microsoft 365 à configurer » avec les étapes sinon (aucun secret ni identifiant n'y figure) ; les messages « Sauvegarde indisponible » y renvoient.
+
+### Rapports par mail (permission `Mail.Send`)
+
+La console peut envoyer un rapport quotidien ou hebdomadaire (lundi, vers 07:00 UTC) et une
+alerte à chaque échec de sauvegarde (Réglages, « Rapports par mail », ADR 0023). L'envoi passe par
+Microsoft Graph `sendMail`, avec l'application de la sauvegarde ci-dessus. Il reste désactivé
+tant que l'une de ces étapes manque, et l'écran le dit :
+
+1. Dans Entra ID, ajouter à l'application la permission d'application **`Mail.Send`** (Microsoft
+   Graph), puis accorder le consentement administrateur.
+2. Limiter cette permission à la seule boîte d'envoi par une stratégie d'accès d'application
+   (Exchange Online : `New-ApplicationAccessPolicy -AccessRight RestrictAccess` sur un groupe
+   de sécurité à extension messagerie qui contient la boîte). Sans elle, l'application pourrait
+   envoyer au nom de n'importe quelle boîte du tenant.
+3. Renseigner la boîte d'envoi dans `.env` : `BACKUP365_REPORT_SENDER=<adresse de la boîte>`,
+   puis `docker compose up -d`, et « Vérifier à nouveau » dans la console.
+
+La console vérifie la permission en lisant les rôles du jeton de l'application. Le rapport ne
+contient que des compteurs, des durées, les noms et l'état des plans : aucun nom de fichier ni
+objet de mail, aucune adresse de boîte sauvegardée. Un envoi refusé est affiché dans Réglages et
+sur l'accueil (« Le dernier rapport n'a pas pu être envoyé ») et journalisé avec son code seul.
 
 ## Premier accès
 

@@ -3,11 +3,12 @@ import { parseSharePointHash } from '../sharepoint.js';
 import { parseMailHash, parseSearchHash } from '../mail.js';
 import { parsePlansHash } from '../plans.js';
 import { RUNS_HASH, parseRunsHash } from '../activities/runs.js';
+import { REPORTS_HASH } from '../reports.js';
 import { COMPONENTS_HASH, LEGACY_STATUS_HASH, STATUS_HASH } from '../routes.js';
 
 /**
  * Écran demandé par l'ancre de l'URL : `#/audit` le journal, `#/activites` les exécutions des
- * plans, `#/search` la recherche, `#/comptes` les comptes, `#/password` le changement de mot de
+ * plans, `#/search` la recherche, `#/comptes` les comptes, `#/rapports` les rapports par mail, `#/password` le changement de mot de
  * passe, `#/mail/<boîte>/<message>` la fiche d'un mail, `#/onedrive/<compte>/<chemin>` la
  * restauration OneDrive, `#/sharepoint/<site>/<granularité>` la restauration SharePoint, tout le
  * reste l'accueil.
@@ -19,6 +20,7 @@ export function screenOf(
   | 'runs'
   | 'search'
   | 'accounts'
+  | 'reports'
   | 'plans'
   | 'status'
   | 'password'
@@ -34,6 +36,7 @@ export function screenOf(
   if (parseRunsHash(hash) !== null) return 'runs';
   if (hash === '#/search' || parseSearchHash(hash) !== null) return 'search';
   if (hash === '#/comptes') return 'accounts';
+  if (hash === REPORTS_HASH) return 'reports';
   if (hash === STATUS_HASH) return 'status';
   if (hash === '#/password') return 'password';
   if (hash === COMPONENTS_HASH) return 'components';
@@ -52,7 +55,9 @@ export function screenFor(
   const screen = screenOf(hash);
   // `null` : le serveur n'a pas encore dit s'il est en démo ; rien n'est affiché plutôt qu'un avis faux.
   if (screen === 'components') return demo === null ? 'pending' : demo ? screen : 'unavailable';
-  return (screen === 'accounts' || screen === 'status') && !admin ? 'forbidden' : screen;
+  return (screen === 'accounts' || screen === 'reports' || screen === 'status') && !admin
+    ? 'forbidden'
+    : screen;
 }
 
 /** Nouvelle ancre d'une ancienne adresse (`#/etat` → `#/sources`) ; `null` si rien à rediriger. */
@@ -103,7 +108,7 @@ export function navEntries(screen: ReturnType<typeof screenFor>, admin: boolean)
       href: '#/comptes',
       label: 'Réglages',
       icon: '⚙',
-      current: screen === 'accounts' || screen === 'forbidden',
+      current: screen === 'accounts' || screen === 'reports' || screen === 'forbidden',
     });
   }
   // Invariant de la charte : un ajout qui la dépasse échoue aux tests, pas en silence chez l'utilisateur.

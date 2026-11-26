@@ -787,6 +787,83 @@ export const SCREENS = [
   },
   { name: 'page-reservee', hash: '#/comptes', role: 'operator' },
   {
+    // Écran A : envoi prêt (boîte fictive de la démo), deux destinataires, dernier rapport envoyé.
+    name: 'rapports-par-mail',
+    hash: '#/rapports',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByText('Envoi par Microsoft 365 prêt').waitFor();
+    },
+  },
+  {
+    // Écran B : récapitulatif avant l'enregistrement.
+    name: 'rapports-par-mail-recapitulatif',
+    hash: '#/rapports',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await page.getByRole('heading', { name: 'Vérifier avant d’enregistrer' }).waitFor();
+    },
+  },
+  {
+    // Écran C : l'essai part vers une adresse fictive ; la démo n'envoie rien.
+    name: 'rapports-par-mail-essai',
+    hash: '#/rapports',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Destinataires', { exact: true }).fill('admin@exemple.invalid');
+      await page.getByRole('button', { name: 'Envoyer un essai' }).click();
+      await page.getByText('Vérifiez aussi le dossier des courriers indésirables.').waitFor();
+    },
+  },
+  {
+    // Écran D : réponse simulée, la démo ayant toujours un envoi prêt.
+    name: 'rapports-par-mail-permission',
+    hash: '#/rapports',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/reports', (route) =>
+        route.request().method() === 'GET'
+          ? route.fulfill({
+              json: {
+                settings: { recipients: [], frequency: 'weekly', failureAlert: true },
+                mailer: { state: 'permission', sender: 'sauvegardes@exemple.invalid' },
+                lastSend: null,
+                plans: 0,
+              },
+            })
+          : route.fallback(),
+      );
+      await page.reload();
+      await page.getByText('Envoi par mail à autoriser').waitFor();
+    },
+  },
+  {
+    // Accueil : le dernier rapport n'est pas parti (réponse simulée).
+    name: 'accueil-rapport-en-echec',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/reports', (route) =>
+        route.fulfill({
+          json: {
+            settings: {
+              recipients: ['marie.durand@exemple.invalid'],
+              frequency: 'weekly',
+              failureAlert: true,
+            },
+            mailer: { state: 'permission', sender: 'sauvegardes@exemple.invalid' },
+            lastSend: { at: '2026-11-23T07:00:00.000Z', kind: 'report', ok: false },
+            plans: 4,
+          },
+        }),
+      );
+      await page.reload();
+      await page.getByText('Le dernier rapport n’a pas pu être envoyé').waitFor();
+    },
+  },
+  { name: 'rapports-page-reservee', hash: '#/rapports', role: 'operator' },
+  {
     name: 'sources',
     hash: '#/sources',
     role: 'admin',
