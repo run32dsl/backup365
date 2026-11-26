@@ -122,7 +122,10 @@ export function recapRows(form: PlanForm, names: readonly Mailbox[] = []): [stri
       `${hoursLabel(form.rpoHours)} au plus (une sauvegarde toutes les ${hoursLabel(form.rpoHours)})`,
     ],
     [OBJECTIVE_LABELS.rto, `${hoursLabel(form.rtoHours)} au plus`],
-    [OBJECTIVE_LABELS.retention, `${retentionLabel(form.retentionDays)}, puis suppression`],
+    [
+      OBJECTIVE_LABELS.retention,
+      `${retentionLabel(form.retentionDays)}, non appliquée pour l’instant`,
+    ],
     [OBJECTIVE_LABELS.justification, form.justification],
   ];
 }
@@ -182,5 +185,9 @@ export const rpoHelp = (hours: number): string =>
 export const rtoHelp = (hours: number): string =>
   `Le service doit être rétabli en ${hoursLabel(hours)} au plus.`;
 
+/** Conservation non appliquée (ADR 0009, issue #79) : l'aide ne promet aucune suppression. */
+export const RETENTION_NOT_ENFORCED =
+  'Conservation non appliquée pour l’instant : rien n’est supprimé.';
+
 export const retentionHelp = (days: number): string =>
-  `Les sauvegardes sont supprimées au bout de ${retentionLabel(days)}.`;
+  `Objectif : ne pas garder les sauvegardes plus de ${retentionLabel(days)}. ${RETENTION_NOT_ENFORCED} La liste des plans montre ce qui dépasse cette durée.`;

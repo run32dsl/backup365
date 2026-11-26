@@ -31,6 +31,7 @@ import { registerRestoreRoutes } from './restore-routes.js';
 import type { RestoreService } from './restore-service.js';
 import { registerPlanRoutes } from './plan-routes.js';
 import type { PlanScheduler } from './plan-scheduler.js';
+import { registerRetentionRoutes } from './retention-routes.js';
 import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 import type { SearchIndexer } from './search-indexer.js';
 import { registerSearchRoutes } from './search-routes.js';
@@ -217,6 +218,7 @@ export function buildApp({
       maxAgeHours: status.maxAgeHours,
       workloads: status.workloads,
     });
+    registerRetentionRoutes(scope, plans, catalog, audit);
     done();
   });
   void app.register((scope, _opts, done) => {

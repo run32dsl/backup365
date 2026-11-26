@@ -37,6 +37,8 @@ describe('format', () => {
     expect(sizeOf(9_999)).toBe('10 Ko');
     expect(sizeOf(999_999)).toBe('1,0 Mo');
     expect(sizeOf(1_240_000)).toBe('1,2 Mo');
+    expect(sizeOf(999_949_999)).toBe('999,9 Mo');
+    expect(sizeOf(1_850_000_000)).toBe('1,9 Go');
   });
 
   it('translates folders and workloads, and keeps unknown ones', () => {

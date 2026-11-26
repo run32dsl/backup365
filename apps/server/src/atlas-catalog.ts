@@ -17,7 +17,9 @@ import {
 export interface AtlasSdkReader {
   outlook: {
     listMailboxes(): Promise<{ ownerId: string; ownerEmail?: string | undefined }[]>;
-    listSnapshots(ownerId: string): Promise<{ snapshotId: string; createdAt: Date }[]>;
+    listSnapshots(
+      ownerId: string,
+    ): Promise<{ snapshotId: string; createdAt: Date; totalSizeBytes?: number }[]>;
     getSnapshotDetail(
       snapshotId: string,
     ): Promise<{ snapshotId: string; createdAt: Date; totalObjects: number } | undefined>;
@@ -25,7 +27,9 @@ export interface AtlasSdkReader {
   onedrive: {
     listSnapshots(
       ownerId: string,
-    ): Promise<{ snapshotId: string; createdAt: Date; totalFiles: number }[]>;
+    ): Promise<
+      { snapshotId: string; createdAt: Date; totalFiles: number; totalSizeBytes?: number }[]
+    >;
   };
   sharepoint: {
     listSnapshots(siteId: string): Promise<
@@ -35,6 +39,7 @@ export interface AtlasSdkReader {
         snapshotId: string;
         createdAt: Date;
         totalFiles: number;
+        totalSizeBytes?: number;
       }[]
     >;
   };
@@ -76,6 +81,14 @@ function isBucketMissing(err: unknown): boolean {
       return true;
   }
   return false;
+}
+
+/** Taille logique d'un instantané (`totalSizeBytes` du SDK), si c'est un entier positif ou nul. */
+function sizeOf(row: { totalSizeBytes?: number | undefined }): { sizeBytes?: number } {
+  const size = row.totalSizeBytes;
+  return typeof size === 'number' && Number.isSafeInteger(size) && size >= 0
+    ? { sizeBytes: size }
+    : {};
 }
 
 function toIso(value: Date): string {
@@ -155,6 +168,7 @@ export class AtlasSdkCatalog implements BackupCatalog {
           id: row.snapshotId,
           workload: 'sharepoint',
           createdAt,
+          ...sizeOf(row),
         })),
       });
     }
@@ -171,7 +185,7 @@ export class AtlasSdkCatalog implements BackupCatalog {
   async listSnapshots(mailboxId: string, workload: Workload): Promise<Snapshot[]> {
     const rows = await this.call(() => this.snapshotsOf(mailboxId, workload));
     return rows
-      .map((row) => ({ id: row.id, workload, createdAt: toIso(row.createdAt) }))
+      .map((row) => ({ id: row.id, workload, createdAt: toIso(row.createdAt), ...sizeOf(row) }))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
@@ -207,16 +221,18 @@ export class AtlasSdkCatalog implements BackupCatalog {
   private async snapshotsOf(
     mailboxId: string,
     workload: Workload,
-  ): Promise<{ id: string; createdAt: Date }[]> {
-    if (workload === 'mail') {
-      const rows = await this.atlas.outlook.listSnapshots(mailboxId);
-      return rows.map((r) => ({ id: r.snapshotId, createdAt: r.createdAt }));
-    }
-    if (workload === 'onedrive') {
-      const rows = await this.atlas.onedrive.listSnapshots(mailboxId);
-      return rows.map((r) => ({ id: r.snapshotId, createdAt: r.createdAt }));
-    }
-    return [];
+  ): Promise<{ id: string; createdAt: Date; totalSizeBytes?: number | undefined }[]> {
+    const rows =
+      workload === 'mail'
+        ? await this.atlas.outlook.listSnapshots(mailboxId)
+        : workload === 'onedrive'
+          ? await this.atlas.onedrive.listSnapshots(mailboxId)
+          : [];
+    return rows.map((r) => ({
+      id: r.snapshotId,
+      createdAt: r.createdAt,
+      totalSizeBytes: r.totalSizeBytes,
+    }));
   }
 
   private async call<T>(fn: () => Promise<T>): Promise<T> {

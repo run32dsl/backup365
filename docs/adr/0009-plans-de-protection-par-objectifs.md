@@ -163,6 +163,45 @@ true }` (ADR 0017).
   `deleteSnapshot`, Object Lock, les deux ou rien est reporté dans #79 (critère de #63 reporté par
   décision PO du 2026-11-16).
 
+### Conservation : simulation, sans suppression (issue #79)
+
+- **Décision.** Le PM a d'abord retenu l'option D (2026-11-16 : rien n'est appliqué, la console
+  affiche « Conservation : non appliquée pour l'instant »). Le PM délégué l'a complétée le
+  2026-11-25 : étape 1, une **simulation** de ce qui dépasse la durée de chaque plan, avec le
+  volume, sans rien supprimer. Les deux décisions vont ensemble : rien n'est purgé ni verrouillé,
+  `retention` reste `not_enforced` partout. L'étape 2 (purge réelle, désactivée par défaut,
+  motif, respect du verrouillage d'objets, trace dans l'audit) fera l'objet d'une issue séparée.
+- **Calcul** (`retentionExcess`, `packages/core`) : un instantané dépasse la durée s'il a été créé
+  strictement avant `maintenant − durée`. Pour chaque plan : nombre d'instantanés, nombre
+  d'éléments (boîtes, sites) concernés, somme de leurs tailles, plus ancienne date. Les éléments
+  sont ceux du plan (sélection, ou catalogue pour `all`), pour les seules charges du plan. Un
+  élément commun à plusieurs plans compte dans chacun, avec la durée de chacun. Un élément connu
+  comme site du catalogue n'est lu que pour SharePoint, les autres que pour la messagerie et
+  OneDrive : un site jamais sauvegardé, absent du catalogue, est traité comme une boîte (même
+  limite que l'exécuteur).
+- **Volume** : `totalSizeBytes` du manifeste de chaque instantané (SDK 7.2.0), remonté par le
+  catalogue dans `Snapshot.sizeBytes`. C'est une taille logique, pas l'espace que libérerait une
+  suppression (compression, déduplication). Le SDK décrit chaque manifeste comme le delta d'un
+  passage : la somme ne compte donc pas deux fois les mêmes données, mais ce volume ne serait
+  libéré qu'avec la chaîne entière (voir la limite ci-dessous). Une taille absente compte
+  pour 0.
+- **API** : `GET /api/plans/retention` (administrateur ; 401, 403 consigné, 503
+  `plans_unavailable` ou `catalog_unavailable`) répond `{ retention: 'not_enforced',
+simulation: true, computedAt, items }`, chaque élément portant `planId`, `retentionDays`,
+  `cutoff`, `snapshots`, `items`, `bytes`, `oldestAt`. Avant toute sauvegarde (bucket absent),
+  tout vaut zéro. Lecture de métadonnées (dates, tailles) : hors journal d'audit, comme les autres
+  listes du catalogue (ADR 0002).
+- **Écran** : sous la liste des plans, l'administrateur voit « Conservation (simulation) », qui
+  dit que rien n'est supprimé, puis une ligne par plan (« Durée 90 jours : 1 point de restauration
+  (1 élément) antérieur au 28/08/2026, 1,9 Go. »). L'aide du champ de durée et le récapitulatif
+  de l'assistant ne promettent plus de suppression.
+- **Limite pour l'étape 2** : en 7.2.0, `deleteSnapshot` refuse un instantané qui n'est pas le
+  plus récent de son propriétaire (`SnapshotNotNewestError`, `ATLAS_SNAPSHOT_NOT_NEWEST`) : un
+  manifeste ne porte que les changements de son passage, les suivants s'appuient sur lui. Une
+  purge par âge des instantanés anciens n'est donc pas possible avec le SDK actuel ; seules la
+  suppression de toutes les données d'un propriétaire (`deleteMailboxData`, `deleteOwnerData`,
+  `deleteSiteData`) ou celle du dernier instantané le sont. L'étape 2 devra partir de ce constat.
+
 ### Sécurité des identifiants
 
 Les identifiants Graph et les secrets viennent des variables d'environnement ou de fichiers montés
@@ -175,4 +214,5 @@ Les journaux ne contiennent aucun contenu de mail.
 - Changer le RPO d'un plan recalcule son décalage (il dépend de l'intervalle) : ses créneaux changent.
 - Un plan nouveau est « en retard » jusqu'à sa première réussite ; l'écran devra le formuler
   (« pas encore sauvegardé »).
-- Les durées de conservation sont stockées ici ; leur application (purge) relève d'une autre issue.
+- Les durées de conservation sont stockées ici et simulées (issue #79) ; leur application (purge)
+  relève d'une autre issue.
