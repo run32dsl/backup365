@@ -54,6 +54,48 @@ describe('GET /api/status', () => {
     expect(report.alertCount).toBe(1);
   });
 
+  describe('volume_octets', () => {
+    const volume = async (c: BackupCatalog) => {
+      const app = buildTestApp({ version: '1', catalog: c });
+      const res = await app.inject({ method: 'GET', url: '/api/status' });
+      expect(res.statusCode).toBe(200);
+      return res.json<StatusReport>().volume_octets;
+    };
+
+    it('sums the sizes of the snapshots of mailboxes and sites', async () => {
+      const sized = new FakeBackupCatalog({
+        mailboxes: [{ id: 'a', displayName: 'Boîte A' }],
+        sites: [{ id: 'site,1', displayName: 'Site de test' }],
+        snapshots: {
+          a: [
+            { id: 's1', workload: 'mail', createdAt: hoursAgo(2), sizeBytes: 1_000 },
+            { id: 's2', workload: 'mail', createdAt: hoursAgo(26), sizeBytes: 250 },
+            { id: 's3', workload: 'onedrive', createdAt: hoursAgo(3), sizeBytes: 4_000_000_000 },
+          ],
+          'site,1': [{ id: 'p', workload: 'sharepoint', createdAt: hoursAgo(5), sizeBytes: 7 }],
+        },
+      });
+      expect(await volume(sized)).toBe(4_000_001_257);
+    });
+
+    it('answers 0 for an empty catalog', async () => {
+      expect(await volume(new FakeBackupCatalog({ mailboxes: [], snapshots: {} }))).toBe(0);
+    });
+
+    it('answers null when the size of one snapshot is unavailable', async () => {
+      const partial = new FakeBackupCatalog({
+        mailboxes: [{ id: 'a', displayName: 'Boîte A' }],
+        snapshots: {
+          a: [
+            { id: 's1', workload: 'mail', createdAt: hoursAgo(2), sizeBytes: 1_000 },
+            { id: 's2', workload: 'mail', createdAt: hoursAgo(26) },
+          ],
+        },
+      });
+      expect(await volume(partial)).toBeNull();
+    });
+  });
+
   describe('plan compliance', () => {
     // Boîte A seule : la boîte B, en retard, ferait passer tout plan qui la couvre en retard.
     const input = (name: string, scope: 'all' | 'selection' = 'selection') => ({

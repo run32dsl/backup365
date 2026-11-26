@@ -41,6 +41,12 @@ export interface StatusReport {
   /** Nombre de lignes `stale` ou `missing`. */
   alertCount: number;
   rows: StatusRow[];
+  /**
+   * Somme des tailles (`sizeBytes`) des instantanés lus pour ce tableau, en octets ; `0` sans
+   * instantané, `null` si l'un d'eux n'a pas de taille (ou si la somme dépasse un entier sûr).
+   * Toujours fourni par `buildStatusReport` ; facultatif pour les rapports construits à la main.
+   */
+  volume_octets?: number | null;
   /** Ajouté par `GET /api/status` : conformité des plans ; `null` si leur base ne répond pas. */
   plans?: PlanComplianceReport | null;
   /** Ajouté par `GET /api/status` pour les administrateurs : une ligne par service ; `null` si la base des plans ne répond pas. */
@@ -92,12 +98,16 @@ export async function buildStatusReport(
   now: Date = new Date(),
 ): Promise<StatusReport> {
   const rows: StatusRow[] = [];
+  let volume: number | null = 0;
   const add = (
     kind: SourceKind,
     source: { id: string; displayName: string },
     workload: Workload,
-    snapshots: readonly { createdAt: string }[],
+    snapshots: readonly { createdAt: string; sizeBytes?: number }[],
   ) => {
+    for (const s of snapshots) {
+      volume = volume === null || s.sizeBytes === undefined ? null : volume + s.sizeBytes;
+    }
     const last = latest(snapshots);
     rows.push({
       kind,
@@ -125,6 +135,7 @@ export async function buildStatusReport(
     maxAgeHours,
     alertCount: rows.filter((r) => r.state !== 'ok').length,
     rows,
+    volume_octets: volume !== null && Number.isSafeInteger(volume) ? volume : null,
   };
 }
 

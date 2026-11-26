@@ -110,6 +110,19 @@ describe('buildStatusReport', () => {
     expect(report.rows[0]).toMatchObject({ lastSnapshotAt: '2026-11-12T06:00:00Z', state: 'ok' });
   });
 
+  it('gives a null volume when the sum exceeds a safe integer', async () => {
+    const huge = new FakeBackupCatalog({
+      mailboxes: [{ id: 'a', displayName: 'Boîte A' }],
+      snapshots: {
+        a: [
+          { id: 's1', workload: 'mail', createdAt: '2026-11-12T06:00:00Z', sizeBytes: 2 ** 52 },
+          { id: 's2', workload: 'mail', createdAt: '2026-11-11T06:00:00Z', sizeBytes: 2 ** 52 },
+        ],
+      },
+    });
+    expect((await buildStatusReport(huge, ['mail'], 26, now)).volume_octets).toBeNull();
+  });
+
   it('has no alert and no row without mailbox', async () => {
     const empty = new FakeBackupCatalog({ mailboxes: [], snapshots: {} });
     await expect(buildStatusReport(empty, ['mail'], 26, now)).resolves.toMatchObject({
