@@ -224,8 +224,10 @@ de passe temporaire (création ou réinitialisation) est à changer à la connex
 L'entrée « Sources » (`#/sources`, administrateurs ; l'ancienne adresse `#/etat` y redirige) affiche une ligne par service (Messagerie,
 OneDrive, SharePoint : dernière sauvegarde, état, conservation, périmètre), la conformité des plans
 et l'état de chaque sauvegarde. L'état d'un service est le pire de ses sources ; un service en
-retard ou en échec renvoie au journal d'audit, un service sans plan est grisé, « Non protégé », et propose « Créer un
-plan ». Un service qui a un plan mais aucune sauvegarde reste « En attente » jusqu'à l'échéance de la
+retard dit sa cause ; un service en échec propose « Voir les sauvegardes en échec » (Activités ›
+Sauvegardes filtrée sur « En échec », `#/activites?resultat=echec`, où se lisent la cause et ce
+qu'il faut faire), ou « Historique du plan » quand seul le plan en échec est connu ; un service
+sans plan est grisé, « Non protégé », et propose « Créer un plan ». Un service qui a un plan mais aucune sauvegarde reste « En attente » jusqu'à l'échéance de la
 première exécution prévue par le plan, puis passe « En échec ».
 
 « Créer un compte » ne demande pas de mot de passe : la console en génère un temporaire, affiché

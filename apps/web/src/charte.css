@@ -1104,6 +1104,14 @@ select[aria-disabled='true'] {
   .data-table td.card-nolabel::before {
     display: none;
   }
+  /* Lien sous la pastille, dans la carte : cible tactile de 44 px au moins. */
+  .data-table td.card-nolabel .state-link {
+    display: flex;
+    align-items: center;
+    width: fit-content;
+    min-height: 2.75rem;
+    margin-top: 0;
+  }
   /* Dernière exécution : une seule ligne secondaire « étiquette : valeur ». */
   .data-table td.card-wide.plan-last-run {
     display: block;

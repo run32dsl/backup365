@@ -1,8 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { navEntries, screenOf } from '../app/routing.js';
-import { RunsView } from './RunsPage.js';
+import { RunsPage, RunsView } from './RunsPage.js';
 import {
+  FAILED_RUNS_HASH,
   completeRuns,
   countLabel,
   durationLabel,
@@ -10,6 +11,7 @@ import {
   groupRuns,
   parseRunsHash,
   runsHash,
+  runsResultOf,
   volumeLabel,
   type RunItem,
 } from './runs.js';
@@ -331,6 +333,15 @@ describe('historique des exécutions', () => {
     expect(parseRunsHash('#/activites')).toBe('');
     expect(parseRunsHash(runsHash('p/1'))).toBe('p/1');
     expect(parseRunsHash('#/audit')).toBeNull();
+    expect(parseRunsHash(FAILED_RUNS_HASH)).toBe('');
+    expect(screenOf(FAILED_RUNS_HASH)).toBe('runs');
+    expect(runsResultOf(FAILED_RUNS_HASH)).toBe('failed');
+    expect(runsResultOf('#/activites')).toBe('');
+    expect(runsResultOf(runsHash('p1'))).toBe('');
+    // Ouverte depuis « Voir les sauvegardes en échec », la page part filtrée sur « En échec ».
+    expect(renderToStaticMarkup(<RunsPage result="failed" />)).toMatch(
+      /<option value="failed" selected="">En échec<\/option>/,
+    );
     expect(screenOf(runsHash('p1'))).toBe('runs');
     const entry = navEntries('runs', false).find((e) => e.label === 'Activités');
     expect(entry).toMatchObject({ href: '#/activites', current: true });

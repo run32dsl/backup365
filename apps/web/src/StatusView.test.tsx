@@ -200,11 +200,15 @@ describe('StatusView', () => {
       expect(tr).not.toContain('En échec');
     });
 
-    it('links a service without any backup to the audit journal, not a late or up-to-date one', () => {
-      const audit =
-        '<a class="state-link" href="#/audit" aria-label="Voir dans le journal d’audit : Messagerie">Voir dans le journal d’audit</a>';
-      expect(line([entry({ state: 'missing' })], 'Messagerie')).toContain(audit);
+    it('links a failed service to the failed backups, never to the audit journal', () => {
+      const failed =
+        '<a class="state-link" href="#/activites?resultat=echec" aria-label="Voir les sauvegardes en échec : Messagerie">Voir les sauvegardes en échec</a>';
+      const missing = line([entry({ state: 'missing' })], 'Messagerie');
+      expect(missing).toContain(failed);
+      expect(missing).not.toContain('#/audit');
+      expect(missing).not.toContain('journal d’audit');
       expect(line([entry({ state: 'stale' })], 'Messagerie')).not.toContain('#/audit');
+      expect(line([entry({ state: 'stale' })], 'Messagerie')).not.toContain('#/activites');
       const ok = line([entry()], 'Messagerie');
       expect(ok).not.toContain('#/audit');
       expect(ok).not.toContain('#/plans');
@@ -333,11 +337,12 @@ describe('StatusView', () => {
 
     const noBackup = { lastSnapshotAt: null, ageHours: null, state: 'missing' } as const;
 
-    it('shows a plan without backup as failed once its first run is due, with the journal link', () => {
+    it('shows a plan without backup as failed once its first run is due, with the failed backups link', () => {
       const tr = line([entry({ ...noBackup, awaitingFirstRun: false })], 'Messagerie');
       expect(tr).toContain('Jamais');
       expect(tr).toContain('En échec');
-      expect(tr).toContain('#/audit');
+      expect(tr).toContain('href="#/activites?resultat=echec"');
+      expect(tr).not.toContain('#/audit');
       expect(tr).not.toContain('En attente');
       expect(tr).not.toContain('row-muted');
     });
@@ -421,6 +426,29 @@ describe('StatusView', () => {
       expect(table).toContain('En retard');
       expect(table).toContain('Aucune sauvegarde réussie');
       expect(html).not.toContain('sans plan');
+      // En retard : aucun lien ; en échec, l'historique du plan en cause.
+      expect(table).not.toContain('state-link');
+      const failed = renderToString(
+        <StatusView
+          state={{
+            ...report,
+            rows: [],
+            services,
+            plans: {
+              counts: { compliant: 0, late: 0, failed: 1 },
+              nonCompliant: [{ ...plan, id: 'p 1', state: 'failed' }],
+            },
+          }}
+        />,
+      );
+      const failedTable = failed.slice(
+        failed.indexOf('services-title'),
+        failed.indexOf('Plans de protection'),
+      );
+      expect(failedTable).toContain(
+        '<a class="state-link" href="#/activites?plan=p%201" aria-label="Historique du plan : SharePoint">Historique du plan</a>',
+      );
+      expect(failedTable).not.toContain('#/audit');
     });
 
     it('does not claim «\u202FAucune sauvegarde réussie\u202F» for a plan whose scope has backups', () => {
