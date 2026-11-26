@@ -252,6 +252,22 @@ describe('historique des exécutions', () => {
     expect(t).not.toMatch(/\b[a-e]\b · /);
   });
 
+  it('never shows the address of one source for a run of several sources (#598)', () => {
+    const sources = ['claire@exemple.fr', 'marc@exemple.fr', 'site-rh'].map((itemId, i) =>
+      run({ id: 30 + i, planId: 'files', planName: 'Fichiers', itemId, itemsSaved: 10 }),
+    );
+    const html = renderToStaticMarkup(
+      <RunsView
+        state={{ items: sources, limit: 20 }}
+        filter={all}
+        names={new Map([['claire@exemple.fr', 'Claire Test']])}
+      />,
+    );
+    const t = text(html).replace(/[\u00a0\u202f]/g, ' ');
+    expect(t).toContain('3 sources · 18/11/2026 02:00 UTC · 14 min · 30 éléments copiés');
+    expect(t).not.toMatch(/@|Claire Test/);
+  });
+
   it('keeps the caption for screen readers only, the intro already says the order (#580)', () => {
     const html = renderToStaticMarkup(
       <RunsView state={{ items: [run({})], limit: 20 }} filter={all} />,

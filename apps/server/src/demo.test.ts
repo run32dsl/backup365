@@ -96,6 +96,25 @@ describe('mode démo', () => {
     );
     expect(plansReport.plans.pending).toBe(0);
 
+    // Le plan de toute l'organisation a une exécution sur toutes ses sources, qui encadre les
+    // dernières sauvegardes OneDrive et SharePoint (issue #598).
+    const planList = (await app.inject({ url: '/api/plans', headers })).json<{
+      items: { id: string; name: string }[];
+    }>();
+    const filesId = planList.items.find((p) => p.name === 'OneDrive et SharePoint Services')?.id;
+    const runs = (await app.inject({ url: `/api/runs?planId=${filesId ?? ''}`, headers })).json<{
+      items: { itemId: string; startedAt: string; finishedAt: string }[];
+    }>().items;
+    expect(runs.map((r) => r.itemId).sort()).toEqual(
+      [...DEMO_MAILBOXES.map((m) => m.id), ...DEMO_SITES.map((s) => s.id)].sort(),
+    );
+    expect(new Set(runs.map((r) => r.startedAt)).size).toBe(1);
+    const sharepoint = plansReport.services.find((s) => s.service === 'sharepoint');
+    expect(Date.parse(runs[0]!.startedAt)).toBe(Date.parse(sharepoint?.lastSnapshotAt ?? ''));
+    expect(Math.max(...runs.map((r) => Date.parse(r.finishedAt)))).toBe(
+      Date.parse(onedrive?.lastSnapshotAt ?? ''),
+    );
+
     // Accueil et Sources partent du même instant de démonstration pour la messagerie (issue
     // #445). Le planificateur peut inscrire, pendant le test, une exécution plus récente à
     // l'horloge réelle : l'accueil n'est donc jamais antérieur à Sources, à quelques secondes près.
