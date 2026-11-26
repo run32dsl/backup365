@@ -501,7 +501,7 @@ th {
 .events-table .card-only {
   display: none;
 }
-/* Sous 900 px, carte titrée comme Activités : résumé et pastille, puis « type · heure UTC ». */
+/* Sous 900 px, carte titrée comme Activités : plan, pastille, puis « type · heure UTC · détails ». */
 @media (max-width: 900px) {
   .events-table thead {
     position: absolute;
@@ -529,8 +529,15 @@ th {
     font-weight: 600;
     line-height: 1.35;
   }
+  /* Titre : le nom du plan seul ; la pastille vient à la ligne suivante (#571). */
+  .events-table td.card-title .table-summary {
+    display: none;
+  }
   .events-table td.card-title .card-only {
-    display: inline;
+    display: block;
+  }
+  .events-table td.card-title .card-pill {
+    margin-block: 0.125rem;
   }
   .events-table td.card-title .cell-secondary {
     display: block;

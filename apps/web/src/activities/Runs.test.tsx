@@ -3,9 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { navEntries, screenOf } from '../app/routing.js';
 import { RunsView } from './RunsPage.js';
 import {
+  completeRuns,
   countLabel,
   durationLabel,
   fetchRuns,
+  groupRuns,
   parseRunsHash,
   runsHash,
   volumeLabel,
@@ -14,7 +16,8 @@ import {
 
 const run = (over: Partial<RunItem>): RunItem => ({
   id: 1,
-  planId: 'p1',
+  // Un plan par numéro : des exécutions distinctes, que le regroupement (#571) ne fusionne pas.
+  planId: `p${over.id ?? 1}`,
   planName: 'Boîtes de la direction',
   itemId: 'camille@exemple.fr',
   startedAt: '2026-11-18T02:00:00.000Z',
@@ -133,6 +136,114 @@ describe('historique des exécutions', () => {
     expect(t).toContain('(exécution n° 5)');
     expect(t).toContain('non communiquée');
     expect(t).not.toMatch(/backup_errors|interrupted|unknown/);
+  });
+
+  it('groups the per-source results of one run into one event, « En échec » if one source failed (#571)', () => {
+    const boxes = ['a', 'b', 'c', 'd', 'e'].map((box, i) =>
+      run({ id: 10 + i, planId: 'p1', itemId: box, itemsSaved: i, sourceBytes: null }),
+    );
+    boxes[2] = {
+      ...boxes[2]!,
+      result: 'failed',
+      failureCause: 'backup_errors',
+      finishedAt: '2026-11-18T02:20:00.000Z',
+      durationMs: 20 * 60_000,
+    };
+    const later = run({ id: 20, planId: 'p1', startedAt: '2026-11-19T02:00:00.000Z' });
+    const events = groupRuns([later, ...boxes]);
+    expect(events).toHaveLength(2);
+    const [, event] = events as [unknown, (typeof events)[number]];
+    expect(event.runs).toHaveLength(5);
+    expect(event.result).toBe('failed');
+    expect(event.failureCause).toBe('backup_errors');
+    expect(event.id).toBe(12);
+    expect(event.itemsSaved).toBe(0 + 1 + 3 + 4 + 2);
+    expect(event.sourceBytes).toBeNull();
+    expect(event.durationMs).toBe(20 * 60_000);
+    // Toutes réussies : l'exécution est réussie, sans cause.
+    const ok = groupRuns(boxes.filter((b) => b.result === 'success'))[0]!;
+    expect(ok.result).toBe('success');
+    expect(ok.failureCause).toBeUndefined();
+    // Une source encore en cours : pas de durée ni de fin.
+    const open = groupRuns([boxes[0]!, { ...boxes[1]!, result: 'running', durationMs: null }])[0]!;
+    expect(open.result).toBe('running');
+    expect(open.durationMs).toBeNull();
+  });
+
+  it('groups the sources a scheduler pass saves one after the other, each with its own start (#571)', () => {
+    // Passage du planificateur : chaque boîte commence quand la précédente finit.
+    const at = (s: number) => new Date(Date.UTC(2026, 10, 26, 9, 2, s)).toISOString();
+    const pass = ['a', 'b', 'c'].map((box, i) =>
+      run({
+        id: 3 - i,
+        planId: 'p1',
+        itemId: box,
+        startedAt: at(2 - i),
+        finishedAt: at(3 - i),
+        durationMs: 1000,
+      }),
+    );
+    // Même plan une heure plus tôt : une autre exécution ; une boîte déjà vue en ouvre une aussi.
+    const earlier = run({
+      id: 0,
+      planId: 'p1',
+      itemId: 'a',
+      startedAt: '2026-11-26T08:00:00.000Z',
+    });
+    const events = groupRuns([...pass, earlier]);
+    expect(events.map((e) => e.runs.length)).toEqual([3, 1]);
+    expect(events[0]?.startedAt).toBe(at(0));
+    expect(events[0]?.durationMs).toBe(3000);
+    const twice = groupRuns([pass[0]!, { ...pass[1]!, itemId: 'a' }]);
+    expect(twice).toHaveLength(2);
+  });
+
+  it('chains a source that starts within 60 s of the previous end, not later nor before (#571)', () => {
+    const end = '2026-11-26T09:00:00.000Z';
+    const first = run({
+      id: 1,
+      planId: 'p1',
+      itemId: 'a',
+      startedAt: '2026-11-26T08:59:00.000Z',
+      finishedAt: end,
+    });
+    const next = (startedAt: string) => run({ id: 2, planId: 'p1', itemId: 'b', startedAt });
+    const sizes = (startedAt: string) =>
+      groupRuns([next(startedAt), first]).map((e) => e.runs.length);
+    expect(sizes('2026-11-26T09:01:00.000Z')).toEqual([2]);
+    expect(sizes('2026-11-26T09:01:01.000Z')).toEqual([1, 1]);
+    expect(sizes('2026-11-26T08:59:30.000Z')).toEqual([1, 1]);
+    // Un autre plan intercalé ne coupe pas l'exécution.
+    const other = run({ id: 9, planId: 'p2', startedAt: '2026-11-26T09:00:30.000Z' });
+    expect(
+      groupRuns([next('2026-11-26T09:00:40.000Z'), other, first]).map((e) => e.runs.length),
+    ).toEqual([2, 1]);
+  });
+
+  it('drops the oldest run of a full list: its other sources may be past the limit (#571)', () => {
+    const items = [
+      run({ id: 3, planId: 'p1', startedAt: '2026-11-26T09:00:00.000Z' }),
+      run({ id: 2, planId: 'p2', itemId: 'a' }),
+      run({ id: 1, planId: 'p2', itemId: 'b' }),
+    ];
+    expect(completeRuns(items, 3).map((e) => e.planId)).toEqual(['p1']);
+    expect(completeRuns(items, 20).map((e) => e.planId)).toEqual(['p1', 'p2']);
+    expect(completeRuns(items.slice(1), 2)).toHaveLength(1);
+  });
+
+  it('shows one run of five mailboxes as one line that says « 5 boîtes » (#571)', () => {
+    const boxes = ['a', 'b', 'c', 'd', 'e'].map((box, i) =>
+      run({ id: 10 + i, planId: 'p1', itemId: box, itemsSaved: null, sourceBytes: null }),
+    );
+    const html = renderToStaticMarkup(
+      <RunsView state={{ items: boxes, limit: 20 }} filter={all} boxPlans={new Set(['p1'])} />,
+    );
+    const rows = html.split('<tr role="row"').slice(2);
+    expect(rows).toHaveLength(1);
+    const t = text(html).replace(/[\u00a0\u202f]/g, ' ');
+    expect(t).toContain('5 boîtes');
+    expect(t).toContain('5 boîtes · 18/11/2026 02:00 UTC · 14 min · 0 élément copié');
+    expect(t).not.toMatch(/\b[a-e]\b · /);
   });
 
   it('shows a running run with dashes instead of counters', () => {
