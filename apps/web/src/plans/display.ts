@@ -30,8 +30,8 @@ function emptyNote(
 ): string {
   const types = DATA_TYPES.filter((t) => plan.dataTypes.includes(t));
   const mailOnly = types.length === 1 && types[0] === 'mail';
-  // Messagerie et contacts vivent dans une boîte.
-  const inMailbox = (t: DataType) => t === 'mail' || t === 'contacts';
+  // Messagerie, contacts et agenda vivent dans une boîte.
+  const inMailbox = (t: DataType) => t === 'mail' || t === 'contacts' || t === 'calendar';
   if (plan.scope === 'all') {
     const found = (what: string, feminine: boolean) =>
       `${what} trouvé${feminine ? 'e' : ''} dans l’organisation : vérifiez la connexion Microsoft 365 et ses autorisations.`;
@@ -134,7 +134,9 @@ export function complianceView(
 export type SourcesReport = Pick<StatusReport, 'rows' | 'maxAgeHours' | 'generatedAt'>;
 
 /** Le service d'une ligne du catalogue : un site est toujours SharePoint. */
-export function serviceOf(r: StatusReport['rows'][number]): Exclude<DataType, 'contacts'> {
+export function serviceOf(
+  r: StatusReport['rows'][number],
+): Exclude<DataType, 'contacts' | 'calendar'> {
   if (r.kind === 'site') return 'sharepoint';
   return r.workload === 'onedrive' ? 'onedrive' : 'mail';
 }
@@ -142,6 +144,7 @@ export function serviceOf(r: StatusReport['rows'][number]): Exclude<DataType, 'c
 export const UNIT_NAMES: Record<DataType, string> = {
   mail: 'boîte',
   contacts: 'boîte',
+  calendar: 'boîte',
   onedrive: 'compte',
   sharepoint: 'site',
 };

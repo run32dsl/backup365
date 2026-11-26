@@ -13,9 +13,10 @@ const all = (dataTypes: DataType[]) => ({
 });
 
 describe('listPlanItems', () => {
-  it('lists mailboxes for mail, contacts or onedrive, sites for sharepoint', async () => {
+  it('lists mailboxes for mail, contacts, calendar or onedrive, sites for sharepoint', async () => {
     expect(await listPlanItems(all(['mail']), catalog)).toEqual(['u1', 'u2']);
     expect(await listPlanItems(all(['contacts']), catalog)).toEqual(['u1', 'u2']);
+    expect(await listPlanItems(all(['calendar']), catalog)).toEqual(['u1', 'u2']);
     expect(await listPlanItems(all(['onedrive']), catalog)).toEqual(['u1', 'u2']);
     expect(await listPlanItems(all(['sharepoint']), catalog)).toEqual(['s1']);
     expect(await listPlanItems(all(['mail', 'onedrive', 'sharepoint']), catalog)).toEqual([

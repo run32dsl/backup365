@@ -869,6 +869,17 @@ export const SCREENS = [
     },
   },
   {
+    // Agenda coché (issue #544) : la case n'est jamais cochée par défaut.
+    name: 'plans-creation-agenda',
+    hash: '#/plans/nouveau',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByLabel('Nom du plan').fill('Agendas de la direction');
+      await page.getByRole('checkbox', { name: /^Contacts/ }).check();
+      await page.getByRole('checkbox', { name: /^Agenda/ }).check();
+    },
+  },
+  {
     name: 'plans-creation-etape-1-sombre',
     hash: '#/plans/nouveau',
     role: 'admin',
