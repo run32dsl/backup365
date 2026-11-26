@@ -796,6 +796,16 @@ export const SCREENS = [
     },
   },
   {
+    // Simulation de conservation (issue #79) : le premier plan de la démo (90 jours) a un
+    // instantané mail de 120 jours ; rien n'est supprimé.
+    name: 'plans-conservation-simulation',
+    hash: '#/plans',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByText('Durée 90 jours :').waitFor();
+    },
+  },
+  {
     // Le mode démo simule l'exécution : la réponse est modifiée pour montrer une réussite sans
     // point de restauration (ressource vide, issue #80).
     name: 'plans-liste-aucun-contenu',

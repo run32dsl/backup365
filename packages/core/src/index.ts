@@ -27,6 +27,7 @@ export {
   type StatusRow,
 } from './status.js';
 export { FakeBackupCatalog, type FakeCatalogData } from './fake-catalog.js';
+export { retentionExcess, type RetentionExcess } from './retention.js';
 export {
   AUDIT_ACTIONS,
   AUDIT_GENESIS_HASH,

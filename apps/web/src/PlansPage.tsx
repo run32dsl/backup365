@@ -23,6 +23,7 @@ import {
 import { type Problem } from './apiError.js';
 import { DeleteDialog } from './plans/DeleteDialog.js';
 import { PlansListView, type PlansState } from './plans/PlansListView.js';
+import { RetentionSimulation } from './plans/RetentionSimulation.js';
 import { RunDialog } from './plans/RunDialog.js';
 import { goTo } from './plans/goTo.js';
 import { PlanWizard } from './plans/wizard/PlanWizard.js';
@@ -257,6 +258,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         )}
       </div>
       {body}
+      {!wizard && admin && Array.isArray(state) && <RetentionSimulation plans={state} />}
       {!wizard && (
         <>
           <RunDialog plan={runTarget} mailboxes={named} onClose={closeRun} onRun={onRun} />

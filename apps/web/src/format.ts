@@ -43,14 +43,15 @@ export function cardSummary(versionAt: string | null, sizeBytes: number | null):
 export const dateTimeOrDash = (iso: string | null | undefined): string =>
   dateTimeOf(iso ?? null) || '—';
 
-/** `842 o`, `2,4 Ko`, `84 Ko`, `1,2 Mo` ; `-` pour un dossier. */
+/** `842 o`, `2,4 Ko`, `84 Ko`, `1,2 Mo`, `1,9 Go` ; `-` pour un dossier. */
 export function sizeOf(bytes: number | null): string {
   if (bytes === null) return '-';
   if (bytes < 1000) return `${bytes} o`;
   const decimal = (n: number): string => n.toFixed(1).replace('.', ',');
   if (bytes < 9_950) return `${decimal(bytes / 1000)} Ko`;
   if (bytes < 999_500) return `${Math.round(bytes / 1000)} Ko`;
-  return `${decimal(bytes / 1_000_000)} Mo`;
+  if (bytes < 999_950_000) return `${decimal(bytes / 1_000_000)} Mo`;
+  return `${decimal(bytes / 1_000_000_000)} Go`;
 }
 
 const FOLDERS: Record<string, string> = {

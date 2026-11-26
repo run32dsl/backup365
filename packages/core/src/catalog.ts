@@ -23,6 +23,8 @@ export interface Snapshot {
   workload: Workload;
   /** Horodatage UTC, ISO 8601. */
   createdAt: string;
+  /** Taille logique enregistrée par le SDK pour cet instantané, en octets (issue #79). */
+  sizeBytes?: number;
 }
 
 export interface SnapshotDetail extends Snapshot {

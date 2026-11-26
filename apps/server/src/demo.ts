@@ -257,7 +257,7 @@ function driveEntries(now: number, backupHoursAgo: number) {
 }
 
 /**
- * Faux SDK Atlas : trois instantanés mail par boîte (le plus ancien est incomplet), un instantané
+ * Faux SDK Atlas : quatre instantanés mail par boîte (les deux plus anciens sont incomplets), un instantané
  * OneDrive (périmé pour une boîte, ce qui allume une alerte sur le tableau de bord) et quelques
  * sites SharePoint. Aucun accès réseau ni disque.
  */
@@ -268,7 +268,9 @@ export function createDemoHandle(now: number = Date.now()): AtlasHandle {
   };
   // Le plus récent est daté de l'instant de démonstration, comme les exécutions des plans semés :
   // la carte « Dernière sauvegarde » de l'accueil et la page Sources donnent la même heure.
-  const snapshotAges = [0, 24, 48]; // heures
+  // Le quatrième, vieux de 120 jours, dépasse la durée de conservation du premier plan semé
+  // (90 jours) : la simulation de conservation a quelque chose à montrer (issue #79).
+  const snapshotAges = [0, 24, 48, 120 * 24]; // heures
   return {
     outlook: {
       listMailboxes: () =>
@@ -281,6 +283,7 @@ export function createDemoHandle(now: number = Date.now()): AtlasHandle {
             : snapshotAges.map((age, k) => ({
                 snapshotId: `snap-mail-${i + 1}-${k + 1}`,
                 createdAt: new Date(now - age * HOUR),
+                totalSizeBytes: (k === 3 ? 1_850_000_000 : 42_000_000) + i * 7_000_000,
               })),
         );
       },
@@ -290,8 +293,8 @@ export function createDemoHandle(now: number = Date.now()): AtlasHandle {
         if (i === undefined || !(k >= 1 && k <= snapshotAges.length))
           return Promise.resolve(undefined);
         const all = mailsOf(i, now);
-        // Le plus ancien instantané n'a que les deux tiers des mails.
-        const entries = k === 3 ? all.slice(0, Math.floor(all.length * 0.66)) : all;
+        // Les plus anciens instantanés n'ont que les deux tiers des mails.
+        const entries = k >= 3 ? all.slice(0, Math.floor(all.length * 0.66)) : all;
         return Promise.resolve({
           snapshotId,
           createdAt: new Date(now - snapshotAges[k - 1]! * HOUR),
@@ -334,6 +337,7 @@ export function createDemoHandle(now: number = Date.now()): AtlasHandle {
             snapshotId: `snap-od-${i + 1}-${k + 1}`,
             createdAt: new Date(now - hours * HOUR),
             totalFiles: 120 + i * 40 - k * 5,
+            totalSizeBytes: 640_000_000 + i * 90_000_000,
             // Le plus ancien instantané n'a pas encore le dossier 2025.
             entries: driveEntries(now, hours).filter(
               (e) => k === 0 || !e.parentPath.includes('2025'),
@@ -371,6 +375,7 @@ export function createDemoHandle(now: number = Date.now()): AtlasHandle {
             snapshotId: `snap-sp-${i + 1}-${k + 1}`,
             createdAt: new Date(now - age * HOUR),
             totalFiles: 300 + i * 90 - k * 10,
+            totalSizeBytes: 1_200_000_000 + i * 150_000_000,
             // Le plus ancien instantané n'a pas encore la bibliothèque Archives.
             entries: siteEntries(now, k === 0 ? 5 : 29).filter(
               (e) => k === 0 || e.libraryName !== 'Archives',

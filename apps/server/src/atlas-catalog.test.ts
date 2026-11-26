@@ -115,6 +115,37 @@ describe('AtlasSdkCatalog', () => {
     expect(await catalog.getSnapshotDetail('sharepoint', 'x')).toBeNull();
   });
 
+  it('carries the SDK snapshot size, and drops a size that is not a positive integer', async () => {
+    const at = new Date('2026-01-05T00:00:00Z');
+    const catalog = new AtlasSdkCatalog(
+      fakeAtlas(
+        {
+          listSnapshots: () =>
+            Promise.resolve([
+              { snapshotId: 'm1', createdAt: at, totalSizeBytes: 1_234 },
+              { snapshotId: 'm2', createdAt: at, totalSizeBytes: -1 },
+            ]),
+        },
+        {
+          sharepoint: {
+            listSnapshots: () =>
+              Promise.resolve([
+                { snapshotId: 'sp', createdAt: at, totalFiles: 1, totalSizeBytes: 99 },
+              ]),
+          },
+          getStorageUsage: () =>
+            Promise.resolve({
+              complete: true,
+              byOwner: [{ workload: 'sharepoint', ownerId: 'site-1' }],
+            }),
+        },
+      ),
+    );
+    const mail = await catalog.listSnapshots('m', 'mail');
+    expect(mail.map((s) => s.sizeBytes)).toEqual([1_234, undefined]);
+    expect((await catalog.listSiteSnapshots('site-1'))[0]?.sizeBytes).toBe(99);
+  });
+
   it('rejects an invalid date as unavailable', async () => {
     const catalog = new AtlasSdkCatalog(
       fakeAtlas({

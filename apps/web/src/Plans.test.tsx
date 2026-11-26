@@ -176,7 +176,7 @@ describe('plan form', () => {
         '12\u00a0heures au plus (une sauvegarde toutes les 12\u00a0heures)',
       ],
       ['Remise en service souhaitée', '24\u00a0heures au plus'],
-      ['Durée de conservation', '1\u00a0an, puis suppression'],
+      ['Durée de conservation', '1\u00a0an, non appliquée pour l’instant'],
       ['Justification de cette durée', 'Obligation légale'],
     ]);
   });
@@ -761,11 +761,12 @@ describe('PlanWizard', () => {
     }
     expect(html).toContain('perdre au plus 12\u00a0heures');
     expect(html).toContain('rétabli en 24\u00a0heures au plus');
-    expect(html).toContain('supprimées au bout de 1\u00a0an');
+    expect(html).toContain('plus de 1\u00a0an. Conservation non appliquée');
     const other = step2({ ...emptyForm(), rpoHours: 4, rtoHours: 8, retentionDays: 180 });
     expect(other).toContain('perdre au plus 4\u00a0heures');
     expect(other).toContain('rétabli en 8\u00a0heures au plus');
-    expect(other).toContain('supprimées au bout de 6\u00a0mois');
+    expect(other).toContain('plus de 6\u00a0mois');
+    expect(html).not.toContain('supprimées');
   });
 
   it('writes hours in full, singular included', () => {
