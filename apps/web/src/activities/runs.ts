@@ -8,9 +8,16 @@ export const RUNS_HASH = '#/activites';
 export const runsHash = (planId: string): string =>
   `${RUNS_HASH}?plan=${encodeURIComponent(planId)}`;
 
+/** Les exécutions en échec, tous plans confondus : le filtre « Résultat : En échec » déjà réglé. */
+export const FAILED_RUNS_HASH = `${RUNS_HASH}?resultat=echec`;
+
+/** Résultat de départ du filtre selon l'ancre : `failed` pour `FAILED_RUNS_HASH`, sinon tous. */
+export const runsResultOf = (hash: string): RunResult | '' =>
+  hash === FAILED_RUNS_HASH ? 'failed' : '';
+
 /** Plan demandé par l'ancre (`#/activites?plan=<id>`) ; `''` pour tous ; `null` si l'ancre est autre. */
 export function parseRunsHash(hash: string): string | null {
-  if (hash === RUNS_HASH) return '';
+  if (hash === RUNS_HASH || hash === FAILED_RUNS_HASH) return '';
   const m = /^#\/activites\?plan=([^&]+)$/.exec(hash);
   if (!m?.[1]) return null;
   try {

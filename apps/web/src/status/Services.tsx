@@ -6,8 +6,7 @@ import {
 } from '@backup365/core';
 import { PLANS_HASH, lateNote, retentionLabel } from '../plans.js';
 import { dateTimeOf, ageLabel, workloadLabel } from '../format.js';
-import { AUDIT_HASH } from '../routes.js';
-import { RESTORE_BUTTONS } from '../RestoreJourney.js';
+import { FAILED_RUNS_HASH, runsHash } from '../activities/runs.js';
 import { Alert, DataTable, StatusPill, type Column } from '../ui/index.js';
 import {
   StateBadge,
@@ -87,9 +86,16 @@ function reconcile(
   };
 }
 
+/** Libellés propres à cet écran (jamais ceux de la restauration). */
+export const SERVICE_LINKS = {
+  failedRuns: 'Voir les sauvegardes en échec',
+  planRuns: 'Historique du plan',
+} as const;
+
 /**
  * Pastille, puis l'action utile : créer un plan s'il n'y en a pas ; pour un retard, sa cause sur
- * une ligne secondaire ; sans aucune sauvegarde, le journal. Le nom accessible du lien nomme le
+ * une ligne secondaire ; en échec, Activités › Sauvegardes filtrée sur « En échec », où se lisent
+ * la cause et ce qu'il faut faire. Le nom accessible du lien nomme le
  * service : le même libellé revient sur plusieurs lignes. Un seul élément dans la cellule : en
  * carte, le lien reste sous la pastille.
  */
@@ -121,10 +127,21 @@ function ServiceState({
   // passée : l'état est celui du plan, dit comme dans le tableau des plans.
   if (service.plan && service.lastSnapshotAt === null) {
     const note = lateNote(service.plan.state, service.plan.lastSuccessAt);
+    const failed = service.plan.state === 'failed';
     return (
       <div>
-        <StatusPill status={service.plan.state === 'failed' ? 'failed' : 'late'} />
+        <StatusPill status={failed ? 'failed' : 'late'} />
         {note && <small className="state-note">{note}</small>}
+        {/* Le plan en cause est connu : ses exécutions, comme « Historique » dans Plans. */}
+        {failed && (
+          <a
+            className="state-link"
+            href={runsHash(service.plan.id)}
+            aria-label={`${SERVICE_LINKS.planRuns} : ${name}`}
+          >
+            {SERVICE_LINKS.planRuns}
+          </a>
+        )}
       </div>
     );
   }
@@ -139,10 +156,10 @@ function ServiceState({
       {service.state === 'missing' && (
         <a
           className="state-link"
-          href={AUDIT_HASH}
-          aria-label={`${RESTORE_BUTTONS.audit} : ${name}`}
+          href={FAILED_RUNS_HASH}
+          aria-label={`${SERVICE_LINKS.failedRuns} : ${name}`}
         >
-          {RESTORE_BUTTONS.audit}
+          {SERVICE_LINKS.failedRuns}
         </a>
       )}
     </div>

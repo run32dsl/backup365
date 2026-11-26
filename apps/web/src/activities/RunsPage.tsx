@@ -213,9 +213,18 @@ export function RunsView({
   );
 }
 
-/** Page « Activités › Sauvegardes » : exécutions des plans, filtrables par plan et par résultat. */
-export function RunsPage({ planId = '' }: { planId?: string }) {
-  const [filter, setFilter] = useState<RunsFilter>({ planId, result: '' });
+/**
+ * Page « Activités › Sauvegardes » : exécutions des plans, filtrables par plan et par résultat.
+ * L'ancre fixe le filtre de départ (`runsHash`, `FAILED_RUNS_HASH`).
+ */
+export function RunsPage({
+  planId = '',
+  result = '',
+}: {
+  planId?: string;
+  result?: RunsFilter['result'];
+}) {
+  const [filter, setFilter] = useState<RunsFilter>({ planId, result });
   const [state, setState] = useState<State>('loading');
   const [attempt, setAttempt] = useState(0);
   const [plans, setPlans] = useState<{ id: string; name: string; mailOnly: boolean }[]>([]);

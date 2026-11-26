@@ -116,6 +116,12 @@ describe('charte.css data tables', () => {
     expect(/\.subnav a \{[^}]*min-height:\s*2\.75rem;/.test(css)).toBe(true);
   });
 
+  it('gives the link under a card state badge a 44 px target', () => {
+    expect(
+      /\.data-table td\.card-nolabel \.state-link\s*\{[^}]*min-height:\s*2\.75rem;/.test(css),
+    ).toBe(true);
+  });
+
   it('keeps words whole in keep-words cells', () => {
     expect(/\.data-table \.keep-words\s*\{\s*overflow-wrap:\s*break-word;/.test(css)).toBe(true);
   });

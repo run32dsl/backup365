@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AccountsPage } from '../AccountsPage.js';
 import { AuditPage } from '../AuditPage.js';
 import { RunsPage } from '../activities/RunsPage.js';
-import { parseRunsHash } from '../activities/runs.js';
+import { parseRunsHash, runsResultOf } from '../activities/runs.js';
 import { ComponentsPage, UnavailableView } from '../ComponentsPage.js';
 import { ConsoleFooter } from '../ConsoleFooter.js';
 import { demoOf, type HealthState } from '../DemoBanner.js';
@@ -89,7 +89,9 @@ export function Console({
         {screen === 'components' && <ComponentsPage />}
         {screen === 'unavailable' && <UnavailableView />}
         {screen === 'audit' && <AuditPage />}
-        {screen === 'runs' && <RunsPage key={hash} planId={parseRunsHash(hash) ?? ''} />}
+        {screen === 'runs' && (
+          <RunsPage key={hash} planId={parseRunsHash(hash) ?? ''} result={runsResultOf(hash)} />
+        )}
         {screen === 'search' && (
           <SearchPage key={hash} mailbox={parseSearchHash(hash) ?? undefined} />
         )}

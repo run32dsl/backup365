@@ -1020,6 +1020,16 @@ export const SCREENS = [
     },
   },
   {
+    // Le lien d'un service en échec : Activités › Sauvegardes, déjà filtrée sur « En échec » (#592).
+    name: 'sources-vers-sauvegardes-en-echec',
+    hash: '#/sources',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('link', { name: 'Voir les sauvegardes en échec : Messagerie' }).click();
+      await page.locator('td .badge', { hasText: 'En échec' }).first().waitFor();
+    },
+  },
+  {
     // En démo chaque service a un plan : la réponse est modifiée pour montrer la ligne grisée
     // « Aucun plan » et son lien « Créer un plan ».
     name: 'sources-sans-plan',
