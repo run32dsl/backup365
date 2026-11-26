@@ -1,20 +1,18 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { detailLabel, reasonLabel } from '../auditLabels.js';
-import { quoted } from '../format.js';
-import { startRestore, type RestoreJob } from '../restore.js';
-import {
-  accountLabel,
-  confirmRows,
-  foundLabel,
-  searchAccounts,
-  transferFolderName,
-} from './model.js';
+import { restoreFolderName, startRestore, type RestoreJob } from '../restore.js';
+import { formRows, RestoreOutcome } from '../RestoreAction.js';
+import { recallRows } from '../restoreRows.js';
+import { ResultList } from '../ui/index.js';
+import { accountLabel, foundLabel, searchAccounts, transferBoxes } from './model.js';
 import { source } from '../testSources.js';
 import {
   ConfirmView,
+  confirmRows,
   DestinationChoice,
   DestinationView,
+  ReasonView,
   TransferOutcome,
 } from './TransferViews.js';
 
@@ -24,6 +22,17 @@ const camille = { id: 'camille@example.org', displayName: 'Camille Exemple' };
 const dominique = { id: 'dominique@example.org', displayName: 'Dominique Fictif' };
 const domitille = { id: 'domitille@example.org', displayName: 'Domitille Essai' };
 const noop = () => undefined;
+const mail = {
+  mailboxId: camille.id,
+  messageId: 'm1',
+  subject: 'Budget 2026',
+  date: '2026-11-25T02:00:00.000Z',
+  folder: 'Inbox',
+};
+const now = Date.parse('2026-11-26T09:00:00Z');
+/** Libellés de la liste (`<dt>`) dans l'ordre du rendu. */
+const labels = (html: string): string[] =>
+  [...html.matchAll(/<dt>([^<]*)<\/dt>/g)].map((m) => m[1] ?? '');
 
 const transferJob = (
   over: Partial<RestoreJob> = {},
@@ -37,7 +46,7 @@ const transferJob = (
   startedAt: '2026-11-26T10:00:00.000Z',
   finishedAt: '2026-11-26T10:00:02.000Z',
   durationMs: 2000,
-  folder: 'Restauration de Camille Exemple 26-11-2026',
+  folder: 'Restauré par backup365 26/11/2026',
   error: null,
   ...over,
   transfer: {
@@ -60,6 +69,7 @@ describe('account search', () => {
   it('shows the found accounts, the source one disabled', () => {
     const html = renderToString(
       <DestinationView
+        recall={recallRows(mail, transferBoxes(camille))}
         source={camille}
         choice={null}
         query="e"
@@ -73,7 +83,12 @@ describe('account search', () => {
         onContinue={noop}
       />,
     );
-    expect(html).toContain('Boîte de Camille Exemple · camille@example.org');
+    // La boîte source est dans la liste libellée, plus en texte brut « Source : » (#574).
+    expect(labels(html)).toEqual(['Mail', 'Boîte d’origine']);
+    expect(html).toContain(
+      '<dt>Boîte d’origine</dt><dd>Camille Exemple · camille@example.org</dd>',
+    );
+    expect(html).not.toContain('Source :');
     expect(html).toContain('Rechercher un compte (nom ou adresse)');
     expect(html).toContain('Dominique Fictif · dominique@example.org');
     expect(html).toMatch(/disabled=""[^>]*aria-describedby/);
@@ -83,66 +98,108 @@ describe('account search', () => {
 });
 
 describe('confirmation (A3)', () => {
-  it('names the source and the destination, and the new folder', () => {
-    const rows = confirmRows({
-      subject: 'Budget 2026',
-      date: '2026-11-25T02:00:00.000Z',
-      source: camille,
-      target: dominique,
-      reason: ' Ticket INC-12345 : départ d’un agent ',
-      now: Date.parse('2026-11-26T09:00:00Z'),
-    });
-    expect(Object.fromEntries(rows)).toEqual({
-      Élément: 'Budget 2026 · 25/11/2026 02:00 UTC',
-      Source: 'Camille Exemple · camille@example.org',
-      Destination: 'Dominique Fictif · dominique@example.org',
-      Emplacement: `Dossier ${quoted('Restauration de Camille Exemple 26-11-2026')} (nouveau, rien n’est écrasé)`,
-      Motif: 'Ticket INC-12345 : départ d’un agent',
-    });
-    const html = renderToString(
-      <ConfirmView
-        rows={rows}
-        targetName="Dominique Fictif"
-        sending={false}
-        onBack={noop}
-        onConfirm={noop}
-      />,
+  const folder = restoreFolderName(new Date(now));
+  const confirm = renderToString(
+    <ConfirmView
+      rows={confirmRows(mail, camille, dominique, folder, ' Ticket INC-12345 ')}
+      folder={folder}
+      targetName="Dominique Fictif"
+      sending={false}
+      onCancel={noop}
+      onBack={noop}
+      onConfirm={noop}
+    />,
+  );
+
+  it('uses the operator labels and folder name, with a dd/mm/yyyy date (#574)', () => {
+    const operator = renderToString(<ResultList rows={formRows(mail, now)} />);
+    expect(labels(operator)).toEqual([
+      'Mail',
+      'Boîte',
+      'Dossier d’origine',
+      'Restauré dans le dossier',
+    ]);
+    expect(labels(confirm)).toEqual([
+      'Mail',
+      'Boîte d’origine',
+      'Boîte de destination',
+      'Dossier d’origine',
+      'Restauré dans le dossier',
+      'Motif',
+    ]);
+    for (const html of [operator, confirm]) {
+      expect(html).toContain('Restauré par backup365 26/11/2026');
+      expect(html).toContain('<dt>Mail</dt><dd>Budget 2026 · ');
+    }
+    expect(confirm).toContain(
+      '<dt>Boîte de destination</dt><dd>Dominique Fictif · dominique@example.org</dd>',
     );
-    expect(html).toContain('Camille Exemple · camille@example.org');
-    expect(html).toContain('Dominique Fictif pourra lire cet élément.');
-    expect(html).toContain('Restaurer vers Dominique Fictif');
+    expect(confirm).not.toMatch(/\d\d-\d\d-\d{4}/);
   });
 
-  it('uses the source name and the UTC date for the folder, like the server', () => {
-    expect(transferFolderName('Camille Exemple', new Date('2026-11-26T23:30:00Z'))).toBe(
-      'Restauration de Camille Exemple 26-11-2026',
+  it('keeps « Ce qui va se passer » and a short action next to Annuler and Précédent', () => {
+    expect(confirm).toContain('<h3>Ce qui va se passer</h3>');
+    expect(confirm).toContain(
+      'dossier « Restauré par backup365 26/11/2026 » de la boîte de destination',
     );
+    expect(confirm).toContain('Dominique Fictif pourra lire cet élément.');
+    const actions = confirm.slice(confirm.indexOf('dialog-actions'));
+    expect([...actions.matchAll(/<button[^>]*>([^<]*)</g)].map((m) => m[1])).toEqual([
+      'Annuler',
+      'Précédent',
+      'Restaurer vers ce compte',
+    ]);
     expect(accountLabel({ id: 'a@x', displayName: 'a@x' })).toBe('a@x');
+  });
+
+  it('offers Annuler at the reason step too', () => {
+    const html = renderToString(
+      <ReasonView reason="" onReason={noop} onCancel={noop} onBack={noop} onContinue={noop} />,
+    );
+    expect(html).toContain('>Annuler<');
+    expect(html).toContain('>Précédent<');
   });
 });
 
 describe('result (A4)', () => {
-  it('says what was restored, from whom, to whom, and where', () => {
+  it('shows a short banner and the operator list, with the destination box', () => {
     const html = renderToString(
-      <TransferOutcome job={transferJob()} subject="Budget 2026" onClose={noop} onRetry={noop} />,
+      <TransferOutcome job={transferJob()} mail={mail} onClose={noop} onRetry={noop} />,
     );
-    expect(html).toContain('Budget 2026');
-    expect(html).toContain('de Camille Exemple a été restauré vers Dominique Fictif.');
-    expect(html).toContain('Dossier : Restauration de Camille Exemple 26-11-2026');
+    expect(html).toContain('Mail restauré en <!-- -->2 s<!-- -->.');
+    expect(labels(html)).toEqual([
+      'Mail',
+      'Boîte d’origine',
+      'Boîte de destination',
+      'Dossier d’origine',
+      'Restauré dans le dossier',
+    ]);
+    expect(html).toContain('<dt>Dossier d’origine</dt><dd>Boîte de réception</dd>');
+    expect(html).toContain('Restauré par backup365 26/11/2026');
+    expect(html).not.toContain('Dossier :');
+    expect(html).not.toContain('a été restauré vers');
     expect(html).toContain('Voir dans le journal d’audit');
+    // Même liste que l'opérateur, une ligne « Boîte de destination » en plus.
+    const operator = renderToString(
+      <RestoreOutcome job={transferJob()} mail={mail} onClose={noop} onRetry={noop} />,
+    );
+    const shared = labels(html)
+      .filter((l) => l !== 'Boîte de destination')
+      .map((l) => (l === 'Boîte d’origine' ? 'Boîte' : l));
+    expect(labels(operator)).toEqual(shared);
   });
 
   it('names the destination in the failure cause and asks to check the folder if uncertain', () => {
     const html = renderToString(
       <TransferOutcome
         job={transferJob({ status: 'failed', error: 'restore_unreachable' })}
-        subject="Budget 2026"
+        mail={mail}
         onClose={noop}
         onRetry={noop}
       />,
     );
     expect(html).toContain('la boîte de Dominique Fictif');
-    expect(html).toContain('Restauration de Camille Exemple 26-11-2026');
+    expect(html).toContain('<dt>Dossier visé</dt><dd>Restauré par backup365 26/11/2026</dd>');
     expect(html).toContain('Réessayer');
   });
 });

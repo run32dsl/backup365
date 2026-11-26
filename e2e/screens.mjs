@@ -56,7 +56,8 @@ async function openRestorePanel(page, n) {
 async function openOtherAccount(page, n, query) {
   await openMailFor(page, n);
   await page.getByRole('button', { name: /^Restaurer /u }).click();
-  const dialog = page.getByRole('dialog');
+  // Même titre que chez l'opérateur, à chaque étape (issue #574).
+  const dialog = page.getByRole('dialog', { name: 'Restaurer ce mail' });
   await dialog.getByRole('radio', { name: 'Un autre compte' }).check();
   await dialog.getByText('Étape 1 sur 3').waitFor();
   await dialog.getByLabel('Rechercher un compte (nom ou adresse)').fill(query);
@@ -1302,6 +1303,19 @@ export const SCREENS = [
     prepare: async (page) => {
       await openOtherAccount(page, 14, 'direction');
       await toOtherAccountConfirmation(page, /^direction\.administrative/u);
+    },
+  },
+  {
+    // A3, bas de la boîte (#574) : « Annuler », « Précédent » et « Restaurer vers ce compte » sur
+    // une ligne dès 900 px, empilés pleine largeur sur mobile.
+    name: 'restauration-autre-compte-confirmation-actions',
+    hash: DEMO_MAIL_HASH,
+    role: 'admin',
+    extraWidths: [900],
+    prepare: async (page) => {
+      await openOtherAccount(page, 14, 'direction');
+      await toOtherAccountConfirmation(page, /^direction\.administrative/u);
+      await page.getByRole('button', { name: 'Restaurer vers ce compte' }).scrollIntoViewIfNeeded();
     },
   },
   {

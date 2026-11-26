@@ -2,11 +2,17 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import type { Mailbox } from '@backup365/core';
 import type { Problem } from '../apiError.js';
 import { isReasonValid } from '../mail.js';
-import { startRestore, type RestoreJob } from '../restore.js';
-import type { RestorableMail } from '../RestoreAction.js';
+import { restoreFolderName, startRestore, type RestoreJob } from '../restore.js';
+import { recallRows, type RestorableMail } from '../restoreRows.js';
 import { Steps } from '../ui/index.js';
-import { TRANSFER as T, confirmRows, fetchAccounts, searchAccounts } from './model.js';
-import { ConfirmView, DestinationView, ReasonView, type SearchState } from './TransferViews.js';
+import { TRANSFER as T, fetchAccounts, searchAccounts, transferBoxes } from './model.js';
+import {
+  ConfirmView,
+  DestinationView,
+  ReasonView,
+  confirmRows,
+  type SearchState,
+} from './TransferViews.js';
 
 /**
  * Étapes A1 à A3 de la restauration d'un mail vers la boîte d'un autre compte (issue #546) :
@@ -79,7 +85,7 @@ export function TransferFlow({
     displayName: mail.mailboxId,
   };
   const target = known.find((m) => m.id === selected);
-  const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
+  const folder = restoreFolderName(new Date(now));
 
   const focusField = (name: string) => {
     box.current?.querySelector<HTMLInputElement>(`input[name="${name}"]`)?.focus();
@@ -136,6 +142,7 @@ export function TransferFlow({
       <Steps steps={[...T.steps]} current={step} titleRef={title} />
       {step === 1 && (
         <DestinationView
+          recall={recallRows(mail, transferBoxes(source))}
           source={source}
           choice={choice}
           query={query}
@@ -157,16 +164,19 @@ export function TransferFlow({
           reason={reason}
           error={error}
           onReason={setReason}
+          onCancel={onCancel}
           onBack={back}
           onContinue={motive}
         />
       )}
       {step === 3 && target && (
         <ConfirmView
-          rows={confirmRows({ subject, date: mail.date, source, target, reason, now })}
+          rows={confirmRows(mail, source, target, folder, reason)}
+          folder={folder}
           targetName={target.displayName}
           sending={sending}
           failure={failure}
+          onCancel={onCancel}
           onBack={back}
           onConfirm={confirm}
         />

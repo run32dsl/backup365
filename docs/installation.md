@@ -201,8 +201,8 @@ motif ; il lit la liste des plans sans la modifier). Les deux peuvent restaurer 
 boîte d'origine (« Restaurer » depuis la recherche ou la fiche, motif obligatoire, demande et
 résultat inscrits au journal d'audit). Seul un administrateur peut restaurer un mail vers la boîte
 d'un **autre compte** (départ d'un salarié, par exemple) : copie dans un nouveau dossier
-`Restauration de {compte source} jj-mm-aaaa`, sans écrasement, avec la destination inscrite au journal
-(ADR 0024). Cette restauration passe par Graph : tant qu'aucun accès
+`Restauré par backup365 jj/mm/aaaa` (le même que dans la boîte d'origine), sans écrasement,
+avec la destination inscrite au journal (ADR 0024). Cette restauration passe par Graph : tant qu'aucun accès
 en écriture n'est configuré (ADR 0012), la fiche d'un mail affiche un avertissement à la place du bouton. L'écran
 « OneDrive » (`#/onedrive/<compte>/<chemin>`) fait de même pour un fichier, un dossier ou une
 version antérieure : on parcourt la sauvegarde (lecture seule, journalisée), puis la

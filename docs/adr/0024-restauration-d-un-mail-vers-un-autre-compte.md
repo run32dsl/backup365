@@ -21,8 +21,9 @@ couvre qu'**un mail** ; OneDrive et l'export d'un dossier viendront dans des iss
   dans le catalogue (400 `target_unknown`, 503 `catalog_unavailable` s'il ne répond pas). Les noms
   affichés viennent du catalogue, jamais du client. Le catalogue liste les boîtes sauvegardées :
   c'est la preuve, sans Graph, que le compte a une boîte.
-- **Dossier** : nouveau dossier `Restauration de {nom de la source} jj-mm-aaaa` (date UTC du
-  lancement) dans la boîte de destination, jamais d'écrasement. Pas de choix du dossier.
+- **Dossier** : nouveau dossier `Restauré par backup365 jj/mm/aaaa` (date UTC du lancement) dans
+  la boîte de destination, le même nom que pour la boîte d'origine (ADR 0012, issue #574), jamais
+  d'écrasement. Pas de choix du dossier. La boîte source reste lisible au journal d'audit.
 - **Audit** (qui, quoi, vers qui, motif, résultat), ressource `mail.restore`, cible
   `boîte source/message` comme ADR 0012 :
   - `restore.request` : motif `from=<source>;to=<destination>;reason=<motif>` ;
@@ -32,7 +33,12 @@ couvre qu'**un mail** ; OneDrive et l'export d'un dossier viendront dans des iss
     l'index comme pour toute restauration, jamais écrit dans le journal.
 - **Interface** : la fenêtre « Restaurer » de la fiche propose, à un administrateur, « Le compte
   d'origine » (fenêtre de l'ADR 0012, inchangée) ou « Un autre compte » : trois étapes
-  (`Steps` : Destination, Motif, Confirmation), puis le résultat. La recherche filtre la liste des
+  (`Steps` : Destination, Motif, Confirmation), puis le résultat. Même boîte « Restaurer ce mail »
+  pour les deux rôles (issue #574) : même liste libellée (« Mail », « Boîte d'origine », « Boîte
+  de destination », « Dossier d'origine », « Restauré dans le dossier ») à chaque étape et au
+  résultat, bloc « Ce qui va se passer » au récapitulatif, « Annuler », « Précédent » et l'action
+  principale sur une ligne, bouton court « Restaurer vers ce compte », bandeau « Mail restauré en
+  … » au résultat. La recherche filtre la liste des
   boîtes (`GET /api/mailboxes`, déjà ouverte aux sessions) par nom ou adresse, sans casse ni
   accents ; le compte source y apparaît désactivé. Le code est dans `apps/web/src/transfer/`.
 - Une restauration à la fois par mail, toutes destinations confondues (même clé que l'ADR 0012).
@@ -41,8 +47,10 @@ couvre qu'**un mail** ; OneDrive et l'export d'un dossier viendront dans des iss
 
 - Le bouton de retour garde le libellé commun « Précédent » (ADR 0016), au lieu de « Retour » de
   la maquette.
-- Le catalogue réel ne donne pas de nom d'affichage : le dossier et les écrans montrent l'adresse
-  du compte source (`Restauration de camille@… 26-11-2026`).
+- Le catalogue réel ne donne pas de nom d'affichage : les écrans montrent l'adresse des comptes.
+- Dans la boîte de destination, le dossier ne nomme pas la source : un même nom de dossier pour
+  les deux rôles (issue #574) a été préféré ; la source est dans le journal d'audit. Les mails
+  restaurés le même jour depuis plusieurs boîtes arrivent donc dans le même dossier daté.
 - Les issues de suite (fichier OneDrive, export d'un dossier) réutiliseront `transfer/`.
 
 ## Non vérifié
