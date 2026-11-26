@@ -3,6 +3,7 @@ import {
   currentRunSlot,
   nightWindowStart,
   isNightPlan,
+  type BackupResultRecord,
   type DataType,
   type NoSnapshotReason,
 } from '@backup365/core';
@@ -14,6 +15,8 @@ export interface ExecutionTarget {
   itemId: string;
   /** Charges que le plan protège : l'exécuteur ne sauvegarde que celles-là. */
   dataTypes: readonly DataType[];
+  /** Reçoit le résultat tiré des retours de `backup()`, en réussite comme en échec (#439). */
+  report?: (record: BackupResultRecord) => void;
 }
 
 /**
@@ -281,14 +284,19 @@ export class PlanScheduler {
   private async execute(plan: StoredPlan, itemId: string, runId: number): Promise<void> {
     const { plans, executeur, logger } = this.options;
     const planId = plan.id;
+    let backupResult: BackupResultRecord | undefined;
+    const report = (record: BackupResultRecord): void => {
+      backupResult = record;
+    };
     try {
-      const result = await executeur.execute({ planId, itemId, dataTypes: plan.dataTypes });
-      plans.finishRun(runId, 'success', this.now().toISOString(), undefined, result ?? {});
+      const result = await executeur.execute({ planId, itemId, dataTypes: plan.dataTypes, report });
+      const done = { ...(result ?? {}), backupResult };
+      plans.finishRun(runId, 'success', this.now().toISOString(), undefined, done);
       logger.info({ planId, itemId, runId }, 'exécution terminée');
     } catch (err) {
       const code = errorCode(err);
       try {
-        plans.finishRun(runId, 'failed', this.now().toISOString(), code);
+        plans.finishRun(runId, 'failed', this.now().toISOString(), code, { backupResult });
       } catch (inner) {
         logger.error({ planId, runId, code: errorCode(inner) }, 'clôture de l’exécution en échec');
       }

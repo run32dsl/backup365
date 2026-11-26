@@ -72,6 +72,8 @@ instantané est complet, partiel ou en échec.
 
 ## Suite côté console
 
+Le manifeste n'expose rien des erreurs partielles, mais le retour de `backup()` les expose : depuis l'issue #439, la console enregistre donc, pour chaque appel de `backup()` qu'un plan de protection lance, son résultat et ses nombres d'erreurs de dossier et d'avertissements.
+
 Quand le SDK exposera ce résultat : ajouter `outcome` au port `BackupCatalog` et à `Snapshot`,
 l'afficher dans la page « Sources » à côté de la fraîcheur (icône et texte), ajouter les
 libellés à la charte, et étendre le lien « Voir dans le journal d'audit » à « Avec

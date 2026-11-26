@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import {
   DATA_TYPES,
+  type BackupResultRecord,
   type DataType,
   type NoSnapshotReason,
   type PlanScope,
@@ -41,6 +42,8 @@ export interface RunOutcome {
   noSnapshotReason?: NoSnapshotReason | undefined;
   itemsSaved?: number | undefined;
   sourceBytes?: number | undefined;
+  /** Résultat tiré du retour de `backup()` (issue #439), en réussite comme en échec. */
+  backupResult?: BackupResultRecord | undefined;
 }
 
 /** Résultat lisible d'une exécution : une interruption est un échec à part. */
@@ -242,6 +245,7 @@ export class SqlitePlanStore {
       .prepare(
         `UPDATE plan_runs SET status = ?, finished_at = ?, error = ?, no_snapshot_reason = ?,
            items_saved = ?, source_bytes = ?,
+           backup_result = ?, folder_error_count = ?, warning_count = ?,
            duration_ms = MAX(0, CAST(ROUND((julianday(?) - julianday(started_at)) * 86400000) AS INTEGER))
          WHERE id = ? AND status = 'running'`,
       )
@@ -252,9 +256,26 @@ export class SqlitePlanStore {
         success ? (done.noSnapshotReason ?? null) : null,
         success ? count(done.itemsSaved) : null,
         success ? count(done.sourceBytes) : null,
+        done.backupResult?.result ?? null,
+        count(done.backupResult?.folderErrorCount),
+        count(done.backupResult?.warningCount),
         finishedAt,
         id,
       );
+  }
+
+  /** Résultat enregistré d'une exécution ; `null` si aucun (inconnu : rien n'est déduit). */
+  backupResultOf(runId: number): BackupResultRecord | null {
+    const row = this.db
+      .prepare(
+        `SELECT backup_result AS result, folder_error_count AS f, warning_count AS w
+         FROM plan_runs WHERE id = ?`,
+      )
+      .get(runId) as
+      | { result: BackupResultRecord['result'] | null; f: number | null; w: number | null }
+      | undefined;
+    if (!row || row.result === null) return null;
+    return { result: row.result, folderErrorCount: row.f ?? 0, warningCount: row.w ?? 0 };
   }
 
   /** Au démarrage : les exécutions restées `running` n'ont pas fini, elles passent en `failed`. */

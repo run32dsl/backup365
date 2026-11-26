@@ -356,6 +356,47 @@ describe('planificateur', () => {
     expect(runs.filter((r) => r.error === 'interrupted')).toHaveLength(1);
   });
 
+  it('records the backup result reported by the executor, in success and in failure (#439)', async () => {
+    let fail = false;
+    const { plans, plan, make } = setup({
+      selection: ['a'],
+      executeur: {
+        execute: (t) => {
+          t.report?.({
+            result: fail ? 'failed' : 'warnings',
+            folderErrorCount: 2,
+            warningCount: 1,
+          });
+          return fail ? Promise.reject(new Error('x')) : Promise.resolve();
+        },
+      },
+    });
+    await (
+      await make().runNow(plan)
+    ).done;
+    fail = true;
+    await (
+      await make().runNow(plan)
+    ).done;
+    const [failed, ok] = plans.listRuns(plan.id, 10);
+    expect(plans.backupResultOf(ok!.id)).toEqual({
+      result: 'warnings',
+      folderErrorCount: 2,
+      warningCount: 1,
+    });
+    expect(plans.backupResultOf(failed!.id)).toEqual({
+      result: 'failed',
+      folderErrorCount: 2,
+      warningCount: 1,
+    });
+    // Un exécuteur qui ne rapporte rien (simulé) laisse le résultat inconnu.
+    const other = setup({ selection: ['a'] });
+    await (
+      await other.make().runNow(other.plan)
+    ).done;
+    expect(other.plans.backupResultOf(other.plans.listRuns(other.plan.id, 1)[0]!.id)).toBeNull();
+  });
+
   it('reduces an error to a safe code', () => {
     expect(errorCode(Object.assign(new Error('x'), { code: 'ECONNRESET' }))).toBe('ECONNRESET');
     expect(errorCode(new Error('mail subject with spaces'))).toBe('Error');
