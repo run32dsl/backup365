@@ -1,11 +1,13 @@
 import {
   CatalogUnavailableError,
+  isWorkload,
   NoBackupFoundError,
   retentionExcess,
   type AuditLog,
   type BackupCatalog,
   type DataType,
   type Snapshot,
+  type Workload,
 } from '@backup365/core';
 import type { FastifyInstance } from 'fastify';
 import { recordDenied } from './audit-events.js';
@@ -35,7 +37,7 @@ export function registerRetentionRoutes(
     const now = new Date();
     // Un élément commun à plusieurs plans n'est lu qu'une fois par requête.
     const cache = new Map<string, Promise<Snapshot[]>>();
-    const snapshotsOf = (item: string, type: DataType): Promise<Snapshot[]> => {
+    const snapshotsOf = (item: string, type: Workload): Promise<Snapshot[]> => {
       const key = `${type}:${item}`;
       let found = cache.get(key);
       if (!found) {
@@ -58,7 +60,10 @@ export function registerRetentionRoutes(
       for (const plan of all) {
         const byItem = new Map<string, Snapshot[]>();
         for (const item of await listPlanItems(plan, catalog)) {
-          const types = plan.dataTypes.filter((t) => (t === 'sharepoint') === sites.has(item));
+          // L'agenda n'est pas lu : le catalogue ne liste pas ses instantanés (ADR 0009).
+          const types = plan.dataTypes
+            .filter((t): t is Extract<DataType, Workload> => isWorkload(t))
+            .filter((t) => (t === 'sharepoint') === sites.has(item));
           const found: Snapshot[] = [];
           for (const type of types) found.push(...(await snapshotsOf(item, type)));
           byItem.set(item, found);

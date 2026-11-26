@@ -107,6 +107,38 @@ describe('GET /api/plans/retention (simulation, issue #79)', () => {
     expect(asked).not.toContain('sharepoint:a');
   });
 
+  it("ne demande pas l'agenda au catalogue, qui ne liste pas ses instantanés", async () => {
+    const base = fakeCatalog();
+    const asked: string[] = [];
+    const spy: BackupCatalog = {
+      ...base,
+      listMailboxes: () => base.listMailboxes(),
+      listSites: () => base.listSites(),
+      getSnapshotDetail: () => Promise.resolve(null),
+      listSiteSnapshots: (id) => base.listSiteSnapshots(id),
+      listSnapshots: (id, workload) => {
+        asked.push(`${workload}:${id}`);
+        return base.listSnapshots(id, workload);
+      },
+    };
+    const { app, plans } = setup('admin', spy);
+    const agenda = plans.create({
+      name: 'Agenda de A',
+      scope: 'selection',
+      selection: ['a'],
+      dataTypes: ['mail', 'calendar'],
+      rpoHours: 24,
+      rtoHours: null,
+      retentionDays: 90,
+      gdprJustification: 'Obligation de conservation.',
+    });
+    const res = await app.inject({ method: 'GET', url: '/api/plans/retention' });
+    expect(res.statusCode).toBe(200);
+    expect(asked.some((a) => a.startsWith('calendar:'))).toBe(false);
+    const row = res.json<Body>().items.find((i) => i.planId === agenda.id);
+    expect(row).toMatchObject({ snapshots: 1, items: 1, bytes: 200 });
+  });
+
   it('ne supprime rien : le catalogue garde ses instantanés', async () => {
     const catalog = fakeCatalog();
     const { app } = setup('admin', catalog);

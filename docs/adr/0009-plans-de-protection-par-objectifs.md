@@ -178,7 +178,8 @@ true }` (ADR 0017).
   élément commun à plusieurs plans compte dans chacun, avec la durée de chacun. Un élément connu
   comme site du catalogue n'est lu que pour SharePoint, les autres que pour la messagerie et
   OneDrive : un site jamais sauvegardé, absent du catalogue, est traité comme une boîte (même
-  limite que l'exécuteur).
+  limite que l'exécuteur). Les contacts et l'agenda (ADR 0020, 0021) ne sont pas comptés : le
+  catalogue ne liste pas encore leurs instantanés.
 - **Volume** : `totalSizeBytes` du manifeste de chaque instantané (SDK 7.2.0), remonté par le
   catalogue dans `Snapshot.sizeBytes`. C'est une taille logique, pas l'espace que libérerait une
   suppression (compression, déduplication). Le SDK décrit chaque manifeste comme le delta d'un
