@@ -169,7 +169,7 @@ describe('plan form', () => {
     });
     expect(rows).toEqual([
       ['Nom du plan', 'Messagerie Direction'],
-      ['Données', 'Messagerie, OneDrive, SharePoint'],
+      ['Données', 'Boîtes mail, OneDrive, SharePoint'],
       ['Périmètre', 'Toute l’organisation'],
       [
         'Perte de données acceptable',
@@ -190,7 +190,7 @@ describe('plan form', () => {
     };
     const row = (f: typeof form, label: string) =>
       Object.fromEntries(recapRows(f))[label] as string;
-    expect(row({ ...form, selection: ['a', 'b'] }, 'Données')).toBe('Messagerie');
+    expect(row({ ...form, selection: ['a', 'b'] }, 'Données')).toBe('Boîtes mail');
     expect(row({ ...form, selection: ['a', 'b'] }, 'Périmètre')).toBe('2 éléments choisis');
     expect(row({ ...form, selection: ['a'] }, 'Périmètre')).toBe('1 élément choisi');
     expect(row(form, 'Périmètre')).toBe('Aucune boîte, compte ou site choisi');
@@ -392,7 +392,7 @@ describe('PlansListView', () => {
       retentionDays: 1095,
     };
     const all =
-      '<small class="state-note plan-summary">Messagerie, OneDrive et SharePoint · toute l’organisation · toutes les 12 h · conservés 1 an</small>';
+      '<small class="state-note plan-summary">Boîtes mail, OneDrive et SharePoint · toute l’organisation · toutes les 12 h · conservés 1 an</small>';
     const html = list([plan, other], true);
     expect(html).toContain(all);
     expect(html).toContain(
@@ -599,7 +599,22 @@ describe('PlanWizard', () => {
     expect(onlyContacts).not.toContain('Équipe commerciale');
   });
 
-  it('offers Contacts after Messagerie, unticked by default, with its help (#543)', () => {
+  it('labels the mail workload « Boîtes mail » but still sends `mail` to the API (#472)', () => {
+    const form = emptyForm();
+    const html = renderToStaticMarkup(
+      <PlanWizard
+        initial={form}
+        editing={false}
+        mailboxes={[]}
+        onSubmit={() => Promise.resolve(undefined)}
+      />,
+    );
+    expect(html).toMatch(/<input type="checkbox"[^>]*checked[^>]*>Boîtes mail</);
+    expect(html).not.toContain('Messagerie');
+    expect(payloadOf(form).dataTypes).toEqual(['mail', 'onedrive', 'sharepoint']);
+  });
+
+  it('offers Contacts after Boîtes mail, unticked by default, with its help (#543)', () => {
     const html = renderToStaticMarkup(
       <PlanWizard
         initial={emptyForm()}
@@ -610,13 +625,13 @@ describe('PlanWizard', () => {
     );
     const box = (label: string) =>
       new RegExp(`<input type="checkbox"([^>]*)>${label}`).exec(html)?.[1] ?? '';
-    expect(box('Messagerie')).toContain('checked');
+    expect(box('Boîtes mail')).toContain('checked');
     expect(box('Contacts')).not.toContain('checked');
     expect(box('Contacts')).toContain('aria-describedby="data-type-contacts-help"');
     expect(html).toContain(
       'id="data-type-contacts-help" class="state-note">Copie les contacts des boîtes couvertes par ce plan.<',
     );
-    expect(html.indexOf('>Messagerie')).toBeLessThan(html.indexOf('>Contacts'));
+    expect(html.indexOf('>Boîtes mail')).toBeLessThan(html.indexOf('>Contacts'));
     expect(html.indexOf('>Contacts')).toBeLessThan(html.indexOf('>Agenda'));
   });
 

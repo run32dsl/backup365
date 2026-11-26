@@ -177,7 +177,7 @@ describe('LatestEvents', () => {
     const headers = [...html.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map((m) => m[1]);
     expect(headers).toEqual(['Heure', 'Type', 'Statut', 'Résumé']);
     expect(html).toContain('24/11/2026');
-    expect(html).toContain('Messagerie, OneDrive');
+    expect(html).toContain('Boîtes mail, OneDrive');
     expect(html).toContain('Réussie');
     expect(html).toContain('href="#/activites"');
   });

@@ -51,7 +51,7 @@ export interface Mailbox {
 // ---- Libellés -------------------------------------------------------------------------------
 
 export const DATA_TYPE_LABELS: Record<DataType, string> = {
-  mail: 'Messagerie',
+  mail: 'Boîtes mail',
   contacts: 'Contacts',
   calendar: 'Agenda',
   onedrive: 'OneDrive',
