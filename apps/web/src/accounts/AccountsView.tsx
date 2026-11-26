@@ -41,7 +41,7 @@ const columns = (
 ): Column<AccountInfo>[] => [
   {
     header: 'Identifiant',
-    className: 'card-title',
+    className: 'card-title address',
     cell: (a) => (
       <>
         <Address value={a.username} />

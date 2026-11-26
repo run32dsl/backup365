@@ -19,15 +19,17 @@ import {
   type ServiceEntry,
 } from './model.js';
 
-/** Temps relatif, puis la date exacte dessous (`<time datetime>`) ; « Jamais » sans sauvegarde. */
+/**
+ * Temps relatif, en minuscule comme dans « Sauvegardes », puis la date exacte dessous
+ * (`<time datetime>`) ; « Jamais » sans sauvegarde.
+ */
 function LastBackup({ at, ageHours }: { at: string | null; ageHours: number | null }) {
   const exact = dateTimeOf(at);
   // Une date illisible est une absence, comme dans `backupState`.
   if (at === null || ageHours === null || exact === '') return <>Jamais</>;
-  const age = ageLabel(ageHours);
   return (
     <time dateTime={at}>
-      {age.charAt(0).toUpperCase() + age.slice(1)}
+      {ageLabel(ageHours)}
       <small className="state-note">{`${exact} UTC`}</small>
     </time>
   );
@@ -154,14 +156,14 @@ const SERVICE_ICONS: Record<ServiceEntry['service'], string> = {
   sharepoint: '▤',
 };
 
-/** Carte mobile : « Il y a 3 h · 24/11/2026 11:46 UTC · conservés 1 an · toutes les boîtes ». */
+/** Carte mobile : « il y a 3 h · 24/11/2026 11:46 UTC · conservés 1 an · toutes les boîtes ». */
 function serviceCardLine(s: ServiceEntry): string {
   const exact = dateTimeOf(s.lastSnapshotAt);
   const dated = s.lastSnapshotAt !== null && s.ageHours !== null && exact !== '';
   const age = dated ? ageLabel(s.ageHours) : 'jamais';
   const scope = scopeLabel(s);
   return cardLine([
-    age.charAt(0).toUpperCase() + age.slice(1),
+    age,
     dated ? `${exact} UTC` : '',
     s.retentionDays === null ? '' : `conservés ${retentionLabel(s.retentionDays)}`,
     scope.charAt(0).toLowerCase() + scope.slice(1),

@@ -898,6 +898,17 @@ select[aria-disabled='true'] {
   .data-table .address .addr-domain::before {
     white-space: normal;
   }
+  /*
+   * Une adresse de 40 caractères au plus tient sur une ligne : le bloc prend la largeur de
+   * l'adresse (plafonnée à 40ch), la colonne ne se réduit pas en deçà ; « Objet » cède la place.
+   * Au-delà, l'adresse passe à la ligne après le « @ ». Dans « Identifiant » (comptes), la mention
+   * « (Microsoft) » passe dessous si la place manque.
+   */
+  .data-table td.address .addr {
+    display: inline-block;
+    width: max-content;
+    max-width: 40ch;
+  }
 
   /*
    * Objet : une seule ligne, tronquée par « … » (le titre complet est dans l'infobulle). C'est la

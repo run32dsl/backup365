@@ -60,7 +60,7 @@ describe('StatusView', () => {
     expect(html).toContain('Une sauvegarde est en retard au-delà de 26 h.');
     expect(html).not.toContain('Avertissement');
     expect(html).not.toMatch(/Âge \(h\)|Objectif \(h\)/u);
-    expect(html).toContain('il y a 3 jours');
+    expect(html).toContain('il\u00a0y\u00a0a\u00a03\u00a0jours');
     expect(html).toContain('En retard</span> <strong>1</strong>');
     expect(html).toContain('En échec</span> <strong>1</strong>');
     expect(html).toContain('À jour</span> <strong>2</strong>');
@@ -319,7 +319,7 @@ describe('StatusView', () => {
 
     it('shows the relative time, then the exact date in a <time datetime>', () => {
       const tr = line([entry()], 'Messagerie');
-      expect(tr).toContain('<time dateTime="2026-11-12T06:00:00Z">Il y a 6 h');
+      expect(tr).toContain('<time dateTime="2026-11-12T06:00:00Z">il\u00a0y\u00a0a\u00a06\u00a0h');
       expect(tr).toContain('<small class="state-note">12/11/2026 06:00 UTC</small></time>');
     });
 
@@ -381,7 +381,9 @@ describe('StatusView', () => {
         />,
       );
       const table = html.slice(html.indexOf('services-title'), html.indexOf('backups-title'));
-      expect(table).toContain('<time dateTime="2026-11-12T06:00:00Z">Il y a 6 h');
+      expect(table).toContain(
+        '<time dateTime="2026-11-12T06:00:00Z">il\u00a0y\u00a0a\u00a06\u00a0h',
+      );
       expect(table).toContain('12/11/2026 06:00 UTC');
       expect(table).toContain('En retard');
       expect(table).toContain('2 comptes sur 3 en retard');
@@ -688,9 +690,10 @@ describe('StatusView', () => {
     expect(html.indexOf('Boîte B')).toBeLessThan(html.indexOf('Boîte A'));
   });
 
-  it('formats ages in plain words', () => {
-    expect(ageLabel(3)).toBe('il y a 3 h');
-    expect(ageLabel(75)).toBe('il y a 3 jours');
+  it('formats ages in plain words, with non-breaking spaces', () => {
+    expect(ageLabel(3)).toBe('il\u00a0y\u00a0a\u00a03\u00a0h');
+    expect(ageLabel(0.5)).toBe('il\u00a0y\u00a0a\u00a0moins\u00a0d’1\u00a0h');
+    expect(ageLabel(75)).toBe('il\u00a0y\u00a0a\u00a03\u00a0jours');
     expect(ageLabel(null)).toBe('jamais');
   });
 
