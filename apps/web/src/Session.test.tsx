@@ -247,7 +247,10 @@ describe('Réglages page structure', () => {
 
   it('keeps one filled button on the page, «\u202F+ Créer un compte\u202F», on the intro line', () => {
     const page = renderToString(<AccountsPage />);
-    expect(page).toContain('<h1>Réglages</h1><div class="view-intro">');
+    // Ordre de la charte : h1, sélecteur de vue (Comptes | Rapports par mail), puis l'intro.
+    expect(page).toMatch(
+      /<h1>Réglages<\/h1><nav class="subnav" aria-label="Vue des réglages">.*?<\/nav><div class="view-intro">/u,
+    );
     expect(page.match(/btn-primary/g)).toHaveLength(1);
     expect(page.replaceAll('<!-- -->', '')).toContain('+ </span>Créer un compte</button>');
   });

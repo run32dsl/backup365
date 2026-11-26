@@ -47,6 +47,19 @@ export function RestoreSourceNav({ current }: { current: 'mail' | 'onedrive' | '
   );
 }
 
+/** Vues de « Réglages » (administrateurs) : les comptes, puis les rapports par mail. */
+export function SettingsNav({ current }: { current: 'accounts' | 'reports' }) {
+  return (
+    <SubNav
+      label="Vue des réglages"
+      links={[
+        { href: '#/comptes', label: 'Comptes', current: current === 'accounts' },
+        { href: '#/rapports', label: 'Rapports par mail', current: current === 'reports' },
+      ]}
+    />
+  );
+}
+
 /** Vues de « Sources » : les plans pour tous, l'état des sources pour les administrateurs. */
 export function SourcesNav({ current, admin }: { current: 'plans' | 'status'; admin: boolean }) {
   if (!admin) return null;

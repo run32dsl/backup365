@@ -7,7 +7,7 @@ import { requestIdOf } from './apiError.js';
 import { text } from './login/Field.js';
 import { ResetPasswordDialog } from './ResetPassword.js';
 import { AUDIT_NOTICE, UNREACHABLE, type Outcome, type Role } from './session.js';
-import { Button } from './ui/index.js';
+import { Button, SettingsNav } from './ui/index.js';
 
 // Tableau et boîte de création vivent sous `accounts/` ; ils restent importables d'ici.
 export { AccountsView, type AccountActions, type AccountsState };
@@ -111,6 +111,7 @@ export function AccountsPage() {
   return (
     <main tabIndex={-1}>
       <h1>Réglages</h1>
+      <SettingsNav current="accounts" />
       <div className="view-intro">
         <p>Comptes qui peuvent se connecter à la console. {AUDIT_NOTICE}</p>
         <Button

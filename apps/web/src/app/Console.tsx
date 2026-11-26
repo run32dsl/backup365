@@ -18,6 +18,7 @@ import { SearchPage } from '../SearchPage.js';
 import { StatusPage } from '../StatusPage.js';
 import { parseMailHash, parseSearchHash } from '../mail.js';
 import { PlansPage } from '../PlansPage.js';
+import { ReportsPage } from '../ReportsPage.js';
 import { parsePlansHash } from '../plans.js';
 import type { User } from '../session.js';
 import { ConsoleView, ForbiddenView } from './ConsoleView.js';
@@ -96,6 +97,7 @@ export function Console({
           <PlansPage route={parsePlansHash(hash) ?? { page: 'list' }} admin={admin} />
         )}
         {screen === 'accounts' && <AccountsPage />}
+        {screen === 'reports' && <ReportsPage />}
         {screen === 'status' && <StatusPage />}
         {screen === 'forbidden' && <ForbiddenView />}
         {screen === 'password' && (

@@ -28,6 +28,8 @@ services:
       BACKUP365_TRUST_PROXY: ${BACKUP365_TRUST_PROXY:-}
       # Application Entra de la sauvegarde : vide, aucun plan ne s'exécute (« sauvegarde non configurée »).
       BACKUP365_M365_CLIENT_ID: ${BACKUP365_M365_CLIENT_ID:-}
+      # Boîte d'envoi des rapports par mail (Graph Mail.Send) : vide, les rapports sont désactivés.
+      BACKUP365_REPORT_SENDER: ${BACKUP365_REPORT_SENDER:-}
       # Connexion avec un compte Microsoft : désactivée tant que tout est vide.
       BACKUP365_OIDC_TENANT_ID: ${BACKUP365_OIDC_TENANT_ID:-}
       BACKUP365_OIDC_CLIENT_ID: ${BACKUP365_OIDC_CLIENT_ID:-}

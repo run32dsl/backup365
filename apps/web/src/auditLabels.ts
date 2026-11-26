@@ -17,6 +17,8 @@ export const ACTION_LABELS: Record<AuditAction, string> = {
   'plan.run': 'Lancement manuel d’un plan',
   'restore.request': 'Demande de restauration',
   'restore.result': 'Résultat de restauration',
+  'settings.update': 'Modification des réglages',
+  'report.test': 'Essai de rapport par mail',
 };
 
 const REASON_LABELS: Record<string, string> = {

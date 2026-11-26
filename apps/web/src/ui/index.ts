@@ -10,5 +10,5 @@ export { Pager } from './Pager.js';
 export { StatusPill, type PillStatus } from './StatusPill.js';
 export { ResultList } from './ResultList.js';
 export { Steps } from './Steps.js';
-export { SubNav, RestoreSourceNav, SourcesNav, type SubNavLink } from './SubNav.js';
+export { SubNav, RestoreSourceNav, SettingsNav, SourcesNav, type SubNavLink } from './SubNav.js';
 export { WizardActions, WIZARD_LABELS } from './WizardActions.js';

@@ -47,6 +47,15 @@ import { tryOpenAccountStore } from './sqlite/open-account-store.js';
 import { tryOpenAuditLog } from './sqlite/open-audit-log.js';
 import { listPlanItems } from './plan-items.js';
 import { tryOpenPlanStore } from './sqlite/open-plan-store.js';
+import { tryOpenReportStore } from './sqlite/sqlite-report-store.js';
+import {
+  demoMailer,
+  GraphMailer,
+  parseReportSender,
+  unconfiguredMailer,
+  type Mailer,
+} from './graph-mailer.js';
+import { ReportService, seedDemoReports } from './report-service.js';
 import { tryOpenSearchIndex } from './sqlite/open-search-index.js';
 
 /**
@@ -75,7 +84,9 @@ export function createServer(
   const openedAudit = tryOpenAuditLog(join(dataDir, 'audit.sqlite'));
   const openedAccounts = tryOpenAccountStore(join(dataDir, 'accounts.sqlite'));
   const openedPlans = tryOpenPlanStore(join(dataDir, 'plans.sqlite'));
+  const openedReports = tryOpenReportStore(join(dataDir, 'reports.sqlite'));
   const closeDatabases = (): void => {
+    openedReports.store?.close();
     openedPlans.store?.close();
     opened.index?.close();
     openedAudit.audit?.close();
@@ -95,6 +106,7 @@ export function createServer(
   let backup: { api: AtlasBackupApi; executeur: AtlasExecuteur } | undefined;
   let oidc: OidcService | undefined;
   let oidcSimulated: SimulatedOidcProvider | undefined;
+  let mailer: Mailer;
   try {
     secretEnv = withSecretFiles(env, readFile);
     // Connexion Microsoft : désactivée tant qu'aucune variable BACKUP365_OIDC_* n'est donnée.
@@ -113,6 +125,15 @@ export function createServer(
     // stockage prêt et les deux variables BACKUP365_M365_*.
     const m365 = demo ? undefined : parseM365Config(secretEnv);
     const storage = startup.status === 'ready' && !demo ? parseStorageConfig(secretEnv) : undefined;
+    // Rapports par mail : Graph `sendMail` avec la même application (ADR 0023).
+    const sender = parseReportSender(env['BACKUP365_REPORT_SENDER']);
+    mailer = demo
+      ? demoMailer
+      : !m365 || !storage
+        ? unconfiguredMailer('credentials')
+        : !sender
+          ? unconfiguredMailer('sender')
+          : new GraphMailer({ tenantId: storage.tenantId, ...m365, sender });
     if (m365 && storage && startup.status === 'ready') {
       const catalog = startup.atlas.catalog;
       let api: AtlasBackupApi | undefined;
@@ -184,6 +205,16 @@ export function createServer(
         })
       : undefined;
 
+  const reports =
+    openedReports.store && openedPlans.store
+      ? new ReportService({
+          store: openedReports.store,
+          plans: openedPlans.store,
+          mailer,
+          logger: { error: (obj, msg) => app.log.error(obj, msg) },
+        })
+      : undefined;
+
   // La restauration passe par Graph (identifiants réels), que la console n'a pas (ADR 0002) :
   // seule la démo la simule ; ailleurs elle reste non configurée (docs/adr/0012).
   const restoreService =
@@ -241,6 +272,7 @@ export function createServer(
     ...(oidcSimulated ? { oidcSimulated } : {}),
     ...(openedPlans.store ? { plans: openedPlans.store } : {}),
     ...(planScheduler ? { planScheduler } : {}),
+    ...(reports ? { reports } : {}),
     ...(restoreService ? { restore: restoreService } : {}),
     ...(startup.status === 'ready' ? { drive: startup.atlas.drive } : {}),
     ...(driveRestoreService ? { driveRestore: driveRestoreService } : {}),
@@ -261,6 +293,10 @@ export function createServer(
     app.log.error({ code }, 'base des comptes indisponible, toute l’API hors santé répond 503');
   } else if (auth?.needsSetup()) {
     app.log.warn('aucun compte : ouvrir la console pour créer le compte administrateur');
+  }
+  if (openedReports.error) {
+    const code = (openedReports.error as NodeJS.ErrnoException).code;
+    app.log.error({ code }, 'base des rapports indisponible, /api/reports répond 503');
   }
   if (openedPlans.error) {
     const code = (openedPlans.error as NodeJS.ErrnoException).code;
@@ -291,19 +327,22 @@ export function createServer(
     app.log.warn('MODE DÉMO : données fictives, aucun stockage réel (comptes de démonstration)');
     app.addHook('onReady', async () => {
       if (auth) await seedDemo(auth, openedAudit.audit, demoNow, openedPlans.store);
+      if (openedReports.store) seedDemoReports(openedReports.store, demoNow);
     });
   }
-  if (indexer || anchorer || planScheduler) {
+  if (indexer || anchorer || planScheduler || reports) {
     // Au démarrage de l'application, sans retarder l'écoute ni /api/health.
     app.addHook('onReady', () => {
       indexer?.start();
       anchorer?.start();
       planScheduler?.start();
+      reports?.start();
     });
   }
   app.addHook('onClose', async () => {
     await indexer?.stop();
     await planScheduler?.stop();
+    await reports?.stop();
     await backup?.api.dispose().catch(() => {
       app.log.error('libération du SDK de sauvegarde en échec');
     });

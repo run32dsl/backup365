@@ -15,6 +15,8 @@ export const AUDIT_ACTIONS = [
   'plan.run',
   'restore.request',
   'restore.result',
+  'settings.update',
+  'report.test',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

@@ -1,0 +1,221 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { requestIdOf } from './apiError.js';
+import {
+  REPORT_LABELS as L,
+  fetchReports,
+  lastSendLine,
+  parseRecipients,
+  recheckMailer,
+  recipientsError,
+  saveReports,
+  sendTestReport,
+  testSentMessage,
+  type ReportSettings,
+  type ReportsView,
+} from './reports.js';
+import { MailerNotice } from './reports/MailerNotice.js';
+import { ReportsForm, type ReportDraft, type TestResult } from './reports/ReportsForm.js';
+import { ReportsRecap } from './reports/ReportsRecap.js';
+import { UNREACHABLE } from './session.js';
+import { Alert, Button, SettingsNav } from './ui/index.js';
+
+const draftOf = (s: ReportSettings): ReportDraft => ({
+  text: s.recipients.join(', '),
+  frequency: s.frequency,
+  failureAlert: s.failureAlert,
+});
+
+/** « Dernier envoi » : date, nature et résultat, jamais la couleur seule. */
+export function LastSendStatus({ view }: { view: ReportsView }) {
+  const send = view.lastSend;
+  if (!send) return <p className="field-help">Dernier envoi : aucun pour l’instant.</p>;
+  return (
+    <p className="field-help">
+      Dernier envoi : {lastSendLine(send)}{' '}
+      <span className={`badge badge-${send.ok ? 'ok' : 'err'}`}>
+        <span aria-hidden="true">{send.ok ? '✔' : '✖'}</span> {send.ok ? 'Envoyé' : 'En échec'}
+      </span>
+    </p>
+  );
+}
+
+/** Réglages, vue « Rapports par mail » (`#/rapports`, administrateurs) : régler, essayer, vérifier, enregistrer. */
+export function ReportsPage() {
+  const [view, setView] = useState<ReportsView | 'loading' | 'error'>('loading');
+  const [requestId, setRequestId] = useState<string>();
+  const [draft, setDraft] = useState<ReportDraft>({
+    text: '',
+    frequency: 'weekly',
+    failureAlert: true,
+  });
+  const [step, setStep] = useState<'edit' | 'recap'>('edit');
+  const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<'test' | 'save' | 'check' | null>(null);
+  const [test, setTest] = useState<TestResult>(null);
+  const [saved, setSaved] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
+
+  const load = useCallback((keepDraft = false) => {
+    fetchReports().then(
+      (v) => {
+        setView(v);
+        if (!keepDraft) setDraft(draftOf(v.settings));
+      },
+      (e: unknown) => {
+        setRequestId(requestIdOf(e));
+        setView('error');
+      },
+    );
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (view === 'loading' || view === 'error') {
+    return (
+      <main tabIndex={-1}>
+        <h1>Réglages</h1>
+        <SettingsNav current="reports" />
+        <h2 className="sr-only">Rapports par mail</h2>
+        {view === 'loading' ? (
+          <p role="status">Chargement des réglages…</p>
+        ) : (
+          <Alert
+            tone="error"
+            action={
+              <Button
+                onClick={() => {
+                  setView('loading');
+                  load();
+                }}
+              >
+                Réessayer
+              </Button>
+            }
+          >
+            Impossible d’afficher les rapports par mail.
+            {requestId && <small className="alert-detail">Référence : {requestId}</small>}
+          </Alert>
+        )}
+      </main>
+    );
+  }
+
+  const ready = view.mailer.state === 'ready';
+  const recipients = parseRecipients(draft.text);
+  const settings: ReportSettings = { ...draft, recipients };
+  // Vider la liste désactive les rapports, mais seulement s'il y avait déjà des destinataires.
+  const check = (required: boolean) => {
+    const message = recipientsError(recipients, required);
+    setError(message);
+    if (message) field.current?.focus();
+    return message === null;
+  };
+  const onTest = () => {
+    setTest(null);
+    if (!check(true)) return;
+    setBusy('test');
+    sendTestReport(recipients, draft.frequency)
+      .then(
+        (out) => {
+          setTest(
+            out.ok
+              ? { ok: true, text: testSentMessage(recipients, out.at) }
+              : { ok: false, text: out.message },
+          );
+          load(true);
+        },
+        () => {
+          setTest({ ok: false, text: UNREACHABLE });
+        },
+      )
+      .finally(() => {
+        setBusy(null);
+      });
+  };
+  const onContinue = () => {
+    setSaved(false);
+    if (check(view.settings.recipients.length === 0)) setStep('recap');
+  };
+  const onSave = () => {
+    setBusy('save');
+    setSaveError(null);
+    saveReports(settings)
+      .then(
+        (out) => {
+          if (!out.ok) {
+            setSaveError(out.message);
+            return;
+          }
+          setSaved(true);
+          setStep('edit');
+          load();
+        },
+        () => {
+          setSaveError(UNREACHABLE);
+        },
+      )
+      .finally(() => {
+        setBusy(null);
+      });
+  };
+  const onRecheck = () => {
+    setBusy('check');
+    setCheckError(null);
+    recheckMailer()
+      .then(
+        (out) => {
+          if (out.ok) setView({ ...view, mailer: out.value.mailer });
+          else setCheckError(`La vérification a échoué. ${out.message}`);
+        },
+        () => {
+          setCheckError(UNREACHABLE);
+        },
+      )
+      .finally(() => {
+        setBusy(null);
+      });
+  };
+
+  return (
+    <main tabIndex={-1} className="reports-view">
+      <h1>Réglages</h1>
+      <SettingsNav current="reports" />
+      <h2 className="sr-only">Rapports par mail</h2>
+      <p>{L.intro}</p>
+      <MailerNotice mailer={view.mailer} checking={busy === 'check'} onRecheck={onRecheck} />
+      {checkError && <Alert tone="error">{checkError}</Alert>}
+      <div role="status">{saved && <Alert tone="success">{L.saved}</Alert>}</div>
+      {step === 'edit' ? (
+        <ReportsForm
+          draft={draft}
+          ready={ready}
+          error={error}
+          testing={busy === 'test'}
+          test={test}
+          field={field}
+          onChange={(next) => {
+            setSaved(false);
+            setDraft(next);
+          }}
+          onTest={onTest}
+          onContinue={onContinue}
+        />
+      ) : (
+        <ReportsRecap
+          settings={settings}
+          plans={view.plans}
+          saving={busy === 'save'}
+          error={saveError}
+          onSave={onSave}
+          onEdit={() => {
+            setStep('edit');
+          }}
+        />
+      )}
+      <LastSendStatus view={view} />
+    </main>
+  );
+}

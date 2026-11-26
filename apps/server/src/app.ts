@@ -30,6 +30,8 @@ import type { SiteRestoreService } from './site-restore-service.js';
 import { registerRestoreRoutes } from './restore-routes.js';
 import type { RestoreService } from './restore-service.js';
 import { registerPlanRoutes } from './plan-routes.js';
+import { registerReportRoutes } from './report-routes.js';
+import type { ReportService } from './report-service.js';
 import { registerRunRoutes } from './run-routes.js';
 import type { PlanScheduler } from './plan-scheduler.js';
 import { registerRetentionRoutes } from './retention-routes.js';
@@ -68,6 +70,8 @@ export interface AppOptions {
   plans?: SqlitePlanStore;
   /** Planificateur des plans ; absent, `POST /api/plans/:id/run` répond 503. */
   planScheduler?: PlanScheduler;
+  /** Rapports par mail (issue #278) ; absents si leur base est illisible (503). */
+  reports?: ReportService;
   /** Restauration de mails ; absente, elle n'est pas configurée (503, bouton désactivé). */
   restore?: RestoreService;
   /** Parcours des OneDrive sauvegardés ; absent tant que le stockage n'est pas configuré. */
@@ -130,6 +134,7 @@ export function buildApp({
   oidcSimulated,
   plans,
   planScheduler,
+  reports,
   restore,
   drive,
   driveRestore,
@@ -211,6 +216,7 @@ export function buildApp({
       workloads: status.workloads,
     });
     registerConfigurationRoutes(scope, { backupConfigured, workloads: status.workloads });
+    registerReportRoutes(scope, reports, audit);
     done();
   });
   void app.register((scope, _opts, done) => {

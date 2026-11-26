@@ -126,6 +126,10 @@ liens natifs, sans `role="tab"`, dont les libellés passent à la ligne sous 900
 - **Sources** (`aria-label="Vue des sources"`, administrateurs) : Plans de protection (`#/plans`)
   et État des sources (`#/sources` ; l'ancienne `#/etat` y redirige). Un opérateur n'a que les
   plans.
+- **Réglages** (`aria-label="Vue des réglages"`, administrateurs) : Comptes (`#/comptes`) et
+  Rapports par mail (`#/rapports`). Un opérateur n'a ni l'entrée ni les vues (« Cette page est
+  réservée aux administrateurs. »). Le formulaire des rapports tient dans une colonne de 40 rem
+  au plus ; sous 900 px, ses boutons passent en pleine largeur.
 
 Dans chaque rubrique, l'ordre est le `h1` propre à la vue, le sélecteur, puis le contenu. Les
 actions propres à une vue (« Créer un plan ») viennent après le sélecteur, sur la ligne de la
