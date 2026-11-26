@@ -1172,6 +1172,19 @@ select[aria-disabled='true'] {
     /* Aligné sur le nom, sous le bouton radio (1,5 rem + espace). */
     padding-top: 0;
   }
+  /* État des sources : carte compacte, nom, pastille puis une ligne secondaire en petit. */
+  .status-section .data-table tbody th[scope='row'],
+  .status-section .data-table td {
+    border-bottom: 0;
+    padding-block: 0.125rem;
+  }
+  .status-section .data-table tr {
+    padding-block: var(--space-2);
+  }
+  .status-section .data-table td.card-only {
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
 }
 .data-table tr.row-clickable {
   cursor: pointer;

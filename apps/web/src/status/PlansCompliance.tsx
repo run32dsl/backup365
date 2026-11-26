@@ -2,7 +2,7 @@ import type { PlanComplianceReport, StatusReport } from '@backup365/core';
 import { PLANS_HASH, lateNote, lateSourcesNote, runLabel } from '../plans.js';
 import { Alert, DataTable, EmptyState, StatusPill, type Column } from '../ui/index.js';
 import { COMPLIANCE_ORDER, Counts } from './Counts.js';
-import { serviceOf, type Row } from './model.js';
+import { cardLine, serviceOf, type Row } from './model.js';
 
 type PlanEntry = PlanComplianceReport['nonCompliant'][number];
 
@@ -12,12 +12,17 @@ const hasBackupsOf = (p: PlanEntry, rows: readonly Row[]): boolean =>
   rows.some((r) => r.lastSnapshotAt !== null && (p.dataTypes ?? []).includes(serviceOf(r)));
 
 const planColumns = (report: StatusReport): Column<PlanEntry>[] => [
-  { header: 'Plan', cell: (p) => <a href={PLANS_HASH}>{p.name}</a> },
+  { header: 'Plan', className: 'card-title', cell: (p) => <a href={PLANS_HASH}>{p.name}</a> },
   // Même texte que la liste des plans (hors « Rien copié » sans point de restauration, que ce
   // rapport ne porte pas) : la dernière exécution du plan, jamais une date de service.
-  { header: 'Dernière exécution (UTC)', cell: (p) => runLabel(p.lastRun, false) },
+  {
+    header: 'Dernière exécution (UTC)',
+    className: 'card-hidden',
+    cell: (p) => runLabel(p.lastRun, false),
+  },
   {
     header: 'État',
+    className: 'card-nolabel',
     cell: (p) => {
       // Un plan en retard dont la réussite est récente : la note nomme les sources en retard.
       const fromSources = p.state === 'late' ? lateSourcesNote(p, report) : undefined;
@@ -30,6 +35,15 @@ const planColumns = (report: StatusReport): Column<PlanEntry>[] => [
         </div>
       );
     },
+  },
+  // Sous 900 px seulement : la dernière exécution sur une ligne secondaire.
+  {
+    header: 'Détail',
+    className: 'card-only',
+    cell: (p) =>
+      cardLine([
+        `Dernière exécution : ${p.lastRun ? `${runLabel(p.lastRun, false)} UTC` : 'aucune'}`,
+      ]),
   },
 ];
 

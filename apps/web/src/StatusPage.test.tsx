@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { NoBackupError } from './status.js';
 import { PlansPage } from './PlansPage.js';
 import { StatusPage, loadStatus } from './StatusPage.js';
+import { StatusView } from './StatusView.js';
 
 const report: StatusReport = {
   generatedAt: '2026-11-12T12:00:00.000Z',
@@ -57,5 +58,78 @@ describe('Sources views structure', () => {
     const html = renderToString(<PlansPage route={{ page: 'list' }} admin={false} />);
     expect(html).not.toContain('Vue des sources');
     expect(html).not.toContain('Créer un plan');
+  });
+});
+
+describe('Sources cards on mobile', () => {
+  const full: StatusReport = {
+    ...report,
+    rows: [
+      {
+        kind: 'mailbox',
+        sourceId: 'p',
+        displayName: 'Paul Moreau',
+        workload: 'onedrive',
+        lastSnapshotAt: '2026-11-21T11:46:00Z',
+        ageHours: 72,
+        state: 'stale',
+      },
+    ],
+    services: [
+      {
+        service: 'mail',
+        hasPlan: true,
+        lastSnapshotAt: '2026-11-24T11:46:00Z',
+        ageHours: 3,
+        state: 'ok',
+        retentionDays: 365,
+        scope: { kind: 'all' },
+        awaitingFirstRun: false,
+      },
+    ],
+    plans: {
+      counts: { compliant: 0, late: 0, failed: 1 },
+      nonCompliant: [
+        {
+          id: 'd',
+          name: 'Boîte direction',
+          rpoHours: 24,
+          state: 'failed',
+          lastSuccessAt: null,
+          lastRun: null,
+        },
+      ],
+    },
+  };
+  const html = renderToString(<StatusView state={full} />);
+  const cls = (header: string) =>
+    new RegExp(`<th[^>]*class="([^"]*)"[^>]*>${header}<`).exec(html)?.[1] ?? '';
+
+  it('titles each card with the service, plan or source name, the state pill unlabelled below', () => {
+    for (const header of ['Service', 'Plan', 'Source'])
+      expect(cls(header).split(' ')).toContain('card-title');
+    expect(html).toMatch(/<th scope="row" role="rowheader" class="card-title">/);
+    expect(html).toMatch(/<td[^>]*data-label="Plan"[^>]*class="card-title"/);
+    expect(html).toMatch(/<td[^>]*data-label="Source"[^>]*class="card-title"/);
+    expect(html.match(/data-label="État" class="card-nolabel"/g)).toHaveLength(3);
+  });
+
+  it('folds the other values into one unlabelled muted line', () => {
+    for (const header of [
+      'Dernière sauvegarde',
+      'Conservation',
+      'Périmètre',
+      'Dernière exécution \\(UTC\\)',
+      'Contenu',
+      'Dernière sauvegarde \\(UTC\\)',
+      'Ancienneté',
+    ])
+      expect(cls(header).split(' ')).toContain('card-hidden');
+    const only = [...html.matchAll(/<td[^>]*class="card-only">([^<]*)</g)].map((m) => m[1]);
+    expect(only).toEqual([
+      'Il y a 3 h · 24/11/2026 11:46 UTC · conservés 1 an · toutes les boîtes',
+      'Dernière exécution : aucune',
+      'OneDrive · 21/11/2026 11:46 UTC · il y a 3 jours',
+    ]);
   });
 });
