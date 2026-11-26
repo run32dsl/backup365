@@ -12,29 +12,63 @@ const report: StatusReport = {
 };
 const view = (storage?: StatusReport['storage']) =>
   renderToStaticMarkup(<StatusView state={storage ? { ...report, storage } : report} />);
+/** Texte affiché par la seule section « Stockage », sans balises. */
+const storageText = (storage: StatusReport['storage']) =>
+  (
+    view(storage).split('<section class="status-section" aria-labelledby="storage-title">')[1] ?? ''
+  ).replace(/<[^>]+>/gu, ' ');
 
-describe('Sources page: conditional writes of the storage (issue #567)', () => {
-  it('says the storage honours them, without a warning', () => {
+const STATES = ['supported', 'ignored', 'not_probed', null] as const;
+const JARGON = /écritures conditionnelles|S3|bucket|identifiants/iu;
+
+describe('Sources page: storage section in product words (issues #567, #576)', () => {
+  it('never shows the technical terms, in any of the four states', () => {
+    for (const text of Object.values(CONDITIONAL_WRITES)) expect(text).not.toMatch(JARGON);
+    for (const conditionalWrites of STATES) {
+      const text = storageText({ conditionalWrites });
+      expect(text).toContain('Stockage');
+      expect(text).not.toMatch(JARGON);
+      expect(text).not.toMatch(/not_probed|supported|ignored/u);
+    }
+  });
+
+  it('shows a compliant storage with an icon + text pill, without a warning', () => {
     const html = view({ conditionalWrites: 'supported' });
     expect(html).toContain('<h2 id="storage-title">Stockage</h2>');
+    expect(html).toMatch(/<span aria-hidden="true">✔<\/span> À jour/u);
     expect(html).toContain(CONDITIONAL_WRITES.supported);
     expect(html).not.toContain('alert-warning');
   });
 
-  it('warns clearly when the storage ignores them, with what to do', () => {
+  it('titles the warning after the consequence, says what to do and who to tell', () => {
     const html = view({ conditionalWrites: 'ignored' });
     expect(html).toContain('alert-warning');
-    expect(html).toContain('role="alert"');
-    expect(html).toContain('Le stockage ignore les écritures conditionnelles');
-    expect(html).toContain('deux opérations simultanées sur une même source');
-    expect(html).toContain('Évitez de lancer une restauration pendant une sauvegarde');
+    expect(html).toContain('Une restauration pendant une sauvegarde peut écraser des données');
+    expect(html).toContain('Ne restaurez pas une source pendant sa sauvegarde');
+    expect(html).toContain('prévenez l’exploitant du serveur');
   });
 
-  it('says why they could not be checked, and never shows a code', () => {
-    const notProbed = view({ conditionalWrites: 'not_probed' });
-    expect(notProbed).toContain('Écritures conditionnelles non vérifiées');
-    expect(notProbed).not.toMatch(/not_probed|supported|ignored/u);
-    expect(view({ conditionalWrites: null })).toContain(CONDITIONAL_WRITES.unknown);
+  it('adds « stockage à vérifier » to the summary banner at the top of the page', () => {
+    const html = view({ conditionalWrites: 'ignored' });
+    const summary = html.indexOf('Stockage à vérifier');
+    expect(summary).toBeGreaterThanOrEqual(0);
+    expect(summary).toBeLessThan(html.indexOf('storage-title'));
+    expect(view({ conditionalWrites: 'supported' })).not.toMatch(/stockage à vérifier/iu);
+    const late: StatusReport = {
+      ...report,
+      plans: { counts: { compliant: 0, late: 1, failed: 0 }, pending: 0, nonCompliant: [] },
+      storage: { conditionalWrites: 'ignored' },
+    };
+    expect(renderToStaticMarkup(<StatusView state={late} />)).toContain(
+      '1 plan en retard, stockage à vérifier',
+    );
+  });
+
+  it('explains the pending and unknown checks without a code', () => {
+    expect(view({ conditionalWrites: 'not_probed' })).toContain(CONDITIONAL_WRITES.notProbedTitle);
+    const unknown = view({ conditionalWrites: null });
+    expect(unknown).toContain(CONDITIONAL_WRITES.unknown);
+    expect(unknown).toContain(CONDITIONAL_WRITES.unknownLabel);
   });
 
   it('shows no storage section when the server sends none (other role, no storage)', () => {

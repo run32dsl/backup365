@@ -954,7 +954,9 @@ export const SCREENS = [
         await route.fulfill({ response: res, json: body });
       });
       await page.reload();
-      await page.getByText('Le stockage ignore les écritures conditionnelles').waitFor();
+      await page
+        .getByText('Une restauration pendant une sauvegarde peut écraser des données')
+        .waitFor();
       await page.getByRole('heading', { name: 'Stockage' }).scrollIntoViewIfNeeded();
     },
   },

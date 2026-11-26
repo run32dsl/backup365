@@ -1,16 +1,22 @@
 import type { StatusReport } from '@backup365/core';
-import { Alert } from '../ui/index.js';
+import { Alert, StatusPill } from '../ui/index.js';
 
-/** Libellé court de chaque résultat de la sonde, puis l'avertissement à afficher s'il y en a un. */
+/**
+ * Textes de la section « Stockage », en mots du produit : ce que le résultat de la vérification
+ * change pour les données. Le terme technique reste dans la documentation de l'exploitant.
+ */
 export const CONDITIONAL_WRITES = {
-  supported: 'Écritures conditionnelles : acceptées par le stockage.',
-  ignoredTitle: 'Le stockage ignore les écritures conditionnelles',
+  supported: 'Une sauvegarde et une restauration de la même source ne peuvent pas s’écraser.',
+  ignoredTitle: 'Une restauration pendant une sauvegarde peut écraser des données',
   ignored:
-    'Il ne peut pas empêcher deux opérations simultanées sur une même source (une sauvegarde et une restauration, par exemple), et l’une pourrait écraser le travail de l’autre. Évitez de lancer une restauration pendant une sauvegarde, et demandez à l’exploitant un stockage S3 qui refuse les écritures conditionnelles en conflit.',
-  notProbedTitle: 'Écritures conditionnelles non vérifiées',
+    'Le stockage ne bloque pas deux opérations lancées en même temps sur une même source. Ne restaurez pas une source pendant sa sauvegarde, et prévenez l’exploitant du serveur : le stockage est à faire corriger.',
+  notProbedTitle: 'Stockage pas encore vérifié',
   notProbed:
-    'La vérification n’a pas pu écrire dans le stockage : aucune sauvegarde n’a encore créé le bucket, ou les identifiants n’ont que la lecture. Elle sera refaite dans l’heure.',
-  unknown: 'Écritures conditionnelles : vérification impossible pour le moment.',
+    'La console n’a pas encore pu vérifier qu’une sauvegarde et une restauration de la même source ne peuvent pas s’écraser. Elle réessaie dans l’heure. D’ici là, ne restaurez pas une source pendant sa sauvegarde ; si ce message reste après la première sauvegarde, prévenez l’exploitant du serveur.',
+  unknownLabel: 'Non vérifié',
+  unknown: 'La vérification du stockage est impossible pour le moment.',
+  /** Mention ajoutée au bandeau de synthèse quand le stockage ne protège pas les données. */
+  summary: 'stockage à vérifier',
 } as const;
 
 /**
@@ -24,7 +30,11 @@ export function StorageCheck({ report }: { report: StatusReport }) {
   return (
     <section className="status-section" aria-labelledby="storage-title">
       <h2 id="storage-title">Stockage</h2>
-      {state === 'supported' && <p>{CONDITIONAL_WRITES.supported}</p>}
+      {state === 'supported' && (
+        <p>
+          <StatusPill status="compliant" /> {CONDITIONAL_WRITES.supported}
+        </p>
+      )}
       {state === 'ignored' && (
         <Alert tone="warning" title={CONDITIONAL_WRITES.ignoredTitle}>
           {CONDITIONAL_WRITES.ignored}
@@ -35,7 +45,12 @@ export function StorageCheck({ report }: { report: StatusReport }) {
           {CONDITIONAL_WRITES.notProbed}
         </Alert>
       )}
-      {state === null && <p>{CONDITIONAL_WRITES.unknown}</p>}
+      {state === null && (
+        <p>
+          <StatusPill status="pending" label={CONDITIONAL_WRITES.unknownLabel} />{' '}
+          {CONDITIONAL_WRITES.unknown}
+        </p>
+      )}
     </section>
   );
 }
