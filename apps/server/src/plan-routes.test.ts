@@ -140,7 +140,9 @@ describe('API des plans', () => {
       lastRun: { status: 'success', noSnapshotReason: null },
     });
     const emptyId = plans.startRun(plan.id, 'b', new Date().toISOString()) as number;
-    plans.finishRun(emptyId, 'success', new Date().toISOString(), undefined, 'no_content');
+    plans.finishRun(emptyId, 'success', new Date().toISOString(), undefined, {
+      noSnapshotReason: 'no_content',
+    });
     const empty = (await send(app, 'GET', '/api/plans')).json<{
       items: Record<string, unknown>[];
     }>();
@@ -168,7 +170,9 @@ describe('API des plans', () => {
         items: { compliance: Record<string, unknown> }[];
       }>().items[0]!.compliance;
     const finish = (at: string, reason?: 'no_content', status: 'success' | 'failed' = 'success') =>
-      plans.finishRun(plans.startRun(plan.id, 'a', at) as number, status, at, undefined, reason);
+      plans.finishRun(plans.startRun(plan.id, 'a', at) as number, status, at, undefined, {
+        noSnapshotReason: reason,
+      });
     const base = Date.now() - 3_600_000;
     const at = (seconds: number) => new Date(base + seconds * 1000).toISOString();
 

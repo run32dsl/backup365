@@ -24,6 +24,7 @@ import {
   targetView,
 } from './auditLabels.js';
 import { fetchPlans } from './plans.js';
+import { ActivitiesNav } from './activities/RunsPage.js';
 import {
   Address,
   Alert,
@@ -177,6 +178,7 @@ export function AuditPage() {
   return (
     <main tabIndex={-1}>
       <h1>Activités</h1>
+      <ActivitiesNav current="audit" />
       <p>
         Journal d’audit : la consultation de ce journal est elle-même inscrite au journal d’audit.
         Filtrez par action pour retrouver un export ou une restauration.

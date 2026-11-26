@@ -495,6 +495,45 @@ export const SCREENS = [
       await page.getByText('Expéditeur').first().waitFor();
     },
   },
+  // Activités › Sauvegardes : historique des exécutions (issue #258), clair et sombre, puis
+  // filtré sur les échecs, puis un seul plan (lien « Historique » de la liste des plans).
+  {
+    name: 'activites-sauvegardes',
+    hash: '#/activites',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+    },
+  },
+  {
+    name: 'activites-sauvegardes-sombre',
+    hash: '#/activites',
+    role: 'operator',
+    scheme: 'dark',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+    },
+  },
+  {
+    name: 'activites-sauvegardes-echecs',
+    hash: '#/activites',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+      await page.getByLabel('Résultat', { exact: true }).selectOption({ label: 'En échec' });
+      await page.getByRole('button', { name: 'Filtrer' }).click();
+      await page.getByText('Cause').first().waitFor();
+    },
+  },
+  {
+    name: 'activites-sauvegardes-plan',
+    hash: '#/plans',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('link', { name: 'Historique de Boîtes mail, quotidien' }).click();
+      await page.getByRole('table').waitFor();
+    },
+  },
   {
     name: 'journal-audit',
     hash: '#/audit',

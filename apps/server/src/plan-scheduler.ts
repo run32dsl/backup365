@@ -27,6 +27,10 @@ export interface Executeur {
 /** Issue d'une exécution réussie. `no_content` : rien à sauvegarder, donc aucun point de restauration. */
 export interface ExecutionResult {
   noSnapshotReason?: NoSnapshotReason;
+  /** Éléments copiés par cette exécution, si le moteur le dit (historique, issue #258). */
+  itemsSaved?: number;
+  /** Taille des données protégées, en octets, si le moteur la fournit. */
+  sourceBytes?: number;
 }
 
 /** Exécuteur simulé : réussit aussitôt. L'exécution réelle vient avec la sous-issue 4 de #49. */
@@ -279,13 +283,7 @@ export class PlanScheduler {
     const planId = plan.id;
     try {
       const result = await executeur.execute({ planId, itemId, dataTypes: plan.dataTypes });
-      plans.finishRun(
-        runId,
-        'success',
-        this.now().toISOString(),
-        undefined,
-        result?.noSnapshotReason,
-      );
+      plans.finishRun(runId, 'success', this.now().toISOString(), undefined, result ?? {});
       logger.info({ planId, itemId, runId }, 'exécution terminée');
     } catch (err) {
       const code = errorCode(err);

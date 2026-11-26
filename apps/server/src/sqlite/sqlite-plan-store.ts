@@ -30,7 +30,39 @@ export interface StoredRun {
   error: string | null;
   /** Succès sans point de restauration : la ressource était vide. `null` sinon. */
   noSnapshotReason: NoSnapshotReason | null;
+  /** Éléments copiés par une exécution réussie, si le moteur le dit ; `null` sinon. */
+  itemsSaved: number | null;
+  /** Taille des données protégées (octets) selon le moteur ; `null` s'il ne la fournit pas. */
+  sourceBytes: number | null;
 }
+
+/** Ce qu'une exécution réussie a rapporté (tout est facultatif). */
+export interface RunOutcome {
+  noSnapshotReason?: NoSnapshotReason | undefined;
+  itemsSaved?: number | undefined;
+  sourceBytes?: number | undefined;
+}
+
+/** Résultat lisible d'une exécution : une interruption est un échec à part. */
+export const RUN_RESULTS = ['success', 'failed', 'interrupted', 'running'] as const;
+export type RunResult = (typeof RUN_RESULTS)[number];
+
+/** Une exécution avec le nom de son plan (page « Activités »). */
+export interface RecentRun extends StoredRun {
+  planName: string;
+}
+
+/** Filtre SQL de chaque résultat : des constantes, jamais une valeur saisie. */
+const RESULT_SQL: Record<RunResult, string> = {
+  success: "r.status = 'success'",
+  running: "r.status = 'running'",
+  interrupted: "r.status = 'failed' AND r.error = 'interrupted'",
+  failed: "r.status = 'failed' AND (r.error IS NULL OR r.error <> 'interrupted')",
+};
+
+/** Entier positif ou nul, sinon `null` (une valeur aberrante du moteur n'est pas inscrite). */
+const count = (n: number | undefined): number | null =>
+  n !== undefined && Number.isSafeInteger(n) && n >= 0 ? n : null;
 
 interface RunRow {
   id: number;
@@ -42,7 +74,23 @@ interface RunRow {
   duration_ms: number | null;
   error: string | null;
   no_snapshot_reason: NoSnapshotReason | null;
+  items_saved: number | null;
+  source_bytes: number | null;
 }
+
+const runOf = (r: RunRow): StoredRun => ({
+  id: r.id,
+  planId: r.plan_id,
+  itemId: r.item_id,
+  startedAt: r.started_at,
+  finishedAt: r.finished_at,
+  status: r.status,
+  durationMs: r.duration_ms,
+  error: r.error,
+  noSnapshotReason: r.no_snapshot_reason,
+  itemsSaved: r.items_saved,
+  sourceBytes: r.source_bytes,
+});
 
 /** Un autre plan porte déjà ce nom (casse ignorée). */
 export class PlanNameTakenError extends Error {}
@@ -187,11 +235,13 @@ export class SqlitePlanStore {
     status: 'success' | 'failed',
     finishedAt: string,
     error?: string,
-    noSnapshotReason?: NoSnapshotReason,
+    done: RunOutcome = {},
   ): void {
+    const success = status === 'success';
     this.db
       .prepare(
         `UPDATE plan_runs SET status = ?, finished_at = ?, error = ?, no_snapshot_reason = ?,
+           items_saved = ?, source_bytes = ?,
            duration_ms = MAX(0, CAST(ROUND((julianday(?) - julianday(started_at)) * 86400000) AS INTEGER))
          WHERE id = ? AND status = 'running'`,
       )
@@ -199,7 +249,9 @@ export class SqlitePlanStore {
         status,
         finishedAt,
         error?.slice(0, 200) ?? null,
-        status === 'success' ? (noSnapshotReason ?? null) : null,
+        success ? (done.noSnapshotReason ?? null) : null,
+        success ? count(done.itemsSaved) : null,
+        success ? count(done.sourceBytes) : null,
         finishedAt,
         id,
       );
@@ -261,17 +313,25 @@ export class SqlitePlanStore {
         'SELECT * FROM plan_runs WHERE plan_id = ? ORDER BY started_at DESC, id DESC LIMIT ?',
       )
       .all(planId, limit) as unknown as RunRow[];
-    return rows.map((r) => ({
-      id: r.id,
-      planId: r.plan_id,
-      itemId: r.item_id,
-      startedAt: r.started_at,
-      finishedAt: r.finished_at,
-      status: r.status,
-      durationMs: r.duration_ms,
-      error: r.error,
-      noSnapshotReason: r.no_snapshot_reason,
-    }));
+    return rows.map(runOf);
+  }
+
+  /** Dernières exécutions, tous plans ou un seul, filtrées par résultat ; la plus récente en tête. */
+  listRecentRuns(filter: { planId?: string; result?: RunResult; limit: number }): RecentRun[] {
+    const where = ['1 = 1'];
+    const params: (string | number)[] = [];
+    if (filter.planId !== undefined) {
+      where.push('r.plan_id = ?');
+      params.push(filter.planId);
+    }
+    if (filter.result !== undefined) where.push(RESULT_SQL[filter.result]);
+    const rows = this.db
+      .prepare(
+        `SELECT r.*, p.name AS plan_name FROM plan_runs r JOIN plans p ON p.id = r.plan_id
+         WHERE ${where.join(' AND ')} ORDER BY r.started_at DESC, r.id DESC LIMIT ?`,
+      )
+      .all(...params, filter.limit) as unknown as (RunRow & { plan_name: string })[];
+    return rows.map((r) => ({ ...runOf(r), planName: r.plan_name }));
   }
 
   private setSelection(id: string, items: readonly string[]): void {

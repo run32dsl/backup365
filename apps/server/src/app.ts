@@ -30,6 +30,7 @@ import type { SiteRestoreService } from './site-restore-service.js';
 import { registerRestoreRoutes } from './restore-routes.js';
 import type { RestoreService } from './restore-service.js';
 import { registerPlanRoutes } from './plan-routes.js';
+import { registerRunRoutes } from './run-routes.js';
 import type { PlanScheduler } from './plan-scheduler.js';
 import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 import type { SearchIndexer } from './search-indexer.js';
@@ -217,6 +218,7 @@ export function buildApp({
       maxAgeHours: status.maxAgeHours,
       workloads: status.workloads,
     });
+    registerRunRoutes(scope, plans);
     done();
   });
   void app.register((scope, _opts, done) => {

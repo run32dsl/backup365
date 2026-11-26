@@ -106,8 +106,8 @@ composant s'y ajoute avec ses tests de comportement.
 ## Navigation principale
 
 Cinq entrées au plus (`MAX_ADMIN_NAV_ENTRIES`, appliquée par `navEntries`), décision du PM du
-2026-11-19 : Accueil (`#/`), Sources (`#/plans`), Restaurer (`#/search`), Activités (`#/audit`),
-Réglages (`#/comptes`, administrateurs seulement : un opérateur voit quatre entrées). Aucune
+2026-11-19 : Accueil (`#/`), Sources (`#/plans`), Restaurer (`#/search`), Activités (`#/activites`,
+avec la sous-navigation « Sauvegardes » et « Journal d'audit » `#/audit`), Réglages (`#/comptes`, administrateurs seulement : un opérateur voit quatre entrées). Aucune
 entrée par service. Dès 900 px, c'est une barre verticale étroite de 6 rem : une icône
 décorative (`aria-hidden`) au-dessus d'un libellé court, qui passe à la ligne sans être tronqué.
 Dessous, le menu repliable garde les mêmes entrées en ligne. Ce sont des `<a href>` natifs, dont

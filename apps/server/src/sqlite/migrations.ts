@@ -175,6 +175,17 @@ export const PLAN_MIGRATIONS: readonly Migration[] = [
       (CASE WHEN (',' || data_types || ',') LIKE '%,files,%' THEN 'onedrive,sharepoint,' ELSE '' END),
     ','), ''), 'mail,onedrive,sharepoint');`,
   },
+  {
+    version: 6,
+    name: 'plan-runs-volume',
+    // Historique des exécutions (issue #258) : éléments copiés et taille source, si le moteur les
+    // fournit ; `NULL` sinon (échec, exécution antérieure).
+    sql: `
+      ALTER TABLE plan_runs ADD COLUMN items_saved INTEGER CHECK (items_saved IS NULL OR items_saved >= 0);
+      ALTER TABLE plan_runs ADD COLUMN source_bytes INTEGER CHECK (source_bytes IS NULL OR source_bytes >= 0);
+      CREATE INDEX plan_runs_start ON plan_runs (started_at);
+    `,
+  },
 ];
 
 /** Applique les migrations manquantes, chacune dans une transaction. */

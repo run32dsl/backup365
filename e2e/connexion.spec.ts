@@ -24,7 +24,7 @@ test('401 en cours de navigation : #/connexion avec message, puis retour à la p
   await page.getByLabel('Identifiant').fill(DEMO_LOGINS.admin.username);
   await page.getByLabel('Mot de passe', { exact: true }).fill(DEMO_LOGINS.admin.password);
   await page.getByRole('button', { name: 'Se connecter' }).click();
-  await expect(page).toHaveURL(/#\/audit$/);
+  await expect(page).toHaveURL(/#\/activites$/);
   await expect(page.getByRole('heading', { name: 'Activités' })).toBeVisible();
   await expect(page.getByText(EXPIRED)).toHaveCount(0);
 });
