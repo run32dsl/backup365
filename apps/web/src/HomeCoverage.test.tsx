@@ -16,7 +16,7 @@ import {
   tileName,
 } from './HomeCoverage.js';
 import { fetchRuns, type RunItem } from './activities/runs.js';
-import type { PlanItem } from './plans.js';
+import { runPlan, type PlanItem } from './plans.js';
 
 const row = (workload: StatusRow['workload'], sourceId: string, state: StatusRow['state']) =>
   ({
@@ -111,7 +111,7 @@ describe('next backup', () => {
 });
 
 describe('runAll', () => {
-  it('runs every plan with the same trimmed reason and lists the failures', async () => {
+  it('runs every plan with the same reason and lists the failures', async () => {
     const run = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, value: { queued: false } })
@@ -121,6 +121,35 @@ describe('runAll', () => {
     expect(run).toHaveBeenCalledWith('a', 'Test');
     expect(result).toEqual({ launched: 1, failures: ['«\u202FPlan b\u202F» : Refusé'] });
     expect(launchedLabel(1)).toBe('1 sauvegarde lancée');
+  });
+  it('sends the reason trimmed of its spaces in each request body', async () => {
+    const bodies: unknown[] = [];
+    const fetchFn = ((_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)));
+      return Promise.resolve(new Response(JSON.stringify({ queued: false })));
+    }) as unknown as typeof fetch;
+    const result = await runAll([plan('a'), plan('b')], '  Ticket INC-1 \n', (id, reason) =>
+      runPlan(id, reason, fetchFn),
+    );
+    expect(bodies).toEqual([{ reason: 'Ticket INC-1' }, { reason: 'Ticket INC-1' }]);
+    expect(result).toEqual({ launched: 2, failures: [] });
+  });
+  it('keeps a partial failure readable: plan name and message, no code or request id', async () => {
+    const reply = (status: number, body: object) =>
+      Promise.resolve(
+        new Response(JSON.stringify(body), { status, headers: { 'x-request-id': 'req-9' } }),
+      );
+    const fetchFn = ((url: string) =>
+      url.includes('/b/')
+        ? reply(409, { error: 'run_in_progress' })
+        : reply(200, { queued: false })) as unknown as typeof fetch;
+    const result = await runAll([plan('a'), plan('b')], 'Test', (id, reason) =>
+      runPlan(id, reason, fetchFn),
+    );
+    expect(result.launched).toBe(1);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]).toContain('Une sauvegarde est déjà en cours pour ce plan.');
+    expect(result.failures.join()).not.toMatch(/run_in_progress|req-9|409/u);
   });
 });
 

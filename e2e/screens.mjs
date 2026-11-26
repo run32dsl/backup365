@@ -159,6 +159,16 @@ async function overviewAs(page, overview) {
   await page.getByRole('heading', { name: 'Sauvegarde', level: 2, exact: true }).waitFor();
 }
 
+/** Ouvre « Sauvegarder maintenant » sur l'accueil et saisit un motif ; renvoie le dialogue. */
+async function openRunAll(page) {
+  await page.getByRole('button', { name: 'Sauvegarder maintenant' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Sauvegarder maintenant' });
+  await dialog
+    .getByLabel('Motif du lancement (obligatoire)')
+    .fill('Ticket INC-1234 : avant migration');
+  return dialog;
+}
+
 /** Retire de `/api/status` les plans listés qui couvrent ce service, décomptes compris. */
 function dropListedPlans(body, service) {
   if (!body.plans) return;
@@ -311,6 +321,43 @@ export const SCREENS = [
       );
       await page.reload();
       await page.getByText('sauvegarde en cours').waitFor();
+    },
+  },
+  {
+    // « Derniers événements » rempli par les exécutions réelles de la démo, sans simulation (#476).
+    name: 'accueil-evenements',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.locator('.events-table tbody tr').first().waitFor();
+    },
+  },
+  {
+    // Dialogue « Sauvegarder maintenant », motif saisi : le champ garde le focus visible (#476).
+    name: 'accueil-sauvegarder-maintenant',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      await openRunAll(page);
+    },
+  },
+  {
+    // Échec partiel du lancement : un plan refusé, bandeau lisible, motif conservé (#476). Les
+    // lancements sont simulés : la démo ne lance rien.
+    name: 'accueil-sauvegarder-maintenant-echec',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      let calls = 0;
+      await page.route(/\/api\/plans\/[^/]+\/run$/, (route) => {
+        calls += 1;
+        return calls === 2
+          ? route.fulfill({ status: 409, json: { error: 'run_in_progress' } })
+          : route.fulfill({ status: 202, json: { queued: false } });
+      });
+      const dialog = await openRunAll(page);
+      await dialog.getByRole('button', { name: 'Lancer la sauvegarde' }).click();
+      await dialog.getByRole('alert').waitFor();
     },
   },
   { name: 'accueil-en-echec-sombre', hash: '#/', role: 'admin', scheme: 'dark' },
