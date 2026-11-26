@@ -156,6 +156,19 @@ describe('journal de démonstration', () => {
     expect(events.find((e) => e.action === 'plan.create')?.target).toBe('plan-uuid');
     expect(JSON.stringify(demoAuditEvents(Date.now()))).not.toContain('plan-demo');
   });
+
+  it('contient deux lancements manuels du plan, avec leur motif, dans l’ordre du temps', () => {
+    const events = demoAuditEvents(Date.now(), 'plan-uuid');
+    const runs = events.filter((e) => e.action === 'plan.run');
+    expect(runs.length).toBeGreaterThanOrEqual(2);
+    for (const e of runs) {
+      expect(e).toMatchObject({ resource: 'plan', target: 'plan-uuid' });
+      expect(e.reason?.trim()).toBeTruthy();
+    }
+    const times = events.map((e) => e.at);
+    expect(times).toEqual([...times].sort());
+    expect(demoAuditEvents(Date.now()).some((e) => e.action === 'plan.run')).toBe(false);
+  });
 });
 
 describe('jeu de démonstration', () => {

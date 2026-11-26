@@ -184,9 +184,10 @@ function RunAllDialog({
           {plural(plans.length, 'plan sera lancé', 'plans seront lancés')} maintenant. Le motif et
           le lancement sont inscrits au journal d’audit.
         </p>
-        {failures.length > 0 && (
+        {failures.length === 1 && <Alert tone="error">{failures[0]}</Alert>}
+        {failures.length > 1 && (
           <Alert tone="error">
-            <ul>
+            <ul className="alert-steps">
               {failures.map((f) => (
                 <li key={f}>{f}</li>
               ))}

@@ -398,9 +398,25 @@ export function demoFactory(now: number = Date.now()): AtlasFactory {
   return () => createDemoHandle(now);
 }
 
-/** Entrées de journal d'audit fictives, de la plus ancienne à la plus récente. */
+/**
+ * Entrées de journal d'audit fictives, de la plus ancienne à la plus récente. Avec un plan, deux
+ * lancements manuels `plan.run` le visent, motif compris.
+ */
 export function demoAuditEvents(now: number, planId?: string): AuditEvent[] {
   const at = (hoursAgo: number) => new Date(now - hoursAgo * HOUR).toISOString();
+  const run = (hoursAgo: number, reason: string): AuditEvent[] =>
+    planId === undefined
+      ? []
+      : [
+          {
+            at: at(hoursAgo),
+            actor: 'admin-demo',
+            action: 'plan.run',
+            resource: 'plan',
+            target: planId,
+            reason,
+          },
+        ];
   return [
     { at: at(30), actor: 'admin-demo', action: 'auth.login', resource: 'session' },
     {
@@ -417,6 +433,7 @@ export function demoAuditEvents(now: number, planId?: string): AuditEvent[] {
       resource: 'plan',
       ...(planId === undefined ? {} : { target: planId }),
     },
+    ...run(27, 'Premier essai après création du plan'),
     { at: at(26), actor: 'admin-demo', action: 'auth.logout', resource: 'session' },
     { at: at(22), actor: 'operateur-demo', action: 'auth.login', resource: 'session' },
     {
@@ -489,6 +506,7 @@ export function demoAuditEvents(now: number, planId?: string): AuditEvent[] {
       reason: 'forbidden',
     },
     { at: at(2), actor: 'admin-demo', action: 'auth.login', resource: 'session' },
+    ...run(1, 'Ticket INC-10002 : copie avant migration de la boîte'),
   ];
 }
 
