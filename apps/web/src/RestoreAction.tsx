@@ -27,6 +27,9 @@ import {
 } from './restore.js';
 import { dateTimeOf, folderLabel, quoted } from './format.js';
 import { Alert, Button, Dialog, ResultList } from './ui/index.js';
+import { transferTitle } from './transfer/model.js';
+import { TransferFlow } from './transfer/TransferFlow.js';
+import { DestinationChoice, TransferOutcome } from './transfer/TransferViews.js';
 
 export type RestorableMail = Pick<
   IndexedMail,
@@ -201,6 +204,8 @@ export function RestoreAction({
   const [sending, setSending] = useState(false);
   const [job, setJob] = useState<RestoreJob | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const admin = useAdmin();
+  const [mode, setMode] = useState<'origin' | 'other'>('origin');
 
   const update = (next: RestoreJob) => {
     setJob(next);
@@ -242,6 +247,7 @@ export function RestoreAction({
     setNow(Date.now());
     // Une restauration terminée appartient au passé : une nouvelle demande repart du formulaire.
     if (job?.status !== 'running') setJob(null);
+    setMode('origin');
     setOpen(true);
     if (job?.status !== 'running') {
       // Une restauration lancée par une autre personne ou une autre session.
@@ -282,6 +288,9 @@ export function RestoreAction({
 
   const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
   const label = `Restaurer ${subject}`;
+  // « Un autre compte » : administrateurs seulement ; un opérateur ne voit pas le choix (#546).
+  const other = admin && mode === 'other';
+  const destinationChoice = admin ? <DestinationChoice value={mode} onChange={setMode} /> : null;
   return (
     <>
       <Button
@@ -293,9 +302,26 @@ export function RestoreAction({
       >
         Restaurer
       </Button>
-      <Dialog open={open} title={dialogTitle(job)} onClose={closePanel}>
-        {job === null && <AuditReminder />}
-        {job === null && (
+      <Dialog
+        open={open}
+        title={job === null && other ? transferTitle(subject) : dialogTitle(job)}
+        onClose={closePanel}
+      >
+        {job === null && other && (
+          <TransferFlow
+            mail={mail}
+            choice={destinationChoice}
+            onCancel={closePanel}
+            onStarted={(started) => {
+              setNow(Date.now());
+              update(started);
+            }}
+            onSendingChange={setSending}
+          />
+        )}
+        {job === null && !other && destinationChoice}
+        {job === null && !other && <AuditReminder />}
+        {job === null && !other && (
           <form onSubmit={submit} noValidate>
             <ResultList rows={formRows(mail, now)} />
             <ReasonField
@@ -321,10 +347,20 @@ export function RestoreAction({
             </div>
           </form>
         )}
-        {job?.status === 'running' && (
+        {job?.transfer && (
+          <TransferOutcome
+            job={{ ...job, transfer: job.transfer }}
+            subject={subject}
+            onClose={closePanel}
+            onRetry={() => {
+              setJob(null);
+            }}
+          />
+        )}
+        {job?.status === 'running' && !job.transfer && (
           <Tracking job={job} mail={mail} now={now} onClose={closePanel} />
         )}
-        {(job?.status === 'succeeded' || job?.status === 'failed') && (
+        {(job?.status === 'succeeded' || job?.status === 'failed') && !job.transfer && (
           <RestoreOutcome
             job={job}
             mail={mail}

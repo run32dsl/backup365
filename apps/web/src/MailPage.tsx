@@ -221,10 +221,14 @@ export function RestoreSectionView({
   onJob?: (job: RestoreJob) => void;
 }) {
   const summary = lastRestoreSummary(last);
+  const admin = useAdmin();
   return (
     <section aria-labelledby="restore-title" className="mail-section">
       <h3 id="restore-title">Restaurer dans la boîte d’origine</h3>
-      <p>Remet une copie du mail dans sa boîte d’origine, sans rien écraser.</p>
+      <p>
+        Remet une copie du mail dans sa boîte d’origine, sans rien écraser.
+        {admin && ' Un administrateur peut aussi le restaurer vers la boîte d’un autre compte.'}
+      </p>
       {configured ? (
         <RestoreAction mail={mail} configured onJob={onJob} />
       ) : (
@@ -236,6 +240,7 @@ export function RestoreSectionView({
         <p role="status">
           Dernière restauration : <StatusPill status={summary.status} label={summary.label} />
           {summary.duration ? ` ${summary.duration}` : ''}
+          {last?.transfer ? ` (vers ${last.transfer.targetName})` : ''}
         </p>
       )}
     </section>

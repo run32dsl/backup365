@@ -94,6 +94,7 @@ function isSystemReason(text: string): boolean {
     CREATED.test(text) ||
     text.startsWith('changed:') ||
     text.startsWith('outcome=') ||
+    text.startsWith('from=') ||
     SYSTEM_CODE.test(text)
   );
 }
@@ -128,6 +129,7 @@ export function detailLabel(reason: string | undefined): string {
       .filter(Boolean);
     return fields.length > 0 ? `Modifié : ${fields.join(', ')}` : '';
   }
+  if (system.startsWith('from=')) return transferLabel(fieldsOf(system));
   return system.startsWith('outcome=') ? restoreLabel(system) : '';
 }
 
@@ -138,13 +140,26 @@ const RESTORE_SCOPE_LABELS: Record<string, string> = {
   site: 'site entier',
 };
 
-/** Résultat d'une restauration (`outcome=…;duration_ms=…;…`) : fait d'audit, traduit. */
-function restoreLabel(head: string): string {
+/** Champs `clé=valeur` séparés par `;` d'un motif écrit par le système. */
+function fieldsOf(head: string): Map<string, string> {
   const fields = new Map<string, string>();
   for (const pair of head.split(';')) {
     const eq = pair.indexOf('=');
     if (eq > 0) fields.set(pair.slice(0, eq), pair.slice(eq + 1));
   }
+  return fields;
+}
+
+/** Restauration vers un autre compte (`from=…;to=…`, issue #546) : de qui, vers qui. */
+function transferLabel(fields: Map<string, string>): string {
+  const from = fields.get('from');
+  const to = fields.get('to');
+  return from && to ? `Restauration vers un autre compte · de ${from} vers ${to}` : '';
+}
+
+/** Résultat d'une restauration (`outcome=…;duration_ms=…;…`) : fait d'audit, traduit. */
+function restoreLabel(head: string): string {
+  const fields = fieldsOf(head);
   const parts: string[] = [];
   const outcome = OUTCOME_LABELS[fields.get('outcome') ?? ''];
   if (outcome) parts.push(outcome);
@@ -165,7 +180,7 @@ function restoreLabel(head: string): string {
   if (errors !== undefined && /^\d+$/.test(errors) && Number(errors) > 0) {
     parts.push(elementsInError(Number(errors)));
   }
-  return parts.join(', ');
+  return [parts.join(', '), transferLabel(fields)].filter(Boolean).join(' · ');
 }
 
 /** Ce que le journal sait de la cible d'une entrée ; l'API ajoute l'objet et la boîte d'un mail. */
