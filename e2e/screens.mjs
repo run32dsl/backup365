@@ -1078,7 +1078,9 @@ export const SCREENS = [
       });
       await page.reload();
       await page
-        .getByText('Une restauration pendant une sauvegarde peut écraser des données')
+        .getByText('Une restauration pendant une sauvegarde peut écraser des données', {
+          exact: true,
+        })
         .waitFor();
       await page.getByRole('heading', { name: 'Stockage' }).scrollIntoViewIfNeeded();
     },

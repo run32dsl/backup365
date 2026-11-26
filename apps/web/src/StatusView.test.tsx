@@ -53,11 +53,19 @@ const report: StatusReport = {
 describe('StatusView', () => {
   it('puts the summary banner first, then one row per mailbox and workload', () => {
     const html = renderToString(<StatusView state={report} />);
-    expect(html.indexOf('1 sauvegarde en retard, 1 sauvegarde en échec')).toBeLessThan(
-      html.indexOf('<table'),
+    // Titre : les deux problèmes les plus graves ; corps : une phrase, sans la liste des compteurs.
+    expect(html).toContain(
+      '<strong class="alert-title">1 sauvegarde en échec et 1 sauvegarde en retard</strong>Les sources concernées sont listées plus bas.',
     );
+    expect(html.indexOf('alert-title')).toBeLessThan(html.indexOf('<table'));
     expect(html).toContain('<h2 id="backups-title">Sauvegardes</h2>');
-    expect(html).toContain('Une sauvegarde est en retard au-delà de 26 h.');
+    expect(html).toContain(
+      'Une sauvegarde est dite en retard quand la dernière réussie date de plus de 26 h.',
+    );
+    expect(html).not.toContain('en retard au-delà');
+    expect(renderToString(<StatusView state={{ ...report, maxAgeHours: 48 }} />)).toContain(
+      'la dernière réussie date de plus de 48 h.',
+    );
     expect(html).not.toContain('Avertissement');
     expect(html).not.toMatch(/Âge \(h\)|Objectif \(h\)/u);
     expect(html).toContain('il\u00a0y\u00a0a\u00a03\u00a0jours');
@@ -277,7 +285,14 @@ describe('StatusView', () => {
         const backups = html.slice(html.indexOf('backups-title'));
         expect(backups).not.toContain('Site 1');
         expect(backups).toContain('Site 2');
-        expect(html).toContain('1 source sans plan (SharePoint)');
+        // Le retard, plus grave, fait le titre ; la source sans plan reste dans la phrase.
+        expect(html).toContain(
+          '>1 sauvegarde en retard</strong>Les sources concernées sont listées plus bas. SharePoint n’a aucun plan de protection.',
+        );
+        const alone = view(false, [site(1, 'ok')]);
+        expect(alone).toContain(
+          '>1 source sans plan</strong>SharePoint n’a aucun plan de protection.',
+        );
         expect(html).not.toContain('Aucun plan');
       });
 
@@ -699,7 +714,7 @@ describe('StatusView', () => {
     const late = report.rows.filter((r) => r.state !== 'missing');
     const warning = renderToString(<StatusView state={{ ...report, rows: late }} />);
     expect(warning).toContain('alert-warning');
-    expect(warning).toContain('1 sauvegarde en retard<');
+    expect(warning).toContain('>1 sauvegarde en retard</strong>');
     expect(renderToString(<StatusView state={report} />)).toContain('alert-error');
   });
 
@@ -757,7 +772,9 @@ describe('StatusView', () => {
       const html = renderToString(<StatusView state={{ ...report, plans }} />);
       expect(html).toContain('Plans de protection');
       expect(html).toContain('À jour</span> <strong>2</strong>');
-      expect(html).toContain('1 plan en retard, 1 plan en échec');
+      expect(html).toContain('>1 plan en échec et 1 sauvegarde en échec</strong>');
+      expect(html).toContain('Ouvrez les plans concernés pour voir leur dernière exécution.');
+      expect(html).not.toMatch(/\d (plan|sauvegarde)s? en (retard|échec), /u);
       expect(html).not.toContain('Objectif');
       expect(html).toContain('Direction');
       expect(html).toContain('Finance');
@@ -766,7 +783,10 @@ describe('StatusView', () => {
 
     it('links the banner and each plan name to the plans screen, with the new caption', () => {
       const html = renderToString(<StatusView state={{ ...report, plans }} />);
-      expect(html).toContain('<a href="#/plans">Voir les plans de protection</a>');
+      // Dans la prop `action`, hors du texte : jamais collé à une phrase.
+      expect(html).toContain(
+        '</span><a class="alert-link" href="#/plans">Voir les plans de protection</a>',
+      );
       expect(html).toContain('<a href="#/plans">Direction</a>');
       expect(html).toContain('<a href="#/plans">Finance</a>');
       expect(html).toContain('>Plans en retard ou en échec</caption>');

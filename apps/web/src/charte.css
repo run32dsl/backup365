@@ -1356,6 +1356,11 @@ select[aria-disabled='true'] {
 .alert-title {
   display: block;
 }
+/* Lien d'action d'un bandeau : jamais coupé, centré sur la hauteur du texte. */
+.alert-link {
+  align-self: center;
+  white-space: nowrap;
+}
 .alert-steps {
   margin: var(--space-1) 0 0;
   padding-left: var(--space-4);

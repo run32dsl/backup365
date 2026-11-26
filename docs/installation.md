@@ -151,7 +151,7 @@ sauvegardés par Atlas.
   le stockage les refuse comme il faut, en mots du produit pour l'administrateur. La console le
   vérifie au plus une fois par heure, en écrivant puis supprimant un objet jetable dans le
   bucket. « ✔ À jour » : le stockage les prend en charge. « Une restauration pendant une
-  sauvegarde peut écraser des données » (et « stockage à vérifier » dans le bandeau de synthèse)
+  sauvegarde peut écraser des données » (et « Stockage à vérifier » dans le bandeau de synthèse)
   signale un stockage qui ignore les écritures conditionnelles : l'administrateur est invité à
   ne pas restaurer pendant une sauvegarde et à vous prévenir ; passer alors à un stockage S3 qui
   les prend en charge. « Stockage pas encore vérifié » : aucune sauvegarde n'a encore créé le
