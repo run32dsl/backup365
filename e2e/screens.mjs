@@ -174,16 +174,120 @@ export async function reachSiteSummary(page, site, scope, ...names) {
 }
 
 /**
- * Simule la réponse de `GET /api/overview` puis recharge l'accueil.
+ * Un état de l'accueil, décrit une fois : `GET /api/overview`, `/api/plans` et `/api/runs` en
+ * sont tous tirés, avec les règles du serveur (`overview-routes.ts`), pour que les trois cartes
+ * et les blocs du dessous disent la même chose (#578).
+ *
+ * - `plans` : `{ name, dataTypes, state, rpoHours?, queued? }`, `state` au sens de la liste
+ *   (`compliant`, `late`, `failed`) ;
+ * - `runs` : `{ plan, minutesAgo, result, sources? }`, dans n'importe quel ordre ; une
+ *   exécution terminée dure 40 secondes, dans la même minute que son début ;
+ * - `lateBackups` : sauvegardes en retard de la carte « Sauvegarde ».
  *
  * @param {import('@playwright/test').Page} page
- * @param {object} overview corps de la réponse
+ * @param {{ plans: object[], runs: object[], lateBackups?: object[] }} scenario
  */
-async function overviewAs(page, overview) {
+async function homeAs(page, { plans, runs, lateBackups = [] }) {
+  const { items: real } = await (await page.request.get('/api/plans')).json();
+  if (!real[0]) throw new Error('homeAs : la démo doit avoir un plan, modèle des plans simulés');
+  const minute = Math.floor(Date.now() / 60_000) * 60_000;
+  const at = (minutesAgo, seconds) => new Date(minute - minutesAgo * 60_000 + seconds * 1000);
+  const recentFirst = [...runs].sort((a, b) => a.minutesAgo - b.minutesAgo);
+  const runItems = recentFirst.flatMap((r, i) => {
+    const plan = plans.findIndex((p) => p.name === r.plan);
+    const done = r.result !== 'running';
+    return Array.from({ length: r.sources ?? 1 }, (_, s) => ({
+      id: 1000 - i * 10 - s,
+      planId: `plan-${plan}`,
+      planName: r.plan,
+      itemId: `source-${s}`,
+      startedAt: at(r.minutesAgo, 5).toISOString(),
+      finishedAt: done ? at(r.minutesAgo, 45).toISOString() : null,
+      durationMs: done ? 40_000 : null,
+      result: r.result,
+      itemsSaved: r.result === 'success' ? 52 : null,
+      sourceBytes: r.result === 'success' ? 340_000_000 : null,
+      ...(r.result === 'failed' ? { failureCause: 'backup_errors' } : {}),
+    }));
+  });
+  const runsOf = (name) => runItems.filter((r) => r.planName === name);
+  // Dernière exécution terminée de chaque plan : elle fait l'état, comme sur le serveur.
+  const latests = plans.map((p) => runsOf(p.name).find((r) => r.result !== 'running'));
+  // Comme le serveur : un plan dont la dernière exécution a échoué est « En échec ».
+  const stateOf = (p) => (runsOf(p.name)[0]?.result === 'failed' ? 'failed' : p.state);
+  const items = plans.map((p, i) => {
+    const own = runsOf(p.name);
+    const success = own.find((r) => r.result === 'success');
+    return {
+      ...real[0],
+      id: `plan-${i}`,
+      name: p.name,
+      dataTypes: p.dataTypes,
+      rpoHours: p.rpoHours ?? 24,
+      compliance: {
+        state: stateOf(p),
+        lastSuccessAt: success?.finishedAt ?? null,
+        lastRestorePointAt: success?.finishedAt ?? null,
+      },
+      running: own.some((r) => r.result === 'running'),
+      queued: p.queued ?? false,
+      lastRun: own[0]
+        ? {
+            status: own[0].result,
+            startedAt: own[0].startedAt,
+            finishedAt: own[0].finishedAt,
+            noSnapshotReason: null,
+            ...(own[0].failureCause ? { failureCause: own[0].failureCause } : {}),
+          }
+        : null,
+    };
+  });
+  const lastSuccess = runItems.find((r) => r.result === 'success');
+  const failures = latests
+    .filter((r) => r?.result === 'failed')
+    .sort((a, b) => b.finishedAt.localeCompare(a.finishedAt));
+  const count = (state) => plans.filter((p) => stateOf(p) === state).length;
+  const running = items.filter((p) => p.running).length;
+  const overview = {
+    state:
+      plans.length === 0
+        ? 'unconfigured'
+        : failures.length > 0
+          ? 'failed'
+          : latests.some(Boolean)
+            ? 'operational'
+            : 'pending',
+    plans: {
+      total: plans.length,
+      operational: count('compliant'),
+      running,
+      queued: items.filter((p) => p.queued && !p.running).length,
+      failed: count('failed'),
+      late: count('late'),
+    },
+    lastBackupAt: lastSuccess?.finishedAt ?? null,
+    lastBackupPlan: lastSuccess?.planName ?? null,
+    lastFailure: failures[0] ? { plan: failures[0].planName, at: failures[0].finishedAt } : null,
+    lateBackups,
+  };
   await page.route('**/api/overview', (route) => route.fulfill({ status: 200, json: overview }));
+  await page.route(/\/api\/plans$/, (route) => route.fulfill({ status: 200, json: { items } }));
+  await page.route(/\/api\/runs(\?|$)/, (route) =>
+    route.fulfill({ status: 200, json: { items: runItems, limit: 20 } }),
+  );
   await page.reload();
   await page.getByRole('heading', { name: 'Sauvegarde', level: 2, exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Prochaine sauvegarde', level: 2 }).waitFor();
 }
+
+/** Plans de l'accueil simulé : ce que chacun protège. */
+const MAIL_PLAN = { name: 'Boîtes mail, quotidien', dataTypes: ['mail'] };
+const FILES_PLAN = { name: 'Fichiers, quotidien', dataTypes: ['onedrive', 'sharepoint'] };
+const DIRECTION_PLAN = {
+  name: 'Boîte direction, toutes les 4 h',
+  dataTypes: ['mail'],
+  rpoHours: 4,
+};
 
 /** Ouvre « Sauvegarder maintenant » sur l'accueil et saisit un motif ; renvoie le dialogue. */
 async function openRunAll(page) {
@@ -391,18 +495,23 @@ export const SCREENS = [
     },
   },
   { name: 'accueil-en-echec-sombre', hash: '#/', role: 'admin', scheme: 'dark' },
+  // États simulés : toute la page suit le même scénario (`homeAs`, #578).
   {
     name: 'accueil-operationnelle',
     hash: '#/',
     role: 'admin',
     prepare: async (page) => {
-      await overviewAs(page, {
-        state: 'operational',
-        plans: { total: 2, operational: 2, running: 0, queued: 0, failed: 0, late: 0 },
-        lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
-        lastBackupPlan: 'Boîtes mail, quotidien',
-        lastFailure: null,
-        lateBackups: [],
+      await homeAs(page, {
+        plans: [
+          { ...MAIL_PLAN, state: 'compliant' },
+          { ...FILES_PLAN, state: 'compliant' },
+        ],
+        runs: [
+          { plan: MAIL_PLAN.name, minutesAgo: 200, result: 'success', sources: 5 },
+          { plan: FILES_PLAN.name, minutesAgo: 300, result: 'success', sources: 8 },
+          { plan: MAIL_PLAN.name, minutesAgo: 1620, result: 'success', sources: 5 },
+          { plan: FILES_PLAN.name, minutesAgo: 1740, result: 'success', sources: 8 },
+        ],
       });
       await page.getByText('Microsoft 365 connecté').waitFor();
     },
@@ -413,12 +522,16 @@ export const SCREENS = [
     hash: '#/',
     role: 'admin',
     prepare: async (page) => {
-      await overviewAs(page, {
-        state: 'operational',
-        plans: { total: 2, operational: 1, running: 0, queued: 0, failed: 0, late: 1 },
-        lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
-        lastBackupPlan: 'Boîtes mail, quotidien',
-        lastFailure: null,
+      await homeAs(page, {
+        plans: [
+          { ...MAIL_PLAN, state: 'compliant' },
+          { ...FILES_PLAN, state: 'late' },
+        ],
+        runs: [
+          { plan: MAIL_PLAN.name, minutesAgo: 200, result: 'success', sources: 5 },
+          { plan: MAIL_PLAN.name, minutesAgo: 1620, result: 'success', sources: 5 },
+          { plan: FILES_PLAN.name, minutesAgo: 4320, result: 'success', sources: 8 },
+        ],
         lateBackups: [
           {
             service: 'onedrive',
@@ -436,13 +549,18 @@ export const SCREENS = [
     hash: '#/',
     role: 'admin',
     prepare: async (page) => {
-      await overviewAs(page, {
-        state: 'operational',
-        plans: { total: 3, operational: 3, running: 1, queued: 1, failed: 0, late: 0 },
-        lastBackupAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
-        lastBackupPlan: 'Boîtes mail, quotidien',
-        lastFailure: null,
-        lateBackups: [],
+      await homeAs(page, {
+        plans: [
+          { ...MAIL_PLAN, state: 'compliant' },
+          { ...FILES_PLAN, state: 'compliant', queued: true },
+          { ...DIRECTION_PLAN, state: 'compliant' },
+        ],
+        runs: [
+          { plan: DIRECTION_PLAN.name, minutesAgo: 2, result: 'running' },
+          { plan: MAIL_PLAN.name, minutesAgo: 200, result: 'success', sources: 5 },
+          { plan: DIRECTION_PLAN.name, minutesAgo: 230, result: 'success' },
+          { plan: FILES_PLAN.name, minutesAgo: 300, result: 'success', sources: 8 },
+        ],
       });
       await page.getByText('En file d’attente').waitFor();
     },
@@ -451,43 +569,23 @@ export const SCREENS = [
     name: 'accueil-non-configuree',
     hash: '#/',
     role: 'admin',
-    prepare: (page) =>
-      overviewAs(page, {
-        state: 'unconfigured',
-        plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
-        lastBackupAt: null,
-        lastBackupPlan: null,
-        lastFailure: null,
-        lateBackups: [],
-      }),
+    prepare: (page) => homeAs(page, { plans: [], runs: [] }),
   },
   {
     name: 'accueil-sans-resultat',
     hash: '#/',
     role: 'admin',
-    prepare: (page) =>
-      overviewAs(page, {
-        state: 'pending',
-        plans: { total: 1, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
-        lastBackupAt: null,
-        lastBackupPlan: null,
-        lastFailure: null,
-        lateBackups: [],
-      }),
+    prepare: async (page) => {
+      // Jamais exécuté, le plan est « En retard » pour le serveur (`planCompliance`).
+      await homeAs(page, { plans: [{ ...MAIL_PLAN, state: 'late' }], runs: [] });
+      await page.getByText('Aucune exécution pour le moment.').waitFor();
+    },
   },
   {
     name: 'accueil-non-configuree-operateur',
     hash: '#/',
     role: 'operator',
-    prepare: (page) =>
-      overviewAs(page, {
-        state: 'unconfigured',
-        plans: { total: 0, operational: 0, running: 0, queued: 0, failed: 0, late: 0 },
-        lastBackupAt: null,
-        lastBackupPlan: null,
-        lastFailure: null,
-        lateBackups: [],
-      }),
+    prepare: (page) => homeAs(page, { plans: [], runs: [] }),
   },
   {
     // Démo exposée sans identifiants Microsoft 365 : le bloc montre les étapes côté serveur.

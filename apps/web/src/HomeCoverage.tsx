@@ -1,13 +1,14 @@
-import { nextRunAt, type StatusReport, type StatusRow } from '@backup365/core';
-import { useCallback, useEffect, useState } from 'react';
-import { RUNS_HASH, completeRuns, fetchRuns, type RunItem } from './activities/runs.js';
+import { nextRunAt, type StatusRow } from '@backup365/core';
+import { useEffect, useState } from 'react';
+import { RUNS_HASH, completeRuns, type RunItem } from './activities/runs.js';
 import { plural, quoted } from './format.js';
-import { fetchPlans, runPlan, runReasonError, type PlanItem } from './plans.js';
+import type { HomeData } from './HomeData.js';
+import { runPlan, runReasonError, type PlanItem } from './plans.js';
 import { REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
 import { STATUS_HASH } from './routes.js';
-import { fetchStatus } from './status.js';
 import { LatestEventRow, mailOnly, runTypeLabel } from './LatestEventRow.js';
-import { Alert, Button, Dialog } from './ui/index.js';
+import type { Overview } from './overview.js';
+import { Alert, Button, Dialog, EmptyState } from './ui/index.js';
 
 /** Éléments sauvegardés par service : au moins un instantané, tous types de données confondus. */
 export interface Coverage {
@@ -43,12 +44,18 @@ export const tileName = (title: string, count: number): string =>
   `${title} : ${count}, voir dans Sources`;
 
 /** Tuiles chiffrées de ce qui est protégé ; chaque tuile est un lien vers l'état détaillé. */
-export function CoverageTiles({ coverage }: { coverage: Coverage | 'loading' | 'error' }) {
+export function CoverageTiles({
+  coverage,
+}: {
+  /** `pending` : des plans, aucune sauvegarde terminée ; pas de tuile, la phrase de la carte. */
+  coverage: Coverage | 'loading' | 'error' | 'pending';
+}) {
   return (
     <section aria-labelledby="home-coverage" aria-busy={coverage === 'loading'}>
       <h2 id="home-coverage">Couverture du tenant</h2>
       {coverage === 'loading' && <p>Chargement…</p>}
       {coverage === 'error' && <p>Les chiffres de couverture ne sont pas disponibles.</p>}
+      {coverage === 'pending' && <EmptyState>Aucune sauvegarde n’est encore terminée.</EmptyState>}
       {typeof coverage === 'object' && (
         <ul className="coverage-tiles">
           {TILES.map((t) => (
@@ -202,11 +209,14 @@ function RunAllDialog({
 export function NextBackup({
   plans,
   admin,
+  connected = true,
   now,
   onLaunched,
 }: {
   plans: PlanItem[] | 'loading' | 'error';
   admin: boolean;
+  /** Connexion Microsoft 365 à configurer : aucune échéance annoncée, aucun lancement proposé. */
+  connected?: boolean;
   now: Date;
   onLaunched: () => void;
 }) {
@@ -221,7 +231,12 @@ export function NextBackup({
       {plans === 'loading' && <p>Chargement…</p>}
       {plans === 'error' && <p>Les plans ne sont pas disponibles.</p>}
       {Array.isArray(plans) && next === null && <p>Aucun plan de protection n’est configuré.</p>}
-      {next && (
+      {next && !connected && (
+        <p>
+          Aucune sauvegarde ne partira tant que la connexion Microsoft 365 n’est pas configurée.
+        </p>
+      )}
+      {next && connected && (
         <>
           <p>
             Prochaine sauvegarde dans <strong>{remainingLabel(next, now)}</strong>.
@@ -321,47 +336,59 @@ export function LatestEvents({
   );
 }
 
-/** Bloc de l'accueil sous les trois cartes : couverture, prochaine sauvegarde, derniers événements. */
-export function HomeCoverage({ admin }: { admin: boolean }) {
-  const [coverage, setCoverage] = useState<Coverage | 'loading' | 'error'>('loading');
-  const [plans, setPlans] = useState<PlanItem[] | 'loading' | 'error'>('loading');
-  const [events, setEvents] = useState<RunItem[] | 'loading' | 'error'>('loading');
-  const loadPlans = useCallback(() => {
-    fetchPlans().then(setPlans, () => setPlans('error'));
-  }, []);
-  const loadEvents = useCallback(() => {
-    if (!admin) return;
-    setEvents('loading');
-    fetchRuns({ planId: '', result: '', limit: LATEST_RESULTS }).then(
-      (page) => setEvents(page.items),
-      () => setEvents('error'),
-    );
-  }, [admin]);
-  useEffect(() => {
-    fetchStatus().then(
-      (report: StatusReport) => setCoverage(coverageOf(report.rows)),
-      () => setCoverage('error'),
-    );
-    loadPlans();
-    loadEvents();
-  }, [loadPlans, loadEvents]);
+/**
+ * Blocs sous les trois cartes : couverture, prochaine sauvegarde, derniers événements. Ils
+ * suivent l'état des cartes (`overview`) pour ne jamais les contredire : rien avant la réponse ;
+ * sans plan, la seule phrase « Aucun plan… » ; plans sans résultat, ni tuile ni exécution
+ * terminée ; connexion Microsoft 365 à configurer, ni échéance ni lancement.
+ */
+export function HomeCoverage({
+  overview,
+  data,
+  admin,
+  connected = true,
+  now = new Date(),
+  onLaunched,
+  onRetryEvents,
+}: {
+  overview: Overview | 'loading' | 'error';
+  data: HomeData;
+  admin: boolean;
+  /** Faux quand la connexion Microsoft 365 est à configurer. */
+  connected?: boolean;
+  now?: Date;
+  onLaunched: () => void;
+  onRetryEvents: () => void;
+}) {
+  if (typeof overview !== 'object') return null;
+  const nextBackup = (plans: HomeData['plans']) => (
+    <NextBackup
+      plans={plans}
+      admin={admin}
+      connected={connected}
+      now={now}
+      onLaunched={onLaunched}
+    />
+  );
+  // Sans plan, la carte « Sauvegarde » porte déjà « Créer un plan » : rien d'autre à dire.
+  if (overview.state === 'unconfigured') {
+    return <div className="home-coverage">{nextBackup([])}</div>;
+  }
+  const pending = overview.state === 'pending';
+  // Plans sans résultat : seule une première exécution en cours peut être listée.
+  const events =
+    pending && Array.isArray(data.events)
+      ? data.events.filter((r) => r.result === 'running')
+      : data.events;
   return (
     <div className="home-coverage">
-      <CoverageTiles coverage={coverage} />
-      <NextBackup
-        plans={plans}
-        admin={admin}
-        now={new Date()}
-        onLaunched={() => {
-          loadPlans();
-          loadEvents();
-        }}
-      />
+      <CoverageTiles coverage={pending ? 'pending' : data.coverage} />
+      {nextBackup(data.plans)}
       {admin && (
         <LatestEvents
           items={events}
-          plans={Array.isArray(plans) ? plans : []}
-          onRetry={loadEvents}
+          plans={Array.isArray(data.plans) ? data.plans : []}
+          onRetry={onRetryEvents}
         />
       )}
     </div>

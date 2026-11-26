@@ -69,6 +69,14 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   la liste n'est pas vide, la carte « Sauvegarde » n'affiche pas « Opérationnelle » mais
   « En retard » (« En échec » reste prioritaire), ajoute sa phrase et un bouton « Voir les sources ».
   `state` et la carte « Plans » ne changent pas.
+- Issue #578 : sous les cartes, « Couverture du tenant », « Prochaine sauvegarde » et « Derniers
+  événements » (`GET /api/status`, `/api/plans`, `/api/runs`) sont chargés par l'accueil en même
+  temps que `GET /api/overview`, et relus ensemble après « Sauvegarder maintenant ». Ils suivent
+  `state` : rien avant la réponse (ni, pour l'administrateur, avant celle de la configuration) ;
+  `unconfigured`, la seule phrase « Aucun plan… » ; `pending`, pas de tuile et seulement une
+  exécution en cours ; connexion Microsoft 365 à configurer, ni échéance ni lancement. Les
+  captures simulent `overview`, `plans` et `runs` à partir d'un même scénario (`homeAs` dans
+  `e2e/screens.mjs`), avec les règles du serveur ; les tuiles restent celles du catalogue de démo.
 
 ### Sites SharePoint sauvegardés (issue #31)
 

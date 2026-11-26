@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ConfigurationNotice, connectionLine, useConfiguration } from './ConfigurationBlock.js';
 import { dateTimeOf, quoted, workloadLabel } from './format.js';
 import { HomeCoverage } from './HomeCoverage.js';
+import { useHomeData } from './HomeData.js';
 import { ReportFailureNotice } from './reports/ReportFailureNotice.js';
 import { fetchOverview, type Overview } from './overview.js';
 import {
@@ -262,10 +263,19 @@ export function loadOverview(
 export function Home({ admin = false }: { admin?: boolean }) {
   const [state, setState] = useState<OverviewState>('loading');
   const config = useConfiguration(admin);
+  // Une seule lecture pour toute la page : les cartes et les blocs du bas se rechargent ensemble.
+  const data = useHomeData(admin);
+  const loadData = data.load;
   const retried = useRef(false);
   const load = useCallback(() => {
     void loadOverview(setState);
-  }, []);
+    loadData();
+  }, [loadData]);
+  // Après « Sauvegarder maintenant » : tout se relit, sans repasser par « Chargement… ».
+  const refresh = useCallback(() => {
+    fetchOverview().then(setState, () => setState('error'));
+    loadData();
+  }, [loadData]);
   const retry = useCallback(() => {
     retried.current = true;
     load();
@@ -289,7 +299,15 @@ export function Home({ admin = false }: { admin?: boolean }) {
         onRetry={retry}
         connection={admin ? connectionLine(config) : null}
       />
-      <HomeCoverage admin={admin} />
+      <HomeCoverage
+        // Connexion encore inconnue : rien, plutôt qu'une échéance peut-être fausse.
+        overview={admin && config === 'loading' ? 'loading' : state}
+        data={data}
+        admin={admin}
+        connected={typeof config !== 'object' || config.microsoft.connected}
+        onLaunched={refresh}
+        onRetryEvents={data.loadEvents}
+      />
     </main>
   );
 }
