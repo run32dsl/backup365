@@ -389,6 +389,7 @@ export function createDemoHandle(now: number = Date.now()): AtlasHandle {
         complete: true,
         byOwner: DEMO_SITES.map((s) => ({ workload: 'sharepoint', ownerId: s.id })),
       }),
+    checkStorage: () => Promise.resolve({ conditionalWrites: { support: 'supported' } }),
     dispose: () => Promise.resolve(),
   };
 }

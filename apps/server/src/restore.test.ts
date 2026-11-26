@@ -1,3 +1,4 @@
+import { OwnerBusyError } from '@wisecom/atlas-sdk';
 import { describe, expect, it } from 'vitest';
 import type { AuditEvent, AuditLog, MailRestoreOutcome, MailRestorer } from '@backup365/core';
 import { AtlasSdkMailRestorer } from './atlas-mail-restore.js';
@@ -116,6 +117,15 @@ describe('RestoreService', () => {
     expect(last).toMatchObject({ status: 'failed', error: 'restore_unreachable' });
     expect(JSON.stringify([last, events])).not.toContain('secret-key');
     expect(events.at(-1)?.reason).toMatch(/^outcome=failed;duration_ms=\d+;reason=Ticket #1$/);
+  });
+
+  it('says the mailbox is busy when the SDK refuses it (ATLAS_OWNER_BUSY, issue #567)', async () => {
+    const c = controlledRestorer();
+    const service = new RestoreService({ restorer: c.restorer, audit: auditLog().audit });
+    await service.start('alice', target, 'Ticket #1');
+    c.release(new OwnerBusyError({ workload: 'outlook', owner_id: 'mbx-1' }));
+    await service.idle();
+    expect(service.last('mbx-1', 'm1')).toMatchObject({ status: 'failed', error: 'restore_busy' });
   });
 
   it('fails a restoration that never returns', async () => {

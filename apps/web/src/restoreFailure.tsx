@@ -1,9 +1,42 @@
 import { Alert } from './ui/index.js';
-import { dateTimeOf, quoted } from './format.js';
+import { NNBSP, dateTimeOf, quoted } from './format.js';
 
 /** Conduite à tenir après l'échec d'une restauration : la même pour la messagerie, OneDrive et SharePoint. */
 export const RESTORE_FAILURE_ADVICE =
   'Réessayez ; si l’échec se répète, prévenez l’exploitant du serveur avec l’heure ci-dessus.';
+
+/** Échec d'une restauration, tel que le serveur le rend ; `restore_lost` : suivi perdu. */
+export type RestoreError =
+  | 'restore_error'
+  | 'restore_unreachable'
+  | 'restore_lost'
+  | 'restore_busy'
+  | 'restore_denied'
+  | 'restore_storage';
+
+/**
+ * Cause des refus apportés par le SDK 7.2.0 (issue #567), la même pour les trois parcours ;
+ * `null` pour les autres échecs, que chaque parcours nomme à sa façon.
+ */
+export function sdkRefusalCause(error: RestoreError | null, subject: string): string | null {
+  if (error === 'restore_busy')
+    return `une autre opération est en cours sur ${subject} (une sauvegarde, par exemple)${NNBSP}; attendez quelques minutes`;
+  if (error === 'restore_denied')
+    return `Microsoft 365 a refusé l’accès${NNBSP}: vérifiez les autorisations accordées à l’application`;
+  if (error === 'restore_storage')
+    return 'le stockage des sauvegardes ne répond pas pour le moment';
+  return null;
+}
+
+/** Vrai si l'appel a pu écrire avant d'échouer : la source n'est alors pas garantie intacte. */
+export function isUncertainError(error: RestoreError | null): boolean {
+  return (
+    error === 'restore_unreachable' ||
+    error === 'restore_lost' ||
+    error === 'restore_denied' ||
+    error === 'restore_storage'
+  );
+}
 
 export interface RestoreFailureBanner {
   title: string;

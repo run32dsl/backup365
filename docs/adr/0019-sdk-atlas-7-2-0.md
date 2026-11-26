@@ -33,10 +33,9 @@ porte sur les types publics (`dist/index.d.mts`) et le code (`dist/index.mjs`) d
     refus est enregistré avec le code `ATLAS_OWNER_BUSY` (`errorCode` du planificateur) et
     l'élément est repris au passage suivant, comme tout échec.
   - Restaurations : une restauration lancée pendant la sauvegarde du même propriétaire, ou dans
-    les 10 minutes qui suivent un arrêt brutal, échoue sans rien écrire. L'écran affiche alors
-    l'échec générique `restore_unreachable` ; l'opérateur relance plus tard. Un libellé dédié
-    (« sauvegarde en cours, réessayez dans quelques minutes ») est une suite possible, qui touche
-    l'interface et sort de cette issue.
+    les 10 minutes qui suivent un arrêt brutal, échoue sans rien écrire. Depuis l'issue #567,
+    l'écran l'explique (`restore_busy` : « une autre opération est en cours… attendez quelques
+    minutes ») et indique que rien n'a été modifié ; l'opérateur relance plus tard.
 - **Retrait de la réplication et de la réhydratation** : `replicateSnapshot`, `replicateAll`,
   `replicateMailbox`, `rehydrateSnapshot`, `rehydrateOwner`, `rehydrateSite`, `rehydrateMailbox`,
   `rehydrateTenant`, `getReplicationStatus`, `getReplicationStatusByOwner`. Aucun effet : jamais
@@ -55,7 +54,13 @@ porte sur les types publics (`dist/index.d.mts`) et le code (`dist/index.mjs`) d
   (`permissionsApplied`, `skippedItems`, `unmatchedFileFilters`, couleurs de dossier). La remise
   des permissions n'a lieu que sur demande (`restorePermissions`), que la console ne passe pas.
 - **Lectures** : `listSnapshotSummaries` (index, sans déchiffrer chaque manifeste) s'ajoute à
-  `listSnapshots`, qui renvoie toujours les manifestes. Piste de performance, hors périmètre.
+  `listSnapshots`, qui renvoie toujours les manifestes. Depuis l'issue #567, le catalogue
+  l'utilise pour ses listes quand il existe ; le détail OneDrive lit encore les manifestes (il
+  lui faut le nombre de fichiers, absent de l'index).
+- **Sonde du stockage** : `checkStorage()` dit si le stockage refuse les écritures
+  conditionnelles dont dépend le bail. Elle écrit puis supprime un objet jetable dans le bucket ;
+  la console la lance au plus une fois par heure (5 minutes après un échec, 10 s au plus par
+  sonde), pour les administrateurs, et n'en garde que `supported`, `ignored` ou `not_probed`.
 - **Validation de `createAtlasInstance`** : identique pour ce que la console passe (champs non
   vides, `s3Endpoint` URL HTTP(S) absolue, phrase d'au moins 14 octets). Un test construit
   désormais une vraie instance 7.2.0 depuis la configuration en lecture seule, sans requête.
@@ -100,6 +105,11 @@ simultanés, 1 à 16) ; s'y ajoutent les tentatives et délais S3 (`s3MaxAttempt
   issue (port du catalogue, écrans, restauration), hors de cette montée de version.
 - Les ADR antérieurs qui citent « SDK 6.2.0 » décrivent ce qu'ils ont vérifié à leur date ; ils
   ne sont pas réécrits. L'ADR 0002 renvoie à celui-ci pour la version.
+- Issue #567 : les codes `ATLAS_OWNER_BUSY`, `ATLAS_ACCESS_REFUSED`, `ATLAS_GRAPH_UNAVAILABLE`,
+  `ATLAS_STORAGE_UNAVAILABLE`, `ATLAS_FORMAT_UNSUPPORTED` et `ATLAS_WRITE_REFUSED` ont désormais
+  un libellé lisible (causes d'échec des plans, échecs de restauration) ; le catalogue lit
+  `listSnapshotSummaries` pour ses listes ; la page Sources affiche le résultat de
+  `checkStorage().conditionalWrites`.
 - Vérifications sur un tenant de TEST, non faites ici (aucun appel réel au SDK dans les tests) :
   une sauvegarde et les trois restaurations avec le SDK 7.2.0, et le refus d'une restauration
   pendant une sauvegarde du même propriétaire.

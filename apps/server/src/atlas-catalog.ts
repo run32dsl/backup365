@@ -9,39 +9,41 @@ import {
   type Workload,
 } from '@backup365/core';
 
+/** Ligne d'instantané lue pour les listes : identité, date, taille. */
+interface SnapshotRow {
+  snapshotId: string;
+  createdAt: Date;
+  totalSizeBytes?: number;
+}
+type SiteSnapshotRow = SnapshotRow & {
+  siteUrl?: string | undefined;
+  siteDisplayName?: string | undefined;
+};
+
 /**
  * Sous-ensemble de `AtlasInstance` (`@wisecom/atlas-sdk`) lu par l'adaptateur. L'instance réelle
  * y est assignable ; les tests passent un faux. Seules ces lectures ne demandent pas Graph
  * (docs/adr/0002) : `validate()` n'en fait pas partie.
+ *
+ * `listSnapshotSummaries` (SDK 7.2.0) lit l'index des instantanés au lieu de déchiffrer chaque
+ * manifeste ; l'adaptateur s'en sert pour les listes quand il existe, sinon il lit `listSnapshots`.
  */
 export interface AtlasSdkReader {
   outlook: {
     listMailboxes(): Promise<{ ownerId: string; ownerEmail?: string | undefined }[]>;
-    listSnapshots(
-      ownerId: string,
-    ): Promise<{ snapshotId: string; createdAt: Date; totalSizeBytes?: number }[]>;
+    listSnapshots(ownerId: string): Promise<SnapshotRow[]>;
+    listSnapshotSummaries?(ownerId: string): Promise<SnapshotRow[]>;
     getSnapshotDetail(
       snapshotId: string,
     ): Promise<{ snapshotId: string; createdAt: Date; totalObjects: number } | undefined>;
   };
   onedrive: {
-    listSnapshots(
-      ownerId: string,
-    ): Promise<
-      { snapshotId: string; createdAt: Date; totalFiles: number; totalSizeBytes?: number }[]
-    >;
+    listSnapshots(ownerId: string): Promise<(SnapshotRow & { totalFiles: number })[]>;
+    listSnapshotSummaries?(ownerId: string): Promise<SnapshotRow[]>;
   };
   sharepoint: {
-    listSnapshots(siteId: string): Promise<
-      {
-        siteUrl?: string | undefined;
-        siteDisplayName?: string | undefined;
-        snapshotId: string;
-        createdAt: Date;
-        totalFiles: number;
-        totalSizeBytes?: number;
-      }[]
-    >;
+    listSnapshots(siteId: string): Promise<(SiteSnapshotRow & { totalFiles: number })[]>;
+    listSnapshotSummaries?(siteId: string): Promise<SiteSnapshotRow[]>;
   };
   /** Recensement du stockage : parcourt tout le bucket (docs/adr/0006). */
   getStorageUsage(options: { breakdown: 'owner' }): Promise<{
@@ -157,8 +159,12 @@ export class AtlasSdkCatalog implements BackupCatalog {
         .map((o) => o.ownerId),
     );
     const entries: SiteEntry[] = [];
+    const sharepoint = this.atlas.sharepoint;
     for (const id of ids) {
-      const rows = (await this.atlas.sharepoint.listSnapshots(id))
+      const listed = sharepoint.listSnapshotSummaries
+        ? await sharepoint.listSnapshotSummaries(id)
+        : await sharepoint.listSnapshots(id);
+      const rows = listed
         .map((row) => ({ row, createdAt: toIso(row.createdAt) }))
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       const newest = rows[0]?.row;
@@ -222,12 +228,18 @@ export class AtlasSdkCatalog implements BackupCatalog {
     mailboxId: string,
     workload: Workload,
   ): Promise<{ id: string; createdAt: Date; totalSizeBytes?: number | undefined }[]> {
-    const rows =
+    const reader =
       workload === 'mail'
-        ? await this.atlas.outlook.listSnapshots(mailboxId)
+        ? this.atlas.outlook
         : workload === 'onedrive'
-          ? await this.atlas.onedrive.listSnapshots(mailboxId)
-          : [];
+          ? this.atlas.onedrive
+          : undefined;
+    // Index des instantanés quand le SDK le fournit : pas de manifeste à déchiffrer.
+    const rows: SnapshotRow[] = !reader
+      ? []
+      : reader.listSnapshotSummaries
+        ? await reader.listSnapshotSummaries(mailboxId)
+        : await reader.listSnapshots(mailboxId);
     return rows.map((r) => ({
       id: r.snapshotId,
       createdAt: r.createdAt,

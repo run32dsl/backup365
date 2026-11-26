@@ -68,6 +68,17 @@ describe('failure cause on the plans list', () => {
     expect(html).not.toContain('interrupted');
   });
 
+  it('says another operation held the source when Atlas refused it (ATLAS_OWNER_BUSY, #567)', () => {
+    const busy: PlanItem = {
+      ...failedPlan,
+      lastRun: { ...failedPlan.lastRun!, failureCause: 'owner_busy' },
+    };
+    expect(complianceView(busy).note).toBe(
+      'Une autre opération était en cours sur cette source · Aucune sauvegarde réussie',
+    );
+    expect(list([busy], false)).not.toMatch(/owner_busy|ATLAS_/u);
+  });
+
   it('opens on the failed plans only when asked, with a link to the whole list', () => {
     const html = list([okPlan, failedPlan], true);
     expect(html).toContain('Plan en échec');

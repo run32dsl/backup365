@@ -1,3 +1,4 @@
+import { isUncertainError, sdkRefusalCause, type RestoreError } from './restoreFailure.js';
 import { API_ERRORS } from './apiError.js';
 import { REASON, RESULT_TITLES } from './RestoreJourney.js';
 import { UNREACHABLE } from './session.js';
@@ -14,7 +15,7 @@ export interface RestoreJob {
   finishedAt: string | null;
   durationMs: number | null;
   folder: string;
-  error: 'restore_error' | 'restore_unreachable' | 'restore_lost' | null;
+  error: RestoreError | null;
 }
 
 export type RestoreResult =
@@ -63,6 +64,8 @@ export function announcement(elapsedMs: number): string {
 
 /** Cause d'un échec, en une phrase. */
 export function failureCause(error: RestoreJob['error']): string {
+  const refusal = sdkRefusalCause(error, 'cette boîte');
+  if (refusal) return `${refusal}.`;
   if (error === 'restore_unreachable') return 'boîte injoignable pour le moment.';
   if (error === 'restore_lost')
     return 'le suivi de la restauration a été perdu (service redémarré).';
@@ -70,9 +73,7 @@ export function failureCause(error: RestoreJob['error']): string {
 }
 
 /** Vrai si l'appel a pu aboutir malgré l'échec affiché : la boîte n'est alors pas garantie intacte. */
-export function isOutcomeUncertain(error: RestoreJob['error']): boolean {
-  return error === 'restore_unreachable' || error === 'restore_lost';
-}
+export const isOutcomeUncertain = isUncertainError;
 
 /** État de la dernière restauration pour la fiche : statut du badge et durée (`18 s`) s'il y en a une. */
 export function lastRestoreSummary(

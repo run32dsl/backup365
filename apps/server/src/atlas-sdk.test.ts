@@ -77,6 +77,11 @@ describe('createAtlasCatalog', () => {
         atlas.sharepoint.listSnapshots,
         atlas.sharepoint.restore,
         atlas.getStorageUsage,
+        // Issue #567 : index des instantanés et sonde du stockage.
+        atlas.outlook.listSnapshotSummaries,
+        atlas.onedrive.listSnapshotSummaries,
+        atlas.sharepoint.listSnapshotSummaries,
+        atlas.checkStorage,
       ])
         expect(fn).toBeTypeOf('function');
     } finally {

@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { AuditLog, MailRestorer } from '@backup365/core';
+import { restoreFailureOf, type RestoreFailure } from './restore-failure.js';
 
 export type RestoreStatus = 'running' | 'succeeded' | 'failed';
 
 /** Cause d'un échec : un code fermé, jamais le message du SDK (il peut citer le stockage). */
-export type RestoreFailure = 'restore_error' | 'restore_unreachable';
+export type { RestoreFailure };
 
 /** Restauration d'un mail : des états et des durées, jamais de contenu. */
 export interface RestoreJob {
@@ -141,8 +142,8 @@ export class RestoreService {
         timeout,
       ]);
       if (outcome.errors > 0 || outcome.restored < 1) error = 'restore_error';
-    } catch {
-      error = 'restore_unreachable';
+    } catch (err) {
+      error = restoreFailureOf(err);
     } finally {
       clearTimeout(timer);
     }

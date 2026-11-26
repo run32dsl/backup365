@@ -9,7 +9,15 @@ import {
 } from './restoreFailure.js';
 import { errorItemLabel, failureCause as siteCause, failureConsequence } from './sharepoint.js';
 
-const errors = ['restore_error', 'restore_unreachable', 'restore_lost', null] as const;
+const errors = [
+  'restore_error',
+  'restore_unreachable',
+  'restore_lost',
+  'restore_busy',
+  'restore_denied',
+  'restore_storage',
+  null,
+] as const;
 
 describe('restore failure banner', () => {
   it('opens with a bold line naming the item and the UTC date', () => {
@@ -76,6 +84,30 @@ describe('restore failure banner', () => {
       );
       expect(html).not.toMatch(/restore_|HTTP|[A-Z]{3,}_[A-Z]+|[0-9a-f]{8}-[0-9a-f]{4}/u);
     }
+  });
+
+  it('says another operation holds the source, and that nothing changed (ATLAS_OWNER_BUSY, #567)', () => {
+    expect(mailCause('restore_busy')).toBe(
+      'une autre opération est en cours sur cette boîte (une sauvegarde, par exemple) ; attendez quelques minutes.',
+    );
+    expect(driveCause('restore_busy')).toContain('en cours sur ce OneDrive');
+    expect(siteCause('restore_busy')).toContain('en cours sur ce site');
+    // Refusée avant toute écriture : le résultat n'est pas incertain.
+    expect(failureConsequence({ error: 'restore_busy', restored: 0, errors: 0 })).toBe(
+      'Rien n’a été modifié',
+    );
+  });
+
+  it('names the access refusal and the silent storage, with an uncertain outcome', () => {
+    expect(driveCause('restore_denied')).toMatch(
+      /^Microsoft 365 a refusé l’accès\s: vérifiez les autorisations accordées à l’application$/u,
+    );
+    expect(siteCause('restore_storage')).toBe(
+      'le stockage des sauvegardes ne répond pas pour le moment',
+    );
+    expect(failureConsequence({ error: 'restore_denied', restored: 0, errors: 0 })).toMatch(
+      /^L’état de SharePoint est incertain\s: vérifiez avant de réessayer$/u,
+    );
   });
 
   it('counts restored and failed items on a partial SharePoint failure', () => {

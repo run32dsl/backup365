@@ -10,6 +10,7 @@ import {
 } from '@backup365/core';
 import type { FastifyInstance } from 'fastify';
 import type { SearchIndexer } from './search-indexer.js';
+import type { StorageCheck } from './storage-check.js';
 import type { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 
 /** Exécutions relues par plan : assez pour retrouver la dernière réussite après une série d'échecs. */
@@ -20,6 +21,8 @@ export interface StatusOptions {
   workloads: readonly Workload[];
   /** Ancrage externe de la tête du journal d'audit (ADR 0004) ; absent : rien n'est exposé. */
   auditAnchor?: { configured: true } | { configured: false; reason: string };
+  /** Sonde du stockage (écritures conditionnelles, SDK 7.2.0) ; absente sans stockage configuré. */
+  storage?: StorageCheck | undefined;
 }
 
 /** Conformité de tous les plans ; `null` si leur base ne répond pas (le tableau reste servi). */
@@ -88,12 +91,16 @@ export function registerStatusRoutes(
 ) {
   scope.get('/api/status', async (req, reply) => {
     if (!catalog) return reply.code(503).send({ error: 'catalog_unavailable' });
+    const admin = req.session?.role === 'admin';
+    // Écritures conditionnelles du stockage : une question d'exploitation, réservée aux
+    // administrateurs. La sonde (jamais rejetée) tourne pendant la lecture du catalogue.
+    const probe = admin ? options.storage?.conditionalWrites() : undefined;
     const catalogReport = await buildStatusReport(catalog, options.workloads, options.maxAgeHours);
     // Conformité des plans : réservée aux administrateurs par décision du PO du 2026-11-16, en
     // attente de #86, donc absente pour tout autre rôle et sans session ; absente sans base des plans, `null` si elle ne répond pas.
-    const store = req.session?.role === 'admin' ? indexing?.plans : undefined;
+    const store = admin ? indexing?.plans : undefined;
     const rows = store ? withFailures(store, catalogReport.rows, req.log) : catalogReport.rows;
-    const base = store
+    const withPlans = store
       ? {
           ...catalogReport,
           rows,
@@ -101,6 +108,7 @@ export function registerStatusRoutes(
           services: serviceSummaries(store, rows, options.maxAgeHours, req.log),
         }
       : catalogReport;
+    const base = probe ? { ...withPlans, storage: { conditionalWrites: await probe } } : withPlans;
     const report = options.auditAnchor
       ? {
           ...base,

@@ -24,6 +24,7 @@ export {
   type ServiceSummary,
   type SourceKind,
   type StatusReport,
+  type ConditionalWrites,
   type StatusRow,
 } from './status.js';
 export { FakeBackupCatalog, type FakeCatalogData } from './fake-catalog.js';

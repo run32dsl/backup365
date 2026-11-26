@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { SqlitePlanStore } from './sqlite/sqlite-plan-store.js';
 import { ROLES, type Role } from './sqlite/sqlite-account-store.js';
 import { buildApp } from './app.js';
+import { StorageCheck } from './storage-check.js';
 import { buildTestApp, testAuth } from './test-support.js';
 import { parseMaxAgeHours, parseSiteCacheTtlMs, parseStatusWorkloads } from './config.js';
 
@@ -293,6 +294,60 @@ describe('GET /api/status', () => {
     expect((await get({ configured: true }))['auditAnchor']).toEqual({
       configured: true,
       label: 'ancrage du journal : configuré',
+    });
+  });
+
+  describe('conditional writes of the storage (SDK 7.2.0, issue #567)', () => {
+    const get = async (
+      support: string | Error,
+      role: Role = 'admin',
+    ): Promise<{ body: Record<string, unknown>; probes: number }> => {
+      let probes = 0;
+      const storage = new StorageCheck({
+        checkStorage: () => {
+          probes++;
+          return support instanceof Error
+            ? Promise.reject(support)
+            : Promise.resolve({ conditionalWrites: { support, detail: 'bucket tenant-x' } });
+        },
+      });
+      const app = buildTestApp({
+        version: '1',
+        catalog,
+        role,
+        status: { maxAgeHours: 26, workloads: ['mail'], storage },
+      });
+      const body = (await app.inject({ method: 'GET', url: '/api/status' })).json<
+        Record<string, unknown>
+      >();
+      await app.inject({ method: 'GET', url: '/api/status' });
+      return { body, probes };
+    };
+
+    it('tells an administrator whether the storage honours them, probing once', async () => {
+      const ok = await get('supported');
+      expect(ok.body['storage']).toEqual({ conditionalWrites: 'supported' });
+      expect(ok.probes).toBe(1);
+      expect((await get('ignored')).body['storage']).toEqual({ conditionalWrites: 'ignored' });
+      expect((await get('not_probed')).body['storage']).toEqual({
+        conditionalWrites: 'not_probed',
+      });
+    });
+
+    it('never passes on the SDK detail, and answers null when the check fails', async () => {
+      expect(JSON.stringify((await get('ignored')).body)).not.toContain('tenant-x');
+      const failed = await get(new Error('https://s3.example.test/tenant-x denied'));
+      expect(failed.body['storage']).toEqual({ conditionalWrites: null });
+      expect(JSON.stringify(failed.body)).not.toContain('tenant-x');
+      // Un échec est gardé quelques minutes : la page suivante ne refait pas la vérification.
+      expect(failed.probes).toBe(1);
+      expect((await get('something-new')).body['storage']).toEqual({ conditionalWrites: null });
+    });
+
+    it('hides it from a non-administrator', async () => {
+      const { body, probes } = await get('ignored', 'operator');
+      expect(body).not.toHaveProperty('storage');
+      expect(probes).toBe(0);
     });
   });
 

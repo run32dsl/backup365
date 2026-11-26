@@ -106,6 +106,55 @@ mettre l'identifiant dans `.env`, écrire le secret dans ce fichier (comme les a
 puis `docker compose up -d`. Donner l'identifiant sans le secret (ou l'inverse) arrête le démarrage, avec le nom de la variable manquante. Avec un identifiant et un fichier vides, la console démarre et
 répond `backup_not_configured`. Les administrateurs voient l'état de cette connexion, en lecture seule, sur la page d'accueil : une ligne dans la carte « Sauvegarde » quand elle est établie, un bandeau « Connexion Microsoft 365 à configurer » avec les étapes sinon (aucun secret ni identifiant n'y figure) ; les messages « Sauvegarde indisponible » y renvoient.
 
+### Permissions Microsoft Graph par charge
+
+Permissions d'application Microsoft Graph à accorder à l'application de la sauvegarde, avec le
+consentement administrateur. Ce sont celles que le SDK d'Atlas 7.2.0 nomme dans son code ;
+n'accorder que celles des charges protégées par un plan.
+
+| Charge         | Sauvegarde                                                                                                                                                              | Restauration depuis la console                                     |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Mails          | `Mail.Read`, `Mail.ReadWrite`, `User.Read.All`, `MailboxSettings.Read`                                                                                                  | `Mail.ReadWrite`                                                   |
+| Contacts       | `Contacts.Read` (ADR 0020)                                                                                                                                              | aucune (pas de restauration dans la console)                       |
+| Agenda         | `Calendars.Read` (ADR 0021)                                                                                                                                             | aucune (pas de restauration dans la console)                       |
+| OneDrive       | `Files.Read.All`, `Sites.Read.All`                                                                                                                                      | écriture sur les fichiers (non nommée par le SDK, voir ci-dessous) |
+| SharePoint     | `Sites.Read.All` (ou `Sites.Selected` accordé site par site)                                                                                                            | écriture sur les fichiers (non nommée par le SDK, voir ci-dessous) |
+| Teams (canaux) | `Team.ReadBasic.All`, `TeamSettings.Read.All`, `TeamMember.Read.All`, `Channel.ReadBasic.All`, `ChannelMember.Read.All`, `ChannelMessage.Read.All`, `TeamsTab.Read.All` | aucune (Teams n'est pas encore dans les plans)                     |
+
+Une permission manquante fait échouer l'exécution avec la cause « Microsoft 365 a refusé
+l'accès » (page Activités), et une restauration avec « Microsoft 365 a refusé l'accès : vérifiez
+les autorisations accordées à l'application ».
+
+Restaurer un fichier OneDrive ou un site SharePoint écrit dans le tenant : le SDK ne nomme pas la
+permission d'écriture qu'il lui faut. D'après la documentation de Microsoft Graph, c'est
+`Files.ReadWrite.All` pour OneDrive et `Sites.ReadWrite.All` pour SharePoint ; à confirmer sur un
+tenant de test. Les sites SharePoint Embedded (adresse en `/contentstorage/`) ne sont pas
+sauvegardés par Atlas.
+
+### Après la mise à niveau vers le SDK 7.2.0
+
+- **Première sauvegarde OneDrive et SharePoint : plus longue, une seule fois.** Le SDK 7.2.0
+  demande à Microsoft Graph des champs que les versions précédentes ne demandaient pas (paquets,
+  partage). Un lecteur dont le dernier lien de suivi (delta) a été enregistré sans eux est relu
+  en entier à la première sauvegarde qui suit la mise à niveau, au lieu de ne lire que les
+  changements ; les suivantes reprennent en incrémental. La même sauvegarde complète aussi l'index
+  des instantanés de chaque source (ce qui demande de déchiffrer une fois les manifestes plus
+  anciens). Prévoir cette première exécution hors des heures chargées.
+- **Une opération à la fois par source.** Une sauvegarde, une restauration ou une suppression
+  réserve la boîte, le OneDrive ou le site pour 10 minutes renouvelables (ADR 0019). Une autre
+  opération sur la même source est refusée sans rien écrire : « Une autre opération était en
+  cours sur cette source » pour une sauvegarde, qui reprend au passage suivant ; « une autre
+  opération est en cours sur cette boîte » pour une restauration, à relancer quelques minutes
+  plus tard.
+- **Écritures conditionnelles du stockage.** Cette réservation repose sur des écritures S3
+  conditionnelles. La page Sources (administrateurs) indique, dans la section « Stockage », si
+  le stockage les refuse comme il faut. La console le vérifie au plus une fois par heure, en
+  écrivant puis supprimant un objet jetable dans le bucket. « Le stockage ignore les écritures
+  conditionnelles » signale un stockage qui ne protège pas deux opérations simultanées : éviter
+  alors de restaurer pendant une sauvegarde, et passer à un stockage S3 qui les prend en charge.
+  « Non vérifiées » : aucune sauvegarde n'a encore créé le bucket, ou les identifiants S3 n'ont
+  que la lecture.
+
 ### Rapports par mail (permission `Mail.Send`)
 
 La console peut envoyer un rapport quotidien ou hebdomadaire (lundi, vers 07:00 UTC) et une

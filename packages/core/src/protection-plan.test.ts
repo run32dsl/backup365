@@ -5,6 +5,7 @@ import {
   alignRunEnd,
   buildPlanComplianceReport,
   currentRunSlot,
+  failureCauseOf,
   isNightPlan,
   nextRunAt,
   scheduleWindowLabel,
@@ -14,6 +15,26 @@ import {
   staggerOffsetMinutes,
   type PlanRun,
 } from './protection-plan.js';
+
+describe('failureCauseOf: SDK 7.2.0 error codes (issue #567)', () => {
+  it('turns each new Atlas code into a readable cause, never the code itself', () => {
+    expect(failureCauseOf('ATLAS_OWNER_BUSY')).toBe('owner_busy');
+    expect(failureCauseOf('ATLAS_ACCESS_REFUSED')).toBe('access_refused');
+    expect(failureCauseOf('ATLAS_AUTH_DENIED')).toBe('access_refused');
+    expect(failureCauseOf('ATLAS_GRAPH_UNAVAILABLE')).toBe('graph_unavailable');
+    expect(failureCauseOf('ATLAS_STORAGE_UNAVAILABLE')).toBe('storage_unavailable');
+    expect(failureCauseOf('ATLAS_FORMAT_UNSUPPORTED')).toBe('format_unsupported');
+    expect(failureCauseOf('ATLAS_WRITE_REFUSED')).toBe('write_refused');
+  });
+
+  it('keeps the existing causes and falls back to unknown', () => {
+    expect(failureCauseOf('interrupted')).toBe('interrupted');
+    expect(failureCauseOf('ATLAS_SNAPSHOT_NOT_NEWEST')).toBe('unknown');
+    expect(failureCauseOf('toString')).toBe('unknown');
+    expect(failureCauseOf('unknown')).toBe('unknown');
+    expect(failureCauseOf(null)).toBe('unknown');
+  });
+});
 
 const valid = {
   name: 'Direction',

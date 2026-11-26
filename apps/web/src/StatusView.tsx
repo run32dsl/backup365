@@ -3,6 +3,7 @@ import { Alert, EmptyState } from './ui/index.js';
 import { Backups } from './status/Backups.js';
 import { PlansCompliance } from './status/PlansCompliance.js';
 import { Services } from './status/Services.js';
+import { StorageCheck } from './status/StorageCheck.js';
 import { Summary } from './status/Summary.js';
 
 export { failureNote } from './status/Backups.js';
@@ -28,6 +29,7 @@ export function StatusView({ state }: { state: StatusState }) {
       <Services report={state} />
       <PlansCompliance report={state} />
       <Backups report={state} />
+      <StorageCheck report={state} />
     </>
   );
 }

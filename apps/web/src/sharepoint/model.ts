@@ -1,3 +1,4 @@
+import type { RestoreError } from '../restoreFailure.js';
 import type { SiteScope } from '@backup365/core';
 import { REASON } from '../RestoreJourney.js';
 import { quoted } from '../format.js';
@@ -19,7 +20,7 @@ export interface SiteJob {
   skipped: number;
   errors: number;
   copyName: string | null;
-  error: 'restore_error' | 'restore_unreachable' | 'restore_lost' | null;
+  error: RestoreError | null;
 }
 
 export interface Site {
