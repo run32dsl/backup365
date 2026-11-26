@@ -741,6 +741,19 @@ select[aria-disabled='true'] {
   .filters {
     margin-bottom: var(--space-4);
   }
+  /* Formulaire de quelques champs (Activités › Sauvegardes) : « Filtrer », à la largeur de son libellé, suit le dernier champ, aligné en bas (#580). */
+  .filters-inline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+  .filters-inline .field {
+    flex: 0 1 16rem;
+  }
+  .filters-inline > .btn {
+    width: auto;
+    margin-top: 0;
+  }
 }
 @media (max-width: 56.25rem) {
   .filters {
@@ -954,6 +967,34 @@ select[aria-disabled='true'] {
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /*
+   * Activités › Sauvegardes (#580) : « Résultat » est la colonne élastique, comme « Objet » : son
+   * texte ne compte pas dans le calcul des largeurs, la cause et « À faire » passent à la ligne sous
+   * la pastille. « Plan » prend la largeur de son contenu : le nom sur une ligne jusqu'à 22rem
+   * (au-delà, un nom long passe à la ligne entre les mots) ; une adresse de 40 caractères au plus
+   * n'est jamais coupée, une plus longue passe à la ligne après le « @ » seulement (#458).
+   */
+  .runs-list .data-table .run-result {
+    width: 100%;
+    min-width: 14rem;
+    max-width: 0;
+  }
+  .runs-list .data-table .run-result .badge {
+    white-space: nowrap;
+  }
+  .runs-list .data-table td.run-plan {
+    overflow-wrap: normal;
+  }
+  .runs-list .data-table .run-plan-name {
+    display: block;
+    width: max-content;
+    max-width: 22rem;
+  }
+  .runs-list .data-table td.run-plan .addr-short,
+  .runs-list .data-table td.run-plan .addr-short .addr-domain::before {
     white-space: nowrap;
   }
 }

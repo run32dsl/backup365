@@ -91,13 +91,17 @@ describe('historique des exécutions', () => {
       const shown = [...row.matchAll(/<td[^>]*class="([^"]*)"/g)]
         .map((m) => m[1] ?? '')
         .filter((c) => !c.includes('card-hidden'));
-      expect(shown).toEqual(['keep-words card-title', 'card-nolabel', 'card-only']);
+      expect(shown).toEqual([
+        'keep-words card-title run-plan',
+        'card-nolabel run-result',
+        'card-only',
+      ]);
     }
     const [ok, running, failed] = rows as [string, string, string];
-    expect(cell(ok, 'keep-words card-title')).toContain('Boîtes de la direction');
+    expect(cell(ok, 'keep-words card-title run-plan')).toContain('Boîtes de la direction');
     expect(ok).toMatch(/class="cell-secondary table-only"/);
-    expect(cell(ok, 'card-nolabel')).toBe('✔ Réussie');
-    expect(ok).toMatch(/class="card-nolabel"><div><span class="badge /);
+    expect(cell(ok, 'card-nolabel run-result')).toBe('✔ Réussie');
+    expect(ok).toMatch(/class="card-nolabel run-result"><div><span class="badge /);
     expect(cell(ok, 'card-only')).toBe(
       'Camille Test · 18/11/2026 02:00 UTC · 14 min · 1 284 éléments copiés · 3,2 Go',
     );
@@ -244,6 +248,23 @@ describe('historique des exécutions', () => {
     expect(t).toContain('5 boîtes');
     expect(t).toContain('5 boîtes · 18/11/2026 02:00 UTC · 14 min · 0 élément copié');
     expect(t).not.toMatch(/\b[a-e]\b · /);
+  });
+
+  it('keeps the caption for screen readers only, the intro already says the order (#580)', () => {
+    const html = renderToStaticMarkup(
+      <RunsView state={{ items: [run({})], limit: 20 }} filter={all} />,
+    );
+    expect(html).toContain(
+      '<caption class="sr-only">Dernières exécutions, de la plus récente à la plus ancienne</caption>',
+    );
+  });
+
+  it('puts the plan name in its own block and marks the elastic « Résultat » column (#580)', () => {
+    const html = renderToStaticMarkup(
+      <RunsView state={{ items: [run({})], limit: 20 }} filter={all} />,
+    );
+    expect(html).toContain('<span class="run-plan-name">Boîtes de la direction</span>');
+    expect(html).toMatch(/<th scope="col" role="columnheader" class="[^"]*run-result">Résultat/);
   });
 
   it('shows a running run with dashes instead of counters', () => {

@@ -65,10 +65,10 @@ function runColumns(
     },
     {
       header: 'Plan',
-      className: 'keep-words card-title',
+      className: 'keep-words card-title run-plan',
       cell: (r) => (
         <span>
-          {r.planName}
+          <span className="run-plan-name">{r.planName}</span>
           <span className="cell-secondary table-only">
             {r.runs.length === 1 ? <Address value={sourceOf(r)} /> : sourceOf(r)}
           </span>
@@ -77,7 +77,7 @@ function runColumns(
     },
     {
       header: 'Résultat',
-      className: 'card-nolabel',
+      className: 'card-nolabel run-result',
       cell: (r) => {
         const view = RESULT_VIEW[r.result];
         const cause = causeOf(r);
@@ -201,6 +201,8 @@ export function RunsView({
       <div className="runs-list">
         <DataTable
           caption="Dernières exécutions, de la plus récente à la plus ancienne"
+          // La phrase d'introduction dit déjà l'ordre : légende lue, pas affichée (#580).
+          hideCaption
           columns={runColumns(names, boxPlans)}
           rows={completeRuns(state.items, state.limit)}
           rowKey={(r) => r.id}
@@ -265,7 +267,7 @@ export function RunsPage({ planId = '' }: { planId?: string }) {
       <h1>Activités</h1>
       <ActivitiesNav current="runs" />
       <p>{RUNS_MESSAGES.intro}</p>
-      <form onSubmit={submit} className="filters" key={plans.length}>
+      <form onSubmit={submit} className="filters filters-inline" key={plans.length}>
         <div className="field">
           <label htmlFor="runs-plan">Plan</label>
           <select id="runs-plan" name="plan" defaultValue={filter.planId}>
