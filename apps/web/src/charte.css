@@ -442,6 +442,10 @@ th {
   gap: var(--space-3);
   margin-top: var(--space-3);
 }
+/* Avertissement placé sous les cartes (envoi de rapport non parti) : détaché de la dernière carte. */
+.overview + .alert {
+  margin-top: var(--space-3);
+}
 /* Sous 900 px, une tuile par ligne : libellé à gauche, chiffre à droite, lien en dessous (#582). */
 .coverage-tiles {
   display: grid;

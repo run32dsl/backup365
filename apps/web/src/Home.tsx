@@ -344,7 +344,6 @@ export function Home({ admin = false }: { admin?: boolean }) {
         {retried.current ? announcementOf(state) : ''}
       </div>
       {admin && <HomeAlerts blocked={blocked} config={config} plans={data.plans} listed={listed} />}
-      <ReportFailureNotice enabled={admin} />
       <OverviewView
         state={overview}
         admin={admin}
@@ -353,6 +352,8 @@ export function Home({ admin = false }: { admin?: boolean }) {
         interruptedSince={since}
         storageBlocked={blocked}
       />
+      {/* Problème secondaire : sous les cartes, le haut de l'Accueil reste à l'état des sauvegardes. */}
+      <ReportFailureNotice enabled={admin} />
       <HomeCoverage
         // Connexion encore inconnue : rien, plutôt qu'une échéance peut-être fausse.
         overview={admin && view === 'loading' ? 'loading' : state}

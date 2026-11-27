@@ -1,5 +1,5 @@
 import { requestError } from './apiError.js';
-import { dateTimeOf } from './format.js';
+import { NBSP, NNBSP, dateTimeOf, dayOf } from './format.js';
 import { failureOf, type Outcome } from './session.js';
 
 /** Ancre de la vue « Rapports par mail » (Réglages, administrateurs). */
@@ -53,7 +53,6 @@ export const REPORT_LABELS = {
   empty: 'Aucun destinataire pour l’instant.',
   noPlan: 'Aucun plan de protection : le rapport sera vide.',
   saved: 'Réglages enregistrés.',
-  homeFailure: 'Le dernier rapport n’a pas pu être envoyé',
   homeLink: 'Ouvrir les rapports par mail',
 } as const;
 
@@ -110,12 +109,6 @@ export function recapLines(settings: ReportSettings): string[] {
   ];
 }
 
-const KIND_LABELS: Record<LastSend['kind'], string> = {
-  report: 'rapport',
-  alert: 'alerte',
-  test: 'essai',
-};
-
 const SEND_SENTENCES: Record<LastSend['kind'], { ok: string; failed: string }> = {
   report: { ok: 'Dernier rapport envoyé le', failed: 'Dernier rapport tenté le' },
   alert: { ok: 'Dernière alerte envoyée le', failed: 'Dernière alerte tentée le' },
@@ -128,10 +121,22 @@ export function lastSendSentence(send: LastSend): string {
   return `${send.ok ? words.ok : words.failed} ${dateTimeOf(send.at)} UTC`;
 }
 
-/** « 24/11/2026 07:00 UTC (rapport) » : date et nature du dernier envoi. */
-export function lastSendLine(send: LastSend): string {
-  return `${dateTimeOf(send.at)} UTC (${KIND_LABELS[send.kind]})`;
+/**
+ * Titre du bandeau d'accueil d'un envoi non parti : sa nature et sa date, en phrase.
+ * « Le rapport du 23/11/2026 n'a pas pu être envoyé ».
+ */
+export function deliveryFailureTitle(send: LastSend): string {
+  const day = dayOf(send.at);
+  return send.kind === 'alert'
+    ? `L’alerte d’échec du ${day} n’a pas pu être envoyée`
+    : `Le rapport du ${day} n’a pas pu être envoyé`;
 }
+
+/** Corps du même bandeau : la conséquence, puis la conduite à tenir (reprise de l'échec d'essai). */
+export const DELIVERY_FAILURE_BODY = [
+  `Les sauvegardes ne sont pas concernées${NNBSP}; les destinataires n’ont rien reçu.`,
+  `Microsoft 365 a refusé l’envoi${NBSP}: vérifiez la permission et la boîte d’envoi, puis envoyez un essai.`,
+] as const;
 
 export function testSentMessage(to: readonly string[], at: string): string {
   const who = to.length === 1 ? to[0] : `${to.length} destinataires`;

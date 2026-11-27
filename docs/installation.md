@@ -182,8 +182,9 @@ n'affiche les réglages (destinataires, fréquence, alerte) qu'une fois l'envoi 
 
 La console vérifie la permission en lisant les rôles du jeton de l'application. Le rapport ne
 contient que des compteurs, des durées, les noms et l'état des plans : aucun nom de fichier ni
-objet de mail, aucune adresse de boîte sauvegardée. Un envoi refusé est affiché dans Réglages et
-sur l'accueil (« Le dernier rapport n'a pas pu être envoyé ») et journalisé avec son code seul.
+objet de mail, aucune adresse de boîte sauvegardée. Un envoi refusé est affiché dans Réglages et,
+en avertissement sous les cartes de l'accueil, « Le rapport du jj/mm/aaaa n'a pas pu être
+envoyé » ; il est journalisé avec son code seul.
 
 ## Premier accès
 
