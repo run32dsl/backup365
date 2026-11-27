@@ -265,7 +265,37 @@ describe('historique des exécutions', () => {
     expect(note(days(5))).toBe('5 exécutions');
     expect(note(days(8))).toBe('8 exécutions');
     expect(note(days(19))).not.toContain('Seules les 20 dernières');
-    expect(note(days(20))).toBe('Seules les 20 dernières exécutions sont affichées.');
+    expect(note(days(20))).toBe(
+      '19 exécutions, les plus récentes : les plus anciennes ne sont pas affichées.',
+    );
+  });
+
+  it('counts the lines, not the limit, when 20 source results make fewer runs (#630)', () => {
+    const html = (items: ReturnType<typeof run>[]) =>
+      renderToStaticMarkup(<RunsView state={{ items, limit: 20 }} filter={all} />);
+    // 8 exécutions : une de 5 boîtes, une de 8 sources, puis 6 exécutions d'une source ; 19
+    // résultats suffisent, le 20e ouvre une 9e exécution, écartée car peut-être incomplète.
+    const at = (day: number) => `2026-11-${String(day).padStart(2, '0')}T02:00:00.000Z`;
+    const items = [
+      ...['a', 'b', 'c', 'd', 'e'].map((box, i) =>
+        run({ id: 200 + i, planId: 'p5', itemId: box, startedAt: at(26) }),
+      ),
+      ...Array.from({ length: 8 }, (_, i) =>
+        run({ id: 300 + i, planId: 'p8', itemId: `s${i}`, startedAt: at(25) }),
+      ),
+      ...Array.from({ length: 7 }, (_, i) => run({ id: 400 + i, startedAt: at(24 - i) })),
+    ];
+    expect(items).toHaveLength(20);
+    const out = html(items);
+    const rows = out.match(/<tr[ >]/g)!.length - 1;
+    expect(rows).toBe(8);
+    const m = /<p class="state-note">([^<]*)<\/p>/.exec(out);
+    const footer = (m?.[1] ?? '').replace(/[\u00a0\u202f]/g, ' ');
+    expect(footer).not.toContain('Seules les 20 dernières exécutions');
+    expect(footer).not.toContain('20');
+    expect(footer).toBe(
+      '8 exécutions, les plus récentes : les plus anciennes ne sont pas affichées.',
+    );
   });
 
   it('shows one run of five mailboxes as one line that says « 5 boîtes » (#571)', () => {

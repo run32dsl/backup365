@@ -216,7 +216,7 @@ export function RunsView({
           rowKey={(r) => r.id}
         />
       </div>
-      <p className="state-note">{RUNS_MESSAGES.footer(rows.length, full, state.limit)}</p>
+      <p className="state-note">{RUNS_MESSAGES.footer(rows.length, full)}</p>
     </>
   );
 }
