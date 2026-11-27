@@ -235,6 +235,13 @@ export const RUNS_MESSAGES = {
   emptyPlan:
     'Ce plan n’a pas encore été exécuté. La première sauvegarde aura lieu à l’heure prévue.',
   emptyFiltered: 'Aucune exécution ne correspond à ces filtres.',
-  footer: (limit: number) => `Seules les ${limit} dernières exécutions sont affichées.`,
+  /**
+   * Note de bas de liste : le nombre de lignes affichées ; la limite seulement si le serveur l'a
+   * atteinte, car des exécutions plus anciennes peuvent alors exister (#620).
+   */
+  footer: (shown: number, full: boolean, limit: number) =>
+    full
+      ? `Seules les ${limit} dernières exécutions sont affichées.`
+      : `${shown}${NBSP}${shown < 2 ? 'exécution' : 'exécutions'}`,
   unknownSize: 'non communiquée',
 } as const;
