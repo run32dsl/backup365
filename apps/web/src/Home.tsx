@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { RUNS_MESSAGES } from './activities/runs.js';
 import { connectionLine, useConfiguration } from './ConfigurationBlock.js';
 import { dateTimeOf, quoted, workloadLabel } from './format.js';
 import { HomeCoverage, homeReading } from './HomeCoverage.js';
@@ -295,7 +296,12 @@ export function OverviewView({
               <time dateTime={last}>{`${lastDate} UTC`}</time>{' '}
               <span className="overview-ago">· {agoLabel(last, now)}</span>
             </p>
-            {state.lastBackupPlan && <p>Plan : {state.lastBackupPlan}</p>}
+            {state.lastBackupPlan && (
+              <p>
+                Plan : {state.lastBackupPlan}
+                {state.lastBackupNothingNew && ` · ${RUNS_MESSAGES.noNewItemLong}`}
+              </p>
+            )}
           </>
         )}
       </Card>

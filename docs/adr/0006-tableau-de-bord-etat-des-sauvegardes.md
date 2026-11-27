@@ -89,6 +89,8 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   « Derniers événements ». La carte « Dernière sauvegarde » donne le début et le plan de la ligne
   « Réussie » la plus récente (l'heure de la colonne « Heure »), une réussite sans élément copié
   comprise, comme dans le tableau ; sans ligne « Réussie », la réponse de `GET /api/overview`.
+  Si cette réussite n'a rien copié, la carte ajoute « aucun nouvel élément » après le plan
+  (issue #640).
   « Aucune sauvegarde ne part depuis le … », dans le bandeau comme dans la carte « Sauvegarde »,
   donne le début de la ligne la plus récente ; sans ligne, la dernière exécution des plans. La
   page Plans et l'accueil de l'opérateur (sans tableau) gardent les dates de `GET /api/plans` et

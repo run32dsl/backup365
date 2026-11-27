@@ -13,14 +13,16 @@ import {
   RUNS_MESSAGES,
   RUN_RESULTS,
   causeOf,
+  copiedCell,
   copiedLabel,
-  countLabel,
   durationLabel,
   completeRuns,
   fetchRuns,
   mailOnlyTypes,
+  sizeCell,
   sourcesLabel,
   volumeLabel,
+  type CellText,
   type RunEvent,
   type RunItem,
   type RunResult,
@@ -58,6 +60,10 @@ function failureLines(r: RunItem, admin: boolean, dataTypes?: readonly string[])
     </>
   );
 }
+
+/** Cellule « Éléments copiés » ou « Taille source », en texte secondaire si `muted` (#640). */
+const cellText = ({ text, muted }: CellText) =>
+  muted ? <span className="cell-muted">{text}</span> : text;
 
 export function runColumns(
   names: ReadonlyMap<string, string>,
@@ -110,24 +116,12 @@ export function runColumns(
     {
       header: 'Éléments copiés',
       className: 'num card-hidden',
-      cell: (r) =>
-        r.result === 'running'
-          ? '—'
-          : countLabel(r.result === 'success' ? (r.itemsSaved ?? 0) : r.itemsSaved),
+      cell: (r) => cellText(copiedCell(r)),
     },
     {
       header: 'Taille source',
       className: 'num card-hidden',
-      cell: (r) => {
-        const size = volumeLabel(r.sourceBytes);
-        if (size) return size;
-        return (
-          <span>
-            <span aria-hidden="true">—</span>
-            <span className="sr-only">{RUNS_MESSAGES.unknownSize}</span>
-          </span>
-        );
-      },
+      cell: (r) => cellText(sizeCell(r)),
     },
     // Sous 900 px seulement : « boîte · 21/11/2026 02:00 UTC · 14 min · 1 284 éléments copiés · 3,4 Go »,
     // puis la cause et ce qu'il faut faire, sans libellé ; un compteur inconnu est omis.
@@ -142,11 +136,10 @@ export function runColumns(
               sourceOf(r),
               at === '' ? '' : `${at} UTC`,
               r.durationMs === null ? '' : durationLabel(r.durationMs),
-              // Une réussite dit toujours ce qu'elle a copié, « 0 » compris (#571).
-              r.result === 'running'
-                ? ''
-                : copiedLabel(r.result === 'success' ? (r.itemsSaved ?? 0) : r.itemsSaved),
-              volumeLabel(r.sourceBytes) ?? '',
+              // Une réussite dit ce qu'elle a copié, « aucun nouvel élément » compris (#571, #640) ;
+              // un échec laisse parler sa cause, une taille inconnue est omise.
+              r.result === 'success' ? copiedLabel(r.itemsSaved ?? 0) : '',
+              r.result === 'success' ? (volumeLabel(r.sourceBytes) ?? '') : '',
             ])}
             {failureLines(r, admin, planTypes.get(r.planId))}
           </>

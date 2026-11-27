@@ -197,12 +197,18 @@ export const listedEvents = (items: readonly RunItem[]): RunEvent[] =>
 /**
  * Carte « Dernière sauvegarde » d'un administrateur : la ligne « Réussie » la plus récente de
  * « Derniers événements », son heure (celle de la colonne « Heure ») et son plan (#608). Une
- * réussite qui n'a rien copié compte ici comme dans le tableau. Sans telle ligne, la réponse du
- * serveur, plus ancienne que toutes les lignes listées.
+ * réussite qui n'a rien copié compte ici comme dans le tableau, et la carte le dit (#640). Sans
+ * telle ligne, la réponse du serveur, plus ancienne que toutes les lignes listées.
  */
 export function withListedBackup(state: Overview, listed: readonly RunEvent[]): Overview {
   const last = latestListed(listed.filter((e) => e.result === 'success'));
-  return last ? { ...state, lastBackupAt: last.startedAt, lastBackupPlan: last.planName } : state;
+  if (!last) return state;
+  return {
+    ...state,
+    lastBackupAt: last.startedAt,
+    lastBackupPlan: last.planName,
+    lastBackupNothingNew: (last.itemsSaved ?? 0) === 0,
+  };
 }
 
 /**

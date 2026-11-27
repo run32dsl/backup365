@@ -220,7 +220,10 @@ simulation: true, computedAt, items }`, chaque élément portant `planId`, `rete
   source : l'interface les regroupe en exécutions (issue #571), même plan, chaque source une
   fois, et même début (lancement manuel) ou début à moins de 60 s de la fin de la source
   précédente (passage du planificateur). Une exécution est « En échec » si une source a échoué ;
-  sa ligne donne le nombre de sources (« 5 boîtes ») et d'éléments copiés, « 0 » compris. Le
+  sa ligne donne le nombre de sources (« 5 boîtes ») et d'éléments copiés. Une réussite sans
+  élément copié dit « aucun nouveau » (carte mobile : « aucun nouvel élément »), une réussite
+  sans taille « non mesurée » (omise sur mobile) ; un échec laisse ces deux cellules vides, sa
+  cause suffit (issue #640). Le
   dernier groupe d'une liste pleine, peut-être coupé, n'est pas affiché. L'accueil lit 20 lignes
   et en montre les 5 dernières exécutions dans « Derniers événements », avec les colonnes et
   les cartes d'Activités › Sauvegardes (issues #475, #571, #636), sans toucher au journal.
