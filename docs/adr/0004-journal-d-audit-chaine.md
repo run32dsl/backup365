@@ -32,7 +32,11 @@ MVP derrière un port de `packages/core`, avec PostgreSQL ensuite.
   de terme recherché ni de contenu.
 - **Fail-closed** : les routes qui renvoient des éléments sauvegardés consignent avant de répondre ;
   si la consignation échoue, rien n'est renvoyé ; sans journal, elles répondent 503.
-- `GET /api/audit` (lecture seule) et l'écran `#/audit` consultent le journal.
+- `GET /api/audit` (lecture seule) et l'écran `#/audit` consultent le journal. Avec
+  `hide=routine` (issue #644), le serveur masque en base les connexions, déconnexions et
+  consultations du journal lui-même : `total` et la pagination ne comptent que le reste, `hidden`
+  donne le nombre masqué. L'écran s'ouvre sur cette vue (« Toutes sauf connexions ») ; l'option
+  « Toutes » et le bouton « Tout afficher » la retirent. Rien n'est supprimé du journal.
 - Tests de contrat (`auditLogContract`, `@backup365/core/testing`) rejouables sur PostgreSQL ; le
   banc fournit `alterActor` et `deleteEntry` pour simuler l'attaque sur le stockage.
 - Aucune dépendance ajoutée (`node:crypto`, `node:sqlite`).

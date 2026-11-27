@@ -402,11 +402,11 @@ export function demoFactory(now: number = Date.now()): AtlasFactory {
 }
 
 /**
- * Entrées de journal d'audit fictives, de la plus ancienne à la plus récente. Avec un plan, deux
- * lancements manuels `plan.run` le visent, motif compris.
+ * Entrées de journal d'audit fictives, de la plus ancienne à la plus récente, réparties sur six
+ * jours. Avec un plan, deux lancements manuels `plan.run` le visent, motif compris.
  */
 export function demoAuditEvents(now: number, planId?: string): AuditEvent[] {
-  const at = (hoursAgo: number) => new Date(now - hoursAgo * HOUR).toISOString();
+  const at = (hoursAgo: number) => new Date(now - Math.round(hoursAgo * HOUR)).toISOString();
   const run = (hoursAgo: number, reason: string): AuditEvent[] =>
     planId === undefined
       ? []
@@ -421,33 +421,33 @@ export function demoAuditEvents(now: number, planId?: string): AuditEvent[] {
           },
         ];
   return [
-    { at: at(30), actor: 'admin-demo', action: 'auth.login', resource: 'session' },
+    { at: at(150), actor: 'admin-demo', action: 'auth.login', resource: 'session' },
     {
-      at: at(29),
+      at: at(149),
       actor: 'admin-demo',
       action: 'account.create',
       resource: 'account',
       target: 'operateur-demo',
     },
     {
-      at: at(28),
+      at: at(148),
       actor: 'admin-demo',
       action: 'plan.create',
       resource: 'plan',
       ...(planId === undefined ? {} : { target: planId }),
     },
-    ...run(27, 'Premier essai après création du plan'),
-    { at: at(26), actor: 'admin-demo', action: 'auth.logout', resource: 'session' },
-    { at: at(22), actor: 'operateur-demo', action: 'auth.login', resource: 'session' },
+    ...run(147, 'Premier essai après création du plan'),
+    { at: at(146), actor: 'admin-demo', action: 'auth.logout', resource: 'session' },
+    { at: at(100), actor: 'operateur-demo', action: 'auth.login', resource: 'session' },
     {
-      at: at(21),
+      at: at(99.8),
       actor: 'operateur-demo',
       action: 'list.view',
       resource: 'mailboxes',
       count: DEMO_MAILBOXES.length,
     },
     {
-      at: at(21),
+      at: at(99.7),
       actor: 'operateur-demo',
       action: 'list.view',
       resource: 'mail.search',
@@ -455,7 +455,7 @@ export function demoAuditEvents(now: number, planId?: string): AuditEvent[] {
       count: 25,
     },
     {
-      at: at(21),
+      at: at(99.6),
       actor: 'operateur-demo',
       action: 'list.view',
       resource: 'mail.search',
@@ -463,14 +463,14 @@ export function demoAuditEvents(now: number, planId?: string): AuditEvent[] {
       count: 10,
     },
     {
-      at: at(21),
+      at: at(99.5),
       actor: 'operateur-demo',
       action: 'list.view',
       resource: 'audit',
       count: 25,
     },
     {
-      at: at(21),
+      at: at(99.4),
       actor: 'operateur-demo',
       action: 'list.view',
       resource: 'audit',
@@ -478,7 +478,7 @@ export function demoAuditEvents(now: number, planId?: string): AuditEvent[] {
       count: 3,
     },
     {
-      at: at(21),
+      at: at(99.2),
       actor: 'operateur-demo',
       action: 'list.view',
       resource: 'sharepoint.items',
@@ -486,23 +486,23 @@ export function demoAuditEvents(now: number, planId?: string): AuditEvent[] {
       count: 10,
     },
     {
-      at: at(21),
+      at: at(99),
       actor: 'operateur-demo',
       action: 'item.open',
       resource: 'mail',
       target: `${DEMO_MAILBOXES[0]!.id}/msg-1-004`,
     },
     {
-      at: at(20),
+      at: at(98.5),
       actor: 'operateur-demo',
       action: 'item.export',
       resource: 'mail',
       target: `${DEMO_MAILBOXES[0]!.id}/msg-1-004`,
       reason: 'Ticket INC-10001',
     },
-    { at: at(12), actor: 'anonymous', action: 'auth.login_failed', resource: 'session' },
+    { at: at(50), actor: 'anonymous', action: 'auth.login_failed', resource: 'session' },
     {
-      at: at(11),
+      at: at(49),
       actor: 'operateur-demo',
       action: 'access.denied',
       resource: 'accounts',

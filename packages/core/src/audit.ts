@@ -67,8 +67,26 @@ export interface AuditFilter {
   to?: string;
   actor?: string;
   action?: AuditAction;
+  /**
+   * Masque les entrées de routine (`isRoutineAuditEntry`) : vue par défaut de l'écran, qui montre
+   * d'abord les actions sur les données et la configuration. Rien n'est supprimé du journal.
+   */
+  hideRoutine?: boolean;
   limit: number;
   offset: number;
+}
+
+/** Actions de routine masquées par `hideRoutine` : ouverture et fermeture de session réussies. */
+export const AUDIT_ROUTINE_ACTIONS: readonly AuditAction[] = ['auth.login', 'auth.logout'];
+
+/**
+ * Vrai pour une entrée de routine : connexion, déconnexion, ou consultation du journal lui-même.
+ * Les échecs de connexion et les refus d'accès n'en sont pas : ils restent visibles.
+ */
+export function isRoutineAuditEntry(e: Pick<AuditEvent, 'action' | 'resource'>): boolean {
+  return (
+    AUDIT_ROUTINE_ACTIONS.includes(e.action) || (e.action === 'list.view' && e.resource === 'audit')
+  );
 }
 
 export interface AuditPage {

@@ -4,6 +4,7 @@ import { screenOf } from './App.js';
 import { AuditPage, AuditView } from './AuditPage.js';
 import {
   DATE_HELP,
+  DEFAULT_AUDIT_QUERY,
   dateRange,
   fetchAudit,
   pageOffsets,
@@ -133,6 +134,27 @@ describe('AuditView', () => {
     expect(cls('Date \\(UTC\\)').split(' ')).toContain('audit-date');
   });
 
+  it('says how many entries are hidden, with « Tout afficher » that shows them again', () => {
+    const onShowAll = vi.fn();
+    const state = { total: 1, hidden: 22, limit: 25, offset: 0, items: [entry] };
+    const html = renderToString(<AuditView state={state} onShowAll={onShowAll} />);
+    expect(html).toContain('22 connexions et consultations du journal masquées');
+    expect(html).toContain('Tout afficher');
+    // Sans DOM de test : le bouton rendu par l'alerte porte bien le rappel « Tout afficher ».
+    const alert = AuditView({ state, onShowAll }) as {
+      props: { children: [{ props: { children: unknown[] } }] };
+    };
+    const masked = alert.props.children[0].props.children[1] as {
+      props: { action: { props: { onClick: () => void; children: string } } };
+    };
+    expect(masked.props.action.props.children).toBe('Tout afficher');
+    masked.props.action.props.onClick();
+    expect(onShowAll).toHaveBeenCalledOnce();
+    const one = renderToString(<AuditView state={{ ...state, hidden: 1 }} />);
+    expect(one).toContain('1 connexion ou consultation du journal masquée');
+    expect(renderToString(<AuditView state={{ ...state, hidden: 0 }} />)).not.toContain('masqu');
+  });
+
   it('shows an empty state, loading and error', () => {
     expect(
       renderToString(<AuditView state={{ total: 0, limit: 50, offset: 0, items: [] }} />),
@@ -155,6 +177,13 @@ describe('AuditPage', () => {
   it('renders the filter form', () => {
     const html = renderToString(<AuditPage />);
     for (const name of ['from', 'to', 'actor', 'action']) expect(html).toContain(`name="${name}"`);
+  });
+
+  it('opens on « Toutes sauf connexions » and still offers « Toutes »', () => {
+    const html = renderToString(<AuditPage />);
+    expect(html).toMatch(/<option value="" selected="">Toutes sauf connexions<\/option>/);
+    expect(html).toContain('<option value="all">Toutes</option>');
+    expect(html).not.toContain('Filtrez par action');
   });
 
   it('titles the page like its navigation entry and keeps the reference term in the intro', () => {
@@ -186,6 +215,16 @@ describe('fetchAudit', () => {
     expect(url).toContain('limit=25');
   });
 
+  it('asks the server to hide routine entries in the default view', async () => {
+    let url = '';
+    const fake = ((u: string) => {
+      url = u;
+      return Promise.resolve(Response.json({ total: 0, limit: 25, offset: 0, items: [] }));
+    }) as unknown as typeof fetch;
+    await fetchAudit(DEFAULT_AUDIT_QUERY, fake);
+    expect(url).toBe('/api/audit?limit=25&offset=0&hide=routine');
+  });
+
   it('rejects on a non-2xx response', async () => {
     const fake = (() => Promise.resolve(new Response('', { status: 503 }))) as typeof fetch;
     await expect(fetchAudit({}, fake)).rejects.toThrow('HTTP 503');
@@ -213,14 +252,24 @@ describe('queryFromForm', () => {
     });
   });
 
-  it('ignores an action outside the vocabulary and missing fields', () => {
+  it('falls back to the default view on an action outside the vocabulary and missing fields', () => {
     expect(queryFromForm(form({ action: 'drop table' }))).toEqual({
       limit: 25,
       offset: 0,
       from: '',
       to: '',
       actor: '',
+      hide: 'routine',
     });
+  });
+
+  it('hides routine entries under « Toutes sauf connexions » and shows them again under « Toutes »', () => {
+    expect(queryFromForm(form({ action: '' }))).toMatchObject({ hide: 'routine' });
+    expect(queryFromForm(form({ action: 'all' }))).not.toHaveProperty('hide');
+    expect(queryFromForm(form({ action: 'auth.login' }))).toEqual(
+      expect.objectContaining({ action: 'auth.login' }),
+    );
+    expect(queryFromForm(form({ action: 'auth.login' }))).not.toHaveProperty('hide');
   });
 });
 

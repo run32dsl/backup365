@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
 import {
   AUDIT_GENESIS_HASH,
+  AUDIT_ROUTINE_ACTIONS,
   auditHashInput,
   isAuditAction,
   type AuditAction,
@@ -137,6 +138,12 @@ export class SqliteAuditLog implements AuditLog {
       if (filter.action !== undefined) {
         where.push('action = ?');
         params.push(filter.action);
+      }
+      if (filter.hideRoutine === true) {
+        // Même règle que `isRoutineAuditEntry` (cœur), en paramètres liés.
+        const marks = AUDIT_ROUTINE_ACTIONS.map(() => '?').join(', ');
+        where.push(`NOT (action IN (${marks}) OR (action = 'list.view' AND resource = 'audit'))`);
+        params.push(...AUDIT_ROUTINE_ACTIONS);
       }
       const clause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
       const count = this.db

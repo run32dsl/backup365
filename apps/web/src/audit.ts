@@ -5,6 +5,8 @@ export interface AuditQuery {
   to?: string;
   actor?: string;
   action?: AuditAction;
+  /** `routine` : le serveur masque connexions, déconnexions et consultations du journal. */
+  hide?: 'routine';
   limit?: number;
   offset?: number;
 }
@@ -13,7 +15,10 @@ export interface AuditQuery {
 export type AuditItem = AuditEntry & { targetName?: string; targetMailbox?: string };
 
 export interface AuditResponse {
+  /** Entrées qui répondent aux filtres, masque compris. */
   total: number;
+  /** Entrées masquées par `hide=routine` (0 sans masque). */
+  hidden?: number;
   limit: number;
   offset: number;
   items: AuditItem[];
@@ -126,9 +131,28 @@ export function formText(form: FormData, name: string): string {
 /** Nombre d'entrées par page de l'écran. */
 export const AUDIT_PAGE_SIZE = 25;
 
+/** Valeur de l'option « Toutes » du sélecteur « Action » : rien n'est masqué. */
+export const ALL_ACTIONS = 'all';
+
+/** Vue par défaut (option « Toutes sauf connexions ») : connexions et consultations du journal masquées. */
+export const DEFAULT_AUDIT_QUERY: AuditQuery = {
+  limit: AUDIT_PAGE_SIZE,
+  offset: 0,
+  hide: 'routine',
+};
+
+/** Phrase qui dit combien d'entrées le masque par défaut cache ; vide quand rien n'est masqué. */
+export function hiddenNotice(hidden: number | undefined): string {
+  if (!hidden) return '';
+  return hidden === 1
+    ? '1 connexion ou consultation du journal masquée'
+    : `${hidden} connexions et consultations du journal masquées`;
+}
+
 /**
  * Requête issue du formulaire de filtres : retour à la première page, dates jj/mm/aaaa converties
- * en intervalle UTC, action hors vocabulaire ignorée.
+ * en intervalle UTC. Action du vocabulaire : filtre sur elle ; « Toutes » : aucun masque ; sinon
+ * (« Toutes sauf connexions », valeur par défaut) : masque des entrées de routine.
  */
 export function queryFromForm(form: FormData): AuditQuery {
   const text = (name: string): string => formText(form, name);
@@ -140,7 +164,11 @@ export function queryFromForm(form: FormData): AuditQuery {
     from: range.from,
     to: range.to,
     actor: text('actor'),
-    ...(isAuditAction(action) ? { action } : {}),
+    ...(isAuditAction(action)
+      ? { action }
+      : action === ALL_ACTIONS
+        ? {}
+        : { hide: 'routine' as const }),
   };
 }
 
