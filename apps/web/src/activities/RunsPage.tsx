@@ -202,6 +202,8 @@ export function RunsView({
         : RUNS_MESSAGES.emptyAll;
     return <EmptyState>{message}</EmptyState>;
   }
+  const rows = completeRuns(state.items, state.limit);
+  const full = state.items.length >= state.limit;
   return (
     <>
       <div className="runs-list">
@@ -210,11 +212,11 @@ export function RunsView({
           // La phrase d'introduction dit déjà l'ordre : légende lue, pas affichée (#580).
           hideCaption
           columns={runColumns(names, boxPlans, admin)}
-          rows={completeRuns(state.items, state.limit)}
+          rows={rows}
           rowKey={(r) => r.id}
         />
       </div>
-      <p className="state-note">{RUNS_MESSAGES.footer(state.limit)}</p>
+      <p className="state-note">{RUNS_MESSAGES.footer(rows.length, full, state.limit)}</p>
     </>
   );
 }

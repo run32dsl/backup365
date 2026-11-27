@@ -53,7 +53,6 @@ describe('historique des exécutions', () => {
       'Réussie',
       '1 284',
       '3,2 Go',
-      'Seules les 20 dernières exécutions sont affichées.',
     ]) {
       expect(t).toContain(part);
     }
@@ -250,6 +249,23 @@ describe('historique des exécutions', () => {
     expect(completeRuns(items, 3).map((e) => e.planId)).toEqual(['p1']);
     expect(completeRuns(items, 20).map((e) => e.planId)).toEqual(['p1', 'p2']);
     expect(completeRuns(items.slice(1), 2)).toHaveLength(1);
+  });
+
+  it('counts the shown runs under a short list, and names the limit only once it is reached (#620)', () => {
+    const note = (items: ReturnType<typeof run>[], limit = 20) => {
+      const html = renderToStaticMarkup(<RunsView state={{ items, limit }} filter={all} />);
+      const m = /<p class="state-note">([^<]*)<\/p>/.exec(html);
+      return (m?.[1] ?? '').replace(/[\u00a0\u202f]/g, ' ');
+    };
+    const days = (n: number) =>
+      Array.from({ length: n }, (_, i) =>
+        run({ id: 100 + i, startedAt: `2026-11-${String(26 - i).padStart(2, '0')}T02:00:00.000Z` }),
+      );
+    expect(note(days(1))).toBe('1 exécution');
+    expect(note(days(5))).toBe('5 exécutions');
+    expect(note(days(8))).toBe('8 exécutions');
+    expect(note(days(19))).not.toContain('Seules les 20 dernières');
+    expect(note(days(20))).toBe('Seules les 20 dernières exécutions sont affichées.');
   });
 
   it('shows one run of five mailboxes as one line that says « 5 boîtes » (#571)', () => {
