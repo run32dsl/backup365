@@ -51,14 +51,14 @@ async function openRestorePanel(page, n) {
 
 /**
  * Restauration vers un autre compte (issue #546, administrateur) : ouvre la boîte du mail n° `n`,
- * choisit « Un autre compte » et lance la recherche `query` (Entrée).
+ * choisit « La boîte d’un autre compte » et lance la recherche `query` (Entrée).
  */
 async function openOtherAccount(page, n, query) {
   await openMailFor(page, n);
   await page.getByRole('button', { name: /^Restaurer /u }).click();
   // Même titre que chez l'opérateur, à chaque étape (issue #574).
   const dialog = page.getByRole('dialog', { name: 'Restaurer ce mail' });
-  await dialog.getByRole('radio', { name: 'Un autre compte' }).check();
+  await dialog.getByRole('radio', { name: 'La boîte d’un autre compte' }).check();
   await dialog.getByText('Étape 1 sur 3').waitFor();
   await dialog.getByLabel('Rechercher un compte (nom ou adresse)').fill(query);
   await dialog.getByLabel('Rechercher un compte (nom ou adresse)').press('Enter');
@@ -1587,7 +1587,7 @@ export const SCREENS = [
     },
   },
   {
-    // A1 de l'issue #546 : un administrateur choisit « Un autre compte » et cherche le compte.
+    // A1 de l'issue #546 : un administrateur choisit « La boîte d’un autre compte » et cherche le compte.
     name: 'restauration-autre-compte-destination',
     hash: DEMO_MAIL_HASH,
     role: 'admin',

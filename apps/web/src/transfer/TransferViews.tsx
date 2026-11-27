@@ -72,7 +72,7 @@ export function DestinationChoice({
   );
 }
 
-/** A1. Destination : le choix « compte d'origine / autre compte », la recherche, le compte visé. */
+/** A1. Destination : le choix « boîte d'origine / boîte d'un autre compte », la recherche, le compte visé. */
 export function DestinationView({
   recall,
   source,

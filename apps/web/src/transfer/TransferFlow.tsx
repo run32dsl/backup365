@@ -16,7 +16,7 @@ import {
 
 /**
  * Étapes A1 à A3 de la restauration d'un mail vers la boîte d'un autre compte (issue #546) :
- * destination, motif, confirmation. `choice` est le choix « compte d'origine / autre compte »,
+ * destination, motif, confirmation. `choice` est le choix « boîte d'origine / boîte d'un autre compte »,
  * affiché à l'étape « Destination ». `onStarted` reçoit la restauration lancée (A4 : suivi).
  */
 export function TransferFlow({

@@ -252,7 +252,7 @@ export function RestoreAction({
 
   const subject = mail.subject === '' ? '(sans objet)' : mail.subject;
   const label = `Restaurer ${subject}`;
-  // « Un autre compte » : administrateurs seulement ; un opérateur ne voit pas le choix (#546).
+  // « La boîte d'un autre compte » : administrateurs seulement ; un opérateur ne voit pas le choix (#546).
   const other = admin && mode === 'other';
   const destinationChoice = admin ? <DestinationChoice value={mode} onChange={setMode} /> : null;
   // Formulaire (destination, rappel d'audit, motif) : absent si le stockage est bloqué.

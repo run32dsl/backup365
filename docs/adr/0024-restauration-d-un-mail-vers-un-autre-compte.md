@@ -16,7 +16,7 @@ couvre qu'**un mail** ; OneDrive et l'export d'un dossier viendront dans des iss
   `targetMailbox` (identifiant d'une boîte du catalogue). Sans ce champ, rien ne change.
 - **Administrateurs seulement.** Un opérateur qui envoie `targetMailbox` reçoit 403
   `admin_required` (« Action réservée aux administrateurs. »), le refus est consigné
-  (`access.denied`), rien n'est lancé. Dans l'interface, il ne voit pas le choix « Un autre compte ».
+  (`access.denied`), rien n'est lancé. Dans l'interface, il ne voit pas le choix « La boîte d'un autre compte ».
 - **Destination vérifiée par le serveur** : différente de la source (400 `target_same`), présente
   dans le catalogue (400 `target_unknown`, 503 `catalog_unavailable` s'il ne répond pas). Les noms
   affichés viennent du catalogue, jamais du client. Le catalogue liste les boîtes sauvegardées :
@@ -31,8 +31,9 @@ couvre qu'**un mail** ; OneDrive et l'export d'un dossier viendront dans des iss
     Le motif saisi reste le dernier champ. Le journal affiche « Restauration vers un autre compte ·
     de {source} vers {destination} » ; l'élément (objet du mail) est dans la colonne Cible, lu dans
     l'index comme pour toute restauration, jamais écrit dans le journal.
-- **Interface** : la fenêtre « Restaurer » de la fiche propose, à un administrateur, « Le compte
-  d'origine » (fenêtre de l'ADR 0012, inchangée) ou « Un autre compte » : trois étapes
+- **Interface** : la fenêtre « Restaurer » de la fiche propose, à un administrateur, « La boîte
+  d'origine » (fenêtre de l'ADR 0012, inchangée) ou « La boîte d'un autre compte » (issue #626 :
+  le même terme que la fiche, dont la rubrique s'intitule alors « Restaurer ») : trois étapes
   (`Steps` : Destination, Motif, Confirmation), puis le résultat. Même boîte « Restaurer ce mail »
   pour les deux rôles (issue #574) : même liste libellée (« Mail », « Boîte d'origine », « Boîte
   de destination », « Dossier d'origine », « Restauré dans le dossier ») à chaque étape et au
