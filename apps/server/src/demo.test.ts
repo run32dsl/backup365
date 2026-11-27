@@ -192,6 +192,13 @@ describe('journal de démonstration', () => {
     expect(times).toEqual([...times].sort());
     expect(demoAuditEvents(Date.now()).some((e) => e.action === 'plan.run')).toBe(false);
   });
+
+  it('date ses entrées sur plusieurs jours, jamais deux à la même minute', () => {
+    const events = demoAuditEvents(Date.UTC(2026, 10, 27, 12), 'plan-uuid');
+    const minutes = events.map((e) => e.at.slice(0, 16));
+    expect(new Set(minutes).size).toBe(minutes.length);
+    expect(new Set(events.map((e) => e.at.slice(0, 10))).size).toBeGreaterThanOrEqual(4);
+  });
 });
 
 describe('jeu de démonstration', () => {

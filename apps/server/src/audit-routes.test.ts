@@ -73,6 +73,33 @@ describe('GET /api/audit', () => {
     expect((await app.inject({ method: 'GET', url: `/api/audit?${qs}` })).statusCode).toBe(400);
   });
 
+  it('hides logins and views of the journal on the server, counting and paginating what remains', async () => {
+    const { app, audit } = await seeded();
+    const session = { at: '2026-01-04T10:00:00.000Z', actor: 'alice', resource: 'session' };
+    await audit.record({ ...session, action: 'auth.login' });
+    await audit.record({ ...session, action: 'auth.logout' });
+    await audit.record({ ...session, action: 'auth.login_failed' });
+    await audit.record({ ...session, action: 'list.view', resource: 'audit', count: 3 });
+    const get = async (qs: string) =>
+      (await app.inject({ method: 'GET', url: `/api/audit?${qs}` })).json<
+        AuditBody & { hidden: number }
+      >();
+    const first = await get('hide=routine&limit=2');
+    expect(first).toMatchObject({ total: 4, hidden: 3, limit: 2 });
+    expect(first.items.map((i) => i.seq)).toEqual([6, 3]);
+    expect((await get('hide=routine&limit=2&offset=2')).items.map((i) => i.seq)).toEqual([2, 1]);
+    // Sans masque : tout, y compris la consultation que la requête précédente vient d'ajouter.
+    expect(await get('limit=1')).toMatchObject({ total: 9, hidden: 0 });
+    expect((await app.inject({ method: 'GET', url: '/api/audit?hide=all' })).statusCode).toBe(400);
+  });
+
+  it('records the routine mask of an audit view', async () => {
+    const { app, audit } = await seeded();
+    await app.inject({ method: 'GET', url: '/api/audit?hide=routine' });
+    const [view] = (await audit.list({ limit: 1, offset: 0 })).items;
+    expect(view).toMatchObject({ resource: 'audit', target: 'hide=routine' });
+  });
+
   it('adds the subject and mailbox of the mail an entry targets, without touching the chain', async () => {
     const audit = SqliteAuditLog.open(':memory:');
     const at = '2026-01-01T10:00:00.000Z';

@@ -14,6 +14,8 @@ interface AuditQuerystring {
   to?: string;
   actor?: string;
   action?: AuditAction;
+  /** `routine` : masque connexions, déconnexions et consultations du journal (vue par défaut de l'écran). */
+  hide?: 'routine';
   limit: number;
   offset: number;
 }
@@ -73,6 +75,7 @@ export function registerAuditRoutes(
             to: date,
             actor: { type: 'string', minLength: 1, maxLength: 256 },
             action: { type: 'string', enum: [...AUDIT_ACTIONS] },
+            hide: { type: 'string', enum: ['routine'] },
             limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
             offset: { type: 'integer', minimum: 0, maximum: 1_000_000, default: 0 },
           },
@@ -85,15 +88,23 @@ export function registerAuditRoutes(
       if ([req.query.from, req.query.to].some((d) => d !== undefined && isNaN(Date.parse(d)))) {
         return reply.code(400).send({ error: 'invalid_date' });
       }
-      const page = await audit.list(req.query);
+      const { hide, ...filter } = req.query;
+      const hideRoutine = hide === 'routine';
+      // Filtre appliqué en base : `total` et la pagination ne comptent que les entrées affichées.
+      const page = await audit.list({ ...filter, hideRoutine });
+      // Entrées masquées : total des mêmes filtres sans le masque, moins le total affiché.
+      const hidden = hideRoutine
+        ? (await audit.list({ ...filter, limit: 1, offset: 0 })).total - page.total
+        : 0;
       // La lecture du journal est elle-même journalisée (décision du 2026-11-12), avant la réponse.
-      // Cible : les filtres de période et d'action (valeurs validées par le schéma). Jamais
-      // l'acteur, texte libre saisi par l'utilisateur.
+      // Cible : les filtres de période, d'action et de masque (valeurs validées par le schéma).
+      // Jamais l'acteur, texte libre saisi par l'utilisateur.
       const { from, to, action } = req.query;
       const filters = [
         from && `from=${from}`,
         to && `to=${to}`,
         action && `action=${action}`,
+        hide && `hide=${hide}`,
       ].filter(Boolean);
       await audit.record(
         auditEvent(req, 'list.view', 'audit', {
@@ -111,6 +122,7 @@ export function registerAuditRoutes(
       }
       return {
         total: page.total,
+        hidden,
         limit: req.query.limit,
         offset: req.query.offset,
         items: (await Promise.all(page.items.map((e) => withMailName(e, index)))).map((e) =>

@@ -110,6 +110,20 @@ export function auditLogContract(name: string, create: () => Promise<AuditLogHar
       expect(seqs(await log.list({ ...all, actor: 'bob', action: 'list.view' }))).toEqual([]);
     });
 
+    it('hides routine entries on request and counts only what remains', async () => {
+      const { log } = await seeded();
+      await log.record(event({ action: 'auth.login', resource: 'session' }));
+      await log.record(event({ action: 'list.view', resource: 'audit', count: 5 }));
+      await log.record(event({ action: 'auth.login_failed', resource: 'session' }));
+      await log.record(event({ action: 'auth.logout', resource: 'session' }));
+      const page = await log.list({ ...all, hideRoutine: true, limit: 2 });
+      expect(page.total).toBe(5);
+      expect(seqs(page)).toEqual([7, 4]);
+      expect(seqs(await log.list({ ...all, hideRoutine: true, offset: 2 }))).toEqual([3, 2, 1]);
+      expect((await log.list(all)).total).toBe(8);
+      expect((await log.list({ ...all, hideRoutine: false })).total).toBe(8);
+    });
+
     it('treats filters as plain text', async () => {
       const { log } = await seeded();
       expect(await log.list({ ...all, actor: "x' OR '1'='1" })).toMatchObject({ total: 0 });

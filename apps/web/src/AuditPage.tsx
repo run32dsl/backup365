@@ -1,10 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { AUDIT_ACTIONS } from '@backup365/core';
 import {
-  AUDIT_PAGE_SIZE,
+  ALL_ACTIONS,
   DATE_HELP,
+  DEFAULT_AUDIT_QUERY,
   FILTER_NOT_APPLIED,
   hasDateError,
+  hiddenNotice,
   fetchAudit,
   queryFromForm,
   submitFilters,
@@ -100,9 +102,12 @@ export function AuditView({
   state,
   planNames = null,
   onPage,
+  onShowAll,
   filterRefused = false,
 }: {
   state: AuditState;
+  /** « Tout afficher » : relance la consultation sans masque. */
+  onShowAll?: () => void;
   /** Un filtre de date refusé n'a pas été appliqué : la liste affichée n'est pas filtrée. */
   filterRefused?: boolean;
   planNames?: ReadonlyMap<string, string> | null;
@@ -110,7 +115,26 @@ export function AuditView({
 }) {
   if (state === 'loading') return <p role="status">Chargement du journal…</p>;
   if (state === 'error') return <Alert tone="error">Journal d’audit indisponible</Alert>;
-  const notice = filterRefused && <Alert tone="info">{FILTER_NOT_APPLIED}</Alert>;
+  const masked = hiddenNotice(state.hidden);
+  const notice = (
+    <>
+      {filterRefused && <Alert tone="info">{FILTER_NOT_APPLIED}</Alert>}
+      {masked && (
+        <Alert
+          tone="info"
+          action={
+            onShowAll && (
+              <Button variant="secondary" onClick={onShowAll}>
+                Tout afficher
+              </Button>
+            )
+          }
+        >
+          {masked}
+        </Alert>
+      )}
+    </>
+  );
   if (state.items.length === 0)
     return (
       <>
@@ -143,7 +167,9 @@ export function AuditView({
 
 /** Écran de consultation du journal d'audit, avec filtres par date, acteur et action. */
 export function AuditPage() {
-  const [query, setQuery] = useState<AuditQuery>({ limit: AUDIT_PAGE_SIZE, offset: 0 });
+  const [query, setQuery] = useState<AuditQuery>(DEFAULT_AUDIT_QUERY);
+  // Contrôlé : « Tout afficher » place le sélecteur sur « Toutes ».
+  const [action, setAction] = useState('');
   const [state, setState] = useState<AuditState>('loading');
   useEffect(() => {
     let current = true;
@@ -181,7 +207,8 @@ export function AuditPage() {
       <ActivitiesNav current="audit" />
       <p>
         Journal d’audit : la consultation de ce journal est elle-même inscrite au journal d’audit.
-        Filtrez par action pour retrouver un export ou une restauration.
+        Par défaut, les connexions et les consultations du journal sont masquées : choisissez «
+        Toutes » dans « Action » pour les voir.
       </p>
       <form onSubmit={submit} className="filters">
         <FormField
@@ -203,8 +230,14 @@ export function AuditPage() {
         <FormField label="Acteur" type="text" name="actor" maxLength={256} />
         <div className="field">
           <label htmlFor="audit-action">Action</label>
-          <select id="audit-action" name="action" defaultValue="">
-            <option value="">Toutes</option>
+          <select
+            id="audit-action"
+            name="action"
+            value={action}
+            onChange={(e) => setAction(e.target.value)}
+          >
+            <option value="">Toutes sauf connexions</option>
+            <option value={ALL_ACTIONS}>Toutes</option>
             {AUDIT_ACTIONS.map((a) => (
               <option key={a} value={a}>
                 {ACTION_LABELS[a]}
@@ -219,6 +252,10 @@ export function AuditPage() {
         planNames={planNames}
         filterRefused={hasDateError(errors)}
         onPage={(offset) => setQuery({ ...query, offset })}
+        onShowAll={() => {
+          setAction(ALL_ACTIONS);
+          setQuery({ ...query, hide: undefined, offset: 0 });
+        }}
       />
     </main>
   );

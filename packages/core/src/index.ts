@@ -32,8 +32,10 @@ export { retentionExcess, type RetentionExcess } from './retention.js';
 export {
   AUDIT_ACTIONS,
   AUDIT_GENESIS_HASH,
+  AUDIT_ROUTINE_ACTIONS,
   auditHashInput,
   isAuditAction,
+  isRoutineAuditEntry,
   type AuditAction,
   type AuditEntry,
   type AuditEvent,

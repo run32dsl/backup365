@@ -860,12 +860,24 @@ export const SCREENS = [
     name: 'journal-audit',
     hash: '#/audit',
     role: 'admin',
+    // Vue par défaut, sans filtre : connexions et consultations du journal masquées, export visible.
     prepare: async (page) => {
       await page.getByRole('table').waitFor();
+      await page.getByText('Motif : Ticket INC-10001').first().waitFor();
     },
   },
   {
-    // Les connexions des captures repoussent les exports hors de la première page : filtre sur l'export.
+    // « Tout afficher » : connexions et consultations du journal comprises.
+    name: 'journal-audit-tout',
+    hash: '#/audit',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('table').waitFor();
+      await page.getByRole('button', { name: 'Tout afficher' }).click();
+      await page.getByRole('cell', { name: 'Connexion', exact: true }).first().waitFor();
+    },
+  },
+  {
     name: 'journal-audit-export',
     hash: '#/audit',
     role: 'admin',
