@@ -92,7 +92,9 @@ describe('account search', () => {
     expect(html).toContain('Rechercher un compte (nom ou adresse)');
     expect(html).toContain('Dominique Fictif · dominique@example.org');
     expect(html).toMatch(/disabled=""[^>]*aria-describedby/);
-    expect(html).toContain('compte d’origine');
+    // Le compte source est marqué du même terme que la fiche (#626).
+    expect(html).toContain('(<!-- -->boîte d’origine<!-- -->)');
+    expect(html).not.toMatch(/compte d.origine/u);
     expect(html).toContain('Choisissez un compte de destination.');
   });
 });
@@ -236,14 +238,16 @@ describe('server exchange', () => {
 });
 
 describe('rights', () => {
-  it('offers « Un autre compte » to administrators only', () => {
+  it('offers « La boîte d’un autre compte » to administrators only', () => {
     const text = source('RestoreAction.tsx');
     // Le choix n'est rendu que pour un administrateur, et le parcours n'est ouvert qu'à lui.
     expect(text).toContain('const destinationChoice = admin ? <DestinationChoice');
     expect(text).toContain("const other = admin && mode === 'other';");
     const html = renderToString(<DestinationChoice value="origin" onChange={noop} />);
-    expect(html).toContain('Le compte d’origine');
-    expect(html).toContain('Un autre compte');
+    // Même terme que la fiche du mail pour la destination d'origine (#626).
+    expect(html).toContain('La boîte d’origine');
+    expect(html).toContain('La boîte d’un autre compte');
+    expect(html).not.toMatch(/compte d.origine/u);
   });
 });
 

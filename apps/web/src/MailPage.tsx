@@ -224,10 +224,12 @@ export function RestoreSectionView({
   const admin = useAdmin();
   return (
     <section aria-labelledby="restore-title" className="mail-section">
-      <h3 id="restore-title">Restaurer dans la boîte d’origine</h3>
+      {/* Un administrateur choisit la destination dans la boîte « Restaurer ce mail » (#626). */}
+      <h3 id="restore-title">{admin ? 'Restaurer' : 'Restaurer dans la boîte d’origine'}</h3>
       <p>
-        Remet une copie du mail dans sa boîte d’origine, sans rien écraser.
-        {admin && ' Un administrateur peut aussi le restaurer vers la boîte d’un autre compte.'}
+        {admin
+          ? 'Remet une copie du mail dans la boîte d’origine ou dans celle d’un autre compte, sans rien écraser.'
+          : 'Remet une copie du mail dans sa boîte d’origine, sans rien écraser.'}
       </p>
       {configured ? (
         <RestoreAction mail={mail} configured onJob={onJob} />

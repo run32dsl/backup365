@@ -96,7 +96,7 @@ const SERVER_MESSAGES: Record<string, string> = {
   restore_in_progress: RESTORE_MESSAGES.alreadyRunning,
   audit_unavailable: RESTORE_MESSAGES.auditUnavailable,
   admin_required: 'Action réservée aux administrateurs.',
-  target_same: 'Choisissez un compte différent du compte d’origine.',
+  target_same: 'Choisissez un autre compte que celui de la boîte d’origine.',
   target_unknown: 'Ce compte n’a pas de boîte sauvegardée : choisissez-en un autre.',
 };
 

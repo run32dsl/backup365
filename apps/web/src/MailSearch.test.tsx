@@ -12,6 +12,7 @@ import {
 import { DATE_HELP, submitFilters } from './audit.js';
 import { SEARCH_HELP, SEARCH_START, SearchPage, SearchView, noResultText } from './SearchPage.js';
 import { AUDIT_REMINDER } from './RestoreJourney.js';
+import { AdminProvider } from './role.js';
 import {
   exportEml,
   fetchMail,
@@ -319,6 +320,28 @@ describe('mail helpers', () => {
     const on = renderToString(<RestoreSectionView mail={mail} configured last={null} />);
     expect(on).toContain('Restaurer Facture 1');
     expect(on).not.toContain('role="alert"');
+  });
+
+  it('titles the restore section by role, with one term for the original mailbox (#626)', () => {
+    const operator = renderToString(<RestoreSectionView mail={mail} configured last={null} />);
+    expect(operator).toContain('>Restaurer dans la boîte d’origine</h3>');
+    expect(operator).toContain(
+      'Remet une copie du mail dans sa boîte d’origine, sans rien écraser.',
+    );
+    expect(operator).not.toContain('autre compte');
+    expect(operator).not.toContain('administrateur');
+    const admin = renderToString(
+      <AdminProvider value={true}>
+        <RestoreSectionView mail={mail} configured last={null} />
+      </AdminProvider>,
+    );
+    expect(admin).toContain('<h3 id="restore-title">Restaurer</h3>');
+    expect(admin).toContain(
+      'Remet une copie du mail dans la boîte d’origine ou dans celle d’un autre compte, sans rien écraser.',
+    );
+    expect(admin).not.toContain('Un administrateur peut aussi');
+    expect(admin).not.toMatch(/compte d.origine/u);
+    expect(admin).toContain('Restaurer Facture 1');
   });
 
   it('routes the new screens', () => {
