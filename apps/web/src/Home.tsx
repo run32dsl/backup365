@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ConfigurationNotice, connectionLine, useConfiguration } from './ConfigurationBlock.js';
+import {
+  ConfigurationNotice,
+  INTERRUPTED_TITLE,
+  connectionLine,
+  connectionView,
+  interruptedSentence,
+  interruptedSince,
+  useConfiguration,
+} from './ConfigurationBlock.js';
 import { dateTimeOf, quoted, workloadLabel } from './format.js';
 import { HomeCoverage } from './HomeCoverage.js';
 import { useHomeData } from './HomeData.js';
@@ -127,17 +135,27 @@ export function BackupAction({
   state,
   admin,
   late = false,
+  onShowConnection,
 }: {
   state: Overview['state'];
   admin: boolean;
   /** Au moins une sauvegarde en retard : « Voir les sources », en contour sous l'action principale. */
   late?: boolean;
+  /** Connexion Microsoft 365 interrompue : l'action principale mène à la conduite à tenir. */
+  onShowConnection?: (() => void) | undefined;
 }) {
   const sources = late && (
     <Button variant="secondary" onClick={goToSources}>
       Voir les sources
     </Button>
   );
+  if (onShowConnection)
+    return (
+      <>
+        <Button onClick={onShowConnection}>Voir la conduite à tenir</Button>
+        {sources}
+      </>
+    );
   if (state === 'failed')
     return (
       <>
@@ -169,11 +187,17 @@ export function OverviewView({
   onRetry,
   now = Date.now(),
   connection = null,
+  interruptedSince = null,
+  onShowConnection,
 }: {
   state: OverviewState;
   admin: boolean;
   /** Ligne secondaire de la carte « Sauvegarde » (administrateur, connexion configurée). */
   connection?: string | null;
+  /** Connexion Microsoft 365 interrompue : dernière exécution connue, cause nommée en premier. */
+  interruptedSince?: string | null;
+  /** Mène au bandeau « Connexion Microsoft 365 interrompue ». */
+  onShowConnection?: () => void;
   onRetry: () => void;
   now?: number;
 }) {
@@ -207,12 +231,27 @@ export function OverviewView({
     <div className="overview">
       <Card id="overview-backup" title="Sauvegarde">
         <div role="status">
-          <StatusPill status={isLate && state.state === 'operational' ? 'late' : state.state} />
+          {interruptedSince !== null ? (
+            <StatusPill status="failed" label="Interrompue" />
+          ) : (
+            <StatusPill status={isLate && state.state === 'operational' ? 'late' : state.state} />
+          )}
         </div>
+        {/* La connexion bloque tout : elle passe avant les échecs et retards des plans (#604). */}
+        {interruptedSince !== null && (
+          <p>
+            <strong>{INTERRUPTED_TITLE}.</strong> {interruptedSentence(interruptedSince)}
+          </p>
+        )}
         {backupMessage(state) && <p>{backupMessage(state)}</p>}
         {isLate && <p>{lateMessage(state.lateBackups)}</p>}
         {connection && <p className="overview-connection">{connection}</p>}
-        <BackupAction state={state.state} admin={admin} late={isLate} />
+        <BackupAction
+          state={state.state}
+          admin={admin}
+          late={isLate}
+          onShowConnection={interruptedSince !== null ? onShowConnection : undefined}
+        />
       </Card>
       <Card id="overview-plans" title="Plans">
         {plans.total === 0 ? (
@@ -287,6 +326,14 @@ export function Home({ admin = false }: { admin?: boolean }) {
   const data = useHomeData(admin);
   const loadData = data.load;
   const retried = useRef(false);
+  // Une seule lecture de la connexion, celle de la page Plans : configuration et historique des plans.
+  const view = admin ? connectionView(config, data.plans) : 'connected';
+  const since = interruptedSince(view);
+  const noticeRef = useRef<HTMLDivElement>(null);
+  const showConnection = useCallback(() => {
+    noticeRef.current?.scrollIntoView({ block: 'start' });
+    noticeRef.current?.focus();
+  }, []);
   const load = useCallback(() => {
     void loadOverview(setState);
     loadData();
@@ -311,20 +358,23 @@ export function Home({ admin = false }: { admin?: boolean }) {
       <div role="status" className="sr-only">
         {retried.current ? announcementOf(state) : ''}
       </div>
-      {admin && <ConfigurationNotice config={config} />}
+      {admin && <ConfigurationNotice config={config} plans={data.plans} focusRef={noticeRef} />}
       <ReportFailureNotice enabled={admin} />
       <OverviewView
         state={state}
         admin={admin}
         onRetry={retry}
         connection={admin ? connectionLine(config) : null}
+        interruptedSince={since}
+        onShowConnection={showConnection}
       />
       <HomeCoverage
         // Connexion encore inconnue : rien, plutôt qu'une échéance peut-être fausse.
-        overview={admin && config === 'loading' ? 'loading' : state}
+        overview={admin && view === 'loading' ? 'loading' : state}
         data={data}
         admin={admin}
         connected={typeof config !== 'object' || config.microsoft.connected}
+        interrupted={since !== null}
         onLaunched={refresh}
         onRetryEvents={data.loadEvents}
       />

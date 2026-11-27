@@ -21,6 +21,13 @@ import {
   type SourcesReport,
 } from './plans.js';
 import { type Problem } from './apiError.js';
+import {
+  ConnectionInterrupted,
+  connectionView,
+  interruptedSince,
+  lastKnownRun,
+  useConfiguration,
+} from './ConfigurationBlock.js';
 import { DeleteDialog } from './plans/DeleteDialog.js';
 import { PlansListView, type PlansState } from './plans/PlansListView.js';
 import { RetentionSimulation } from './plans/RetentionSimulation.js';
@@ -71,6 +78,10 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   const [flash, setFlash] = useState<Flash>();
   const [runTarget, setRunTarget] = useState<PlanItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlanItem | null>(null);
+
+  // Même lecture de la connexion que l'accueil : configuration et historique des plans (#604).
+  const config = useConfiguration(admin);
+  const since = interruptedSince(connectionView(admin ? config : 'loading', state));
 
   const named = useMemo(() => [...boxes.mailboxes, ...sites], [boxes.mailboxes, sites]);
   const load = useCallback(() => {
@@ -208,6 +219,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         mailboxes={named}
         sources={sources}
         failedOnly={route.page === 'list' && route.failedOnly === true}
+        runBlocked={since !== null}
         onRetry={reloadList}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
@@ -234,6 +246,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     <main tabIndex={-1}>
       <h1>{title}</h1>
       {!wizard && <SourcesNav current="plans" admin={admin} />}
+      {!wizard && since !== null && <ConnectionInterrupted since={since} />}
       {!wizard && (
         <div className="view-intro">
           <PlansIntro shown={failedView?.shown} total={failedView?.total} />
@@ -261,7 +274,13 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
       {!wizard && admin && Array.isArray(state) && <RetentionSimulation plans={state} />}
       {!wizard && (
         <>
-          <RunDialog plan={runTarget} mailboxes={named} onClose={closeRun} onRun={onRun} />
+          <RunDialog
+            plan={runTarget}
+            mailboxes={named}
+            since={Array.isArray(state) ? lastKnownRun(state) : null}
+            onClose={closeRun}
+            onRun={onRun}
+          />
           <DeleteDialog
             plan={deleteTarget}
             mailboxes={named}

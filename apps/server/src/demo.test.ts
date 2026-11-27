@@ -102,9 +102,13 @@ describe('mode démo', () => {
       items: { id: string; name: string }[];
     }>();
     const filesId = planList.items.find((p) => p.name === 'OneDrive et SharePoint Services')?.id;
-    const runs = (await app.inject({ url: `/api/runs?planId=${filesId ?? ''}`, headers })).json<{
+    const allRuns = (await app.inject({ url: `/api/runs?planId=${filesId ?? ''}`, headers })).json<{
       items: { itemId: string; startedAt: string; finishedAt: string }[];
     }>().items;
+    // Le planificateur peut relancer le plan pendant le test, à l'horloge réelle : seule
+    // l'exécution de démonstration, la plus ancienne, est vérifiée ici.
+    const seededAt = Math.min(...allRuns.map((r) => Date.parse(r.startedAt)));
+    const runs = allRuns.filter((r) => Date.parse(r.startedAt) === seededAt);
     expect(runs.map((r) => r.itemId).sort()).toEqual(
       [...DEMO_MAILBOXES.map((m) => m.id), ...DEMO_SITES.map((s) => s.id)].sort(),
     );

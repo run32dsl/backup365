@@ -10,6 +10,7 @@ import {
   type SourcesReport,
 } from '../plans.js';
 import { runsHash } from '../activities/runs.js';
+import { RUN_BLOCKED_TEXT } from '../ConfigurationBlock.js';
 import { Button, StatusPill, type Column } from '../ui/index.js';
 
 export function planColumns(
@@ -20,6 +21,8 @@ export function planColumns(
   actions: { onRun: (p: PlanItem) => void; onDelete: (p: PlanItem) => void },
   /** Vue « plans en échec » : le bandeau du plan porte « Lancer maintenant », pas la ligne. */
   runInBanner = false,
+  /** Connexion Microsoft 365 interrompue : une phrase à la place d'un bouton voué à l'échec. */
+  runBlocked = false,
 ): Column<PlanItem>[] {
   const columns: Column<PlanItem>[] = [
     {
@@ -72,7 +75,8 @@ export function planColumns(
       className: 'card-action',
       cell: (p) => (
         <div className={`button-row row-actions${runInBanner ? ' row-actions-no-run' : ''}`}>
-          {!runInBanner && (
+          {!runInBanner && runBlocked && <small className="state-note">{RUN_BLOCKED_TEXT}</small>}
+          {!runInBanner && !runBlocked && (
             <Button
               variant="secondary"
               aria-label={`Lancer ${p.name} maintenant`}
@@ -85,7 +89,7 @@ export function planColumns(
               Lancer maintenant
             </Button>
           )}
-          {!runInBanner && (p.running || p.queued) && (
+          {!runInBanner && !runBlocked && (p.running || p.queued) && (
             <small className="state-note" id={`run-hint-${p.id}`}>
               {p.running ? MESSAGES.runBusy : MESSAGES.runAlreadyQueued}
             </small>

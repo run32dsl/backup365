@@ -98,7 +98,9 @@ describe('identifiant de requête des échecs', () => {
         onClose={() => undefined}
       />,
     );
-    expect(html).toContain('alert-warning');
+    // Lancement impossible : une erreur, pas un avertissement (#604).
+    expect(html).toContain('alert-error');
+    expect(html).toContain('role="alert"');
     expect(html).toContain('Sauvegarde indisponible');
     expect(html).toMatch(/Plan<[\s\S]*Messagerie Direction/);
     expect(html).toMatch(/Motif<[\s\S]*Contrôle de conformité/);
