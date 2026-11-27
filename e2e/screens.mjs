@@ -660,7 +660,8 @@ export const SCREENS = [
     },
   },
   {
-    // Stockage bloqué (#612) : erreur sous le `h1`, carte « Interrompue », ni échéance ni lancement.
+    // Stockage bloqué (#612, #616) : erreur sous le `h1`, dite une fois ; carte « Interrompue »
+    // menant au stockage ; ni échéance ni lancement.
     name: 'accueil-stockage-bloque',
     hash: '#/',
     role: 'admin',
@@ -669,6 +670,21 @@ export const SCREENS = [
       await page.reload();
       await page.getByRole('alert').getByText(STORAGE_BLOCKED).waitFor();
       await page.getByText('Aucune sauvegarde ne partira tant que le stockage').waitFor();
+      await page.getByRole('button', { name: 'Voir le stockage' }).waitFor();
+    },
+  },
+  {
+    // « Voir le stockage » (#616) : État des sources, la section « Stockage » à l'écran et focalisée.
+    name: 'accueil-voir-le-stockage',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      await blockStorage(page);
+      await page.reload();
+      await page.getByRole('button', { name: 'Voir le stockage' }).click();
+      const title = page.getByRole('heading', { name: 'Stockage', exact: true });
+      await title.waitFor();
+      await page.waitForFunction(() => document.activeElement?.id === 'storage-title');
     },
   },
   {

@@ -9,7 +9,8 @@ import { dateTimeOf, quoted, workloadLabel } from './format.js';
 import { HomeCoverage, homeReading } from './HomeCoverage.js';
 import { useHomeData } from './HomeData.js';
 import { ReportFailureNotice } from './reports/ReportFailureNotice.js';
-import { HomeAlerts, STORAGE_BLOCKED_TITLE } from './StorageBlocked.js';
+import { HomeAlerts } from './StorageBlocked.js';
+import { goToStorage } from './status/StorageCheck.js';
 import { fetchOverview, type Overview } from './overview.js';
 import {
   FAILED_PLANS_HASH,
@@ -133,15 +134,20 @@ export function BackupAction({
   state,
   admin,
   late = false,
+  storageBlocked = false,
   onShowConnection,
 }: {
   state: Overview['state'];
   admin: boolean;
   /** Au moins une sauvegarde en retard : « Voir les sources », en contour sous l'action principale. */
   late?: boolean;
+  /** Stockage bloqué : « Voir le stockage », seule action (#616). */
+  storageBlocked?: boolean;
   /** Connexion Microsoft 365 interrompue : l'action principale mène à la conduite à tenir. */
   onShowConnection?: (() => void) | undefined;
 }) {
+  // Ouvre déjà État des sources : pas de « Voir les sources » en plus (#616).
+  if (storageBlocked) return <Button onClick={() => goToStorage()}>Voir le stockage</Button>;
   const sources = late && (
     <Button variant="secondary" onClick={goToSources}>
       Voir les sources
@@ -197,7 +203,7 @@ export function OverviewView({
   interruptedSince?: string | null;
   /** Stockage bloqué : plus aucune sauvegarde ne peut aboutir, comme sans connexion (#612). */
   storageBlocked?: boolean;
-  /** Mène au bandeau d'erreur : stockage bloqué ou connexion Microsoft 365 interrompue. */
+  /** Mène au bandeau d'erreur de la connexion Microsoft 365 interrompue. */
   onShowConnection?: () => void;
   onRetry: () => void;
   now?: number;
@@ -228,23 +234,17 @@ export function OverviewView({
   const isLate = state.lateBackups.length > 0;
   const last = state.lastBackupAt;
   const lastDate = last === null ? '' : dateTimeOf(last);
-  const halted = storageBlocked || interruptedSince !== null;
   return (
     <div className="overview">
       <Card id="overview-backup" title="Sauvegarde">
         <div role="status">
-          {halted ? (
+          {storageBlocked || interruptedSince !== null ? (
             <StatusPill status="failed" label="Interrompue" />
           ) : (
             <StatusPill status={isLate && state.state === 'operational' ? 'late' : state.state} />
           )}
         </div>
-        {/* Stockage et connexion bloquent tout : ils passent avant échecs et retards (#604, #612). */}
-        {storageBlocked && (
-          <p>
-            <strong>{STORAGE_BLOCKED_TITLE}.</strong>
-          </p>
-        )}
+        {/* Connexion avant échecs et retards (#604) ; le stockage, dit sous le `h1` (#616). */}
         {interruptedSince !== null && (
           <p>
             <strong>{INTERRUPTED_TITLE}.</strong> {interruptedSentence(interruptedSince)}
@@ -257,7 +257,8 @@ export function OverviewView({
           state={state.state}
           admin={admin}
           late={isLate}
-          onShowConnection={halted ? onShowConnection : undefined}
+          storageBlocked={storageBlocked}
+          onShowConnection={interruptedSince !== null ? onShowConnection : undefined}
         />
       </Card>
       <Card id="overview-plans" title="Plans">

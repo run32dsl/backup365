@@ -47,17 +47,14 @@ export const STORAGE_NEXT_TEXT =
 export function StorageBlocked({
   runSuspended = false,
   restoreSuspended = false,
-  focusRef,
 }: {
   /** Page Plans : ajoute que le lancement manuel est suspendu (les lignes n'en disent rien). */
   runSuspended?: boolean;
   /** Parcours de restauration : ajoute que la restauration est suspendue (#614). */
   restoreSuspended?: boolean;
-  /** Rend le bandeau focalisable : cible du bouton de la carte « Sauvegarde ». */
-  focusRef?: Ref<HTMLDivElement>;
 }) {
   return (
-    <Alert tone="error" title={STORAGE_BLOCKED_TITLE} {...(focusRef ? { focusRef } : {})}>
+    <Alert tone="error" title={STORAGE_BLOCKED_TITLE}>
       {STORAGE_BLOCKED_ACTION}
       {runSuspended && ` ${STORAGE_RUN_SUSPENDED_TEXT}`}
       {restoreSuspended && ` ${STORAGE_RESTORE_SUSPENDED_TEXT}`}
@@ -109,8 +106,8 @@ export function RunHaltedAlerts({ blocked, since }: { blocked: boolean; since: s
 
 /**
  * Bandeaux de l'administrateur sous le `h1` de l'Accueil, le plus grave d'abord : un stockage
- * bloqué arrête tout, connexion rétablie ou non. `focusRef` va au premier, cible de « Voir la
- * conduite à tenir ».
+ * bloqué arrête tout, connexion rétablie ou non. `focusRef` va au bandeau de la connexion, cible
+ * de « Voir la conduite à tenir » ; celui du stockage n'est la cible d'aucun bouton (#616).
  */
 export function HomeAlerts({
   blocked,
@@ -125,15 +122,14 @@ export function HomeAlerts({
   listed: readonly RunEvent[];
   focusRef?: Ref<HTMLDivElement>;
 }) {
-  const ref = focusRef ? { focusRef } : {};
   return (
     <>
-      {blocked && <StorageBlocked {...ref} />}
+      {blocked && <StorageBlocked />}
       <ConfigurationNotice
         config={config}
         plans={plans}
         listed={listed}
-        {...(blocked ? {} : ref)}
+        {...(focusRef ? { focusRef } : {})}
       />
     </>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NoBackupError, fetchStatus } from './status.js';
 import { StatusView, type StatusState } from './StatusView.js';
+import { forgetStorageRequest } from './status/StorageCheck.js';
 import { SourcesNav } from './ui/index.js';
 
 /** Charge l'état : « aucune sauvegarde » devient `empty`, toute autre erreur `error`. */
@@ -17,6 +18,11 @@ export function StatusPage() {
   useEffect(() => {
     void loadStatus().then(setStatus);
   }, []);
+  // Après l'effet de la section « Stockage » (enfant) : une demande non servie (erreur, aucune
+  // sauvegarde, pas de section) ne focalise pas la section à une visite ultérieure (#616).
+  useEffect(() => {
+    if (status !== 'loading') forgetStorageRequest();
+  }, [status]);
   return (
     <main tabIndex={-1}>
       <h1>État des sources</h1>

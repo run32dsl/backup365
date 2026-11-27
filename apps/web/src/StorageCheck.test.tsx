@@ -34,23 +34,32 @@ describe('Sources page: storage section in product words (issues #567, #576)', (
 
   it('shows a compliant storage with an icon + text pill, without a warning', () => {
     const html = view({ conditionalWrites: 'supported' });
-    expect(html).toContain('<h2 id="storage-title">Stockage</h2>');
+    expect(html).toContain('<h2 id="storage-title" tabindex="-1">Stockage</h2>');
     expect(html).toMatch(/<span aria-hidden="true">✔<\/span> À jour/u);
     expect(html).toContain(CONDITIONAL_WRITES.supported);
     expect(html).not.toContain('alert-warning');
   });
 
-  it('titles the error after the consequence, says what to do and who to tell', () => {
+  it('explains the blocked storage in an untitled error, the header banner saying the rest (#616)', () => {
     const html = storageText({ conditionalWrites: 'ignored' });
     // SDK 7.3.0 (issue #609) : Atlas refuse d'écrire sur ce stockage, plus de conseil d'attendre.
-    expect(html).toContain('Sauvegardes et restaurations bloquées sur ce stockage');
+    expect(html).toContain(CONDITIONAL_WRITES.ignored);
     expect(html).toContain('aucune sauvegarde ni restauration n’y est faite');
     expect(html).not.toContain('Ne restaurez pas une source pendant sa sauvegarde');
-    expect(html).toContain('Prévenez l’exploitant du serveur');
+    expect(html).not.toContain(CONDITIONAL_WRITES.ignoredTitle);
+    expect(html).not.toContain('Prévenez l’exploitant du serveur');
     const page = view({ conditionalWrites: 'ignored' });
-    const section = page.slice(page.indexOf('<h2 id="storage-title">'));
+    const section = page.slice(page.indexOf('<h2 id="storage-title"'));
     expect(section).toContain('alert-error');
+    expect(section).not.toContain('alert-title');
     expect(section).not.toContain('alert-warning');
+  });
+
+  it('says the title and the course of action once on the page (#616)', () => {
+    const page = view({ conditionalWrites: 'ignored' });
+    expect(page.split(CONDITIONAL_WRITES.ignoredTitle)).toHaveLength(2);
+    expect(page.split(CONDITIONAL_WRITES.action)).toHaveLength(2);
+    expect(page.split(CONDITIONAL_WRITES.ignored)).toHaveLength(2);
   });
 
   it('puts a blocked storage first, in red, even before failed plans (issue #612)', () => {
