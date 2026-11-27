@@ -1252,9 +1252,12 @@ export const SCREENS = [
     },
   },
   {
+    // Seuil des cartes (#638) : à 900 px encore des cartes, à 901 px le tableau le plus étroit ;
+    // aucun libellé de bouton ne s'y replie.
     name: 'plans-liste',
     hash: '#/plans',
     role: 'admin',
+    extraWidths: [900, 901],
     prepare: async (page) => {
       await page.getByRole('table').waitFor();
     },

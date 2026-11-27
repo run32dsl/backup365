@@ -538,6 +538,11 @@ describe('PlansListView', () => {
     expect(row).toMatch(/aria-label="Lancer [^>]*btn btn-secondary/);
     expect(row).toMatch(/<a class="btn btn-secondary action-half"[^>]*aria-label="Modifier /);
     expect(row).toMatch(/aria-label="Supprimer [^>]*btn btn-danger action-half/);
+    // Deux rangées (#638) : « Lancer maintenant » seul, puis les deux .action-half côte à côte.
+    const labels = [...row.matchAll(/>(Lancer maintenant|Modifier|Supprimer)</g)].map((m) => m[1]);
+    expect(labels).toEqual(['Lancer maintenant', 'Modifier', 'Supprimer']);
+    expect(row.match(/action-half/g)).toHaveLength(2);
+    expect(row).not.toMatch(/action-half[^>]*aria-label="Lancer /);
   });
 
   it('shows a queued plan and the plan it waits for', () => {

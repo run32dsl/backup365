@@ -1598,16 +1598,21 @@ a.btn-secondary {
   color: var(--accent);
 }
 /* Actions d'une ligne (`.button-row.row-actions`) : sur mobile, la règle des cartes les met en
-   pleine largeur, la raison des boutons grisés en tête de carte. Au bureau, les boutons sont
-   empilés en pleine largeur d'une colonne étroite (celle de « Lancer maintenant ») : la colonne
-   « Actions » ne dicte plus la largeur du tableau (issue #618). La raison, placée après le bouton
-   dans le DOM, s'affiche juste sous lui sans élargir la colonne. */
+   pleine largeur, la raison des boutons grisés en tête de carte. Au bureau, même disposition que
+   la carte (issue #638) : « Lancer maintenant » seul sur une première rangée, puis « Modifier » et
+   « Supprimer » (.action-half) côte à côte, de largeur égale. La colonne a une largeur fixe de
+   15 rem : elle ne dicte pas la largeur du tableau et « État » ne rétrécit pas (issues #606,
+   #618). La raison, placée après le bouton dans le DOM, s'affiche juste sous lui. */
 @media (min-width: 56.26rem) {
   .data-table .row-actions {
     display: grid;
-    grid-template-columns: max-content;
+    grid-template-columns: 1fr 1fr;
     gap: var(--space-1);
     margin-bottom: 0;
+    width: 15rem;
+  }
+  .data-table .row-actions > :not(.action-half) {
+    grid-column: 1 / -1;
   }
   .data-table .row-actions .btn {
     padding-inline: var(--space-2);
