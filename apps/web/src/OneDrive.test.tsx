@@ -440,7 +440,6 @@ describe('OneDrive choose step without selection', () => {
     expect(help).not.toBeNull();
     const button = /<button[^>]*>Continuer<\/button>/.exec(out)?.[0] ?? '';
     expect(button).toContain(`aria-describedby="${help?.[1] ?? ''}"`);
-    expect(button).toContain('is-inactive');
     expect(button).toContain('aria-disabled="true"');
   });
 

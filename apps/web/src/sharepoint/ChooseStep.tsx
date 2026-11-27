@@ -139,7 +139,6 @@ export function ChooseStep({
       <WizardActions>
         <Button
           aria-disabled={blocked || undefined}
-          className={blocked ? 'is-inactive' : undefined}
           aria-describedby={!configured ? notConfiguredId : !ok ? hintId : undefined}
           onClick={() => {
             if (!blocked && point) {

@@ -136,12 +136,7 @@ export function ConfirmStep({
           </Button>
         }
       >
-        <Button
-          type="submit"
-          busy={sending}
-          aria-disabled={blocked || undefined}
-          className={blocked ? 'is-inactive' : undefined}
-        >
+        <Button type="submit" busy={sending} aria-disabled={blocked || undefined}>
           {B.confirm}
         </Button>
       </WizardActions>

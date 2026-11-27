@@ -49,6 +49,36 @@ describe('Button', () => {
     );
     expect(rule?.[1]).toMatch(/background:\s*transparent/);
   });
+
+  it('greys disabled and aria-disabled buttons with one single rule, busy excluded', () => {
+    const css = readFileSync(new URL('../charte.css', import.meta.url), 'utf8');
+    const selectors = [...css.matchAll(/([^{}]+)\{[^}]*\}/g)]
+      .map((m) => m[1]?.replace(/\/\*[\s\S]*?\*\//g, '').trim() ?? '')
+      .filter((s) => /button:disabled|\.btn:disabled|\.btn\[aria-disabled/.test(s));
+    expect(selectors).toEqual([
+      "button:disabled,\n.btn:disabled,\n.btn[aria-disabled='true']:not([aria-busy='true'])",
+    ]);
+    const body = /\.btn\[aria-disabled='true'\]:not\(\[aria-busy='true'\]\)\s*\{([^}]*)\}/.exec(
+      css,
+    );
+    expect(body?.[1]).toMatch(/color:\s*var\(--muted\)/);
+    expect(body?.[1]).toMatch(/border-color:\s*var\(--border\)/);
+    expect(body?.[1]).toMatch(/opacity:\s*0\.6/);
+    expect(body?.[1]).toMatch(/cursor:\s*not-allowed/);
+    expect(css).not.toContain('is-inactive');
+    expect(renderToStaticMarkup(<Button disabled>Désactivé</Button>)).toContain(
+      'class="btn btn-primary"',
+    );
+    const focusable = renderToStaticMarkup(
+      <Button aria-disabled aria-describedby="why">
+        Modifier le rôle
+      </Button>,
+    );
+    expect(focusable).toContain('class="btn btn-primary"');
+    expect(focusable).toContain('aria-disabled="true"');
+    expect(focusable).toContain('aria-describedby="why"');
+    expect(focusable).not.toMatch(/\sdisabled(=|>|\s)/);
+  });
 });
 
 describe('guardClick', () => {
