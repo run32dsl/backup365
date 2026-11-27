@@ -82,7 +82,6 @@ const interruptedHome = () =>
         admin
         onRetry={noop}
         interruptedSince={lastKnownRun(plans)}
-        onShowConnection={noop}
       />
       <HomeCoverage
         overview={failedOverview}
@@ -140,24 +139,33 @@ describe('Home, connection interrupted', () => {
     expect(html).toContain('n’est pas rétablie');
   });
 
-  it('names the connection first in the Backup card, and its main button is not « Voir l’erreur »', () => {
+  it('says the connection once, in the Alert under the h1, never again in the Backup card (#622)', () => {
+    const html = interruptedHome();
+    const card = html.indexOf('overview-backup');
+    for (const said of [
+      'Connexion Microsoft 365 interrompue',
+      'Aucune sauvegarde ne part depuis',
+    ]) {
+      expect(html.split(said)).toHaveLength(2);
+      expect(html.indexOf(said)).toBeLessThan(card);
+    }
+  });
+
+  it('goes from the « Interrompue » pill straight to the failure, with « Voir les sources » as its only button (#622)', () => {
     const html = renderToStaticMarkup(
       <OverviewView
         state={failedOverview}
         admin
         onRetry={noop}
         interruptedSince={lastKnownRun(plans)}
-        onShowConnection={noop}
       />,
     );
     const card = html.slice(0, html.indexOf('overview-plans'));
-    expect(card).toContain('Interrompue');
-    expect(card.indexOf('Connexion Microsoft 365 interrompue')).toBeGreaterThan(-1);
-    expect(card.indexOf('Connexion Microsoft 365 interrompue')).toBeLessThan(
-      card.indexOf('Échec de'),
-    );
-    expect(card).toContain('Voir la conduite à tenir');
+    expect(card).toMatch(/Interrompue<\/span><\/div><p>Échec de/u);
+    expect(card).not.toContain('Voir la conduite à tenir');
     expect(card).not.toContain('Voir l’erreur');
+    expect(card.match(/<button/gu)).toHaveLength(1);
+    expect(card).toMatch(/<button[^>]*class="btn btn-primary"[^>]*>Voir les sources<\/button>/u);
   });
 
   it('keeps « Voir l’erreur » when the connection is fine', () => {

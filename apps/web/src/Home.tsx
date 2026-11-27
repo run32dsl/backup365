@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import {
-  INTERRUPTED_TITLE,
-  connectionLine,
-  interruptedSentence,
-  useConfiguration,
-} from './ConfigurationBlock.js';
+import { connectionLine, useConfiguration } from './ConfigurationBlock.js';
 import { dateTimeOf, quoted, workloadLabel } from './format.js';
 import { HomeCoverage, homeReading } from './HomeCoverage.js';
 import { useHomeData } from './HomeData.js';
@@ -135,7 +130,7 @@ export function BackupAction({
   admin,
   late = false,
   storageBlocked = false,
-  onShowConnection,
+  interrupted = false,
 }: {
   state: Overview['state'];
   admin: boolean;
@@ -143,23 +138,18 @@ export function BackupAction({
   late?: boolean;
   /** Stockage bloqué : « Voir le stockage », seule action (#616). */
   storageBlocked?: boolean;
-  /** Connexion Microsoft 365 interrompue : l'action principale mène à la conduite à tenir. */
-  onShowConnection?: (() => void) | undefined;
+  /** Connexion Microsoft 365 interrompue : « Voir les sources », seule action (#622). */
+  interrupted?: boolean;
 }) {
   // Ouvre déjà État des sources : pas de « Voir les sources » en plus (#616).
   if (storageBlocked) return <Button onClick={() => goToStorage()}>Voir le stockage</Button>;
+  // La conduite à tenir est dans le bandeau sous le `h1` : aucun bouton n'y renvoie (#622).
+  if (interrupted) return <Button onClick={goToSources}>Voir les sources</Button>;
   const sources = late && (
     <Button variant="secondary" onClick={goToSources}>
       Voir les sources
     </Button>
   );
-  if (onShowConnection)
-    return (
-      <>
-        <Button onClick={onShowConnection}>Voir la conduite à tenir</Button>
-        {sources}
-      </>
-    );
   if (state === 'failed')
     return (
       <>
@@ -193,18 +183,15 @@ export function OverviewView({
   connection = null,
   interruptedSince = null,
   storageBlocked = false,
-  onShowConnection,
 }: {
   state: OverviewState;
   admin: boolean;
   /** Ligne secondaire de la carte « Sauvegarde » (administrateur, connexion configurée). */
   connection?: string | null;
-  /** Connexion Microsoft 365 interrompue : dernière exécution connue, cause nommée en premier. */
+  /** Connexion Microsoft 365 interrompue : pastille « Interrompue », dite sous le `h1` (#622). */
   interruptedSince?: string | null;
   /** Stockage bloqué : plus aucune sauvegarde ne peut aboutir, comme sans connexion (#612). */
   storageBlocked?: boolean;
-  /** Mène au bandeau d'erreur de la connexion Microsoft 365 interrompue. */
-  onShowConnection?: () => void;
   onRetry: () => void;
   now?: number;
 }) {
@@ -244,12 +231,7 @@ export function OverviewView({
             <StatusPill status={isLate && state.state === 'operational' ? 'late' : state.state} />
           )}
         </div>
-        {/* Connexion avant échecs et retards (#604) ; le stockage, dit sous le `h1` (#616). */}
-        {interruptedSince !== null && (
-          <p>
-            <strong>{INTERRUPTED_TITLE}.</strong> {interruptedSentence(interruptedSince)}
-          </p>
-        )}
+        {/* Stockage et connexion sont dits sous le `h1` : ici, échecs et retards (#616, #622). */}
         {backupMessage(state) && <p>{backupMessage(state)}</p>}
         {isLate && <p>{lateMessage(state.lateBackups)}</p>}
         {connection && <p className="overview-connection">{connection}</p>}
@@ -258,7 +240,7 @@ export function OverviewView({
           admin={admin}
           late={isLate}
           storageBlocked={storageBlocked}
-          onShowConnection={interruptedSince !== null ? onShowConnection : undefined}
+          interrupted={interruptedSince !== null}
         />
       </Card>
       <Card id="overview-plans" title="Plans">
@@ -337,11 +319,6 @@ export function Home({ admin = false }: { admin?: boolean }) {
   // Connexion et dernière sauvegarde lues sur les lignes de « Derniers événements » (#604, #608).
   const { listed, view, since, overview } = homeReading(admin, state, config, data);
   const blocked = admin && data.storageBlocked === true;
-  const noticeRef = useRef<HTMLDivElement>(null);
-  const showConnection = useCallback(() => {
-    noticeRef.current?.scrollIntoView({ block: 'start' });
-    noticeRef.current?.focus();
-  }, []);
   const load = useCallback(() => {
     void loadOverview(setState);
     loadData();
@@ -366,15 +343,7 @@ export function Home({ admin = false }: { admin?: boolean }) {
       <div role="status" className="sr-only">
         {retried.current ? announcementOf(state) : ''}
       </div>
-      {admin && (
-        <HomeAlerts
-          blocked={blocked}
-          config={config}
-          plans={data.plans}
-          listed={listed}
-          focusRef={noticeRef}
-        />
-      )}
+      {admin && <HomeAlerts blocked={blocked} config={config} plans={data.plans} listed={listed} />}
       <ReportFailureNotice enabled={admin} />
       <OverviewView
         state={overview}
@@ -383,7 +352,6 @@ export function Home({ admin = false }: { admin?: boolean }) {
         connection={admin ? connectionLine(config) : null}
         interruptedSince={since}
         storageBlocked={blocked}
-        onShowConnection={showConnection}
       />
       <HomeCoverage
         // Connexion encore inconnue : rien, plutôt qu'une échéance peut-être fausse.
