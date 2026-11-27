@@ -7,12 +7,9 @@ const EXISTING = 'Messagerie Direction';
 const TAKEN = 'Ce nom est déjà utilisé. Choisissez-en un autre.';
 const JUSTIFICATION = 'Justification de cette durée (obligatoire)';
 
+// Le défilement vers le champ en erreur est progressif : l'assertion réessaie jusqu'à ce qu'il soit entièrement visible.
 async function inViewport(page: Page, selector: string) {
-  const box = await page.locator(selector).first().boundingBox();
-  const height = page.viewportSize()!.height;
-  expect(box).not.toBeNull();
-  expect(box!.y).toBeGreaterThanOrEqual(0);
-  expect(box!.y + box!.height).toBeLessThanOrEqual(height);
+  await expect(page.locator(selector).first()).toBeInViewport({ ratio: 1 });
 }
 
 for (const width of WIDTHS) {
