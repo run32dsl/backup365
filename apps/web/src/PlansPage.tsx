@@ -246,7 +246,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     <main tabIndex={-1}>
       <h1>{title}</h1>
       {!wizard && <SourcesNav current="plans" admin={admin} />}
-      {!wizard && since !== null && <ConnectionInterrupted since={since} />}
+      {!wizard && since !== null && <ConnectionInterrupted since={since} runSuspended />}
       {!wizard && (
         <div className="view-intro">
           <PlansIntro shown={failedView?.shown} total={failedView?.total} />

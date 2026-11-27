@@ -8,7 +8,6 @@ import {
   type PlanItem,
   type SourcesReport,
 } from '../plans.js';
-import { RUN_BLOCKED_TEXT } from '../ConfigurationBlock.js';
 import { Alert, Button, DataTable, EmptyState } from '../ui/index.js';
 import { goTo } from './goTo.js';
 import { planColumns } from './planColumns.js';
@@ -30,7 +29,7 @@ export function PlansListView({
 }: {
   state: PlansState;
   admin: boolean;
-  /** Connexion Microsoft 365 interrompue : aucun « Lancer maintenant », une phrase à la place. */
+  /** Connexion Microsoft 365 interrompue : aucun « Lancer maintenant » ; le bandeau dit pourquoi. */
   runBlocked?: boolean;
   /** Rapport d'état des sources : un plan en retard y nomme ses sources en retard. */
   sources?: SourcesReport | null;
@@ -141,7 +140,6 @@ export function PlansListView({
                 }
               >
                 {[banner.cause, banner.consequence, banner.advice].filter(Boolean).join(' ')}
-                {admin && runBlocked && <small className="state-note">{RUN_BLOCKED_TEXT}</small>}
                 {busy && !runBlocked && (
                   <small className="state-note" id={`banner-run-hint-${p.id}`}>
                     {p.running ? MESSAGES.runBusy : MESSAGES.runAlreadyQueued}
