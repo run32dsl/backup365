@@ -160,6 +160,33 @@ describe('historique des exécutions', () => {
     for (const line of lines) expect(line).toMatch(/^[A-ZÀ-Ý].*\.$/u);
   });
 
+  it('gives the advice once per plan, on its most recent failure; older ones show the cause only (#642)', () => {
+    const failed = { result: 'failed', failureCause: 'backup_errors', itemsSaved: null } as const;
+    const html = renderToStaticMarkup(
+      <AdminProvider value>
+        <RunsView
+          state={{
+            items: [
+              run({ id: 7, planId: 'direction', startedAt: '2026-11-27T21:58:00.000Z', ...failed }),
+              run({ id: 6, planId: 'compta', startedAt: '2026-11-27T02:00:00.000Z', ...failed }),
+              run({ id: 5, planId: 'direction', startedAt: '2026-11-26T21:58:00.000Z', ...failed }),
+            ],
+            limit: 20,
+          }}
+          filter={all}
+        />
+      </AdminProvider>,
+    );
+    const rows = html.split('<tr').slice(2);
+    expect(rows).toHaveLength(3);
+    const advice = 'Vérifiez l’autorisation de l’application Microsoft 365';
+    const cause = 'Des dossiers ou des fichiers n’ont pas pu être sauvegardés.';
+    // Vue bureau (« Résultat ») et carte mobile (« Détail ») : même règle.
+    const count = (row: string, s: string) => row.split(s).length - 1;
+    expect(rows.map((r) => count(r, advice))).toEqual([2, 2, 0]);
+    expect(rows.map((r) => count(r, cause))).toEqual([2, 2, 2]);
+  });
+
   it('groups the per-source results of one run into one event, « En échec » if one source failed (#571)', () => {
     const boxes = ['a', 'b', 'c', 'd', 'e'].map((box, i) =>
       run({ id: 10 + i, planId: 'p1', itemId: box, itemsSaved: i, sourceBytes: null }),

@@ -202,6 +202,30 @@ export function causeOf(
   return failureText(run.failureCause, admin, dataTypes);
 }
 
+/**
+ * Exécutions dont la ligne porte la conduite à tenir (#642) : la consigne concerne le plan, elle
+ * n'est donnée qu'une fois par plan, sur sa plus récente exécution de `rows` (du plus récent au
+ * plus ancien) qui la demande ; les plus anciennes ne montrent que leur cause. Une consigne
+ * différente (autre cause, interruption) est donnée à son tour, une fois.
+ */
+export function adviceRunIds(
+  rows: readonly RunEvent[],
+  admin: boolean,
+  planTypes: ReadonlyMap<string, readonly string[]>,
+): Set<number> {
+  const given = new Set<string>();
+  const ids = new Set<number>();
+  for (const r of rows) {
+    const text = causeOf(r, admin, planTypes.get(r.planId));
+    if (!text) continue;
+    const key = `${r.planId}\n${text.advice}`;
+    if (given.has(key)) continue;
+    given.add(key);
+    ids.add(r.id);
+  }
+  return ids;
+}
+
 /** « moins d'une minute », « 14 min », « 1 h 05 » ; « — » sans durée. */
 export function durationLabel(ms: number | null): string {
   if (ms === null || !Number.isFinite(ms) || ms < 0) return '—';
