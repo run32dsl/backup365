@@ -295,7 +295,7 @@ export function LatestEvents({
             caption="Cinq dernières exécutions des plans"
             hideCaption
             // « Derniers événements » n'est montré qu'à l'administrateur.
-            columns={runColumns(names, boxPlans, planTypes, true)}
+            columns={runColumns(names, boxPlans, planTypes, true, events)}
             rows={events}
             rowKey={(r) => r.id}
           />

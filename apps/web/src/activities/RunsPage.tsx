@@ -12,6 +12,7 @@ import {
   RUNS_HASH,
   RUNS_MESSAGES,
   RUN_RESULTS,
+  adviceRunIds,
   causeOf,
   copiedCell,
   copiedLabel,
@@ -45,15 +46,16 @@ export function ActivitiesNav({ current }: { current: 'runs' | 'audit' }) {
 
 /**
  * Cause puis conduite à tenir d'un échec, chacune sur sa ligne, mêmes phrases que le bandeau de
- * Plans de protection (#602) ; le numéro d'exécution, à transmettre, quand la cause est inconnue.
+ * Plans de protection (#602) ; la conduite à tenir seulement si `advice` (une fois par plan,
+ * #642) ; le numéro d'exécution, à transmettre, quand la cause est inconnue.
  */
-function failureLines(r: RunItem, admin: boolean, dataTypes?: readonly string[]) {
+function failureLines(r: RunItem, admin: boolean, advice: boolean, dataTypes?: readonly string[]) {
   const text = causeOf(r, admin, dataTypes);
   if (!text) return null;
   return (
     <>
       <span className="cell-secondary">{text.cause}</span>
-      <span className="cell-secondary">{text.advice}</span>
+      {advice && <span className="cell-secondary">{text.advice}</span>}
       {r.result === 'failed' && text.cause === FAILURE_TEXT.unknown.cause && (
         <span className="cell-secondary">{`Exécution n°${NBSP}${r.id}.`}</span>
       )}
@@ -70,7 +72,12 @@ export function runColumns(
   boxPlans: ReadonlySet<string>,
   planTypes: ReadonlyMap<string, readonly string[]>,
   admin: boolean,
+  /** Les exécutions affichées : la conduite à tenir n'est donnée qu'une fois par plan (#642). */
+  rows: readonly RunEvent[],
 ): Column<RunEvent>[] {
+  const adviceIds = adviceRunIds(rows, admin, planTypes);
+  const linesOf = (r: RunEvent) =>
+    failureLines(r, admin, adviceIds.has(r.id), planTypes.get(r.planId));
   // La source n'est nommée que s'il n'y en a qu'une ; sinon « 5 boîtes » (#571).
   const sourceOf = (r: RunEvent) =>
     r.runs.length === 1
@@ -99,7 +106,7 @@ export function runColumns(
       className: 'card-nolabel run-result',
       cell: (r) => {
         const view = RESULT_VIEW[r.result];
-        const lines = failureLines(r, admin, planTypes.get(r.planId));
+        const lines = linesOf(r);
         return (
           <div>
             <StatusPill status={view.status} label={view.label} />
@@ -141,7 +148,7 @@ export function runColumns(
               r.result === 'success' ? copiedLabel(r.itemsSaved ?? 0) : '',
               r.result === 'success' ? (volumeLabel(r.sourceBytes) ?? '') : '',
             ])}
-            {failureLines(r, admin, planTypes.get(r.planId))}
+            {linesOf(r)}
           </>
         );
       },
@@ -208,7 +215,7 @@ export function RunsView({
           caption="Dernières exécutions, de la plus récente à la plus ancienne"
           // La phrase d'introduction dit déjà l'ordre : légende lue, pas affichée (#580).
           hideCaption
-          columns={runColumns(names, boxPlans, planTypes, admin)}
+          columns={runColumns(names, boxPlans, planTypes, admin, rows)}
           rows={rows}
           rowKey={(r) => r.id}
         />
