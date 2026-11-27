@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  ConfigurationNotice,
   INTERRUPTED_TITLE,
   connectionLine,
   interruptedSentence,
@@ -10,6 +9,7 @@ import { dateTimeOf, quoted, workloadLabel } from './format.js';
 import { HomeCoverage, homeReading } from './HomeCoverage.js';
 import { useHomeData } from './HomeData.js';
 import { ReportFailureNotice } from './reports/ReportFailureNotice.js';
+import { HomeAlerts, STORAGE_BLOCKED_TITLE } from './StorageBlocked.js';
 import { fetchOverview, type Overview } from './overview.js';
 import {
   FAILED_PLANS_HASH,
@@ -186,6 +186,7 @@ export function OverviewView({
   now = Date.now(),
   connection = null,
   interruptedSince = null,
+  storageBlocked = false,
   onShowConnection,
 }: {
   state: OverviewState;
@@ -194,7 +195,9 @@ export function OverviewView({
   connection?: string | null;
   /** Connexion Microsoft 365 interrompue : dernière exécution connue, cause nommée en premier. */
   interruptedSince?: string | null;
-  /** Mène au bandeau « Connexion Microsoft 365 interrompue ». */
+  /** Stockage bloqué : plus aucune sauvegarde ne peut aboutir, comme sans connexion (#612). */
+  storageBlocked?: boolean;
+  /** Mène au bandeau d'erreur : stockage bloqué ou connexion Microsoft 365 interrompue. */
   onShowConnection?: () => void;
   onRetry: () => void;
   now?: number;
@@ -225,17 +228,23 @@ export function OverviewView({
   const isLate = state.lateBackups.length > 0;
   const last = state.lastBackupAt;
   const lastDate = last === null ? '' : dateTimeOf(last);
+  const halted = storageBlocked || interruptedSince !== null;
   return (
     <div className="overview">
       <Card id="overview-backup" title="Sauvegarde">
         <div role="status">
-          {interruptedSince !== null ? (
+          {halted ? (
             <StatusPill status="failed" label="Interrompue" />
           ) : (
             <StatusPill status={isLate && state.state === 'operational' ? 'late' : state.state} />
           )}
         </div>
-        {/* La connexion bloque tout : elle passe avant les échecs et retards des plans (#604). */}
+        {/* Stockage et connexion bloquent tout : ils passent avant échecs et retards (#604, #612). */}
+        {storageBlocked && (
+          <p>
+            <strong>{STORAGE_BLOCKED_TITLE}.</strong>
+          </p>
+        )}
         {interruptedSince !== null && (
           <p>
             <strong>{INTERRUPTED_TITLE}.</strong> {interruptedSentence(interruptedSince)}
@@ -248,7 +257,7 @@ export function OverviewView({
           state={state.state}
           admin={admin}
           late={isLate}
-          onShowConnection={interruptedSince !== null ? onShowConnection : undefined}
+          onShowConnection={halted ? onShowConnection : undefined}
         />
       </Card>
       <Card id="overview-plans" title="Plans">
@@ -326,6 +335,7 @@ export function Home({ admin = false }: { admin?: boolean }) {
   const retried = useRef(false);
   // Connexion et dernière sauvegarde lues sur les lignes de « Derniers événements » (#604, #608).
   const { listed, view, since, overview } = homeReading(admin, state, config, data);
+  const blocked = admin && data.storageBlocked === true;
   const noticeRef = useRef<HTMLDivElement>(null);
   const showConnection = useCallback(() => {
     noticeRef.current?.scrollIntoView({ block: 'start' });
@@ -356,7 +366,8 @@ export function Home({ admin = false }: { admin?: boolean }) {
         {retried.current ? announcementOf(state) : ''}
       </div>
       {admin && (
-        <ConfigurationNotice
+        <HomeAlerts
+          blocked={blocked}
           config={config}
           plans={data.plans}
           listed={listed}
@@ -370,6 +381,7 @@ export function Home({ admin = false }: { admin?: boolean }) {
         onRetry={retry}
         connection={admin ? connectionLine(config) : null}
         interruptedSince={since}
+        storageBlocked={blocked}
         onShowConnection={showConnection}
       />
       <HomeCoverage

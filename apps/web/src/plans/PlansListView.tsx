@@ -29,7 +29,7 @@ export function PlansListView({
 }: {
   state: PlansState;
   admin: boolean;
-  /** Connexion Microsoft 365 interrompue : aucun « Lancer maintenant » ; le bandeau dit pourquoi. */
+  /** Connexion interrompue ou stockage bloqué : aucun « Lancer maintenant » ; le bandeau dit pourquoi. */
   runBlocked?: boolean;
   /** Rapport d'état des sources : un plan en retard y nomme ses sources en retard. */
   sources?: SourcesReport | null;

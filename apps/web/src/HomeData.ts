@@ -4,12 +4,15 @@ import { fetchRuns, type RunItem } from './activities/runs.js';
 import { LATEST_RESULTS, coverageOf, type Coverage } from './HomeCoverage.js';
 import { fetchPlans, type PlanItem } from './plans.js';
 import { fetchStatus } from './status.js';
+import { storageBlocked } from './StorageBlocked.js';
 
 /** Données des blocs du bas, chargées par l'accueil en même temps que `GET /api/overview`. */
 export interface HomeData {
   coverage: Coverage | 'loading' | 'error';
   plans: PlanItem[] | 'loading' | 'error';
   events: RunItem[] | 'loading' | 'error';
+  /** Stockage bloqué, lu sur la même réponse que la couverture (administrateur, #612). */
+  storageBlocked?: boolean;
 }
 
 /**
@@ -23,6 +26,7 @@ export function useHomeData(admin: boolean): HomeData & {
   const [coverage, setCoverage] = useState<HomeData['coverage']>('loading');
   const [plans, setPlans] = useState<HomeData['plans']>('loading');
   const [events, setEvents] = useState<HomeData['events']>('loading');
+  const [blocked, setBlocked] = useState(false);
   const loadEvents = useCallback(() => {
     if (!admin) return;
     setEvents('loading');
@@ -33,11 +37,14 @@ export function useHomeData(admin: boolean): HomeData & {
   }, [admin]);
   const load = useCallback(() => {
     fetchStatus().then(
-      (report: StatusReport) => setCoverage(coverageOf(report.rows)),
+      (report: StatusReport) => {
+        setCoverage(coverageOf(report.rows));
+        setBlocked(storageBlocked(report));
+      },
       () => setCoverage('error'),
     );
     fetchPlans().then(setPlans, () => setPlans('error'));
     loadEvents();
   }, [loadEvents]);
-  return { coverage, plans, events, load, loadEvents };
+  return { coverage, plans, events, storageBlocked: blocked, load, loadEvents };
 }

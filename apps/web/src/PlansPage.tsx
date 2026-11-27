@@ -1,3 +1,4 @@
+import type { StatusReport } from '@backup365/core';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   MESSAGES,
@@ -18,11 +19,9 @@ import {
   type PlanForm,
   type PlanItem,
   type PlansRoute,
-  type SourcesReport,
 } from './plans.js';
 import { type Problem } from './apiError.js';
 import {
-  ConnectionInterrupted,
   connectionView,
   interruptedSince,
   lastKnownRun,
@@ -36,6 +35,7 @@ import { goTo } from './plans/goTo.js';
 import { PlanWizard } from './plans/wizard/PlanWizard.js';
 import { fetchSites } from './sharepoint.js';
 import { fetchStatus } from './status.js';
+import { RunHaltedAlerts, storageBlocked } from './StorageBlocked.js';
 import { Alert, Button, SourcesNav } from './ui/index.js';
 
 type Flash = { tone: 'success' | 'error'; text: string };
@@ -74,7 +74,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     mailboxes: [],
   });
   const [sites, setSites] = useState<Mailbox[]>([]);
-  const [sources, setSources] = useState<SourcesReport | null>(null);
+  const [sources, setSources] = useState<StatusReport | null>(null);
   const [flash, setFlash] = useState<Flash>();
   const [runTarget, setRunTarget] = useState<PlanItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlanItem | null>(null);
@@ -82,6 +82,8 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
   // Même lecture de la connexion que l'accueil : configuration et historique des plans (#604).
   const config = useConfiguration(admin);
   const since = interruptedSince(connectionView(admin ? config : 'loading', state));
+  // Stockage bloqué (lu sur l'état des sources, administrateur seulement) : traité de même (#612).
+  const blocked = storageBlocked(sources);
 
   const named = useMemo(() => [...boxes.mailboxes, ...sites], [boxes.mailboxes, sites]);
   const load = useCallback(() => {
@@ -219,7 +221,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
         mailboxes={named}
         sources={sources}
         failedOnly={route.page === 'list' && route.failedOnly === true}
-        runBlocked={since !== null}
+        runBlocked={since !== null || blocked}
         onRetry={reloadList}
         onRun={setRunTarget}
         onDelete={setDeleteTarget}
@@ -246,7 +248,7 @@ export function PlansPage({ route, admin }: { route: PlansRoute; admin: boolean 
     <main tabIndex={-1}>
       <h1>{title}</h1>
       {!wizard && <SourcesNav current="plans" admin={admin} />}
-      {!wizard && since !== null && <ConnectionInterrupted since={since} runSuspended />}
+      {!wizard && <RunHaltedAlerts blocked={blocked} since={since} />}
       {!wizard && (
         <div className="view-intro">
           <PlansIntro shown={failedView?.shown} total={failedView?.total} />

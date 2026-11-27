@@ -11,8 +11,9 @@ const joinFr = (items: string[]) =>
 
 /**
  * Bandeau de synthèse : « mes sauvegardes vont-elles bien ? »
- * Titre : les deux problèmes les plus graves (le détail est dans les pastilles des sections).
- * Corps : la conduite à tenir, puis les sources sans plan et le stockage à vérifier.
+ * Titre : les deux problèmes les plus graves (le détail est dans les pastilles des sections) ; un
+ * stockage bloqué les précède tous, en erreur, et les compteurs passent dans le corps (#612).
+ * Corps : la conduite à tenir, puis les sources sans plan.
  */
 export function Summary({ report }: { report: StatusReport }) {
   const count = (state: BackupState) =>
@@ -41,13 +42,18 @@ export function Summary({ report }: { report: StatusReport }) {
   if (nothing && (report.rows.length === 0 || report.plans === null)) return null;
   if (nothing) return <Alert tone="success">Toutes les sauvegardes sont à jour</Alert>;
   const planIssues = planLate + planFailed;
-  const title =
-    issues.length > 0
+  // Stockage bloqué : la panne passe avant les compteurs, qui deviennent la suite du corps (#612).
+  const title = storage
+    ? CONDITIONAL_WRITES.ignoredTitle
+    : issues.length > 0
       ? joinFr(issues.slice(0, 2))
-      : unprotected.length > 0
-        ? `${plural(unprotected.length, 'source')} sans plan`
-        : CONDITIONAL_WRITES.summaryTitle;
+      : `${plural(unprotected.length, 'source')} sans plan`;
   const sentences: string[] = [];
+  if (storage) {
+    sentences.push(CONDITIONAL_WRITES.action);
+    if (report.rows.length > 0) sentences.push(CONDITIONAL_WRITES.before);
+    if (issues.length > 0) sentences.push(`${joinFr(issues)}.`);
+  }
   if (planIssues > 0)
     sentences.push(
       planIssues > 1
@@ -59,15 +65,9 @@ export function Summary({ report }: { report: StatusReport }) {
     sentences.push(
       `${joinFr(unprotected.map(workloadLabel))} ${unprotected.length > 1 ? 'n’ont' : 'n’a'} aucun plan de protection.`,
     );
-  if (storage)
-    sentences.push(
-      title === CONDITIONAL_WRITES.summaryTitle
-        ? CONDITIONAL_WRITES.summaryAlone
-        : CONDITIONAL_WRITES.summary,
-    );
   return (
     <Alert
-      tone={failed > 0 || planFailed > 0 ? 'error' : 'warning'}
+      tone={storage || failed > 0 || planFailed > 0 ? 'error' : 'warning'}
       title={title}
       action={
         planIssues > 0 ? (

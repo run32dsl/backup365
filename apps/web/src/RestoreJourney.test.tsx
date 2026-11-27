@@ -10,6 +10,7 @@ import {
   RESTORE_BUTTONS,
   RESTORE_STEPS,
   RESULT_TITLES,
+  RestoreReminders,
   RestoreResult,
   ReasonField,
   reasonLabel,
@@ -113,9 +114,14 @@ describe('restore journey', () => {
     expect(AUDIT_REMINDER).toBe(
       'Chaque consultation, export ou restauration est inscrite au journal d’audit.',
     );
-    for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx', 'RestoreAction.tsx']) {
-      expect(screenText(name)).toContain('<AuditReminder />');
+    expect(screenText('RestoreAction.tsx')).toContain('<AuditReminder />');
+    // OneDrive et SharePoint : le rappel suit le bandeau d'un stockage bloqué (#612).
+    for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx']) {
+      expect(screenText(name)).toContain('<RestoreReminders blocked={blocked}');
     }
+    expect(renderToStaticMarkup(<RestoreReminders blocked={false} />)).toBe(
+      renderToStaticMarkup(<AuditReminder />),
+    );
   });
 
   it('shows one progress indicator while a restoration runs', () => {
