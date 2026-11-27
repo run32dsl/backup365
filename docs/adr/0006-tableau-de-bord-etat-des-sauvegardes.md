@@ -93,6 +93,13 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   donne le début de la ligne la plus récente ; sans ligne, la dernière exécution des plans. La
   page Plans et l'accueil de l'opérateur (sans tableau) gardent les dates de `GET /api/plans` et
   `GET /api/overview`.
+- Issue #634 : la carte « Sauvegarde » de l'administrateur cite les échecs de « Derniers
+  événements ». Ce sont les plans dont la dernière exécution terminée listée est « En échec »,
+  avec leur plan et l'heure de la colonne « Heure ». Un plan est cité « Échec de « … » le … »,
+  plusieurs « 2 plans en échec : « … » le …, « … » le … ». Si le serveur compte plus de plans en
+  échec que la liste n'en montre : « 3 plans en échec, dont « … » le … ». Le compteur « En échec »
+  de la carte « Plans » n'est jamais inférieur au nombre de plans nommés. Sans échec listé, la
+  réponse de `GET /api/overview`, plus ancienne que toutes les lignes.
 
 ### Sites SharePoint sauvegardés (issue #31)
 
