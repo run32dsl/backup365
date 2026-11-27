@@ -59,7 +59,7 @@ function failureLines(r: RunItem, admin: boolean, dataTypes?: readonly string[])
   );
 }
 
-function runColumns(
+export function runColumns(
   names: ReadonlyMap<string, string>,
   boxPlans: ReadonlySet<string>,
   planTypes: ReadonlyMap<string, readonly string[]>,

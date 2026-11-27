@@ -105,9 +105,10 @@ const lastCard = (cards: string) => cards.slice(cards.indexOf('id="overview-last
 const rows = (table: string) =>
   [
     ...table.matchAll(
-      /<tr><td class="table-only"><time dateTime="([^"]+)">([^<]+)<\/time>.*?<\/tr>/gu,
+      /<tr role="row"><td [^>]*data-label="Début \(UTC\)"[^>]*><time dateTime="([^"]+)">([^<]+)<\/time>.*?<\/tr>/gu,
     ),
-  ].map((m) => ({ at: m[1]!, label: m[2]!, html: m[0] }));
+    // La colonne « Début (UTC) » porte le fuseau dans son en-tête (#636).
+  ].map((m) => ({ at: m[1]!, label: `${m[2]!} UTC`, html: m[0] }));
 
 describe('Home: one last backup for the cards and « Derniers événements » (#608)', () => {
   for (const itemsSaved of [0, 12]) {

@@ -488,8 +488,8 @@ export const SCREENS = [
           { plan: DIRECTION_PLAN.name, minutesAgo: 200, result: 'success' },
         ],
       });
-      // Le résumé du tableau et la ligne de la carte le disent : un seul est visible par largeur.
-      await page.getByText('sauvegarde en cours').filter({ visible: true }).first().waitFor();
+      // Colonnes d'Activités › Sauvegardes (#636) : la ligne « En cours » est affichée.
+      await page.locator('.runs-list').getByText('En cours').first().waitFor();
     },
   },
   {
@@ -498,7 +498,7 @@ export const SCREENS = [
     hash: '#/',
     role: 'admin',
     prepare: async (page) => {
-      await page.locator('.events-table tbody tr').first().waitFor();
+      await page.locator('.runs-list tbody tr').first().waitFor();
     },
   },
   {
