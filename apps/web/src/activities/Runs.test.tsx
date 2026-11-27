@@ -6,6 +6,8 @@ import { RunsPage, RunsView } from './RunsPage.js';
 import {
   FAILED_RUNS_HASH,
   completeRuns,
+  copiedCell,
+  copiedLabel,
   countLabel,
   durationLabel,
   fetchRuns,
@@ -13,6 +15,7 @@ import {
   parseRunsHash,
   runsHash,
   runsResultOf,
+  sizeCell,
   volumeLabel,
   type RunItem,
 } from './runs.js';
@@ -148,7 +151,6 @@ describe('historique des exécutions', () => {
     expect(t).toContain('raison non identifiée');
     expect(t).toContain('Exécution n° 5.');
     expect(t).toContain('Exécution n° 6.');
-    expect(t).toContain('non communiquée');
     expect(t).not.toMatch(/backup_errors|interrupted|unknown|Cause :|À faire/);
     // Chaque ligne secondaire d'un échec est une phrase : majuscule initiale, point final.
     const lines = [...html.matchAll(/<span class="cell-secondary">([^<]+)<\/span>/g)].map(
@@ -309,7 +311,7 @@ describe('historique des exécutions', () => {
     expect(rows).toHaveLength(1);
     const t = text(html).replace(/[\u00a0\u202f]/g, ' ');
     expect(t).toContain('5 boîtes');
-    expect(t).toContain('5 boîtes · 18/11/2026 02:00 UTC · 14 min · 0 élément copié');
+    expect(t).toContain('5 boîtes · 18/11/2026 02:00 UTC · 14 min · aucun nouvel élément');
     expect(t).not.toMatch(/\b[a-e]\b · /);
   });
 
@@ -346,7 +348,7 @@ describe('historique des exécutions', () => {
     expect(html).toMatch(/<th scope="col" role="columnheader" class="[^"]*run-result">Résultat/);
   });
 
-  it('shows a running run with dashes instead of counters', () => {
+  it('shows a running run with a dash for its duration and empty counters (#640)', () => {
     const html = renderToStaticMarkup(
       <RunsView
         state={{
@@ -359,11 +361,50 @@ describe('historique des exécutions', () => {
       />,
     );
     expect(text(html)).toContain('En cours');
-    const cell = (label: string) =>
-      new RegExp(`data-label="${label}"[^>]*>(?:<span>)?(?:<span aria-hidden="true">)?—<`);
-    for (const label of ['Durée', 'Éléments copiés', 'Taille source']) {
-      expect(html).toMatch(cell(label));
+    expect(html).toMatch(/data-label="Durée"[^>]*>—</);
+    for (const label of ['Éléments copiés', 'Taille source']) {
+      expect(html).toMatch(new RegExp(`data-label="${label}"[^>]*></td>`));
     }
+  });
+
+  it('says « aucun nouveau » and « non mesurée » in words, never « 0 » or « — » (#640)', () => {
+    const muted = (text: string) => ({ text, muted: true });
+    const plain = (text: string) => ({ text, muted: false });
+    expect(copiedCell({ result: 'success', itemsSaved: 0 })).toEqual(muted('aucun nouveau'));
+    expect(copiedCell({ result: 'success', itemsSaved: null })).toEqual(muted('aucun nouveau'));
+    expect(copiedCell({ result: 'success', itemsSaved: 318 })).toEqual(plain('318'));
+    expect(sizeCell({ result: 'success', sourceBytes: null })).toEqual(muted('non mesurée'));
+    expect(sizeCell({ result: 'success', sourceBytes: 840_000_000 })).toEqual(plain('840 Mo'));
+    for (const result of ['failed', 'interrupted', 'running'] as const) {
+      expect(copiedCell({ result, itemsSaved: 3 })).toEqual(plain(''));
+      expect(sizeCell({ result, sourceBytes: 3 })).toEqual(plain(''));
+    }
+    expect(copiedLabel(0)).toBe('aucun nouvel élément');
+    expect(copiedLabel(1)).toBe('1 élément copié');
+
+    // Une réussite à 0 élément sans taille, puis un échec : rien de « 0 » ni « — » en colonne.
+    const html = renderToStaticMarkup(
+      <RunsView
+        state={{
+          items: [
+            run({ id: 1, itemsSaved: 0, sourceBytes: null }),
+            run({ id: 2, result: 'failed', itemsSaved: null, sourceBytes: null }),
+          ],
+          limit: 20,
+        }}
+        filter={all}
+      />,
+    );
+    for (const label of ['Éléments copiés', 'Taille source']) {
+      const cells = [...html.matchAll(new RegExp(`data-label="${label}"[^>]*>(.*?)</td>`, 'g'))];
+      expect(cells.map((m) => text(m[1] ?? '').trim())).toEqual(
+        label === 'Éléments copiés' ? ['aucun nouveau', ''] : ['non mesurée', ''],
+      );
+    }
+    expect(html).toContain('<span class="cell-muted">aucun nouveau</span>');
+    const t = text(html).replace(/[\u00a0\u202f]/g, ' ');
+    expect(t).toContain('14 min · aucun nouvel élément');
+    expect(t).not.toMatch(/0 élément copié/);
   });
 
   it('renders the loading, error and empty states', () => {

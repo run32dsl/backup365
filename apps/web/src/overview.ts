@@ -17,6 +17,11 @@ export interface Overview {
   lastBackupAt: string | null;
   /** Nom du plan de cette exécution. */
   lastBackupPlan: string | null;
+  /**
+   * Calculé par l'accueil, absent de la réponse : la dernière sauvegarde listée dans « Derniers
+   * événements » n'a copié aucun élément ; la carte le dit après le plan (#640).
+   */
+  lastBackupNothingNew?: boolean;
   /** Plan dont la dernière exécution a échoué (le plus récent) et fin de cette exécution ; `null` sinon. */
   lastFailure: { plan: string; at: string } | null;
   /**

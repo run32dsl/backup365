@@ -215,10 +215,44 @@ export function durationLabel(ms: number | null): string {
 export const countLabel = (n: number | null): string =>
   n === null ? '—' : n.toLocaleString('fr-FR');
 
-/** « 1 284 éléments copiés », « 1 élément copié » ; vide si le moteur ne l'a pas dit. */
+/**
+ * « 1 284 éléments copiés », « 1 élément copié » ; « aucun nouvel élément » pour 0 (#640) ;
+ * vide si le moteur ne l'a pas dit.
+ */
 export function copiedLabel(n: number | null): string {
   if (n === null) return '';
+  if (n === 0) return RUNS_MESSAGES.noNewItemLong;
   return `${countLabel(n)} ${n < 2 ? 'élément copié' : 'éléments copiés'}`;
+}
+
+/** Texte d'une cellule de tableau ; `muted` : en texte secondaire (`--muted`). */
+export interface CellText {
+  text: string;
+  muted: boolean;
+}
+
+/**
+ * Colonne « Éléments copiés » (#640) : vide hors réussite (la cause sous la pastille suffit) ;
+ * « aucun nouveau » en texte secondaire pour une réussite qui n'a rien copié, jamais « 0 » seul.
+ */
+export function copiedCell(run: Pick<RunItem, 'result' | 'itemsSaved'>): CellText {
+  if (run.result !== 'success') return { text: '', muted: false };
+  const n = run.itemsSaved ?? 0;
+  return n === 0
+    ? { text: RUNS_MESSAGES.noNewItem, muted: true }
+    : { text: countLabel(n), muted: false };
+}
+
+/**
+ * Colonne « Taille source » (#640) : vide hors réussite ; « non mesurée » en texte secondaire
+ * pour une réussite dont le moteur n'a pas donné la taille, jamais « — ».
+ */
+export function sizeCell(run: Pick<RunItem, 'result' | 'sourceBytes'>): CellText {
+  if (run.result !== 'success') return { text: '', muted: false };
+  const size = volumeLabel(run.sourceBytes);
+  return size === null
+    ? { text: RUNS_MESSAGES.unknownSize, muted: true }
+    : { text: size, muted: false };
 }
 
 /** « 3,2 Go », « 840 Mo » (unités décimales, virgule) ; `null` si la taille n'est pas connue. */
@@ -251,5 +285,8 @@ export const RUNS_MESSAGES = {
       ? `${count}, ${shown < 2 ? 'la plus récente' : 'les plus récentes'}${NBSP}: les plus anciennes ne sont pas affichées.`
       : count;
   },
-  unknownSize: 'non communiquée',
+  unknownSize: 'non mesurée',
+  /** Réussite sans nouvel élément : colonne « Éléments copiés », puis cartes et accueil (#640). */
+  noNewItem: 'aucun nouveau',
+  noNewItemLong: 'aucun nouvel élément',
 } as const;

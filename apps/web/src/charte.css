@@ -1788,6 +1788,12 @@ a.btn-secondary {
   color: var(--muted);
   font-size: 0.875em;
 }
+
+/* Valeur de cellule dite en mots (« aucun nouveau », « non mesurée ») : texte secondaire (#640). */
+.cell-muted {
+  white-space: nowrap;
+  color: var(--muted);
+}
 .breadcrumb li::before {
   content: '>';
   flex: none;

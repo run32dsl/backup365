@@ -119,7 +119,13 @@ describe('Home: one last backup for the cards and « Derniers événements » (#
       expect(ok.html).toContain('Messagerie Direction');
       const card = lastCard(cards);
       expect(card).toContain(`<time dateTime="${ok.at}">${ok.label}</time>`);
-      expect(card).toContain('Plan : Messagerie Direction');
+      // Une réussite qui n'a rien copié le dit après le plan, comme la ligne du tableau (#640).
+      expect(card).toContain(
+        itemsSaved === 0
+          ? 'Plan : Messagerie Direction · aucun nouvel élément</p>'
+          : 'Plan : Messagerie Direction</p>',
+      );
+      expect(ok.html).toContain(itemsSaved === 0 ? 'aucun nouveau' : '12');
       expect(card).not.toContain('03:51');
     });
 
