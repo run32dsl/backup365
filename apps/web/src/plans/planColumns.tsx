@@ -73,7 +73,7 @@ export function planColumns(
       header: 'Actions',
       className: 'card-action',
       cell: (p) => (
-        <div className={`button-row row-actions${runInBanner ? ' row-actions-no-run' : ''}`}>
+        <div className="button-row row-actions">
           {!runInBanner && !runBlocked && (
             <Button
               variant="secondary"

@@ -30,7 +30,7 @@ describe('lateSourcesNote', () => {
     expect(
       lateSourcesNote({ dataTypes: ['onedrive'], lastSuccessAt: recent }, report(rows)),
     ).toEqual({
-      text: '1 compte sur 5 en retard : OneDrive, late@example.test, dernière réussite le 22/11/2026 02:01 UTC',
+      text: '1 compte sur 5 en retard : OneDrive, late@example.test, dernière réussite le 22/11/2026\u00a002:01\u00a0UTC',
       seeSources: false,
     });
   });
@@ -70,7 +70,7 @@ describe('lateSourcesNote', () => {
       lastSuccessAt: recent,
     };
     expect(lateSourcesNote({ ...plan, selection: ['mine@example.test'] }, report(rows))?.text).toBe(
-      '1 compte sur 1 en retard : OneDrive, mine@example.test, dernière réussite le 22/11/2026 02:01 UTC',
+      '1 compte sur 1 en retard : OneDrive, mine@example.test, dernière réussite le 22/11/2026\u00a002:01\u00a0UTC',
     );
     expect(lateSourcesNote(plan, report(rows))).toBeUndefined();
   });

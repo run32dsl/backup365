@@ -59,6 +59,13 @@ const plan: PlanItem = {
   },
 };
 
+/** Synthèse attendue : segments insécables, « · » lié au segment qui le précède (#618). */
+const nb = (text: string) =>
+  text
+    .split(' · ')
+    .map((part) => part.replaceAll(' ', '\u00a0'))
+    .join('\u00a0· ');
+
 /**
  * Le plan tel que `GET /api/plans` l'envoie à un opérateur : sans délai de remise en
  * service ni justification (le test de `plan-routes.ts` fige la même liste de champs).
@@ -157,7 +164,7 @@ describe('plan form', () => {
       'claire.durand@exemple.fr et Équipe commerciale',
     );
     expect(planSummary({ ...plan, scope: 'selection', selection: ['s1'] }, names)).toContain(
-      'Équipe commerciale',
+      nb('Équipe commerciale'),
     );
   });
 
@@ -391,17 +398,16 @@ describe('PlansListView', () => {
       rpoHours: 24,
       retentionDays: 1095,
     };
-    const all =
-      '<small class="state-note plan-summary">Boîtes mail, OneDrive et SharePoint · toute l’organisation · toutes les 12 h · conservés 1 an</small>';
+    const all = `<small class="state-note plan-summary">${nb('Boîtes mail, OneDrive et SharePoint · toute l’organisation · toutes les 12 h · conservés 1 an')}</small>`;
     const html = list([plan, other], true);
     expect(html).toContain(all);
     expect(html).toContain(
-      '<small class="state-note plan-summary">OneDrive · 2 boîtes choisies · toutes les 24 h · conservés 3 ans</small>',
+      `<small class="state-note plan-summary">${nb('OneDrive · 2 boîtes choisies · toutes les 24 h · conservés 3 ans')}</small>`,
     );
     // Les deux rôles reçoivent la sélection : même plan, même synthèse.
     const operatorHtml = list([plan, other].map(asOperator), false);
     expect(operatorHtml).toContain(all);
-    expect(operatorHtml).toContain('OneDrive · 2 boîtes choisies ·');
+    expect(operatorHtml).toContain(nb('OneDrive · 2 boîtes choisies · toutes les 24 h'));
   });
 
   it('never splits a number from its unit in a plan description', () => {
@@ -415,6 +421,58 @@ describe('PlansListView', () => {
         expect(text).toMatch(/\d\u00a0(h|jours|mois|ans?)/);
       }
     }
+  });
+
+  it('never lets a line start with « · » nor split « (22 h – 6 h) » (demo plans, #618)', () => {
+    const boxes = [
+      { id: 'claire.durand@exemple.fr', displayName: 'claire.durand@exemple.fr' },
+      { id: 'marc.lefevre@exemple.fr', displayName: 'marc.lefevre@exemple.fr' },
+    ];
+    // Les trois plans semés par la démo et le plan « toutes les 4 h » des captures.
+    const demo: Pick<
+      PlanItem,
+      'dataTypes' | 'scope' | 'selection' | 'rpoHours' | 'retentionDays'
+    >[] = [
+      {
+        dataTypes: ['mail'],
+        scope: 'selection',
+        selection: [boxes[0]!.id],
+        rpoHours: 24,
+        retentionDays: 90,
+      },
+      {
+        dataTypes: ['mail'],
+        scope: 'selection',
+        selection: [boxes[1]!.id],
+        rpoHours: 24,
+        retentionDays: 365,
+      },
+      {
+        dataTypes: ['onedrive', 'sharepoint'],
+        scope: 'all',
+        selection: [],
+        rpoHours: 24,
+        retentionDays: 1095,
+      },
+      { dataTypes: ['mail'], scope: 'all', selection: [], rpoHours: 4, retentionDays: 365 },
+    ];
+    for (const p of demo) {
+      const summary = planSummary(p, boxes);
+      // Seule espace sécable : celle qui suit chaque « · » ; aucune avant, aucune dans un segment.
+      expect(summary).not.toMatch(/ ·/);
+      expect(summary.match(/ /g)?.length).toBe(summary.match(/·/g)?.length);
+      const window = scheduleWindowLabel(p.rpoHours);
+      if (window !== null) {
+        expect(window).toContain('(22\u00a0h\u00a0–\u00a06\u00a0h)');
+        expect(window.slice(window.indexOf('('))).not.toContain(' ');
+      }
+    }
+    expect(planSummary(demo[1]!, boxes)).toBe(
+      nb('Boîtes mail · marc.lefevre@exemple.fr · toutes les 24 h · conservés 1 an'),
+    );
+    expect(planSummary(demo[2]!, boxes)).toBe(
+      nb('OneDrive et SharePoint · toute l’organisation · toutes les 24 h · conservés 3 ans'),
+    );
   });
 
   it('names the mailboxes of a restricted plan, the same way for both roles', () => {
@@ -432,20 +490,20 @@ describe('PlansListView', () => {
     };
     const summary = (selection: string[], names = boxes) =>
       planSummary({ ...restricted, selection }, names);
-    expect(summary(['a'])).toBe(`OneDrive · claire.durand@exemple.fr · ${tail}`);
+    expect(summary(['a'])).toBe(nb(`OneDrive · claire.durand@exemple.fr · ${tail}`));
     expect(summary(['a', 'b'])).toBe(
-      `OneDrive · claire.durand@exemple.fr et paul.martin@exemple.fr · ${tail}`,
+      nb(`OneDrive · claire.durand@exemple.fr et paul.martin@exemple.fr · ${tail}`),
     );
     expect(summary(['a', 'b', 'c', 'd', 'e'])).toBe(
-      `OneDrive · claire.durand@exemple.fr et 4 autres · ${tail}`,
+      nb(`OneDrive · claire.durand@exemple.fr et 4 autres · ${tail}`),
     );
     // Catalogue indisponible : le nombre, jamais un gabarit.
-    expect(summary([])).toBe(`OneDrive · aucune boîte choisie · ${tail}`);
+    expect(summary([])).toBe(nb(`OneDrive · aucune boîte choisie · ${tail}`));
     expect(summary(['a', 'b'], boxes.slice(0, 1))).toBe(
-      `OneDrive · claire.durand@exemple.fr et 1 autre · ${tail}`,
+      nb(`OneDrive · claire.durand@exemple.fr et 1 autre · ${tail}`),
     );
-    expect(summary(['a'], [])).toBe(`OneDrive · 1 boîte choisie · ${tail}`);
-    expect(summary(['a', 'b', 'c'], [])).toBe(`OneDrive · 3 boîtes choisies · ${tail}`);
+    expect(summary(['a'], [])).toBe(nb(`OneDrive · 1 boîte choisie · ${tail}`));
+    expect(summary(['a', 'b', 'c'], [])).toBe(nb(`OneDrive · 3 boîtes choisies · ${tail}`));
     // Mêmes données pour les deux rôles, avec ou sans champs d'administrateur.
     const admin = { ...restricted, selection: ['a'] };
     expect(planSummary(asOperator(admin), boxes)).toBe(planSummary(admin, boxes));

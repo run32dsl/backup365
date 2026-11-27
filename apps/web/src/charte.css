@@ -1142,7 +1142,7 @@ select[aria-disabled='true'] {
     line-height: 1.25;
   }
   .data-table td.card-title .plan-summary + .plan-summary::before {
-    content: ' · ';
+    content: '\a0· ';
   }
   .data-table td.card-title .plan-summary + .plan-summary {
     margin-left: 0;
@@ -1657,13 +1657,14 @@ a.btn-secondary {
   color: var(--accent);
 }
 /* Actions d'une ligne (`.button-row.row-actions`) : sur mobile, la règle des cartes les met en
-   pleine largeur, la raison des boutons grisés en tête de carte. Au bureau, les boutons restent sur
-   une rangée et la raison, placée après le bouton dans le DOM, passe sous la rangée. */
+   pleine largeur, la raison des boutons grisés en tête de carte. Au bureau, les boutons sont
+   empilés en pleine largeur d'une colonne étroite (celle de « Lancer maintenant ») : la colonne
+   « Actions » ne dicte plus la largeur du tableau (issue #618). La raison, placée après le bouton
+   dans le DOM, s'affiche juste sous lui sans élargir la colonne. */
 @media (min-width: 56.26rem) {
   .data-table .row-actions {
     display: grid;
-    grid-template-columns: repeat(3, max-content);
-    align-items: start;
+    grid-template-columns: max-content;
     gap: var(--space-1);
     margin-bottom: 0;
   }
@@ -1671,14 +1672,11 @@ a.btn-secondary {
     padding-inline: var(--space-2);
   }
   .data-table .row-actions .state-note {
-    grid-row: 2;
-    grid-column: 1 / -1;
+    contain: inline-size;
   }
-}
-/* Vue « plans en échec » : sans « Lancer maintenant », Modifier et Supprimer gardent leurs colonnes. */
-@media (min-width: 56.26rem) {
-  .data-table .row-actions-no-run > :first-child {
-    grid-column: 2;
+  /* « État » garde sa place : la note de retard tient sur trois lignes au plus. */
+  .data-table td.compliance-cell {
+    min-width: 16rem;
   }
 }
 /* Bouton du bandeau d'erreur : pleine largeur sur mobile, comme les actions de la page. */

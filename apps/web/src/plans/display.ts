@@ -9,7 +9,7 @@ import {
   type StatusReport,
 } from '@backup365/core';
 import { failureText, lowerFirst } from '../failureText.js';
-import { dateTimeOf, plural, quoted, workloadLabel } from '../format.js';
+import { dateTimeOf, keepDateTogether, plural, quoted, workloadLabel } from '../format.js';
 import type { PillStatus } from '../ui/index.js';
 import { FAILURE_LABELS, MESSAGES, type Mailbox, type PlanItem } from './model.js';
 
@@ -184,7 +184,9 @@ export function lateSourcesNote(
   if (late.length > 1) return { text: count, seeSources: true };
   const at = first.lastSnapshotAt ? dateTimeOf(first.lastSnapshotAt) : '';
   return {
-    text: `${count} : ${workloadLabel(first.workload)}, ${first.displayName}${at && `, dernière réussite le ${at} UTC`}`,
+    text: keepDateTogether(
+      `${count} : ${workloadLabel(first.workload)}, ${first.displayName}${at && `, dernière réussite le ${at} UTC`}`,
+    ),
     seeSources: false,
   };
 }

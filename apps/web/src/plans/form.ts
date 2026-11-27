@@ -175,6 +175,8 @@ export function planSummary(
   );
   const where =
     plan.scope === 'all' ? 'toute l’organisation' : selectionLabel(plan.selection, mailboxes);
+  // Segments insécables, « · » lié au segment qui le précède : une ligne ne commence jamais par
+  // « · » et « toutes les 24 h » ne se coupe pas (issue #618).
   return [
     what.charAt(0).toUpperCase() + what.slice(1),
     where,
@@ -182,7 +184,8 @@ export function planSummary(
     `conservés ${retentionLabel(plan.retentionDays)}`,
   ]
     .filter((part) => part !== '')
-    .join(' · ');
+    .map((part) => part.replaceAll(' ', NBSP))
+    .join(`${NBSP}· `);
 }
 
 export const rpoHelp = (hours: number): string =>

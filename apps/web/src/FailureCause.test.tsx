@@ -219,13 +219,11 @@ describe('failed plans view, one run button per plan', () => {
     expect(html.match(/Lancer maintenant/g)).toHaveLength(1);
     expect(html).toContain('aria-label="Modifier Plan en échec"');
     expect(html).toContain('aria-label="Supprimer Plan en échec"');
-    expect(html).toContain('row-actions-no-run');
   });
 
   it('keeps the three row actions on the full list', () => {
     const html = list([okPlan, failedPlan], false);
     expect(html.match(/Lancer maintenant/g)).toHaveLength(2);
-    expect(html).not.toContain('row-actions-no-run');
   });
 
   it('says the filter and links to the full list on the same line', () => {
