@@ -3,13 +3,11 @@ import {
   ConfigurationNotice,
   INTERRUPTED_TITLE,
   connectionLine,
-  connectionView,
   interruptedSentence,
-  interruptedSince,
   useConfiguration,
 } from './ConfigurationBlock.js';
 import { dateTimeOf, quoted, workloadLabel } from './format.js';
-import { HomeCoverage } from './HomeCoverage.js';
+import { HomeCoverage, homeReading } from './HomeCoverage.js';
 import { useHomeData } from './HomeData.js';
 import { ReportFailureNotice } from './reports/ReportFailureNotice.js';
 import { fetchOverview, type Overview } from './overview.js';
@@ -326,9 +324,8 @@ export function Home({ admin = false }: { admin?: boolean }) {
   const data = useHomeData(admin);
   const loadData = data.load;
   const retried = useRef(false);
-  // Une seule lecture de la connexion, celle de la page Plans : configuration et historique des plans.
-  const view = admin ? connectionView(config, data.plans) : 'connected';
-  const since = interruptedSince(view);
+  // Connexion et dernière sauvegarde lues sur les lignes de « Derniers événements » (#604, #608).
+  const { listed, view, since, overview } = homeReading(admin, state, config, data);
   const noticeRef = useRef<HTMLDivElement>(null);
   const showConnection = useCallback(() => {
     noticeRef.current?.scrollIntoView({ block: 'start' });
@@ -358,10 +355,17 @@ export function Home({ admin = false }: { admin?: boolean }) {
       <div role="status" className="sr-only">
         {retried.current ? announcementOf(state) : ''}
       </div>
-      {admin && <ConfigurationNotice config={config} plans={data.plans} focusRef={noticeRef} />}
+      {admin && (
+        <ConfigurationNotice
+          config={config}
+          plans={data.plans}
+          listed={listed}
+          focusRef={noticeRef}
+        />
+      )}
       <ReportFailureNotice enabled={admin} />
       <OverviewView
-        state={state}
+        state={overview}
         admin={admin}
         onRetry={retry}
         connection={admin ? connectionLine(config) : null}

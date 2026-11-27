@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode, type Ref } from 'react';
+import type { RunEvent } from './activities/runs.js';
 import { fetchConfiguration, type Configuration } from './configuration.js';
 import { dateTimeOf, keepDateTogether, workloadLabel } from './format.js';
 import type { PlanItem } from './plans.js';
@@ -68,6 +69,17 @@ export function lastKnownRun(plans: readonly PlanItem[]): string | null {
 }
 
 /**
+ * Exécution listée la plus récente, au sens de la colonne « Heure » de « Derniers événements » :
+ * le plus grand début. `undefined` si aucune ne l'est.
+ */
+export function latestListed(events: readonly RunEvent[]): RunEvent | undefined {
+  return events.reduce<RunEvent | undefined>(
+    (a, b) => (a === undefined || Date.parse(b.startedAt) > Date.parse(a.startedAt) ? b : a),
+    undefined,
+  );
+}
+
+/**
  * Lecture unique de la connexion Microsoft 365, la même sur l'Accueil et sur Plans (#604) :
  * non reliée sans aucune exécution dans l'historique, c'est une installation à terminer
  * (`unconfigured`) ; non reliée après au moins une exécution, la connexion est interrompue.
@@ -78,12 +90,17 @@ export type ConnectionView =
 export function connectionView(
   config: ConfigurationState,
   plans: readonly PlanItem[] | 'loading' | 'error',
+  /**
+   * Accueil : exécutions de « Derniers événements ». La date d'interruption est alors le début de
+   * la plus récente, celui de la colonne « Heure », jamais antérieur à une ligne du tableau (#608).
+   */
+  listed: readonly RunEvent[] = [],
 ): ConnectionView {
   if (config === 'loading' || config === 'error') return config;
   if (config.microsoft.connected) return 'connected';
   // Historique encore inconnu : rien plutôt qu'un bandeau peut-être faux.
   if (plans === 'loading') return 'loading';
-  const since = plans === 'error' ? null : lastKnownRun(plans);
+  const since = latestListed(listed)?.startedAt ?? (plans === 'error' ? null : lastKnownRun(plans));
   return since === null ? 'unconfigured' : { interruptedSince: since };
 }
 
@@ -143,13 +160,16 @@ export function ConnectionInterrupted({
 export function ConfigurationNotice({
   config,
   plans = [],
+  listed = [],
   focusRef,
 }: {
   config: ConfigurationState;
   plans?: readonly PlanItem[] | 'loading' | 'error';
+  /** Exécutions de « Derniers événements » : voir `connectionView`. */
+  listed?: readonly RunEvent[];
   focusRef?: Ref<HTMLDivElement>;
 }) {
-  const view = connectionView(config, plans);
+  const view = connectionView(config, plans, listed);
   if (view === 'loading' || view === 'connected') return null;
   if (typeof view === 'object') {
     return (

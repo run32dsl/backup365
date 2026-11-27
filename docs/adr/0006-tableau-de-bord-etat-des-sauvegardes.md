@@ -85,6 +85,14 @@ SharePoint sauvegardés. Teams est hors périmètre (issue #34) : le SDK 6.2.0 n
   « Aucune sauvegarde n'est encore terminée. », « Derniers événements » n'a plus de lien
   « Tout voir dans Activités » quand la liste est vide, et la ligne d'aide de « Prochaine
   sauvegarde » dit « Calculée d'après la fréquence de vos plans. », sans sigle.
+- Issue #608 : sur l'accueil de l'administrateur, une seule « dernière sauvegarde », celle de
+  « Derniers événements ». La carte « Dernière sauvegarde » donne le début et le plan de la ligne
+  « Réussie » la plus récente (l'heure de la colonne « Heure »), une réussite sans élément copié
+  comprise, comme dans le tableau ; sans ligne « Réussie », la réponse de `GET /api/overview`.
+  « Aucune sauvegarde ne part depuis le … », dans le bandeau comme dans la carte « Sauvegarde »,
+  donne le début de la ligne la plus récente ; sans ligne, la dernière exécution des plans. La
+  page Plans et l'accueil de l'opérateur (sans tableau) gardent les dates de `GET /api/plans` et
+  `GET /api/overview`.
 
 ### Sites SharePoint sauvegardés (issue #31)
 
