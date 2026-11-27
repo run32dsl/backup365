@@ -542,10 +542,13 @@ test('plans : un lancement ou une suppression en échec l’explique au-dessus d
   await run.getByLabel('Motif du lancement (obligatoire)').fill('Après un incident');
   await submit.click();
 
-  // Console non reliée : avertissement sans identifiant, au-dessus du seul bouton « Fermer ».
+  // Console non reliée alors que les plans de démo ont déjà tourné : connexion interrompue,
+  // erreur sans identifiant, au-dessus du seul bouton « Fermer ».
   // Le titre de la boîte change : « Lancement impossible ».
   const blocked = page.getByRole('dialog', { name: 'Lancement impossible' });
-  const alert = blocked.getByRole('alert').filter({ hasText: 'Sauvegarde indisponible' });
+  const alert = blocked
+    .getByRole('alert')
+    .filter({ hasText: 'Connexion Microsoft 365 interrompue' });
   await expect(alert).toBeVisible();
   await expect(blocked.getByRole('link', { name: 'Configurer la connexion' })).toHaveCount(0);
   await expect(blocked.getByText('Identifiant de requête')).toHaveCount(0);
