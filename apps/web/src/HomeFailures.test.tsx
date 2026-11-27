@@ -99,9 +99,10 @@ function home(events: RunItem[], overview: Overview) {
 const rows = (table: string) =>
   [
     ...table.matchAll(
-      /<tr><td class="table-only"><time dateTime="[^"]+">([^<]+)<\/time>.*?<\/tr>/gu,
+      /<tr role="row"><td [^>]*data-label="Début \(UTC\)"[^>]*><time dateTime="[^"]+">([^<]+)<\/time>.*?<\/tr>/gu,
     ),
-  ].map((m) => ({ label: m[1]!, html: m[0] }));
+    // La colonne « Début (UTC) » porte le fuseau dans son en-tête (#636).
+  ].map((m) => ({ label: `${m[1]!} UTC`, html: m[0] }));
 
 const failedRows = (table: string) => rows(table).filter((r) => r.html.includes('En échec'));
 

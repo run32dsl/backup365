@@ -2,7 +2,7 @@ import type { StatusReport } from '@backup365/core';
 import { useCallback, useState } from 'react';
 import { fetchRuns, type RunItem } from './activities/runs.js';
 import { LATEST_RESULTS, coverageOf, type Coverage } from './HomeCoverage.js';
-import { fetchPlans, type PlanItem } from './plans.js';
+import { fetchMailboxes, fetchPlans, type PlanItem } from './plans.js';
 import { fetchStatus } from './status.js';
 import { storageBlocked } from './StorageBlocked.js';
 
@@ -13,6 +13,8 @@ export interface HomeData {
   events: RunItem[] | 'loading' | 'error';
   /** Stockage bloqué, lu sur la même réponse que la couverture (administrateur, #612). */
   storageBlocked?: boolean;
+  /** Nom de chaque boîte, lu comme Activités : la source de « Derniers événements » (#636). */
+  names?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -27,6 +29,7 @@ export function useHomeData(admin: boolean): HomeData & {
   const [plans, setPlans] = useState<HomeData['plans']>('loading');
   const [events, setEvents] = useState<HomeData['events']>('loading');
   const [blocked, setBlocked] = useState(false);
+  const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map());
   const loadEvents = useCallback(() => {
     if (!admin) return;
     setEvents('loading');
@@ -44,7 +47,12 @@ export function useHomeData(admin: boolean): HomeData & {
       () => setCoverage('error'),
     );
     fetchPlans().then(setPlans, () => setPlans('error'));
+    if (admin) {
+      void fetchMailboxes().then(({ mailboxes }) =>
+        setNames(new Map(mailboxes.map((m) => [m.id, m.displayName]))),
+      );
+    }
     loadEvents();
-  }, [loadEvents]);
-  return { coverage, plans, events, storageBlocked: blocked, load, loadEvents };
+  }, [admin, loadEvents]);
+  return { coverage, plans, events, storageBlocked: blocked, names, load, loadEvents };
 }

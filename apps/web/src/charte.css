@@ -486,67 +486,6 @@ th {
   width: 100%;
   min-height: 2.75rem;
 }
-.events-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.events-table th,
-.events-table td {
-  padding: var(--space-1) var(--space-2);
-  text-align: left;
-}
-/* Heure, type et statut sur une ligne ; le résumé prend la place restante (#475). */
-.events-table td:not(:last-child) {
-  white-space: nowrap;
-}
-/* Pastille et « type · heure » répétées dans la carte mobile : le tableau a leurs colonnes. */
-.events-table .card-only {
-  display: none;
-}
-/* Sous 900 px, carte titrée comme Activités : plan, pastille, puis « type · heure UTC · détails ». */
-@media (max-width: 900px) {
-  .events-table thead {
-    position: absolute;
-    left: -9999px;
-  }
-  .events-table tr,
-  .events-table td {
-    display: block;
-    white-space: normal;
-  }
-  .events-table tr {
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius);
-    margin-bottom: var(--space-2);
-    padding: var(--space-1) var(--space-3);
-  }
-  .events-table td {
-    padding: 0;
-    border-bottom: 0;
-  }
-  .events-table td.table-only {
-    display: none;
-  }
-  .events-table td.card-title {
-    font-weight: 600;
-    line-height: 1.35;
-  }
-  /* Titre : le nom du plan seul ; la pastille vient à la ligne suivante (#571). */
-  .events-table td.card-title .table-summary {
-    display: none;
-  }
-  .events-table td.card-title .card-only {
-    display: block;
-  }
-  .events-table td.card-title .card-pill {
-    margin-block: 0.125rem;
-  }
-  .events-table td.card-title .cell-secondary {
-    display: block;
-    font-weight: 400;
-    font-size: 0.8125rem;
-  }
-}
 @media (min-width: 900px) {
   .coverage-tiles {
     grid-template-columns: repeat(3, 1fr);

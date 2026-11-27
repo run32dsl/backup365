@@ -20,8 +20,9 @@ import {
   RunAllOutcome,
   type RunAllResult,
 } from './RunAllDialog.js';
-import { runSummary, runTypeLabel } from './LatestEventRow.js';
-import { fetchRuns, groupRuns, type RunItem } from './activities/runs.js';
+import { RunsView } from './activities/RunsPage.js';
+import { fetchRuns, mailOnlyTypes, type RunItem } from './activities/runs.js';
+import { AdminProvider } from './role.js';
 import type { HomeData } from './HomeData.js';
 import type { Overview } from './overview.js';
 import { runPlan, type PlanItem } from './plans.js';
@@ -227,79 +228,115 @@ const runItem = (over: Partial<RunItem> = {}): RunItem => ({
 });
 
 describe('LatestEvents', () => {
-  it('has a caption, the Heure, Type, Statut and Résumé columns and the link to Activités', () => {
+  /** Rendu d'Activités › Sauvegardes pour les mêmes exécutions, plans et boîtes. */
+  const activities = (
+    items: RunItem[],
+    plans: readonly PlanItem[],
+    names: ReadonlyMap<string, string> = new Map(),
+  ) =>
+    renderToStaticMarkup(
+      <AdminProvider value>
+        <RunsView
+          state={{ items, limit: LATEST_RESULTS }}
+          filter={{ planId: '', result: '' }}
+          names={names}
+          boxPlans={new Set(plans.filter((p) => mailOnlyTypes(p.dataTypes)).map((p) => p.id))}
+          planTypes={new Map(plans.map((p) => [p.id, p.dataTypes]))}
+        />
+      </AdminProvider>,
+    );
+  const headersOf = (html: string) =>
+    [...html.matchAll(/<th scope="col"[^>]*>([^<]+)<\/th>/g)].map((m) => m[1]);
+  /** Lignes du corps du tableau (la première `<tr role="row">` est celle des en-têtes). */
+  const rowsOf = (html: string) =>
+    [...html.matchAll(/<tr role="row">(.*?)<\/tr>/g)].map((m) => m[1]!).slice(1);
+  /** `[en-tête, texte]` de chaque cellule ; balises remplacées par `|`, espaces insécables par ` `. */
+  const cellsOf = (row: string) =>
+    [...row.matchAll(/<td[^>]*data-label="([^"]+)"[^>]*>(.*?)<\/td>/g)].map(
+      (m) => [m[1]!, m[2]!.replace(/<[^>]+>/g, '|').replace(/[\u00a0\u202f]/g, ' ')] as const,
+    );
+
+  it('has the columns of Activités › Sauvegardes, a caption and the link to Activités (#636)', () => {
     const plans = [{ ...plan('p1'), dataTypes: ['onedrive', 'mail'] }] as PlanItem[];
     const html = renderToStaticMarkup(
       <LatestEvents items={[runItem()]} plans={plans} onRetry={() => undefined} />,
     );
     expect(html).toContain('<caption');
-    const headers = [...html.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map((m) => m[1]);
-    expect(headers).toEqual(['Heure', 'Type', 'Statut', 'Résumé']);
-    expect(html).toContain('24/11/2026');
-    expect(html).toContain('Boîtes mail, OneDrive');
-    expect(html).toContain('Réussie');
+    const headers = headersOf(html);
+    expect(headers).toEqual(headersOf(activities([runItem()], plans)));
+    // Les six colonnes du bureau ; « Détail » est la ligne de la carte mobile.
+    expect(headers).toEqual([
+      'Début (UTC)',
+      'Plan',
+      'Résultat',
+      'Durée',
+      'Éléments copiés',
+      'Taille source',
+      'Détail',
+    ]);
     expect(html).toContain('href="#/activites"');
   });
-  it('mobile card: plan name alone as title, the pill below, then « type · heure UTC · détails » (#568, #571)', () => {
-    const plans = [{ ...plan('p1'), dataTypes: ['mail'] }] as PlanItem[];
-    const html = renderToStaticMarkup(
-      <LatestEvents
-        items={[runItem(), runItem({ id: 2, startedAt: '' })]}
-        plans={plans}
-        onRetry={() => undefined}
-      />,
-    );
-    const rows = html.split('<tr>').slice(2);
-    expect(rows).toHaveLength(2);
-    for (const row of rows) {
-      // Heure, type et statut : colonnes du tableau seulement ; la carte n'a que la dernière.
-      expect([...row.matchAll(/<td class="([^"]*)"/g)].map((m) => m[1])).toEqual([
-        'table-only',
-        'table-only',
-        'table-only',
-        'card-title',
-      ]);
-      expect(row).not.toContain('data-label');
-    }
-    const card = (row: string) =>
-      (row.match(/<td class="card-title">(.*?)<\/td>/)?.[1] ?? '')
-        .replace(/[\u00a0\u202f]/g, ' ')
-        .replace(/<[^>]+>/g, '|');
-    const [first, noDate] = rows.map(card) as [string, string];
-    // Tableau : le résumé avec le plan ; carte : le plan seul, sans guillemets ni durée.
-    expect(first).toMatch(
-      /^\|« Direction » · 1 boîte · 1 284 éléments copiés · 3,4 Go · 14 min\|\|Direction\|\|/,
-    );
-    // La pastille a son propre bloc, après le titre : jamais sur la ligne du titre.
-    expect(rows[0]).toMatch(
-      /<span class="card-only">Direction<\/span><span class="card-only card-pill"><span class="badge /,
-    );
-    expect(first).toMatch(
-      /\|Boîtes mail · 24\/11\/2026 \d\d:\d\d UTC · 1 boîte · 1 284 éléments copiés · 3,4 Go · 14 min\|/,
-    );
-    expect(noDate).toContain('|Boîtes mail · 1 boîte · ');
-    expect(noDate).not.toContain('—');
-  });
-  it('shows one event per plan run: five results of one run make one « En échec » line (#571)', () => {
-    const plans = [{ ...plan('p1'), dataTypes: ['mail'] }] as PlanItem[];
+  it('shows the demo failure of « Boîte direction, quotidien » exactly as Activités, desk and card (#636)', () => {
+    const plans = [
+      { ...plan('p-dir'), name: 'Boîte direction, quotidien', dataTypes: ['mail'] },
+      { ...plan('p-mail'), name: 'Boîtes mail, quotidien', dataTypes: ['mail'] },
+    ] as PlanItem[];
+    const names = new Map([['marc.lefevre@exemple.fr', 'marc.lefevre@exemple.fr']]);
+    const failed = runItem({
+      id: 9,
+      planId: 'p-dir',
+      planName: 'Boîte direction, quotidien',
+      itemId: 'marc.lefevre@exemple.fr',
+      startedAt: '2026-11-27T20:24:00Z',
+      finishedAt: '2026-11-27T20:24:30Z',
+      durationMs: 30_000,
+      result: 'failed',
+      itemsSaved: null,
+      sourceBytes: null,
+      failureCause: 'backup_errors',
+    });
     const boxes = ['a', 'b', 'c', 'd', 'e'].map((box, i) =>
-      runItem({ id: 10 + i, itemId: box, itemsSaved: null, sourceBytes: null, durationMs: 1000 }),
+      runItem({
+        id: 20 + i,
+        planId: 'p-mail',
+        planName: 'Boîtes mail, quotidien',
+        itemId: `${box}@exemple.fr`,
+        startedAt: '2026-11-27T20:25:00Z',
+        finishedAt: '2026-11-27T20:25:20Z',
+        durationMs: 20_000,
+        itemsSaved: 52,
+        sourceBytes: null,
+      }),
     );
-    boxes[3] = { ...boxes[3]!, result: 'failed', failureCause: 'backup_errors' };
-    const other = runItem({ id: 2, planId: 'p2', planName: 'Boîtes mail, quotidien' });
-    const html = renderToStaticMarkup(
-      <LatestEvents items={[...boxes, other]} plans={plans} onRetry={() => undefined} />,
+    const items = [...boxes, failed];
+    const home = renderToStaticMarkup(
+      <LatestEvents items={items} plans={plans} names={names} onRetry={() => undefined} />,
     );
-    const rows = html.split('<tr>').slice(2);
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).toContain('En échec');
-    expect(rows[0]).not.toContain('Réussie');
-    expect(rows[0]?.replace(/[\u00a0\u202f]/g, ' ')).toContain(
-      '« Direction » · 5 boîtes · cause : des dossiers ou des mails n’ont pas pu être sauvegardés.',
+    const homeRows = rowsOf(home);
+    expect(homeRows).toHaveLength(2);
+    // Même balisage, cellule par cellule, colonne « Détail » (la carte mobile) comprise.
+    expect(homeRows).toEqual(rowsOf(activities(items, plans, names)));
+    const cells = Object.fromEntries(cellsOf(homeRows[1]!));
+    expect(cells['Début (UTC)']).toBe('|27/11/2026 20:24|');
+    expect(cells['Plan']).toContain('Boîte direction, quotidien');
+    expect(cells['Plan']).toContain('marc.lefevre');
+    expect(cells['Résultat']).toContain('Des dossiers ou des mails n’ont pas pu être sauvegardés.');
+    expect(cells['Résultat']).toContain('Vérifiez l’autorisation');
+    // Carte : source · date UTC · durée · éléments copiés · volume, puis cause et conduite.
+    expect(cells['Détail']).toMatch(
+      /^\|?marc\.lefevre@exemple\.fr · 27\/11\/2026 20:24 UTC · moins d’une minute\|/,
     );
-    // Le plan ne sauvegarde que des boîtes mail : jamais de « fichiers » (#632).
-    expect(rows[0]).not.toContain('fichiers');
-    expect(rows[1]).toContain('Boîtes mail, quotidien');
+    expect(Object.fromEntries(cellsOf(homeRows[0]!))['Détail']).toMatch(
+      /^\|?5 boîtes · 27\/11\/2026 20:25 UTC · moins d’une minute · 260 éléments copiés/,
+    );
+    // Plus aucun résumé : ni « UTC » dans une date, ni « cause : », ni plan entre guillemets.
+    for (const row of homeRows) {
+      for (const [label, text] of cellsOf(row)) {
+        expect(text).not.toContain('cause :');
+        expect(text).not.toContain('«');
+        if (label !== 'Détail') expect(text).not.toContain('UTC');
+      }
+    }
   });
   it('keeps the five latest runs, not the five latest results', () => {
     const items = Array.from({ length: 12 }, (_, i) =>
@@ -310,7 +347,7 @@ describe('LatestEvents', () => {
       }),
     );
     const html = renderToStaticMarkup(<LatestEvents items={items} onRetry={() => undefined} />);
-    expect(html.split('<tr>').slice(2)).toHaveLength(LATEST_RUNS);
+    expect(rowsOf(html)).toHaveLength(LATEST_RUNS);
   });
   it('writes the status in words: running, failed', () => {
     const html = renderToStaticMarkup(
@@ -329,39 +366,6 @@ describe('LatestEvents', () => {
     );
     expect(html).toContain('En cours');
     expect(html).toContain('En échec');
-    expect(html).toContain('Sauvegarde</td>');
-  });
-  const summary = (items: RunItem[], boxes = false) =>
-    runSummary(groupRuns(items)[0]!, boxes).replace(/[\u00a0\u202f]/g, ' ');
-  it('sums up a run: plan, sources, copied items, volume and duration, or the cause', () => {
-    expect(summary([runItem()], true)).toBe(
-      '« Direction » · 1 boîte · 1 284 éléments copiés · 3,4 Go · 14 min',
-    );
-    expect(summary([runItem({ itemsSaved: 1, sourceBytes: null })])).toBe(
-      '« Direction » · 1 source · 1 élément copié · 14 min',
-    );
-    expect(summary([runItem({ result: 'running' })])).toBe(
-      '« Direction » · 1 source · sauvegarde en cours',
-    );
-    expect(summary([runItem({ result: 'interrupted' })])).toContain(
-      'cause : la console a été arrêtée',
-    );
-    expect(runTypeLabel(runItem(), [])).toBe('Sauvegarde');
-  });
-  it('never sums up a successful run with its duration alone: sources and copied items, 0 included (#571)', () => {
-    const boxes = ['a', 'b', 'c', 'd', 'e'].map((box, i) =>
-      runItem({
-        id: i + 1,
-        itemId: box,
-        itemsSaved: null,
-        sourceBytes: null,
-        finishedAt: '2026-11-24T09:12:20Z',
-        durationMs: 20_000,
-      }),
-    );
-    expect(summary(boxes, true)).toBe(
-      '« Direction » · 5 boîtes · 0 élément copié · moins d’une minute',
-    );
   });
   it('asks the server for enough results to gather the 5 latest runs', async () => {
     const fetchFn = vi.fn(() =>
@@ -434,7 +438,7 @@ describe('HomeCoverage follows the three cards (#578)', () => {
     expect(html).not.toContain('coverage-tile');
     expect(html).not.toContain('Réussie');
     // Une première exécution en cours reste listée : elle ne contredit pas « En attente ».
-    expect(html).toContain('sauvegarde en cours');
+    expect(html).toContain('En cours');
     const idle = render(overview('pending', 1), { home: { ...data, events: [runItem()] } });
     expect(idle).toContain('Aucune exécution pour le moment.');
     expect(idle).not.toContain('Réussie');

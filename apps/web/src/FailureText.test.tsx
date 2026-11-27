@@ -2,9 +2,9 @@ import type { DataType, FailureCause } from '@backup365/core';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { RunsView } from './activities/RunsPage.js';
-import { groupRuns, type RunItem } from './activities/runs.js';
-import { FAILURE_TEXT, failureText, lowerFirst } from './failureText.js';
-import { runSummary } from './LatestEventRow.js';
+import { type RunItem } from './activities/runs.js';
+import { FAILURE_TEXT, failureText } from './failureText.js';
+import { LatestEvents } from './HomeCoverage.js';
 import { complianceView, failureBanner, type PlanItem } from './plans.js';
 import { AdminProvider } from './role.js';
 
@@ -114,13 +114,14 @@ describe('la cause backup_errors nomme ce que le plan sauvegarde (#632)', () => 
         expect(mobile[0]).toBe(expected);
         // Conduite à tenir inchangée.
         expect(banner.advice).toBe(FAILURE_TEXT.backup_errors[admin ? 'admin' : 'operator']);
-        // Accueil › Derniers événements : la même phrase en minuscule après « cause : ».
-        const summary = runSummary(groupRuns([run('backup_errors')])[0]!, false, types);
-        expect(summary.replace(/[\u00a0\u202f]/g, ' ')).toContain(
-          `cause : ${lowerFirst(expected)}`,
+        // Accueil › Derniers événements (administrateur) : les colonnes d'Activités (#636).
+        const home = renderToStaticMarkup(
+          <LatestEvents items={[run('backup_errors')]} plans={[p]} onRetry={() => undefined} />,
         );
+        expect(home).toContain(`<span class="cell-secondary">${expected}</span>`);
         if (head !== 'Des dossiers ou des fichiers') {
-          for (const line of [banner.cause, note, ...desktop, ...mobile, summary]) {
+          expect(home).not.toContain('fichiers');
+          for (const line of [banner.cause, note, ...desktop, ...mobile]) {
             expect(line).not.toContain('fichiers');
           }
         }

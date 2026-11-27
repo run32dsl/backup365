@@ -1,6 +1,13 @@
 import { nextRunAt, type StatusRow } from '@backup365/core';
 import { useState } from 'react';
-import { RUNS_HASH, completeRuns, type RunEvent, type RunItem } from './activities/runs.js';
+import {
+  RUNS_HASH,
+  completeRuns,
+  mailOnlyTypes,
+  type RunEvent,
+  type RunItem,
+} from './activities/runs.js';
+import { runColumns } from './activities/RunsPage.js';
 import {
   connectionView,
   interruptedSince,
@@ -13,9 +20,8 @@ import type { PlanItem } from './plans.js';
 import { RunAllDialog, launchedLabel } from './RunAllDialog.js';
 import { STATUS_HASH } from './routes.js';
 import { STORAGE_NEXT_TEXT } from './StorageBlocked.js';
-import { LatestEventRow, mailOnly, runDataTypes, runTypeLabel } from './LatestEventRow.js';
 import type { Overview } from './overview.js';
-import { Alert, Button, EmptyState } from './ui/index.js';
+import { Alert, Button, DataTable, EmptyState } from './ui/index.js';
 
 /** Éléments sauvegardés par service : au moins un instantané, tous types de données confondus. */
 export interface Coverage {
@@ -247,18 +253,26 @@ export function homeReading(
   return { listed, view, since: interruptedSince(view), overview };
 }
 
-/** Les cinq dernières exécutions des plans (`GET /api/runs`), hors journal d'audit. */
+/**
+ * Les cinq dernières exécutions des plans (`GET /api/runs`), hors journal d'audit : un extrait
+ * d'Activités › Sauvegardes, avec ses colonnes, ses phrases et ses cartes mobiles (#636).
+ */
 export function LatestEvents({
   items,
   plans = [],
+  names = new Map(),
   onRetry,
 }: {
   items: RunItem[] | 'loading' | 'error';
-  /** Plans déjà chargés par l'accueil : donnent la colonne « Type ». */
+  /** Plans déjà chargés par l'accueil : « 5 boîtes » et la cause d'un échec en dépendent. */
   plans?: readonly PlanItem[];
+  /** Nom de chaque boîte, lu comme Activités : la source unique d'une exécution est nommée. */
+  names?: ReadonlyMap<string, string>;
   onRetry: () => void;
 }) {
   const events = Array.isArray(items) ? listedEvents(items) : [];
+  const boxPlans = new Set(plans.filter((p) => mailOnlyTypes(p.dataTypes)).map((p) => p.id));
+  const planTypes = new Map(plans.map((p) => [p.id, p.dataTypes]));
   return (
     <section aria-labelledby="home-events" aria-busy={items === 'loading'}>
       <h2 id="home-events">Derniers événements</h2>
@@ -270,28 +284,16 @@ export function LatestEvents({
       )}
       {Array.isArray(items) && items.length === 0 && <p>Aucune exécution pour le moment.</p>}
       {Array.isArray(items) && items.length > 0 && (
-        <table className="events-table">
-          <caption className="sr-only">Cinq dernières exécutions des plans</caption>
-          <thead>
-            <tr>
-              <th scope="col">Heure</th>
-              <th scope="col">Type</th>
-              <th scope="col">Statut</th>
-              <th scope="col">Résumé</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((e) => (
-              <LatestEventRow
-                key={e.id}
-                run={e}
-                type={runTypeLabel(e, plans)}
-                boxes={mailOnly(e, plans)}
-                dataTypes={runDataTypes(e, plans)}
-              />
-            ))}
-          </tbody>
-        </table>
+        <div className="runs-list">
+          <DataTable
+            caption="Cinq dernières exécutions des plans"
+            hideCaption
+            // « Derniers événements » n'est montré qu'à l'administrateur.
+            columns={runColumns(names, boxPlans, planTypes, true)}
+            rows={events}
+            rowKey={(r) => r.id}
+          />
+        </div>
       )}
       {/* Rien à voir dans Activités tant qu'aucune exécution n'est listée (#600). */}
       {!(Array.isArray(items) && items.length === 0) && (
@@ -360,6 +362,7 @@ export function HomeCoverage({
         <LatestEvents
           items={events}
           plans={Array.isArray(data.plans) ? data.plans : []}
+          names={data.names}
           onRetry={onRetryEvents}
         />
       )}
