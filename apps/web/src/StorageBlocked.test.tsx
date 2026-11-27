@@ -72,13 +72,7 @@ const home = (blocked: boolean) =>
     <main>
       <h1>Accueil</h1>
       <HomeAlerts blocked={blocked} config={linked} plans={[plan]} listed={[]} />
-      <OverviewView
-        state={overview}
-        admin
-        onRetry={noop}
-        storageBlocked={blocked}
-        onShowConnection={noop}
-      />
+      <OverviewView state={overview} admin onRetry={noop} storageBlocked={blocked} />
       <HomeCoverage
         overview={overview}
         data={data(blocked)}
@@ -158,7 +152,6 @@ describe('Home, blocked storage (#612)', () => {
           onRetry={noop}
           storageBlocked
           interruptedSince={interruptedSince}
-          onShowConnection={noop}
         />,
       );
       const card = html.slice(0, html.indexOf('overview-plans'));
@@ -189,6 +182,42 @@ describe('Home, blocked storage (#612)', () => {
     expect(html.indexOf(STORAGE_BLOCKED_TITLE)).toBeLessThan(
       html.indexOf('Connexion Microsoft 365 interrompue'),
     );
+  });
+
+  it('says each outage once, in its own Alert, when the connection is down too (#622)', () => {
+    const html = renderToStaticMarkup(
+      <main>
+        <h1>Accueil</h1>
+        <HomeAlerts blocked config={unlinked} plans={[plan]} listed={[]} />
+        <OverviewView
+          state={overview}
+          admin
+          onRetry={noop}
+          storageBlocked
+          interruptedSince="2026-11-26T22:06:00.000Z"
+        />
+        <HomeCoverage
+          overview={overview}
+          data={data(true)}
+          admin
+          connected={false}
+          interrupted
+          now={new Date('2026-11-26T22:30:00.000Z')}
+          onLaunched={noop}
+          onRetryEvents={noop}
+        />
+      </main>,
+    );
+    const card = html.indexOf('overview-backup');
+    expect(html.slice(0, card).match(/<div class="alert alert-error"/gu)).toHaveLength(2);
+    for (const said of [
+      STORAGE_BLOCKED_TITLE,
+      'Connexion Microsoft 365 interrompue',
+      'Aucune sauvegarde ne part depuis',
+    ]) {
+      expect(html.split(said)).toHaveLength(2);
+      expect(html.indexOf(said)).toBeLessThan(card);
+    }
   });
 
   it('shows none of it when the storage is accepted', () => {

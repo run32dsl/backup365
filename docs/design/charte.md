@@ -82,7 +82,12 @@ composant s'y ajoute avec ses tests de comportement.
   maintenant », que la connexion soit reliée ou non. La carte ne répète pas le titre du bandeau
   et passe directement aux échecs et retards ; son seul bouton, « Voir le stockage », ouvre État
   des sources sur la section « Stockage » (titre focalisé), sans « Voir les sources » en plus
-  (#616). Lancement de tous les plans avec au moins un refus : la boîte passe en résultat, comme
+  (#616). Connexion Microsoft 365 interrompue : même règle (#622). La carte « Sauvegarde » reste
+  en « ✖ Interrompue » mais ne répète ni le titre ni la phrase du bandeau (« Aucune sauvegarde ne
+  part depuis… ») et passe directement aux échecs et retards ; son seul bouton, « Voir les
+  sources », est l'action principale, sans renvoi vers le bandeau. « Prochaine sauvegarde » dit
+  « Aucune sauvegarde ne partira tant que la connexion Microsoft 365 n’est pas rétablie. ».
+  Lancement de tous les plans avec au moins un refus : la boîte passe en résultat, comme
   `RunDialog` (#596). Titre « Lancement partiel » (bandeau d'avertissement) ou « Lancement
   impossible » (bandeau d'erreur) ; bilan en gras (« 3 sauvegardes lancées, 1 non lancée ») puis
   les plans non lancés, raison en minuscule après les deux-points ; motif rappelé en lecture

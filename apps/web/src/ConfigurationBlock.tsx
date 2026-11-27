@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode, type Ref } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { RunEvent } from './activities/runs.js';
 import { fetchConfiguration, type Configuration } from './configuration.js';
 import { dateTimeOf, keepDateTogether, workloadLabel } from './format.js';
@@ -108,7 +108,7 @@ export function connectionView(
 export const interruptedSince = (view: ConnectionView): string | null =>
   typeof view === 'object' ? view.interruptedSince : null;
 
-/** Titre commun du bandeau, de la carte « Sauvegarde » et de la boîte « Lancement impossible ». */
+/** Titre du bandeau d'erreur ; la carte « Sauvegarde » de l'accueil ne le répète pas (#622). */
 export const INTERRUPTED_TITLE = 'Connexion Microsoft 365 interrompue';
 
 /** `Aucune sauvegarde ne part depuis le 26/11/2026 22:06 UTC.` */
@@ -122,17 +122,14 @@ export const RUN_SUSPENDED_TEXT =
 /** Bandeau d'erreur : depuis quand plus rien ne part, puis la conduite à tenir sur le serveur. */
 export function ConnectionInterrupted({
   since,
-  focusRef,
   runSuspended = false,
 }: {
   since: string;
   /** Page Plans : ajoute que le lancement manuel est suspendu (les lignes n'en disent rien). */
   runSuspended?: boolean;
-  /** Rend le bandeau focalisable : cible du bouton de la carte « Sauvegarde ». */
-  focusRef?: Ref<HTMLDivElement>;
 }) {
   return (
-    <Alert tone="error" title={INTERRUPTED_TITLE} {...(focusRef ? { focusRef } : {})}>
+    <Alert tone="error" title={INTERRUPTED_TITLE}>
       <span className="alert-detail">
         {interruptedSentence(since)}
         {runSuspended && ` ${RUN_SUSPENDED_TEXT}`}
@@ -161,21 +158,15 @@ export function ConfigurationNotice({
   config,
   plans = [],
   listed = [],
-  focusRef,
 }: {
   config: ConfigurationState;
   plans?: readonly PlanItem[] | 'loading' | 'error';
   /** Exécutions de « Derniers événements » : voir `connectionView`. */
   listed?: readonly RunEvent[];
-  focusRef?: Ref<HTMLDivElement>;
 }) {
   const view = connectionView(config, plans, listed);
   if (view === 'loading' || view === 'connected') return null;
-  if (typeof view === 'object') {
-    return (
-      <ConnectionInterrupted since={view.interruptedSince} {...(focusRef ? { focusRef } : {})} />
-    );
-  }
+  if (typeof view === 'object') return <ConnectionInterrupted since={view.interruptedSince} />;
   if (view === 'error') {
     return (
       <Alert tone="error">

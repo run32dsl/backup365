@@ -1,5 +1,5 @@
 import type { StatusReport } from '@backup365/core';
-import { useEffect, useState, type Ref } from 'react';
+import { useEffect, useState } from 'react';
 import type { RunEvent } from './activities/runs.js';
 import {
   ConfigurationNotice,
@@ -106,31 +106,24 @@ export function RunHaltedAlerts({ blocked, since }: { blocked: boolean; since: s
 
 /**
  * Bandeaux de l'administrateur sous le `h1` de l'Accueil, le plus grave d'abord : un stockage
- * bloqué arrête tout, connexion rétablie ou non. `focusRef` va au bandeau de la connexion, cible
- * de « Voir la conduite à tenir » ; celui du stockage n'est la cible d'aucun bouton (#616).
+ * bloqué arrête tout, connexion rétablie ou non. La carte « Sauvegarde » ne les répète pas et
+ * aucun de ses boutons n'y renvoie (#616, #622).
  */
 export function HomeAlerts({
   blocked,
   config,
   plans,
   listed,
-  focusRef,
 }: {
   blocked: boolean;
   config: ConfigurationState;
   plans: readonly PlanItem[] | 'loading' | 'error';
   listed: readonly RunEvent[];
-  focusRef?: Ref<HTMLDivElement>;
 }) {
   return (
     <>
       {blocked && <StorageBlocked />}
-      <ConfigurationNotice
-        config={config}
-        plans={plans}
-        listed={listed}
-        {...(focusRef ? { focusRef } : {})}
-      />
+      <ConfigurationNotice config={config} plans={plans} listed={listed} />
     </>
   );
 }

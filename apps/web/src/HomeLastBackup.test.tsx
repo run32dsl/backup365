@@ -84,13 +84,7 @@ function home(events: RunItem[], connected: boolean) {
   return {
     notice: part(<ConfigurationNotice config={config} plans={plans} listed={listed} />),
     cards: part(
-      <OverviewView
-        state={reading.overview}
-        admin
-        onRetry={noop}
-        interruptedSince={since}
-        onShowConnection={noop}
-      />,
+      <OverviewView state={reading.overview} admin onRetry={noop} interruptedSince={since} />,
     ),
     table: part(
       <HomeCoverage
@@ -128,7 +122,7 @@ describe('Home: one last backup for the cards and « Derniers événements » (#
       expect(card).not.toContain('03:51');
     });
 
-    it(`the interruption date is the newest row, in the banner and the card (${itemsSaved} copied)`, () => {
+    it(`the interruption date is the newest row, said once, in the banner (#622) (${itemsSaved} copied)`, () => {
       const { notice, cards, table } = home(eventsOf(itemsSaved), false);
       const listed = rows(table);
       const newest = Math.max(...listed.map((r) => Date.parse(r.at)));
@@ -138,7 +132,7 @@ describe('Home: one last backup for the cards and « Derniers événements » (#
         'Aucune sauvegarde ne part depuis le 27/11/2026 03:55 UTC.',
       );
       expect(notice).toContain(sentence);
-      expect(cards).toContain(sentence);
+      expect(cards).not.toContain(sentence);
       expect(lastCard(cards)).toContain('Plan : Comptes');
     });
   }

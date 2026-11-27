@@ -648,7 +648,7 @@ export const SCREENS = [
     },
   },
   {
-    // Connexion perdue après des sauvegardes (#604) : erreur, date de la dernière exécution.
+    // Connexion perdue après des sauvegardes (#604, #622) : erreur, date de la dernière exécution.
     name: 'accueil-connexion-interrompue',
     hash: '#/',
     role: 'admin',
@@ -656,7 +656,8 @@ export const SCREENS = [
       await unlinkMicrosoft(page);
       await page.reload();
       await page.getByRole('alert').getByText('Connexion Microsoft 365 interrompue').waitFor();
-      await page.getByRole('button', { name: 'Voir la conduite à tenir' }).waitFor();
+      // Dite une fois, sous le `h1` : la carte « Sauvegarde » mène aux sources (#622).
+      await page.getByRole('button', { name: 'Voir les sources' }).waitFor();
     },
   },
   {
