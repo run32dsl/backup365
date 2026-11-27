@@ -344,10 +344,14 @@ describe('GET /api/status', () => {
       expect((await get('something-new')).body['storage']).toEqual({ conditionalWrites: null });
     });
 
-    it('hides it from a non-administrator', async () => {
+    it('tells a non-administrator only that restores are suspended (#614)', async () => {
       const { body, probes } = await get('ignored', 'operator');
       expect(body).not.toHaveProperty('storage');
-      expect(probes).toBe(0);
+      expect(body['restoreSuspended']).toBe(true);
+      expect(JSON.stringify(body)).not.toContain('conditionalWrites');
+      expect(probes).toBe(1);
+      expect((await get('supported', 'operator')).body['restoreSuspended']).toBe(false);
+      expect((await get(new Error('down'), 'operator')).body['restoreSuspended']).toBe(false);
     });
   });
 

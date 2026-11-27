@@ -54,7 +54,10 @@ export class StorageCheck {
     const entry = { value: this.probe(), expiresAt: Number.POSITIVE_INFINITY };
     this.cached = entry;
     void entry.value.then((value) => {
-      entry.expiresAt = this.now() + (value === null ? this.failureTtlMs : this.ttlMs);
+      // Un stockage bloqué suspend les restaurations (#614) : revérifié aussi vite qu'un échec,
+      // pour qu'une correction les rende sans attendre l'heure.
+      const short = value === null || value === 'ignored';
+      entry.expiresAt = this.now() + (short ? this.failureTtlMs : this.ttlMs);
     });
     return entry.value;
   }

@@ -16,6 +16,7 @@ import {
 } from './ui/index.js';
 import { AuditReminder, REASON, REASON_EXAMPLES, ReasonField } from './RestoreJourney.js';
 import { LongDialogExample } from './LongDialogExample.js';
+import { BlockedRestore } from './StorageBlocked.js';
 
 /** Sections de la page, dans l'ordre du sommaire. */
 export const SECTIONS = [
@@ -85,6 +86,7 @@ function Playground() {
   const [open, setOpen] = useState(false);
   const [dialogReason, setDialogReason] = useState('');
   const [destructiveOpen, setDestructiveOpen] = useState(false);
+  const [blockedOpen, setBlockedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   return (
     <>
@@ -172,7 +174,8 @@ function Playground() {
         <p>
           Rappel d’audit : premier bandeau d’information, sous le titre de l’étape de saisie. Il est
           retiré des boîtes de résultat et absent des actions qui ne touchent pas à un élément
-          sauvegardé.
+          sauvegardé. Stockage bloqué : le bandeau d’erreur remplace le formulaire et « Fermer »
+          reste seul.
         </p>
         <Button
           variant="secondary"
@@ -191,6 +194,28 @@ function Playground() {
           Supprimer
         </Button>
         <LongDialogExample />
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setBlockedOpen(true);
+          }}
+        >
+          Restaurer, stockage bloqué
+        </Button>
+        <Dialog
+          open={blockedOpen}
+          title="Restaurer ce mail"
+          onClose={() => {
+            setBlockedOpen(false);
+          }}
+        >
+          <BlockedRestore
+            admin
+            onClose={() => {
+              setBlockedOpen(false);
+            }}
+          />
+        </Dialog>
         <Dialog
           open={destructiveOpen}
           title="Supprimer cet exemple ?"

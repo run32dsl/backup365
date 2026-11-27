@@ -126,8 +126,16 @@ composant s'y ajoute avec ses tests de comportement.
   problèmes. La section « Stockage », en `Alert` d'erreur, remonte juste sous le bandeau, avant
   « Services ». Le même `Alert` d'erreur (`StorageBlocked`) se place sous le `h1` de l'Accueil,
   en tête de Plans de protection (avant celui de la connexion, s'il y en a un ; la suspension du
-  lancement manuel n'y est dite qu'une fois) et, dans les trois parcours de restauration, avant
-  le rappel d'audit.
+  lancement manuel n'y est dite qu'une fois) et en tête des trois parcours de restauration.
+  Là, il est complété par « La restauration est suspendue jusqu’à la correction du stockage. »
+  et remplace le formulaire (#614) : ni choix de destination, ni rappel d'audit, ni motif, ni
+  récapitulatif ; rien n'est saisi ni inscrit au journal d'audit. Un seul bouton secondaire
+  reste, « Fermer » dans la boîte « Restaurer ce mail », « Précédent » à l'étape « Motif » de
+  OneDrive et de SharePoint ; pas de bouton principal grisé. Le bouton « Restaurer » de la fiche
+  et « Continuer » de l'étape « Choisir » restent, pour consulter, et mènent à cet état. Un
+  opérateur, qui ne voit pas l'état du stockage (`GET /api/status` ne lui dit que
+  `restoreSuspended`), a le même blocage dans un `Alert` d'erreur sans titre : « Restauration
+  impossible pour l’instant. Prévenez un administrateur. » Exemple sur `#/composants`.
 - **Échec d'une restauration** (messagerie, OneDrive, SharePoint) : un seul `Alert` d'erreur
   (`RestoreFailureAlert`), construit comme celui d'un plan. Première ligne en gras « Échec de la
   restauration de « élément » le jj/mm/aaaa hh:mm UTC », puis la cause, la conséquence et la

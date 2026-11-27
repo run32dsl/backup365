@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { apiErrorFor, type Problem } from './apiError.js';
 import { ConfigurationLink } from './ConfigurationBlock.js';
 import { useAdmin } from './role.js';
-import { StorageBlocked, useStorageBlocked } from './StorageBlocked.js';
+import { BlockedRestore, useRestoreBlocked } from './StorageBlocked.js';
 import { FailureAlert } from './FailureAlert.js';
 import { RestoreFailureAlert, restoreFailureBanner } from './restoreFailure.js';
 import { isReasonValid } from './mail.js';
@@ -168,8 +168,8 @@ export function RestoreAction({
   const [now, setNow] = useState(() => Date.now());
   const admin = useAdmin();
   const [mode, setMode] = useState<'origin' | 'other'>('origin');
-  // Stockage bloqué, lu à l'ouverture : dit avant la saisie du motif, pas après (#612).
-  const blocked = useStorageBlocked(admin && open);
+  // Stockage bloqué, lu à l'ouverture et quel que soit le rôle : pas de formulaire (#612, #614).
+  const blocked = useRestoreBlocked(open);
 
   const update = (next: RestoreJob) => {
     setJob(next);
@@ -231,7 +231,7 @@ export function RestoreAction({
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (sending) return;
+    if (sending || blocked) return;
     if (!isReasonValid(reason)) {
       setFieldError(REASON.error);
       return;
@@ -255,6 +255,8 @@ export function RestoreAction({
   // « Un autre compte » : administrateurs seulement ; un opérateur ne voit pas le choix (#546).
   const other = admin && mode === 'other';
   const destinationChoice = admin ? <DestinationChoice value={mode} onChange={setMode} /> : null;
+  // Formulaire (destination, rappel d'audit, motif) : absent si le stockage est bloqué.
+  const form = job === null && !blocked;
   return (
     <>
       <Button
@@ -267,8 +269,8 @@ export function RestoreAction({
         Restaurer
       </Button>
       <Dialog open={open} title={dialogTitle(job)} onClose={closePanel}>
-        {job === null && blocked && <StorageBlocked />}
-        {job === null && other && (
+        {job === null && blocked && <BlockedRestore admin={admin} onClose={closePanel} />}
+        {form && other && (
           <TransferFlow
             mail={mail}
             choice={destinationChoice}
@@ -280,9 +282,9 @@ export function RestoreAction({
             onSendingChange={setSending}
           />
         )}
-        {job === null && !other && destinationChoice}
-        {job === null && !other && <AuditReminder />}
-        {job === null && !other && (
+        {form && !other && destinationChoice}
+        {form && !other && <AuditReminder />}
+        {form && !other && (
           <form onSubmit={submit} noValidate>
             <ResultList rows={formRows(mail, now)} />
             <ReasonField
