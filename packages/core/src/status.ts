@@ -53,7 +53,7 @@ export interface StatusReport {
   services?: ServiceSummary[] | null;
   /**
    * Ajouté par `GET /api/status` pour les administrateurs, avec un stockage configuré : le stockage
-   * refuse-t-il les écritures conditionnelles (`checkStorage()` du SDK 7.2.0) ? `null` si la
+   * refuse-t-il les écritures conditionnelles (`checkStorage()` du SDK 7.3.0) ? `null` si la
    * vérification a échoué.
    */
   storage?: { conditionalWrites: ConditionalWrites | null };
@@ -62,7 +62,8 @@ export interface StatusReport {
 /**
  * Écritures conditionnelles du stockage, d'après la sonde du SDK : `supported`, elles sont
  * refusées comme il faut ; `ignored`, le stockage en accepte au moins une, et deux opérations
- * simultanées sur un même élément ne sont plus exclues ; `not_probed`, la sonde n'a pas pu
+ * simultanées sur un même élément ne seraient plus exclues, donc Atlas refuse d'y écrire depuis le
+ * SDK 7.3.0 ; `not_probed`, la sonde n'a pas pu
  * écrire (pas encore de bucket, ou pas de droit d'écriture).
  */
 export type ConditionalWrites = 'supported' | 'ignored' | 'not_probed';

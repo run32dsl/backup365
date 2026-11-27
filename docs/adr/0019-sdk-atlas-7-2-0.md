@@ -1,6 +1,6 @@
-# ADR 0019 : passer le SDK d'Atlas de 6.2.0 à 7.2.0
+# ADR 0019 : passer le SDK d'Atlas de 6.2.0 à 7.2.0, puis à 7.3.0
 
-Statut : **proposé** (issue #542)
+Statut : **proposé** (issue #542 ; montée en 7.3.0 : issue #609, voir la dernière section)
 
 ## Contexte
 
@@ -61,6 +61,8 @@ porte sur les types publics (`dist/index.d.mts`) et le code (`dist/index.mjs`) d
   conditionnelles dont dépend le bail. Elle écrit puis supprime un objet jetable dans le bucket ;
   la console la lance au plus une fois par heure (5 minutes après un échec, 10 s au plus par
   sonde), pour les administrateurs, et n'en garde que `supported`, `ignored` ou `not_probed`.
+  En 7.2.0, `ignored` n'est qu'un signalement ; en 7.3.0, Atlas refuse alors d'écrire (section
+  « Montée en 7.3.0 »).
 - **Validation de `createAtlasInstance`** : identique pour ce que la console passe (champs non
   vides, `s3Endpoint` URL HTTP(S) absolue, phrase d'au moins 14 octets). Un test construit
   désormais une vraie instance 7.2.0 depuis la configuration en lecture seule, sans requête.
@@ -113,3 +115,68 @@ simultanés, 1 à 16) ; s'y ajoutent les tentatives et délais S3 (`s3MaxAttempt
 - Vérifications sur un tenant de TEST, non faites ici (aucun appel réel au SDK dans les tests) :
   une sauvegarde et les trois restaurations avec le SDK 7.2.0, et le refus d'une restauration
   pendant une sauvegarde du même propriétaire.
+
+## Montée en 7.3.0 (issue #609)
+
+Comparaison des types publics (`dist/index.d.mts`) et du code (`dist/index.mjs`) de 7.2.0 et
+7.3.0, avec les notes de version de 7.3.0 (pas de guide de migration publié).
+
+**Décision.** `@wisecom/atlas-sdk` est épinglé en **7.3.0** ; l'exception d'âge minimal de pnpm
+(`minimumReleaseAgeExclude`) passe à cette version exacte. Dépendances transitives inchangées
+(seule l'entrée du SDK change dans `pnpm-lock.yaml`). Aucune signature utilisée par la console ne
+change : `pnpm run typecheck` passe sans toucher aux ports.
+
+### Ruptures et leur traitement
+
+- **Stockage sans écritures conditionnelles : Atlas refuse d'écrire.** En 7.2.0, `checkStorage()`
+  ne faisait que signaler `ignored`. En 7.3.0, toute écriture conditionnelle (bail, manifeste,
+  clé du tenant) sonde d'abord le bucket et lève `ConditionalWritesNotEnforcedError`
+  (`ATLAS_CONFIG_INVALID`) si le stockage les ignore : les sauvegardes y échouent toutes, et les
+  restaurations aussi quand les identifiants S3 peuvent écrire (avec des identifiants en lecture
+  seule, la sonde ne peut pas s'exécuter et la restauration se fait sans bail, comme en 7.2.0).
+  C'est le cas où la console affiche `ignored`, sa propre sonde ayant pu écrire. La sonde vérifie une règle de plus (`current_if_match` : une écriture avec l'ETag
+  courant doit passer, Ceph RGW 18 la refuse) et rend `violations`. Traitement : la section
+  « Stockage » de la page Sources et le bandeau de synthèse ne conseillent plus d'éviter de
+  restaurer pendant une sauvegarde ; ils disent que rien n'est sauvegardé ni restauré sur ce
+  stockage et qu'il faut prévenir l'exploitant (`docs/installation.md` à jour). Un plan qui
+  échoue ainsi garde la cause « inconnue » : `ATLAS_CONFIG_INVALID` couvre aussi d'autres erreurs
+  de configuration, la page Sources donne la vraie raison.
+- **Nouveau code `ATLAS_LISTING_INCOMPLETE`** (`ListingIncompleteError`) : une liste Graph
+  (dossiers, calendriers, équipes) est revenue incomplète ; la sauvegarde s'arrête sans rien
+  écrire. Traitement : cause `graph_unavailable`, interprétation la plus simple. Le libellé
+  (« Microsoft 365 n'a pas répondu, malgré plusieurs essais ») est approché : Graph a répondu,
+  mais incomplètement ; la conduite est la même, attendre le passage suivant. Si Graph renvoie
+  un compte incohérent à chaque passage, le plan restera en échec avec cette cause ; une cause
+  dédiée serait alors à créer. `GraphUnavailableError` couvre aussi désormais un 4xx
+  répété sur un propriétaire qui existe.
+- **Object Lock par exécution.** La rétention demandée (`objectLock`) n'est plus posée comme
+  rétention par défaut du bucket, mais sur les seuls objets de l'exécution. Aucun effet : la
+  console ne la demande pas.
+- **Résultats de restauration** : `outcomeUnknown` (messagerie, OneDrive, SharePoint) liste les
+  éléments dont la création a peut-être abouti malgré l'erreur. Ces lignes figurent aussi dans
+  `errors`, que la console compte déjà : la restauration reste « terminée avec des erreurs ».
+
+Les corrections de 7.3.0 (délais bornés des téléchargements et envois Graph, arrêt propre,
+classement des pannes, manifestes OneDrive volumineux en plusieurs parties) s'appliquent sans
+changement de code.
+
+### Nouveautés utiles à la console (non utilisées ici)
+
+- **`pruneSnapshots(owner, { before, dryRun })`** (messagerie, OneDrive, SharePoint) : supprime
+  les instantanés plus anciens qu'une date en gardant les suivants restaurables, le plus récent
+  toujours conservé. Lève la limite de l'étape 2 de l'ADR 0009 (`deleteSnapshot` refuse un
+  instantané qui n'est pas le plus récent) : base d'une rétention par plan. Écrit dans le
+  stockage, prend le bail ; `dryRun` permet d'afficher ce qui serait supprimé avant de le faire.
+- **`objectLock` dans les résultats et les résumés d'instantanés** (OneDrive, SharePoint) :
+  mode et date de fin de rétention réellement appliqués. La console pourrait afficher « protégé
+  contre la suppression jusqu'au … » sur un point de restauration, si elle demande un jour une
+  rétention.
+- **`summary.folderFailures`** (sauvegarde de messagerie) : dossiers en échec complet avec leur
+  code et `transient` (panne Microsoft 365, pas le dossier). L'exécuteur pourrait distinguer
+  « Microsoft 365 indisponible » d'une erreur de dossier dans les causes d'échec.
+- **`outcomeUnknown`** des restaurations : l'écran pourrait dire « vérifiez la cible avant de
+  relancer » pour ces éléments, au lieu d'une erreur générique.
+- **`ownerExclusion`** dans `createAtlasInstance` : exclusion fournie par l'hôte à la place du
+  bail dans le bucket, pour un stockage sans écritures conditionnelles. Elle exige qu'aucun autre
+  processus n'écrive dans le même tenant ; la console ne peut pas le garantir seule (CLI
+  d'Atlas, second serveur). Non adoptée ; à réévaluer si un client a un tel stockage.

@@ -43,9 +43,11 @@ describe('Sources page: storage section in product words (issues #567, #576)', (
   it('titles the warning after the consequence, says what to do and who to tell', () => {
     const html = view({ conditionalWrites: 'ignored' });
     expect(html).toContain('alert-warning');
-    expect(html).toContain('Une restauration pendant une sauvegarde peut écraser des données');
-    expect(html).toContain('Ne restaurez pas une source pendant sa sauvegarde');
-    expect(html).toContain('prévenez l’exploitant du serveur');
+    // SDK 7.3.0 (issue #609) : Atlas refuse d'écrire sur ce stockage, plus de conseil d'attendre.
+    expect(html).toContain('Sauvegardes et restaurations bloquées sur ce stockage');
+    expect(html).toContain('aucune sauvegarde ni restauration n’y est faite');
+    expect(html).not.toContain('Ne restaurez pas une source pendant sa sauvegarde');
+    expect(html).toContain('Prévenez l’exploitant du serveur');
   });
 
   it('adds « stockage à vérifier » to the summary banner at the top of the page', () => {

@@ -273,15 +273,17 @@ export const FAILURE_CAUSES = [
 export type FailureCause = (typeof FAILURE_CAUSES)[number];
 
 /**
- * Codes d'erreur du SDK Atlas (7.2.0, docs/adr/0019) enregistrés tels quels par le planificateur,
+ * Codes d'erreur du SDK Atlas (7.3.0, docs/adr/0019) enregistrés tels quels par le planificateur,
  * et la cause qu'ils donnent. `ATLAS_SNAPSHOT_NOT_NEWEST` ne concerne que les suppressions, que la
- * console ne fait pas.
+ * console ne fait pas. `ATLAS_LISTING_INCOMPLETE` (7.3.0) : Microsoft 365 a rendu une liste
+ * incomplète, la sauvegarde s'arrête sans rien écrire et le passage suivant la reprend.
  */
 const ATLAS_CAUSES: Readonly<Record<string, FailureCause>> = {
   ATLAS_OWNER_BUSY: 'owner_busy',
   ATLAS_ACCESS_REFUSED: 'access_refused',
   ATLAS_AUTH_DENIED: 'access_refused',
   ATLAS_GRAPH_UNAVAILABLE: 'graph_unavailable',
+  ATLAS_LISTING_INCOMPLETE: 'graph_unavailable',
   ATLAS_STORAGE_UNAVAILABLE: 'storage_unavailable',
   ATLAS_FORMAT_UNSUPPORTED: 'format_unsupported',
   ATLAS_WRITE_REFUSED: 'write_refused',

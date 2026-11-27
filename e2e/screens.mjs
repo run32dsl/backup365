@@ -1116,7 +1116,7 @@ export const SCREENS = [
       });
       await page.reload();
       await page
-        .getByText('Une restauration pendant une sauvegarde peut écraser des données', {
+        .getByText('Sauvegardes et restaurations bloquées sur ce stockage', {
           exact: true,
         })
         .waitFor();

@@ -34,7 +34,7 @@ export function Summary({ report }: { report: StatusReport }) {
     .filter(([n]) => n > 0)
     .map(([n, noun, what]) => `${plural(n, noun)} ${what}`);
   const unprotected = unprotectedServices(report);
-  // Un stockage qui laisse une restauration écraser une sauvegarde est signalé en tête de page.
+  // Un stockage sur lequel Atlas refuse d'écrire (SDK 7.3.0) est signalé en tête de page.
   const storage = report.storage?.conditionalWrites === 'ignored';
   const nothing = issues.length === 0 && unprotected.length === 0 && !storage;
   // Pas de « tout est à jour » sans rien à constater, ni quand l'état des plans est inconnu.
