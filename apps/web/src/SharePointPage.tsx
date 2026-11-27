@@ -1,8 +1,9 @@
 import type { DriveSnapshot } from '@backup365/core';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Loaded } from './onedrive.js';
-import { AuditReminder, RESTORE_STEPS, stepOf } from './RestoreJourney.js';
+import { RESTORE_STEPS, RestoreReminders, stepOf } from './RestoreJourney.js';
 import { ReasonStep } from './restore/ReasonStep.js';
+import { useStorageBlocked } from './StorageBlocked.js';
 import {
   SHAREPOINT_MESSAGES as T,
   fetchSiteRestoreConfigured,
@@ -35,6 +36,8 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
   const [draft, setDraft] = useState('');
   const [job, setJob] = useState<SiteJob | null>(null);
   const titleRef = useRef<HTMLParagraphElement>(null);
+  // Stockage bloqué : dit avant la saisie du motif, plutôt qu'un échec après (#612).
+  const blocked = useStorageBlocked(admin);
 
   useEffect(() => {
     let current = true;
@@ -175,7 +178,7 @@ export function SharePointPage({ route, admin }: { route: SharePointRoute; admin
       {journey && !job && (
         <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />
       )}
-      {journey && !direct && !job && <AuditReminder />}
+      {journey && !job && <RestoreReminders blocked={blocked} audit={!direct} />}
       {content}
     </main>
   );

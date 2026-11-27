@@ -15,13 +15,10 @@ export const CONDITIONAL_WRITES = {
     'La console n’a pas encore pu vérifier qu’une sauvegarde et une restauration de la même source ne peuvent pas s’écraser. Elle réessaie dans l’heure. D’ici là, ne restaurez pas une source pendant sa sauvegarde ; si ce message reste après la première sauvegarde, prévenez l’exploitant du serveur.',
   unknownLabel: 'Non vérifié',
   unknown: 'La vérification du stockage est impossible pour le moment.',
-  /** Titre du bandeau de synthèse quand le stockage est le seul problème. */
-  summaryTitle: 'Stockage à vérifier',
-  /** Phrase du bandeau de synthèse quand le stockage ne protège pas les données. */
-  summary: 'Stockage à vérifier : aucune sauvegarde ni restauration n’y est faite.',
-  /** Même phrase, quand le titre dit déjà « Stockage à vérifier ». */
-  summaryAlone:
-    'Aucune sauvegarde ni restauration n’est faite sur ce stockage : voir la section « Stockage ».',
+  /** Conduite à tenir, première phrase des bandeaux d'erreur du stockage bloqué (#612). */
+  action: 'Prévenez l’exploitant du serveur : le stockage est à faire corriger.',
+  /** Bandeau d'État des sources : les dates listées précèdent le blocage (#612). */
+  before: 'Les sauvegardes listées plus bas sont antérieures au blocage.',
 } as const;
 
 /**
@@ -42,7 +39,7 @@ export function StorageCheck({ report }: { report: StatusReport }) {
         </p>
       )}
       {state === 'ignored' && (
-        <Alert tone="warning" title={CONDITIONAL_WRITES.ignoredTitle}>
+        <Alert tone="error" title={CONDITIONAL_WRITES.ignoredTitle}>
           {CONDITIONAL_WRITES.ignored}
         </Alert>
       )}

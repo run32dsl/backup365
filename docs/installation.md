@@ -151,10 +151,11 @@ sauvegardés par Atlas.
   le stockage les refuse comme il faut, en mots du produit pour l'administrateur. La console le
   vérifie au plus une fois par heure, en écrivant puis supprimant un objet jetable dans le
   bucket. « ✔ À jour » : le stockage les prend en charge. « Sauvegardes et restaurations
-  bloquées sur ce stockage » (et « Stockage à vérifier » dans le bandeau de synthèse) signale un
-  stockage qui ignore les écritures conditionnelles : depuis le SDK 7.3.0, Atlas refuse d'y
-  écrire, donc toute sauvegarde y échoue, et toute restauration aussi tant que les identifiants
-  S3 peuvent écrire (code `ATLAS_CONFIG_INVALID`).
+  bloquées sur ce stockage », en bandeau d'erreur sur la page Sources, l'Accueil, Plans de
+  protection et les écrans de restauration, signale un stockage qui ignore les écritures
+  conditionnelles : depuis le SDK 7.3.0, Atlas refuse d'y écrire, donc toute sauvegarde y
+  échoue, et toute restauration aussi tant que les identifiants S3 peuvent écrire (code
+  `ATLAS_CONFIG_INVALID`).
   L'administrateur est invité à vous prévenir ; passer alors à un stockage S3 qui les prend en
   charge. La sonde du SDK 7.3.0 vérifie aussi qu'une écriture avec l'ETag courant est acceptée
   (Ceph RGW 18 la refuse). « Stockage pas encore vérifié » : aucune sauvegarde n'a encore créé

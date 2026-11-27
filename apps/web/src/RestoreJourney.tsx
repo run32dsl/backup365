@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { MAX_REASON_LENGTH } from './mail.js';
+import { StorageBlocked } from './StorageBlocked.js';
 import { Alert, FormField, WIZARD_LABELS } from './ui/index.js';
 
 /**
@@ -88,6 +89,19 @@ export function AuditReminder({ extra }: { extra?: string }) {
       {AUDIT_REMINDER}
       {extra ? ` ${extra}` : ''}
     </Alert>
+  );
+}
+
+/**
+ * Haut des étapes d'une restauration : un stockage bloqué d'abord, qui fera échouer toute
+ * restauration (#612), puis le rappel d'audit (`audit`, vrai par défaut).
+ */
+export function RestoreReminders({ blocked, audit = true }: { blocked: boolean; audit?: boolean }) {
+  return (
+    <>
+      {blocked && <StorageBlocked />}
+      {audit && <AuditReminder />}
+    </>
   );
 }
 

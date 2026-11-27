@@ -5,6 +5,7 @@ import { PlansCompliance } from './status/PlansCompliance.js';
 import { Services } from './status/Services.js';
 import { StorageCheck } from './status/StorageCheck.js';
 import { Summary } from './status/Summary.js';
+import { storageBlocked } from './StorageBlocked.js';
 
 export { failureNote } from './status/Backups.js';
 export { lateCause, scopeLabel, sortRows } from './status/model.js';
@@ -23,13 +24,16 @@ export function StatusView({ state }: { state: StatusState }) {
       </EmptyState>
     );
   if (state === 'error') return <Alert tone="error">État des sauvegardes indisponible</Alert>;
+  // Stockage bloqué : la section remonte sous le bandeau, avant tout ce qu'elle rend caduc (#612).
+  const blocked = storageBlocked(state);
   return (
     <>
       <Summary report={state} />
+      {blocked && <StorageCheck report={state} />}
       <Services report={state} />
       <PlansCompliance report={state} />
       <Backups report={state} />
-      <StorageCheck report={state} />
+      {!blocked && <StorageCheck report={state} />}
     </>
   );
 }

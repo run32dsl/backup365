@@ -12,6 +12,7 @@ import type { HomeData } from './HomeData.js';
 import type { PlanItem } from './plans.js';
 import { RunAllDialog, launchedLabel } from './RunAllDialog.js';
 import { STATUS_HASH } from './routes.js';
+import { STORAGE_NEXT_TEXT } from './StorageBlocked.js';
 import { LatestEventRow, mailOnly, runTypeLabel } from './LatestEventRow.js';
 import type { Overview } from './overview.js';
 import { Alert, Button, EmptyState } from './ui/index.js';
@@ -103,6 +104,7 @@ export function NextBackup({
   admin,
   connected = true,
   interrupted = false,
+  storageBlocked = false,
   now,
   onLaunched,
 }: {
@@ -112,6 +114,8 @@ export function NextBackup({
   connected?: boolean;
   /** Connexion configurée puis interrompue : elle est à rétablir, non à configurer (#604). */
   interrupted?: boolean;
+  /** Stockage bloqué : ni échéance ni lancement, quel que soit l'état de la connexion (#612). */
+  storageBlocked?: boolean;
   now: Date;
   onLaunched: () => void;
 }) {
@@ -126,13 +130,14 @@ export function NextBackup({
       {plans === 'loading' && <p>Chargement…</p>}
       {plans === 'error' && <p>Les plans ne sont pas disponibles.</p>}
       {Array.isArray(plans) && next === null && <p>Aucun plan de protection n’est configuré.</p>}
-      {next && !connected && (
+      {next && storageBlocked && <p>{STORAGE_NEXT_TEXT}</p>}
+      {next && !storageBlocked && !connected && (
         <p>
           Aucune sauvegarde ne partira tant que la connexion Microsoft 365 n’est pas{' '}
           {interrupted ? 'rétablie' : 'configurée'}.
         </p>
       )}
-      {next && connected && (
+      {next && !storageBlocked && connected && (
         <>
           <p>
             Prochaine sauvegarde dans <strong>{remainingLabel(next, now)}</strong>.
@@ -299,6 +304,7 @@ export function HomeCoverage({
       admin={admin}
       connected={connected}
       interrupted={interrupted}
+      storageBlocked={data.storageBlocked === true}
       now={now}
       onLaunched={onLaunched}
     />

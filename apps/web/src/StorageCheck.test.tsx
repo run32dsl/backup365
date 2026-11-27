@@ -40,31 +40,77 @@ describe('Sources page: storage section in product words (issues #567, #576)', (
     expect(html).not.toContain('alert-warning');
   });
 
-  it('titles the warning after the consequence, says what to do and who to tell', () => {
-    const html = view({ conditionalWrites: 'ignored' });
-    expect(html).toContain('alert-warning');
+  it('titles the error after the consequence, says what to do and who to tell', () => {
+    const html = storageText({ conditionalWrites: 'ignored' });
     // SDK 7.3.0 (issue #609) : Atlas refuse d'écrire sur ce stockage, plus de conseil d'attendre.
     expect(html).toContain('Sauvegardes et restaurations bloquées sur ce stockage');
     expect(html).toContain('aucune sauvegarde ni restauration n’y est faite');
     expect(html).not.toContain('Ne restaurez pas une source pendant sa sauvegarde');
     expect(html).toContain('Prévenez l’exploitant du serveur');
+    const page = view({ conditionalWrites: 'ignored' });
+    const section = page.slice(page.indexOf('<h2 id="storage-title">'));
+    expect(section).toContain('alert-error');
+    expect(section).not.toContain('alert-warning');
   });
 
-  it('adds « stockage à vérifier » to the summary banner at the top of the page', () => {
-    const html = view({ conditionalWrites: 'ignored' });
-    const summary = html.indexOf('Stockage à vérifier');
-    expect(summary).toBeGreaterThanOrEqual(0);
-    expect(summary).toBeLessThan(html.indexOf('storage-title'));
-    expect(view({ conditionalWrites: 'supported' })).not.toMatch(/stockage à vérifier/iu);
-    const late: StatusReport = {
+  it('puts a blocked storage first, in red, even before failed plans (issue #612)', () => {
+    const failing: StatusReport = {
       ...report,
-      plans: { counts: { compliant: 0, late: 1, failed: 0 }, pending: 0, nonCompliant: [] },
+      rows: [
+        {
+          kind: 'mailbox',
+          sourceId: 'a',
+          displayName: 'Boîte A',
+          workload: 'mail',
+          lastSnapshotAt: null,
+          ageHours: null,
+          state: 'missing',
+        },
+      ],
+      plans: { counts: { compliant: 0, late: 0, failed: 1 }, pending: 0, nonCompliant: [] },
+      services: [
+        {
+          service: 'mail',
+          hasPlan: true,
+          lastSnapshotAt: null,
+          ageHours: null,
+          state: 'missing',
+          retentionDays: 30,
+          scope: { kind: 'all' },
+          awaitingFirstRun: false,
+        },
+      ],
       storage: { conditionalWrites: 'ignored' },
     };
-    const banner = renderToStaticMarkup(<StatusView state={late} />);
-    expect(banner).toContain('>1 plan en retard</strong>');
-    expect(banner).toContain(CONDITIONAL_WRITES.summary);
-    expect(html).toContain(`>Stockage à vérifier</strong>${CONDITIONAL_WRITES.summaryAlone}`);
+    const html = renderToStaticMarkup(<StatusView state={failing} />);
+    // Premier `Alert` : une erreur, titrée par le stockage ; les compteurs passent dans le corps.
+    const first = html.slice(html.indexOf('<div class="alert'));
+    expect(first).toMatch(
+      /^<div class="alert alert-error" role="alert">.*?<strong[^>]*>Sauvegardes et restaurations bloquées sur ce stockage<\/strong>/u,
+    );
+    const banner = first.slice(0, first.indexOf('</div>', first.indexOf('</strong>')));
+    expect(banner.indexOf(CONDITIONAL_WRITES.action)).toBeLessThan(
+      banner.indexOf('1 plan en échec et 1 sauvegarde en échec.'),
+    );
+    expect(banner).toContain(CONDITIONAL_WRITES.before);
+    // La section « Stockage » précède « Services ».
+    expect(html.indexOf('storage-title')).toBeGreaterThan(0);
+    expect(html.indexOf('storage-title')).toBeLessThan(html.indexOf('services-title'));
+    expect(html).not.toMatch(/stockage à vérifier/iu);
+    // Stockage accepté : la section reste en bas, le bandeau garde ses compteurs.
+    const fine = renderToStaticMarkup(
+      <StatusView state={{ ...failing, storage: { conditionalWrites: 'supported' } }} />,
+    );
+    expect(fine).toContain('>1 plan en échec et 1 sauvegarde en échec</strong>');
+    expect(fine.indexOf('storage-title')).toBeGreaterThan(fine.indexOf('services-title'));
+  });
+
+  it('titles the banner with the storage when it is the only problem', () => {
+    const html = view({ conditionalWrites: 'ignored' });
+    expect(html).toContain(
+      `>Sauvegardes et restaurations bloquées sur ce stockage</strong>${CONDITIONAL_WRITES.action}`,
+    );
+    expect(view({ conditionalWrites: 'supported' })).not.toContain('alert-error');
   });
 
   it('explains the pending and unknown checks without a code', () => {

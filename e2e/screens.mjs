@@ -291,6 +291,38 @@ async function unlinkMicrosoft(page) {
   );
 }
 
+/**
+ * En démo le stockage accepte les écritures conditionnelles : `GET /api/status` est modifié pour
+ * dire qu'il les ignore, ce qui bloque sauvegardes et restaurations (issues #567, #612).
+ *
+ * @param {import('@playwright/test').Page} page
+ */
+async function blockStorage(page) {
+  await page.route('**/api/status', async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    body.storage = { conditionalWrites: 'ignored' };
+    await route.fulfill({ response: res, json: body });
+  });
+}
+
+/** Titre du bandeau d'erreur d'un stockage bloqué (#612). */
+const STORAGE_BLOCKED = 'Sauvegardes et restaurations bloquées sur ce stockage';
+
+/**
+ * Vérifie que le bandeau d'erreur du stockage précède le rappel d'audit dans `scope` (#612).
+ *
+ * @param {import('@playwright/test').Locator} scope
+ */
+async function expectStorageBeforeAudit(scope) {
+  await scope.getByRole('alert').getByText(STORAGE_BLOCKED).waitFor();
+  const texts = await scope.locator('.alert').allInnerTexts();
+  const storage = texts.findIndex((t) => t.includes(STORAGE_BLOCKED));
+  const audit = texts.findIndex((t) => t.includes('inscrite au journal d’audit'));
+  if (storage < 0 || audit < 0 || storage > audit)
+    throw new Error(`bandeau du stockage (${storage}) après le rappel d’audit (${audit})`);
+}
+
 /** Plans de l'accueil simulé : ce que chacun protège. */
 const MAIL_PLAN = { name: 'Boîtes mail, quotidien', dataTypes: ['mail'] };
 const FILES_PLAN = { name: 'Fichiers, quotidien', dataTypes: ['onedrive', 'sharepoint'] };
@@ -620,6 +652,37 @@ export const SCREENS = [
       await page.reload();
       await page.getByRole('alert').getByText('Connexion Microsoft 365 interrompue').waitFor();
       await page.getByRole('button', { name: 'Voir la conduite à tenir' }).waitFor();
+    },
+  },
+  {
+    // Stockage bloqué (#612) : erreur sous le `h1`, carte « Interrompue », ni échéance ni lancement.
+    name: 'accueil-stockage-bloque',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      await blockStorage(page);
+      await page.reload();
+      await page.getByRole('alert').getByText(STORAGE_BLOCKED).waitFor();
+      await page.getByText('Aucune sauvegarde ne partira tant que le stockage').waitFor();
+    },
+  },
+  {
+    // Stockage bloqué (#612) : erreur en tête, lancement manuel suspendu, dit une fois.
+    name: 'plans-stockage-bloque',
+    hash: '#/plans',
+    role: 'admin',
+    prepare: async (page) => {
+      await blockStorage(page);
+      await page.reload();
+      await page.getByRole('alert').getByText(STORAGE_BLOCKED).waitFor();
+      await page
+        .getByRole('link', { name: /^Modifier / })
+        .first()
+        .waitFor();
+      if ((await page.getByRole('button', { name: /^Lancer /u }).count()) > 0)
+        throw new Error('« Lancer maintenant » proposé sur un stockage bloqué');
+      const suspended = await page.getByText('Le lancement manuel des plans est suspendu').count();
+      if (suspended !== 1) throw new Error(`suspension écrite ${suspended} fois`);
     },
   },
   {
@@ -1102,25 +1165,15 @@ export const SCREENS = [
     },
   },
   {
-    // En démo le stockage accepte les écritures conditionnelles : la réponse est modifiée pour
-    // montrer l'avertissement de la section « Stockage » (issue #567).
+    // Stockage bloqué (issues #567, #612) : bandeau d'erreur en tête, section « Stockage » juste dessous.
     name: 'sources-stockage-sans-ecritures-conditionnelles',
     hash: '#/sources',
     role: 'admin',
     prepare: async (page) => {
-      await page.route('**/api/status', async (route) => {
-        const res = await route.fetch();
-        const body = await res.json();
-        body.storage = { conditionalWrites: 'ignored' };
-        await route.fulfill({ response: res, json: body });
-      });
+      await blockStorage(page);
       await page.reload();
-      await page
-        .getByText('Sauvegardes et restaurations bloquées sur ce stockage', {
-          exact: true,
-        })
-        .waitFor();
-      await page.getByRole('heading', { name: 'Stockage' }).scrollIntoViewIfNeeded();
+      await page.getByRole('alert').first().getByText(STORAGE_BLOCKED, { exact: true }).waitFor();
+      await page.getByRole('heading', { name: 'Stockage' }).waitFor();
     },
   },
   {
@@ -1419,6 +1472,43 @@ export const SCREENS = [
     prepare: async (page) => {
       await openRestorePanel(page, 10);
       await page.getByRole('dialog').getByLabel(RESTORE_REASON_LABEL).fill('Ticket #1234 : mail');
+    },
+  },
+  {
+    // Stockage bloqué (#612) : l'erreur est dite avant le rappel d'audit et la saisie du motif.
+    name: 'restauration-stockage-bloque',
+    hash: DEMO_MAIL_HASH,
+    role: 'admin',
+    prepare: async (page) => {
+      await blockStorage(page);
+      await openRestorePanel(page, 11);
+      await expectStorageBeforeAudit(page.getByRole('dialog'));
+    },
+  },
+  {
+    name: 'onedrive-motif-stockage-bloque',
+    hash: '#/onedrive',
+    role: 'admin',
+    prepare: async (page) => {
+      await blockStorage(page);
+      await page.reload();
+      await openDrive(page);
+      await chooseDriveFile(page, 'budget.xlsx');
+      await expectStorageBeforeAudit(page.locator('main'));
+    },
+  },
+  {
+    name: 'sharepoint-motif-stockage-bloque',
+    hash: '#/sharepoint',
+    role: 'admin',
+    prepare: async (page) => {
+      await blockStorage(page);
+      await page.reload();
+      await openSite(page, SITES.commerce, 'library');
+      await browseSite(page, 'Documents partagés');
+      await continueStep(page);
+      await page.getByText('Étape 2 sur 3').waitFor();
+      await expectStorageBeforeAudit(page.locator('main'));
     },
   },
   {

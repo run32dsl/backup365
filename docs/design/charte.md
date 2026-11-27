@@ -77,7 +77,9 @@ composant s'y ajoute avec ses tests de comportement.
   configuré. », sans « Sauvegarder maintenant ». Plans sans résultat : un `EmptyState`
   « Aucune sauvegarde n’est encore terminée. » à la place des tuiles, aucune exécution terminée
   listée. Connexion Microsoft 365 à configurer : ni échéance ni « Sauvegarder maintenant ».
-  Lancement de tous les plans avec au moins un refus : la boîte passe en résultat, comme
+  Stockage bloqué (#612) : carte « Sauvegarde » en « ✖ Interrompue », « Aucune sauvegarde ne
+  partira tant que le stockage n’est pas corrigé. » à la place de l'échéance, sans « Sauvegarder
+  maintenant », que la connexion soit reliée ou non. Lancement de tous les plans avec au moins un refus : la boîte passe en résultat, comme
   `RunDialog` (#596). Titre « Lancement partiel » (bandeau d'avertissement) ou « Lancement
   impossible » (bandeau d'erreur) ; bilan en gras (« 3 sauvegardes lancées, 1 non lancée ») puis
   les plans non lancés, raison en minuscule après les deux-points ; motif rappelé en lecture
@@ -110,12 +112,22 @@ composant s'y ajoute avec ses tests de comportement.
 - **Bandeau d'en-tête d'État des sources** (`status/Summary.tsx`) : un `Alert` d'erreur s'il y a
   un échec (plan ou sauvegarde), d'avertissement sinon. Titre en gras : les deux problèmes les
   plus graves, dans l'ordre plan en échec, sauvegarde en échec, plan en retard, sauvegarde en
-  retard (« 1 plan en échec et 1 sauvegarde en retard ») ; à défaut « N sources sans plan » ou
-  « Stockage à vérifier ». Corps : des phrases terminées par un point, la conduite à tenir
-  d'abord (« Ouvrez le plan concerné pour voir sa dernière exécution. »), puis les sources sans
-  plan et le stockage à vérifier. Le lien « Voir les plans de protection » passe dans la prop
-  `action` (`.alert-link`, sans retour à la ligne). Le bandeau ne répète pas la liste des
-  compteurs : les pastilles des sections la donnent.
+  retard (« 1 plan en échec et 1 sauvegarde en retard ») ; à défaut « N sources sans plan ».
+  Corps : des phrases terminées par un point, la conduite à tenir d'abord (« Ouvrez le plan
+  concerné pour voir sa dernière exécution. »), puis les sources sans plan. Le lien « Voir les
+  plans de protection » passe dans la prop `action` (`.alert-link`, sans retour à la ligne). Le
+  bandeau ne répète pas la liste des compteurs : les pastilles des sections la donnent.
+- **Stockage bloqué** (`conditionalWrites === 'ignored'`, administrateurs) : la panne la plus
+  grave, traitée comme une connexion Microsoft 365 interrompue. Sur État des sources, le bandeau
+  d'en-tête passe en `Alert` d'erreur titré « Sauvegardes et restaurations bloquées sur ce
+  stockage », quels que soient les échecs ; son corps donne d'abord la conduite à tenir
+  (« Prévenez l’exploitant du serveur : le stockage est à faire corriger. »), dit que les
+  sauvegardes listées sont antérieures au blocage, puis donne les compteurs et les autres
+  problèmes. La section « Stockage », en `Alert` d'erreur, remonte juste sous le bandeau, avant
+  « Services ». Le même `Alert` d'erreur (`StorageBlocked`) se place sous le `h1` de l'Accueil,
+  en tête de Plans de protection (avant celui de la connexion, s'il y en a un ; la suspension du
+  lancement manuel n'y est dite qu'une fois) et, dans les trois parcours de restauration, avant
+  le rappel d'audit.
 - **Échec d'une restauration** (messagerie, OneDrive, SharePoint) : un seul `Alert` d'erreur
   (`RestoreFailureAlert`), construit comme celui d'un plan. Première ligne en gras « Échec de la
   restauration de « élément » le jj/mm/aaaa hh:mm UTC », puis la cause, la conséquence et la
