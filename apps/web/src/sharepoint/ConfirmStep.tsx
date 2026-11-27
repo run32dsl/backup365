@@ -134,7 +134,6 @@ export function ConfirmStep({
           variant={whole ? 'danger' : 'primary'}
           busy={sending}
           aria-disabled={!ready || undefined}
-          className={ready ? undefined : 'is-inactive'}
         >
           {B.confirm}
         </Button>

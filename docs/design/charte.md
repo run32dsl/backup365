@@ -53,7 +53,9 @@ seulement (lien « Composants » en pied de page), les montre dans tous leurs é
 composant s'y ajoute avec ses tests de comportement.
 
 - **Bouton** : plein pour l'action principale, contour pour les actions secondaires et la
-  barre latérale ; grisé quand il est désactivé. Action irréversible ou retrait d'accès =
+  barre latérale ; grisé quand il est désactivé (un seul rendu, `disabled` comme
+  `aria-disabled="true"` : fond transparent, texte et contour pâlis, curseur interdit ; un
+  bouton occupé garde son aspect). Action irréversible ou retrait d'accès =
   variante danger (`Button variant="danger"`), au déclenchement comme à la confirmation
   (« Supprimer » / « Supprimer le plan », « Désactiver » / « Désactiver ») ; « Annuler » reste
   secondaire, comme « Réactiver ». Exemple sur `#/composants`.

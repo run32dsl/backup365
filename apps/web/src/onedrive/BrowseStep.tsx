@@ -172,7 +172,6 @@ export function BrowseStep({
       <WizardActions>
         <Button
           aria-disabled={!configured || !chosen || undefined}
-          className={!configured || !chosen ? 'is-inactive' : undefined}
           aria-describedby={
             [!chosen && chooseHintId, !configured && hintId].filter(Boolean).join(' ') || undefined
           }

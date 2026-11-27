@@ -265,12 +265,6 @@ button {
   font-weight: 600;
   cursor: pointer;
 }
-button:disabled {
-  background: transparent;
-  color: var(--muted);
-  border-color: var(--border);
-  cursor: not-allowed;
-}
 .sidebar button {
   background: transparent;
   color: var(--text);
@@ -682,20 +676,24 @@ th {
   color: var(--err-fg);
   border-color: var(--err-fg);
 }
-.btn[aria-disabled='true'] {
-  cursor: not-allowed;
-}
 .btn[aria-busy='true'] {
   cursor: progress;
 }
+/* Bouton inactif : seul rendu de la console, natif (`disabled`) ou focalisable
+   (`aria-disabled`, l'explication reste reliée). Un bouton occupé (`aria-busy`) garde son aspect. */
+button:disabled,
 .btn:disabled,
-.btn[aria-disabled='true']:not([aria-busy='true']),
+.btn[aria-disabled='true']:not([aria-busy='true']) {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--border);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 select[aria-disabled='true'] {
   background: transparent;
   color: var(--muted);
   border-color: var(--border);
-}
-select[aria-disabled='true'] {
   cursor: not-allowed;
 }
 .spinner {
@@ -1886,9 +1884,6 @@ a.btn-secondary {
 /* Restauration SharePoint : barre de progression */
 .button-row + .field-help {
   margin-top: var(--space-3);
-}
-.btn.is-inactive {
-  opacity: 0.6;
 }
 .progress {
   height: 0.75rem;
