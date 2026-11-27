@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ConfigurationNotice,
   ConnectionInterrupted,
-  RUN_BLOCKED_TEXT,
+  RUN_SUSPENDED_TEXT,
   connectionView,
   lastKnownRun,
 } from './ConfigurationBlock.js';
@@ -178,11 +178,17 @@ describe('Home, connection never configured', () => {
 });
 
 describe('Plans, connection interrupted', () => {
-  it('shows the same Alert and no « Lancer maintenant » button', () => {
-    const alert = renderToStaticMarkup(<ConnectionInterrupted since={lastKnownRun(plans)!} />);
-    expect(alert).toBe(
-      renderToStaticMarkup(<ConfigurationNotice config={unlinked} plans={plans} />),
-    );
+  it('shows the Home Alert plus the suspended launch, once, after « Aucune sauvegarde ne part »', () => {
+    const since = lastKnownRun(plans)!;
+    const home = renderToStaticMarkup(<ConfigurationNotice config={unlinked} plans={plans} />);
+    expect(home).toBe(renderToStaticMarkup(<ConnectionInterrupted since={since} />));
+    expect(home).not.toContain(RUN_SUSPENDED_TEXT);
+    const alert = renderToStaticMarkup(<ConnectionInterrupted since={since} runSuspended />);
+    expect(alert.split(RUN_SUSPENDED_TEXT)).toHaveLength(2);
+    expect(alert).toMatch(/Aucune sauvegarde ne part depuis le [^<]*UTC\. Le lancement manuel/u);
+  });
+
+  it('shows no « Lancer maintenant » and no connection sentence in any row or plan banner', () => {
     for (const failedOnly of [false, true]) {
       const html = renderToStaticMarkup(
         <PlansListView
@@ -198,7 +204,19 @@ describe('Plans, connection interrupted', () => {
       );
       expect(html).not.toContain('Lancer maintenant');
       expect(html).not.toMatch(/aria-label="Lancer [^"]* maintenant"/u);
-      expect(html).toContain(RUN_BLOCKED_TEXT);
+      expect(html).not.toContain(RUN_SUSPENDED_TEXT);
+      expect(html).not.toMatch(/Lancement impossible|connexion Microsoft 365/iu);
+      // Les actions de chaque ligne : « Modifier » et « Supprimer », rien d'autre.
+      const actions = html.match(/<div class="button-row row-actions[^"]*">.*?<\/div>/gu) ?? [];
+      expect(actions).toHaveLength(failedOnly ? 1 : plans.length);
+      for (const cell of actions) {
+        expect(
+          cell
+            .replace(/<[^>]+>/gu, '|')
+            .split('|')
+            .filter(Boolean),
+        ).toEqual(['Modifier', 'Supprimer']);
+      }
     }
   });
 
@@ -207,7 +225,7 @@ describe('Plans, connection interrupted', () => {
       <PlansListView state={plans} admin configured onRetry={noop} onRun={noop} onDelete={noop} />,
     );
     expect(html).toContain('Lancer maintenant');
-    expect(html).not.toContain(RUN_BLOCKED_TEXT);
+    expect(html).not.toContain(RUN_SUSPENDED_TEXT);
   });
 });
 

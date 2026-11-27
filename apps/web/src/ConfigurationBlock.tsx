@@ -98,22 +98,28 @@ export const INTERRUPTED_TITLE = 'Connexion Microsoft 365 interrompue';
 export const interruptedSentence = (since: string): string =>
   keepDateTogether(`Aucune sauvegarde ne part depuis le ${dateTimeOf(since)} UTC.`);
 
-/** Remplace « Lancer maintenant » quand le lancement échouerait à coup sûr. */
-export const RUN_BLOCKED_TEXT =
-  'Lancement impossible tant que la connexion Microsoft 365 est interrompue.';
+/** Dit une seule fois, dans le bandeau de la page Plans, pourquoi « Lancer maintenant » manque. */
+export const RUN_SUSPENDED_TEXT =
+  'Le lancement manuel des plans est suspendu jusqu’au rétablissement de la connexion.';
 
 /** Bandeau d'erreur : depuis quand plus rien ne part, puis la conduite à tenir sur le serveur. */
 export function ConnectionInterrupted({
   since,
   focusRef,
+  runSuspended = false,
 }: {
   since: string;
+  /** Page Plans : ajoute que le lancement manuel est suspendu (les lignes n'en disent rien). */
+  runSuspended?: boolean;
   /** Rend le bandeau focalisable : cible du bouton de la carte « Sauvegarde ». */
   focusRef?: Ref<HTMLDivElement>;
 }) {
   return (
     <Alert tone="error" title={INTERRUPTED_TITLE} {...(focusRef ? { focusRef } : {})}>
-      <span className="alert-detail">{interruptedSentence(since)}</span>
+      <span className="alert-detail">
+        {interruptedSentence(since)}
+        {runSuspended && ` ${RUN_SUSPENDED_TEXT}`}
+      </span>
       <ol className="alert-steps">
         <li>
           Vérifier l’identifiant de l’application Microsoft 365 dans le fichier <code>.env</code> du

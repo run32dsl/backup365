@@ -630,7 +630,14 @@ export const SCREENS = [
       await unlinkMicrosoft(page);
       await page.reload();
       await page.getByRole('alert').getByText('Connexion Microsoft 365 interrompue').waitFor();
-      await page.getByText('Lancement impossible tant que').first().waitFor();
+      await page
+        .getByRole('alert')
+        .getByText('Le lancement manuel des plans est suspendu')
+        .waitFor();
+      await page
+        .getByRole('link', { name: /^Modifier / })
+        .first()
+        .waitFor();
     },
   },
   {
