@@ -208,6 +208,7 @@ async function homeAs(page, { plans, runs, lateBackups = [] }) {
       itemsSaved: r.result === 'success' ? 52 : null,
       sourceBytes: r.result === 'success' ? 340_000_000 : null,
       ...(r.result === 'failed' ? { failureCause: 'backup_errors' } : {}),
+      ...(r.result === 'interrupted' ? { failureCause: 'interrupted' } : {}),
     }));
   });
   const runsOf = (name) => runItems.filter((r) => r.planName === name);
@@ -466,41 +467,27 @@ export const SCREENS = [
   // Bloc « Couverture du tenant », « Prochaine sauvegarde » et « Derniers événements ».
   { name: 'accueil-couverture', hash: '#/', role: 'admin' },
   {
-    // « Derniers événements » : une exécution de chaque statut, dont une « En cours » (#475).
+    // « Derniers événements » : une exécution de chaque statut, dont une « En cours » (#475). Cartes
+    // et tableau suivent le même scénario (`homeAs`) : l'échec cité par la carte « Sauvegarde » est
+    // la ligne « En échec », chaque plan garde son nombre de boîtes (#634).
     name: 'accueil-derniers-evenements',
     hash: '#/',
     role: 'admin',
     prepare: async (page) => {
-      const { items: plans } = await (await page.request.get('/api/plans')).json();
-      const [a, b = a] = plans;
-      const at = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString();
-      const run = (id, plan, minutes, result, extra = {}) => ({
-        id,
-        planId: plan.id,
-        planName: plan.name,
-        itemId: 'box',
-        startedAt: at(minutes),
-        finishedAt: result === 'running' ? null : at(minutes - 14),
-        durationMs: result === 'running' ? null : 14 * 60_000,
-        result,
-        itemsSaved: result === 'success' ? 1284 : null,
-        sourceBytes: result === 'success' ? 3_400_000_000 : null,
-        ...extra,
+      await homeAs(page, {
+        plans: [
+          { ...MAIL_PLAN, state: 'compliant' },
+          { ...DIRECTION_PLAN, state: 'compliant' },
+        ],
+        runs: [
+          { plan: DIRECTION_PLAN.name, minutesAgo: 1, result: 'running' },
+          { plan: MAIL_PLAN.name, minutesAgo: 60, result: 'failed', sources: 5 },
+          { plan: DIRECTION_PLAN.name, minutesAgo: 120, result: 'interrupted' },
+          // Une exécution sur cinq boîtes : une seule ligne « 5 boîtes » (#571).
+          { plan: MAIL_PLAN.name, minutesAgo: 180, result: 'success', sources: 5 },
+          { plan: DIRECTION_PLAN.name, minutesAgo: 200, result: 'success' },
+        ],
       });
-      const items = [
-        run(5, a, 1, 'running'),
-        run(4, b, 60, 'failed', { failureCause: 'backup_errors' }),
-        // Une exécution sur cinq boîtes : une seule ligne « 5 boîtes » (#571).
-        ...['b1', 'b2', 'b3', 'b4', 'b5'].map((itemId, i) =>
-          run(30 + i, a, 180, 'success', { itemId, itemsSaved: 0, sourceBytes: null }),
-        ),
-        run(2, b, 600, 'interrupted', { failureCause: 'interrupted' }),
-        run(1, a, 1440, 'success', { itemsSaved: 1, sourceBytes: 840_000_000 }),
-      ];
-      await page.route(/\/api\/runs(\?|$)/, (route) =>
-        route.fulfill({ status: 200, json: { items, limit: 5 } }),
-      );
-      await page.reload();
       // Le résumé du tableau et la ligne de la carte le disent : un seul est visible par largeur.
       await page.getByText('sauvegarde en cours').filter({ visible: true }).first().waitFor();
     },

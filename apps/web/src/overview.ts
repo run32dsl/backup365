@@ -19,6 +19,11 @@ export interface Overview {
   lastBackupPlan: string | null;
   /** Plan dont la dernière exécution a échoué (le plus récent) et fin de cette exécution ; `null` sinon. */
   lastFailure: { plan: string; at: string } | null;
+  /**
+   * Calculé par l'accueil, absent de la réponse : plans en échec listés dans « Derniers
+   * événements », du plus récent au plus ancien ; la carte « Sauvegarde » les nomme tous (#634).
+   */
+  failures?: { plan: string; at: string }[];
   /** Sauvegardes au-delà du seuil de retard, calculées par le serveur comme la page Sources. */
   lateBackups: {
     service: 'mail' | 'onedrive' | 'sharepoint';

@@ -25,9 +25,26 @@ const MESSAGES: Record<Overview['state'], string> = {
   failed: 'Un plan est en échec.',
 };
 
-/** Phrase de la carte « Sauvegarde » ; en échec, elle nomme le plan et l'heure de l'échec (comme la page Plans). */
+/**
+ * Phrase de la carte « Sauvegarde » ; en échec, elle nomme le plan et l'heure de l'échec (comme la
+ * page Plans), ou chacun des plans en échec listés dans « Derniers événements » (#634).
+ */
 export function backupMessage(state: Overview): string {
   const failure = state.lastFailure;
+  const failures = state.failures ?? [];
+  // Le compteur de la carte « Plans » compte aussi les plans dont l'échec n'est pas listé.
+  const total = Math.max(state.plans.failed, failures.length);
+  if (state.state === 'failed' && failures.length > 0 && total > 1) {
+    const named = failures
+      .map((f) => {
+        const at = dateTimeOf(f.at);
+        return `${quoted(f.plan)}${at && ` le ${at} UTC`}`;
+      })
+      .join(', ');
+    return failures.length < total
+      ? `${total} plans en échec, dont ${named}.`
+      : `${total} plans en échec : ${named}.`;
+  }
   if (state.state === 'failed' && failure) {
     const at = dateTimeOf(failure.at);
     return `Échec de ${quoted(failure.plan)}${at && ` le ${at} UTC`}.`;

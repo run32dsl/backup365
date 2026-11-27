@@ -200,8 +200,39 @@ export function withListedBackup(state: Overview, listed: readonly RunEvent[]): 
 }
 
 /**
+ * Échecs de « Derniers événements » : chaque plan dont la dernière exécution terminée listée est
+ * « En échec », de la plus récente à la plus ancienne, à l'heure de la colonne « Heure » (#634).
+ */
+export function listedFailures(listed: readonly RunEvent[]): { plan: string; at: string }[] {
+  const seen = new Set<string>();
+  const failures: { plan: string; at: string }[] = [];
+  const recentFirst = [...listed].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
+  for (const e of recentFirst) {
+    // Une exécution en cours n'est pas un résultat, comme sur le serveur : on lit la terminée.
+    if (e.result === 'running' || seen.has(e.planId)) continue;
+    seen.add(e.planId);
+    if (e.result === 'failed') failures.push({ plan: e.planName, at: e.startedAt });
+  }
+  return failures;
+}
+
+/**
+ * Carte « Sauvegarde » en échec : les échecs listés dans « Derniers événements », avec leur plan
+ * et leur heure, pour qu'elle ne cite jamais un échec absent du tableau (#634). Sans échec listé,
+ * la réponse du serveur, plus ancienne que toutes les lignes.
+ */
+export function withListedFailures(state: Overview, listed: readonly RunEvent[]): Overview {
+  const failures = listedFailures(listed);
+  if (state.state !== 'failed' || failures.length === 0) return state;
+  // Le compteur « En échec » ne compte jamais moins de plans que la carte n'en nomme.
+  const failed = Math.max(state.plans.failed, failures.length);
+  return { ...state, plans: { ...state.plans, failed }, lastFailure: failures[0]!, failures };
+}
+
+/**
  * Lecture de l'accueil : les lignes de « Derniers événements », la connexion (celle de la page
- * Plans, datée par ces lignes) et les cartes, qui en reprennent la dernière sauvegarde (#608).
+ * Plans, datée par ces lignes) et les cartes, qui en reprennent la dernière sauvegarde (#608)
+ * et les échecs (#634).
  */
 export function homeReading(
   admin: boolean,
@@ -211,7 +242,8 @@ export function homeReading(
 ) {
   const listed = Array.isArray(data.events) ? listedEvents(data.events) : [];
   const view: ConnectionView = admin ? connectionView(config, data.plans, listed) : 'connected';
-  const overview = typeof state === 'object' ? withListedBackup(state, listed) : state;
+  const overview =
+    typeof state === 'object' ? withListedFailures(withListedBackup(state, listed), listed) : state;
   return { listed, view, since: interruptedSince(view), overview };
 }
 
