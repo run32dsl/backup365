@@ -7,7 +7,7 @@ import type {
   RpoHours,
   RunStatus,
 } from '@backup365/core';
-import { FAILURE_TEXT } from '../failureText.js';
+import { causeText } from '../failureText.js';
 
 /**
  * Plan tel que `GET /api/plans` le rend : le plan, sa conformité et sa dernière exécution. Les
@@ -127,7 +127,6 @@ export const MESSAGES = {
   runAlreadyQueued: 'Déjà en file d’attente',
 } as const;
 
-/** Cause d'un échec sans point final, pour les notes de la liste : celle de `FAILURE_TEXT`. */
-export const FAILURE_LABELS = Object.fromEntries(
-  Object.entries(FAILURE_TEXT).map(([k, t]) => [k, t.cause.replace(/\.$/, '')]),
-) as Record<FailureCause, string>;
+/** Cause d'un échec sans point final, pour les notes de la liste : celle du bandeau (`causeText`). */
+export const failureLabel = (cause: FailureCause, dataTypes?: readonly string[]): string =>
+  causeText(cause, dataTypes).replace(/\.$/, '');

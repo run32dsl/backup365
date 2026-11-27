@@ -13,7 +13,7 @@ import type { PlanItem } from './plans.js';
 import { RunAllDialog, launchedLabel } from './RunAllDialog.js';
 import { STATUS_HASH } from './routes.js';
 import { STORAGE_NEXT_TEXT } from './StorageBlocked.js';
-import { LatestEventRow, mailOnly, runTypeLabel } from './LatestEventRow.js';
+import { LatestEventRow, mailOnly, runDataTypes, runTypeLabel } from './LatestEventRow.js';
 import type { Overview } from './overview.js';
 import { Alert, Button, EmptyState } from './ui/index.js';
 
@@ -255,6 +255,7 @@ export function LatestEvents({
                 run={e}
                 type={runTypeLabel(e, plans)}
                 boxes={mailOnly(e, plans)}
+                dataTypes={runDataTypes(e, plans)}
               />
             ))}
           </tbody>
