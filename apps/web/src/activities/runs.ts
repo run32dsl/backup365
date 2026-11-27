@@ -236,12 +236,15 @@ export const RUNS_MESSAGES = {
     'Ce plan n’a pas encore été exécuté. La première sauvegarde aura lieu à l’heure prévue.',
   emptyFiltered: 'Aucune exécution ne correspond à ces filtres.',
   /**
-   * Note de bas de liste : le nombre de lignes affichées ; la limite seulement si le serveur l'a
-   * atteinte, car des exécutions plus anciennes peuvent alors exister (#620).
+   * Note de bas de liste : le nombre de lignes affichées (#620). Si le serveur a atteint sa
+   * limite, des exécutions plus anciennes peuvent exister : la note le dit sans chiffrer cette
+   * limite, comptée en résultats par source et non en lignes (#630).
    */
-  footer: (shown: number, full: boolean, limit: number) =>
-    full
-      ? `Seules les ${limit} dernières exécutions sont affichées.`
-      : `${shown}${NBSP}${shown < 2 ? 'exécution' : 'exécutions'}`,
+  footer: (shown: number, full: boolean) => {
+    const count = `${shown}${NBSP}${shown < 2 ? 'exécution' : 'exécutions'}`;
+    return full
+      ? `${count}, ${shown < 2 ? 'la plus récente' : 'les plus récentes'}${NBSP}: les plus anciennes ne sont pas affichées.`
+      : count;
+  },
   unknownSize: 'non communiquée',
 } as const;
