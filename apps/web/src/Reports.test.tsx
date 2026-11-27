@@ -15,7 +15,7 @@ import {
   type ReportsView,
 } from './reports.js';
 import { MailerNotice } from './reports/MailerNotice.js';
-import { isDeliveryFailure } from './reports/ReportFailureNotice.js';
+import { ReportFailureAlert, isDeliveryFailure } from './reports/ReportFailureNotice.js';
 import { ReportsForm } from './reports/ReportsForm.js';
 import { SettingsNav } from './ui/index.js';
 
@@ -230,5 +230,25 @@ describe('mail reports screen', () => {
     expect(isDeliveryFailure({ at: 'x', kind: 'alert', ok: false })).toBe(true);
     expect(isDeliveryFailure({ at: 'x', kind: 'test', ok: false })).toBe(false);
     expect(isDeliveryFailure({ at: 'x', kind: 'report', ok: true })).toBe(false);
+  });
+
+  it('warns on Home, as a status, with the nature and date of the send in the title', () => {
+    const report = renderToString(
+      <ReportFailureAlert send={{ at: '2026-11-23T07:00:00.000Z', kind: 'report', ok: false }} />,
+    );
+    const alert = renderToString(
+      <ReportFailureAlert send={{ at: '2026-11-27T09:12:00.000Z', kind: 'alert', ok: false }} />,
+    );
+    expect(report).toContain('class="alert alert-warning" role="status"');
+    expect(report).toContain('Le rapport du 23/11/2026 n’a pas pu être envoyé');
+    expect(alert).toContain('L’alerte d’échec du 27/11/2026 n’a pas pu être envoyée');
+    for (const html of [report, alert]) {
+      expect(html).not.toMatch(/\((rapport|alerte)\)/u);
+      expect(html).toContain(
+        '</strong>Les sauvegardes ne sont pas concernées ; les destinataires n’ont rien reçu. ' +
+          'Microsoft 365 a refusé l’envoi : vérifiez la permission et la boîte d’envoi, puis envoyez un essai.</span>' +
+          '<a class="alert-link" href="#/rapports">Ouvrir les rapports par mail</a></div>',
+      );
+    }
   });
 });

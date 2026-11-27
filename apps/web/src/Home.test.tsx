@@ -109,7 +109,24 @@ describe('OverviewView, late backups', () => {
   });
 });
 
+// Le bandeau d'envoi non parti se charge après rendu : un repère montre sa place dans la page.
+vi.mock('./reports/ReportFailureNotice.js', () => ({
+  ReportFailureNotice: () => <div id="report-failure-slot" />,
+}));
+
 describe('Home', () => {
+  it('puts the Sauvegarde card first under the h1, and the report failure after the three cards', () => {
+    const html = renderToStaticMarkup(<Home />);
+    const afterH1 = html.slice(html.indexOf('</h1>'));
+    expect(afterH1).toMatch(
+      /^<\/h1><div role="status" class="sr-only"><\/div><div class="overview"/u,
+    );
+    const at = (s: string) => html.indexOf(s);
+    expect(at('id="overview-backup"')).toBeLessThan(at('id="overview-plans"'));
+    expect(at('id="overview-plans"')).toBeLessThan(at('id="overview-last"'));
+    expect(at('id="overview-last"')).toBeLessThan(at('id="report-failure-slot"'));
+  });
+
   it('shows a loading state, with no figure, before the answer', () => {
     const html = renderToString(<Home />);
     expect(html).toContain('Accueil');

@@ -1130,7 +1130,31 @@ export const SCREENS = [
         }),
       );
       await page.reload();
-      await page.getByText('Le dernier rapport n’a pas pu être envoyé').waitFor();
+      await page.getByText('Le rapport du 23/11/2026 n’a pas pu être envoyé').waitFor();
+    },
+  },
+  {
+    // Accueil : l'alerte d'échec n'est pas partie (réponse simulée).
+    name: 'accueil-alerte-en-echec',
+    hash: '#/',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.route('**/api/reports', (route) =>
+        route.fulfill({
+          json: {
+            settings: {
+              recipients: ['marie.durand@exemple.invalid'],
+              frequency: 'weekly',
+              failureAlert: true,
+            },
+            mailer: { state: 'refused', sender: 'sauvegardes@exemple.invalid' },
+            lastSend: { at: '2026-11-27T09:12:00.000Z', kind: 'alert', ok: false },
+            plans: 4,
+          },
+        }),
+      );
+      await page.reload();
+      await page.getByText('L’alerte d’échec du 27/11/2026 n’a pas pu être envoyée').waitFor();
     },
   },
   { name: 'rapports-page-reservee', hash: '#/rapports', role: 'operator' },
