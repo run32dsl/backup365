@@ -80,11 +80,32 @@ export const FAILURE_TEXT: Record<
 export const lowerFirst = (s: string): string =>
   s.startsWith('Microsoft') ? s : s.charAt(0).toLowerCase() + s.slice(1);
 
-/** Cause et conduite à tenir d'un échec, selon le rôle ; `unknown` sert de repli. */
+/** Ce que contient une boîte mail (mails, contacts, agenda) ; le reste (OneDrive, SharePoint) est fait de fichiers. */
+const MAILBOX_TYPES: readonly string[] = ['mail', 'contacts', 'calendar'];
+
+/**
+ * Cause d'un échec, dite selon ce que le plan sauvegarde (#632). Pour `backup_errors` : des
+ * « mails » si le plan ne sauvegarde que des boîtes mail, des « éléments » s'il mêle boîtes mail
+ * et fichiers, la phrase de `FAILURE_TEXT` (fichiers) sinon ou si le contenu n'est pas connu.
+ */
+export function causeText(cause: FailureCause | undefined, dataTypes?: readonly string[]): string {
+  const t = FAILURE_TEXT[cause ?? 'unknown'] ?? FAILURE_TEXT.unknown;
+  if (cause !== 'backup_errors' || !dataTypes?.length) return t.cause;
+  const mail = dataTypes.some((d) => MAILBOX_TYPES.includes(d));
+  const files = dataTypes.some((d) => !MAILBOX_TYPES.includes(d));
+  if (mail && files) return 'Des éléments n’ont pas pu être sauvegardés.';
+  return mail ? 'Des dossiers ou des mails n’ont pas pu être sauvegardés.' : t.cause;
+}
+
+/**
+ * Cause et conduite à tenir d'un échec, selon le rôle ; `unknown` sert de repli. `dataTypes` :
+ * ce que le plan sauvegarde, pour nommer ce qui manque (voir `causeText`).
+ */
 export function failureText(
   cause: FailureCause | undefined,
   admin: boolean,
+  dataTypes?: readonly string[],
 ): { cause: string; advice: string } {
   const t = FAILURE_TEXT[cause ?? 'unknown'] ?? FAILURE_TEXT.unknown;
-  return { cause: t.cause, advice: admin ? t.admin : t.operator };
+  return { cause: causeText(cause, dataTypes), advice: admin ? t.admin : t.operator };
 }

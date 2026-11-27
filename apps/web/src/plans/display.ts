@@ -11,7 +11,7 @@ import {
 import { failureText, lowerFirst } from '../failureText.js';
 import { dateTimeOf, keepDateTogether, plural, quoted, workloadLabel } from '../format.js';
 import type { PillStatus } from '../ui/index.js';
-import { FAILURE_LABELS, MESSAGES, type Mailbox, type PlanItem } from './model.js';
+import { MESSAGES, failureLabel, type Mailbox, type PlanItem } from './model.js';
 
 // ---- Affichage de la liste ------------------------------------------------------------------
 
@@ -108,7 +108,7 @@ export function complianceView(
       status: 'compliant',
       label: 'À jour',
       ...(failure && {
-        note: `Dernière exécution en échec : ${lowerFirst(FAILURE_LABELS[failure])}`,
+        note: `Dernière exécution en échec : ${lowerFirst(failureLabel(failure, plan.dataTypes))}`,
       }),
     };
   }
@@ -118,7 +118,7 @@ export function complianceView(
   const base = fromSources?.text ?? lateNote(state, lastSuccessAt);
   const cause =
     state === 'failed' && plan.lastRun?.failureCause
-      ? FAILURE_LABELS[plan.lastRun.failureCause]
+      ? failureLabel(plan.lastRun.failureCause, plan.dataTypes)
       : undefined;
   const note = [cause, base].filter(Boolean).join(' · ') || undefined;
   return state === 'failed'
@@ -267,7 +267,7 @@ export function failureBanner(
 ): { title: string; cause: string; consequence?: string; advice: string } {
   const run = plan.lastRun;
   const at = run?.status === 'failed' ? dateTimeOf(run.finishedAt ?? run.startedAt) : '';
-  const text = failureText(run?.failureCause, admin);
+  const text = failureText(run?.failureCause, admin, plan.dataTypes);
   return {
     title: `Échec de ${quoted(plan.name)}${at && ` le ${at} UTC`}`,
     cause: text.cause,

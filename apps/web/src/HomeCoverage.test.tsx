@@ -294,7 +294,11 @@ describe('LatestEvents', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toContain('En échec');
     expect(rows[0]).not.toContain('Réussie');
-    expect(rows[0]?.replace(/[\u00a0\u202f]/g, ' ')).toContain('« Direction » · 5 boîtes · cause');
+    expect(rows[0]?.replace(/[\u00a0\u202f]/g, ' ')).toContain(
+      '« Direction » · 5 boîtes · cause : des dossiers ou des mails n’ont pas pu être sauvegardés.',
+    );
+    // Le plan ne sauvegarde que des boîtes mail : jamais de « fichiers » (#632).
+    expect(rows[0]).not.toContain('fichiers');
     expect(rows[1]).toContain('Boîtes mail, quotidien');
   });
   it('keeps the five latest runs, not the five latest results', () => {

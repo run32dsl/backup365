@@ -45,8 +45,8 @@ export function ActivitiesNav({ current }: { current: 'runs' | 'audit' }) {
  * Cause puis conduite à tenir d'un échec, chacune sur sa ligne, mêmes phrases que le bandeau de
  * Plans de protection (#602) ; le numéro d'exécution, à transmettre, quand la cause est inconnue.
  */
-function failureLines(r: RunItem, admin: boolean) {
-  const text = causeOf(r, admin);
+function failureLines(r: RunItem, admin: boolean, dataTypes?: readonly string[]) {
+  const text = causeOf(r, admin, dataTypes);
   if (!text) return null;
   return (
     <>
@@ -62,6 +62,7 @@ function failureLines(r: RunItem, admin: boolean) {
 function runColumns(
   names: ReadonlyMap<string, string>,
   boxPlans: ReadonlySet<string>,
+  planTypes: ReadonlyMap<string, readonly string[]>,
   admin: boolean,
 ): Column<RunEvent>[] {
   // La source n'est nommée que s'il n'y en a qu'une ; sinon « 5 boîtes » (#571).
@@ -92,7 +93,7 @@ function runColumns(
       className: 'card-nolabel run-result',
       cell: (r) => {
         const view = RESULT_VIEW[r.result];
-        const lines = failureLines(r, admin);
+        const lines = failureLines(r, admin, planTypes.get(r.planId));
         return (
           <div>
             <StatusPill status={view.status} label={view.label} />
@@ -147,7 +148,7 @@ function runColumns(
                 : copiedLabel(r.result === 'success' ? (r.itemsSaved ?? 0) : r.itemsSaved),
               volumeLabel(r.sourceBytes) ?? '',
             ])}
-            {failureLines(r, admin)}
+            {failureLines(r, admin, planTypes.get(r.planId))}
           </>
         );
       },
@@ -163,6 +164,7 @@ export function RunsView({
   filter,
   names = new Map(),
   boxPlans = new Set(),
+  planTypes = new Map(),
   onRetry,
 }: {
   state: State;
@@ -170,6 +172,8 @@ export function RunsView({
   names?: ReadonlyMap<string, string>;
   /** Plans qui ne sauvegardent que des boîtes mail : leurs sources se comptent en « boîtes ». */
   boxPlans?: ReadonlySet<string>;
+  /** Ce que sauvegarde chaque plan : la cause d'un échec nomme ce qui manque (#632). */
+  planTypes?: ReadonlyMap<string, readonly string[]>;
   onRetry?: () => void;
 }) {
   const admin = useAdmin();
@@ -211,7 +215,7 @@ export function RunsView({
           caption="Dernières exécutions, de la plus récente à la plus ancienne"
           // La phrase d'introduction dit déjà l'ordre : légende lue, pas affichée (#580).
           hideCaption
-          columns={runColumns(names, boxPlans, admin)}
+          columns={runColumns(names, boxPlans, planTypes, admin)}
           rows={rows}
           rowKey={(r) => r.id}
         />
@@ -235,7 +239,9 @@ export function RunsPage({
   const [filter, setFilter] = useState<RunsFilter>({ planId, result });
   const [state, setState] = useState<State>('loading');
   const [attempt, setAttempt] = useState(0);
-  const [plans, setPlans] = useState<{ id: string; name: string; mailOnly: boolean }[]>([]);
+  const [plans, setPlans] = useState<{ id: string; name: string; dataTypes: readonly string[] }[]>(
+    [],
+  );
   const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map());
 
   useEffect(() => {
@@ -257,7 +263,7 @@ export function RunsPage({
           list.map((p) => ({
             id: p.id,
             name: p.name,
-            mailOnly: mailOnlyTypes(p.dataTypes),
+            dataTypes: p.dataTypes,
           })),
         ),
       () => undefined,
@@ -313,7 +319,8 @@ export function RunsPage({
         state={state}
         filter={filter}
         names={names}
-        boxPlans={new Set(plans.filter((p) => p.mailOnly).map((p) => p.id))}
+        boxPlans={new Set(plans.filter((p) => mailOnlyTypes(p.dataTypes)).map((p) => p.id))}
+        planTypes={new Map(plans.map((p) => [p.id, p.dataTypes]))}
         onRetry={retry}
       />
     </main>

@@ -189,12 +189,17 @@ export const RESULT_VIEW: Record<RunResult, { status: PillStatus; label: string 
 
 /**
  * Cause et conduite à tenir d'une exécution en échec ou interrompue, selon le rôle : la table
- * commune avec Plans de protection (`FAILURE_TEXT`, #602) ; `null` sinon.
+ * commune avec Plans de protection (`FAILURE_TEXT`, #602), selon ce que sauvegarde le plan
+ * (`dataTypes`, #632) ; `null` sinon.
  */
-export function causeOf(run: Pick<RunItem, 'result' | 'failureCause'>, admin: boolean) {
+export function causeOf(
+  run: Pick<RunItem, 'result' | 'failureCause'>,
+  admin: boolean,
+  dataTypes?: readonly string[],
+) {
   if (run.result === 'interrupted') return failureText('interrupted', admin);
   if (run.result !== 'failed') return null;
-  return failureText(run.failureCause, admin);
+  return failureText(run.failureCause, admin, dataTypes);
 }
 
 /** « moins d'une minute », « 14 min », « 1 h 05 » ; « — » sans durée. */

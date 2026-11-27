@@ -108,7 +108,8 @@ describe('failure cause on the plans list', () => {
 
   it.each([
     ['interrupted', 'La console a été arrêtée pendant l’exécution', 'Attendez'],
-    ['backup_errors', 'Des dossiers ou des fichiers n’ont pas pu être sauvegardés', 'Vérifiez'],
+    // Le plan ne sauvegarde que des boîtes mail : des mails, pas des fichiers (#632).
+    ['backup_errors', 'Des dossiers ou des mails n’ont pas pu être sauvegardés', 'Vérifiez'],
     ['no_result', 'Aucune donnée n’a été sauvegardée pour cette source', 'Vérifiez'],
     ['unknown', 'La sauvegarde a échoué pour une raison non identifiée', 'Relancez'],
   ] as const)(

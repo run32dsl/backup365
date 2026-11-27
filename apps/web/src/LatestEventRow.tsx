@@ -26,6 +26,10 @@ export function runTypeLabel(run: RunItem, plans: readonly PlanItem[]): string {
   return types.length === 0 ? 'Sauvegarde' : types.map((t) => DATA_TYPE_LABELS[t]).join(', ');
 }
 
+/** Ce que sauvegarde le plan de l'exécution ; `undefined` si le plan n'est pas connu. */
+export const runDataTypes = (run: RunItem, plans: readonly PlanItem[]) =>
+  planOf(run, plans)?.dataTypes;
+
 /** Vrai si le plan ne sauvegarde que des boîtes mail : ses sources se comptent en « boîtes ». */
 export function mailOnly(run: RunItem, plans: readonly PlanItem[]): boolean {
   return mailOnlyTypes(planOf(run, plans)?.dataTypes);
@@ -35,11 +39,15 @@ export function mailOnly(run: RunItem, plans: readonly PlanItem[]): boolean {
  * Ce qu'a fait une exécution, sans le plan : le nombre de sources, puis les éléments copiés
  * (« 0 » compris), la taille et la durée ; ou « sauvegarde en cours » ; ou la cause d'un échec.
  */
-export function runDetails(event: RunEvent, boxes = false): string[] {
+export function runDetails(
+  event: RunEvent,
+  boxes = false,
+  dataTypes?: readonly string[],
+): string[] {
   const sources = sourcesLabel(event.runs.length, boxes);
   if (event.result === 'running') return [sources, 'sauvegarde en cours'];
   // Seule la cause est reprise ici, identique pour tous les rôles.
-  const cause = causeOf(event, true);
+  const cause = causeOf(event, true, dataTypes);
   if (cause) return [sources, `cause${NBSP}: ${lowerFirst(cause.cause)}`];
   const parts = [
     sources,
@@ -51,8 +59,8 @@ export function runDetails(event: RunEvent, boxes = false): string[] {
 }
 
 /** Colonne « Résumé » : le plan puis ce qu'a fait l'exécution. */
-export function runSummary(event: RunEvent, boxes = false): string {
-  return [quoted(event.planName), ...runDetails(event, boxes)].join(' · ');
+export function runSummary(event: RunEvent, boxes = false, dataTypes?: readonly string[]): string {
+  return [quoted(event.planName), ...runDetails(event, boxes, dataTypes)].join(' · ');
 }
 
 /**
@@ -64,11 +72,14 @@ export function LatestEventRow({
   run,
   type,
   boxes,
+  dataTypes,
 }: {
   run: RunEvent;
   type: string;
   /** Le plan ne sauvegarde que des boîtes mail : « 5 boîtes » plutôt que « 5 sources ». */
   boxes: boolean;
+  /** Ce que sauvegarde le plan : la cause d'un échec nomme ce qui manque (#632). */
+  dataTypes?: readonly string[];
 }) {
   const at = dateTimeOf(run.startedAt);
   const pill = <StatusPill {...RESULT_VIEW[run.result]} />;
@@ -80,11 +91,11 @@ export function LatestEventRow({
       <td className="table-only">{type}</td>
       <td className="table-only">{pill}</td>
       <td className="card-title">
-        <span className="table-summary">{runSummary(run, boxes)}</span>
+        <span className="table-summary">{runSummary(run, boxes, dataTypes)}</span>
         <span className="card-only">{run.planName}</span>
         <span className="card-only card-pill">{pill}</span>
         <span className="card-only cell-secondary">
-          {cardLine([type, at === '' ? '' : `${at} UTC`, ...runDetails(run, boxes)])}
+          {cardLine([type, at === '' ? '' : `${at} UTC`, ...runDetails(run, boxes, dataTypes)])}
         </span>
       </td>
     </tr>
