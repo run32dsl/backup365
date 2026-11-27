@@ -1,6 +1,13 @@
 import { nextRunAt, type StatusRow } from '@backup365/core';
 import { useState } from 'react';
-import { RUNS_HASH, completeRuns, type RunItem } from './activities/runs.js';
+import { RUNS_HASH, completeRuns, type RunEvent, type RunItem } from './activities/runs.js';
+import {
+  connectionView,
+  interruptedSince,
+  latestListed,
+  type ConfigurationState,
+  type ConnectionView,
+} from './ConfigurationBlock.js';
 import type { HomeData } from './HomeData.js';
 import type { PlanItem } from './plans.js';
 import { RunAllDialog, launchedLabel } from './RunAllDialog.js';
@@ -168,6 +175,41 @@ export const LATEST_RUNS = 5;
  */
 export const LATEST_RESULTS = 20;
 
+/**
+ * Lignes de « Derniers événements », de la plus récente à la plus ancienne. Une exécution de plan
+ * = un événement, même si elle a sauvegardé plusieurs boîtes (#571). Les cartes de l'accueil en
+ * tirent aussi la dernière sauvegarde et la dernière exécution (#608).
+ */
+export const listedEvents = (items: readonly RunItem[]): RunEvent[] =>
+  completeRuns(items, LATEST_RESULTS).slice(0, LATEST_RUNS);
+
+/**
+ * Carte « Dernière sauvegarde » d'un administrateur : la ligne « Réussie » la plus récente de
+ * « Derniers événements », son heure (celle de la colonne « Heure ») et son plan (#608). Une
+ * réussite qui n'a rien copié compte ici comme dans le tableau. Sans telle ligne, la réponse du
+ * serveur, plus ancienne que toutes les lignes listées.
+ */
+export function withListedBackup(state: Overview, listed: readonly RunEvent[]): Overview {
+  const last = latestListed(listed.filter((e) => e.result === 'success'));
+  return last ? { ...state, lastBackupAt: last.startedAt, lastBackupPlan: last.planName } : state;
+}
+
+/**
+ * Lecture de l'accueil : les lignes de « Derniers événements », la connexion (celle de la page
+ * Plans, datée par ces lignes) et les cartes, qui en reprennent la dernière sauvegarde (#608).
+ */
+export function homeReading(
+  admin: boolean,
+  state: Overview | 'loading' | 'error',
+  config: ConfigurationState,
+  data: Pick<HomeData, 'plans' | 'events'>,
+) {
+  const listed = Array.isArray(data.events) ? listedEvents(data.events) : [];
+  const view: ConnectionView = admin ? connectionView(config, data.plans, listed) : 'connected';
+  const overview = typeof state === 'object' ? withListedBackup(state, listed) : state;
+  return { listed, view, since: interruptedSince(view), overview };
+}
+
 /** Les cinq dernières exécutions des plans (`GET /api/runs`), hors journal d'audit. */
 export function LatestEvents({
   items,
@@ -179,10 +221,7 @@ export function LatestEvents({
   plans?: readonly PlanItem[];
   onRetry: () => void;
 }) {
-  // Une exécution de plan = un événement, même si elle a sauvegardé plusieurs boîtes (#571).
-  const events = Array.isArray(items)
-    ? completeRuns(items, LATEST_RESULTS).slice(0, LATEST_RUNS)
-    : [];
+  const events = Array.isArray(items) ? listedEvents(items) : [];
   return (
     <section aria-labelledby="home-events" aria-busy={items === 'loading'}>
       <h2 id="home-events">Derniers événements</h2>
