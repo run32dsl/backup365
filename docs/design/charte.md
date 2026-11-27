@@ -79,7 +79,10 @@ composant s'y ajoute avec ses tests de comportement.
   listée. Connexion Microsoft 365 à configurer : ni échéance ni « Sauvegarder maintenant ».
   Stockage bloqué (#612) : carte « Sauvegarde » en « ✖ Interrompue », « Aucune sauvegarde ne
   partira tant que le stockage n’est pas corrigé. » à la place de l'échéance, sans « Sauvegarder
-  maintenant », que la connexion soit reliée ou non. Lancement de tous les plans avec au moins un refus : la boîte passe en résultat, comme
+  maintenant », que la connexion soit reliée ou non. La carte ne répète pas le titre du bandeau
+  et passe directement aux échecs et retards ; son seul bouton, « Voir le stockage », ouvre État
+  des sources sur la section « Stockage » (titre focalisé), sans « Voir les sources » en plus
+  (#616). Lancement de tous les plans avec au moins un refus : la boîte passe en résultat, comme
   `RunDialog` (#596). Titre « Lancement partiel » (bandeau d'avertissement) ou « Lancement
   impossible » (bandeau d'erreur) ; bilan en gras (« 3 sauvegardes lancées, 1 non lancée ») puis
   les plans non lancés, raison en minuscule après les deux-points ; motif rappelé en lecture
@@ -123,9 +126,11 @@ composant s'y ajoute avec ses tests de comportement.
   stockage », quels que soient les échecs ; son corps donne d'abord la conduite à tenir
   (« Prévenez l’exploitant du serveur : le stockage est à faire corriger. »), dit que les
   sauvegardes listées sont antérieures au blocage, puis donne les compteurs et les autres
-  problèmes. La section « Stockage », en `Alert` d'erreur, remonte juste sous le bandeau, avant
-  « Services ». Le même `Alert` d'erreur (`StorageBlocked`) se place sous le `h1` de l'Accueil,
-  en tête de Plans de protection (avant celui de la connexion, s'il y en a un ; la suspension du
+  problèmes. La section « Stockage », en `Alert` d'erreur sans titre, remonte juste sous le
+  bandeau, avant « Services » ; elle ne garde que l'explication (le stockage ne bloque pas deux
+  opérations simultanées sur une même source, donc rien n'y est fait), titre et conduite à tenir
+  n'étant dits qu'une fois, dans le bandeau (#616). Le même `Alert` d'erreur (`StorageBlocked`)
+  se place sous le `h1` de l'Accueil, en tête de Plans de protection (avant celui de la connexion, s'il y en a un ; la suspension du
   lancement manuel n'y est dite qu'une fois) et en tête des trois parcours de restauration.
   Là, il est complété par « La restauration est suspendue jusqu’à la correction du stockage. »
   et remplace le formulaire (#614) : ni choix de destination, ni rappel d'audit, ni motif, ni

@@ -24,6 +24,7 @@ import {
   restoreBlocked,
   storageBlocked,
 } from './StorageBlocked.js';
+import { forgetStorageRequest, goToStorage, revealStorage } from './status/StorageCheck.js';
 
 const noop = () => undefined;
 const linked = { microsoft: { connected: true }, workloads: ['mail'] };
@@ -126,12 +127,59 @@ describe('Home, blocked storage (#612)', () => {
     const html = home(true);
     const card = html.slice(html.indexOf('overview-backup'), html.indexOf('overview-plans'));
     expect(card).toContain('Interrompue');
-    expect(card).toContain(`${STORAGE_BLOCKED_TITLE}.`);
-    expect(card).toContain('Voir la conduite à tenir');
     expect(card).not.toContain('Opérationnelle');
     expect(html).toContain(STORAGE_NEXT_TEXT);
     expect(html).not.toContain('Prochaine sauvegarde dans');
     expect(html).not.toContain('Sauvegarder maintenant');
+  });
+
+  it('says the blocked storage once, in the Alert under the h1 (#616)', () => {
+    const html = home(true);
+    expect(html.split(STORAGE_BLOCKED_TITLE)).toHaveLength(2);
+    expect(firstAlert(html)).toContain(STORAGE_BLOCKED_TITLE);
+  });
+
+  it('leads the Backup card to the storage section, not to the Alert above it (#616)', () => {
+    const late = {
+      ...overview,
+      lateBackups: [
+        {
+          service: 'mail' as const,
+          name: 'Boîte A',
+          lastSnapshotAt: '2026-11-20T22:06:00.000Z',
+        },
+      ],
+    };
+    for (const interruptedSince of [null, '2026-11-26T22:06:00.000Z']) {
+      const html = renderToStaticMarkup(
+        <OverviewView
+          state={late}
+          admin
+          onRetry={noop}
+          storageBlocked
+          interruptedSince={interruptedSince}
+          onShowConnection={noop}
+        />,
+      );
+      const card = html.slice(0, html.indexOf('overview-plans'));
+      expect(card).toMatch(/<button[^>]*class="btn btn-primary"[^>]*>Voir le stockage<\/button>/u);
+      expect(card).not.toContain('Voir la conduite à tenir');
+      expect(card).not.toContain('Voir les sources');
+    }
+    const location = { hash: '#/' };
+    goToStorage(location);
+    expect(location.hash).toBe('#/sources');
+    // La section « Stockage » d'État des sources prend alors le focus, une seule fois.
+    const title = { scrollIntoView: vi.fn(), focus: vi.fn() };
+    expect(revealStorage(title)).toBe(true);
+    expect(title.scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+    expect(title.focus).toHaveBeenCalledOnce();
+    expect(revealStorage(title)).toBe(false);
+    // Demande non servie (État des sources en erreur, sans section) : oubliée, pas de focus plus tard.
+    goToStorage(location);
+    forgetStorageRequest();
+    expect(revealStorage(title)).toBe(false);
+    expect(title.focus).toHaveBeenCalledOnce();
   });
 
   it('puts the storage before an interrupted connection, which keeps its own Alert', () => {
