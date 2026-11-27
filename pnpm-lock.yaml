@@ -197,8 +197,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       '@wisecom/atlas-sdk':
-        specifier: 7.2.0
-        version: 7.2.0(@azure/msal-browser@5.29.0)(bare-buffer@3.7.1)(buffer@6.0.3)
+        specifier: 7.3.0
+        version: 7.3.0(@azure/msal-browser@5.29.0)(bare-buffer@3.7.1)(buffer@6.0.3)
       fastify:
         specifier: ^5.12.8
         version: 5.12.8
@@ -763,8 +763,8 @@ packages:
   '@vitest/spy@5.1.0':
     resolution: {integrity: sha512-2DPO5OMHWKrBngC+fCmTQqemNF0gidRhp3lxbBmRhW+M1XJrfgPpqNqWVevXtn2f2ufD5ZaR1B6B641aAlcX5A==}
 
-  '@wisecom/atlas-sdk@7.2.0':
-    resolution: {integrity: sha512-B/VvPFPRmS1gMQQBClnANvW4MwtPXUnoP5G8EuzkfSKiIqsN/1AxzUPkY7RGHRHQBv2hqZd63w9TwWApyYSzYg==}
+  '@wisecom/atlas-sdk@7.3.0':
+    resolution: {integrity: sha512-TeCf52mzf4ZVrC0gtwJCIgc/DbqDQ402pyOtkWGLounM0vxXjAiNg1ualwLQ3/rw5hjdLppm8tDw1T5VYr06PQ==}
     engines: {node: '>=22.8.0'}
 
   abort-controller@3.0.0:
@@ -2408,7 +2408,7 @@ snapshots:
 
   '@vitest/spy@5.1.0': {}
 
-  '@wisecom/atlas-sdk@7.2.0(@azure/msal-browser@5.29.0)(bare-buffer@3.7.1)(buffer@6.0.3)':
+  '@wisecom/atlas-sdk@7.3.0(@azure/msal-browser@5.29.0)(bare-buffer@3.7.1)(buffer@6.0.3)':
     dependencies:
       '@aws-sdk/client-s3': 3.1166.0
       '@azure/identity': 4.14.1

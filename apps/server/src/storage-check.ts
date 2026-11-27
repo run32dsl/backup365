@@ -1,7 +1,7 @@
 import type { ConditionalWrites } from '@backup365/core';
 
 /**
- * Sous-ensemble de `AtlasInstance.checkStorage()` (SDK 7.2.0) lu par la console : le seul résultat
+ * Sous-ensemble de `AtlasInstance.checkStorage()` (SDK 7.3.0) lu par la console : le seul résultat
  * de la sonde d'écritures conditionnelles. Interroge S3 seulement, jamais Graph ; la sonde écrit
  * puis supprime un objet jetable dans le bucket.
  */
@@ -28,7 +28,7 @@ const SUPPORT: readonly ConditionalWrites[] = ['supported', 'ignored', 'not_prob
 
 /**
  * Le stockage refuse-t-il les écritures conditionnelles dont dépend le bail par propriétaire du
- * SDK 7.2.0 (docs/adr/0019) ? Résultat gardé `ttlMs`, échec (`null`) gardé `failureTtlMs` ; les
+ * SDK (docs/adr/0019 ; en 7.3.0, Atlas refuse d'écrire sinon) ? Résultat gardé `ttlMs`, échec (`null`) gardé `failureTtlMs` ; les
  * appels simultanés partagent la même sonde, bornée à `timeoutMs`. Seule la valeur de `support`
  * est retenue : le détail du SDK peut citer le bucket.
  */

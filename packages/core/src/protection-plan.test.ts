@@ -27,6 +27,10 @@ describe('failureCauseOf: SDK 7.2.0 error codes (issue #567)', () => {
     expect(failureCauseOf('ATLAS_WRITE_REFUSED')).toBe('write_refused');
   });
 
+  it('reads an incomplete Microsoft 365 listing (SDK 7.3.0, issue #609) as Graph unavailable', () => {
+    expect(failureCauseOf('ATLAS_LISTING_INCOMPLETE')).toBe('graph_unavailable');
+  });
+
   it('keeps the existing causes and falls back to unknown', () => {
     expect(failureCauseOf('interrupted')).toBe('interrupted');
     expect(failureCauseOf('ATLAS_SNAPSHOT_NOT_NEWEST')).toBe('unknown');
