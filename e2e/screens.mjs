@@ -301,7 +301,9 @@ async function blockStorage(page) {
   await page.route('**/api/status', async (route) => {
     const res = await route.fetch();
     const body = await res.json();
+    // Un administrateur lit `storage`, les autres rôles `restoreSuspended` (#614).
     body.storage = { conditionalWrites: 'ignored' };
+    body.restoreSuspended = true;
     await route.fulfill({ response: res, json: body });
   });
 }
@@ -314,14 +316,17 @@ const STORAGE_BLOCKED = 'Sauvegardes et restaurations bloquées sur ce stockage'
  *
  * @param {import('@playwright/test').Locator} scope
  */
-async function expectStorageBeforeAudit(scope) {
-  await scope.getByRole('alert').getByText(STORAGE_BLOCKED).waitFor();
-  const texts = await scope.locator('.alert').allInnerTexts();
-  const storage = texts.findIndex((t) => t.includes(STORAGE_BLOCKED));
-  const audit = texts.findIndex((t) => t.includes('inscrite au journal d’audit'));
-  if (storage < 0 || audit < 0 || storage > audit)
-    throw new Error(`bandeau du stockage (${storage}) après le rappel d’audit (${audit})`);
+async function expectRestoreBlocked(scope, text = 'La restauration est suspendue') {
+  await scope.getByRole('alert').getByText(text, { exact: false }).waitFor();
+  // Le formulaire a disparu (#614) : ni rappel d'audit, ni motif, ni bouton principal.
+  const texts = (await scope.locator('.alert').allInnerTexts()).join('\n');
+  if (texts.includes('inscrite au journal d’audit')) throw new Error('rappel d’audit affiché');
+  if ((await scope.getByLabel(RESTORE_REASON_LABEL).count()) > 0) throw new Error('motif affiché');
+  if ((await scope.locator('.btn-primary').count()) > 0) throw new Error('bouton principal');
 }
+
+/** Phrase de l'opérateur quand la restauration est suspendue (#614). */
+const RESTORE_UNAVAILABLE = 'Restauration impossible pour l’instant';
 
 /** Plans de l'accueil simulé : ce que chacun protège. */
 const MAIL_PLAN = { name: 'Boîtes mail, quotidien', dataTypes: ['mail'] };
@@ -1475,14 +1480,25 @@ export const SCREENS = [
     },
   },
   {
-    // Stockage bloqué (#612) : l'erreur est dite avant le rappel d'audit et la saisie du motif.
+    // Stockage bloqué (#612, #614) : le bandeau remplace le formulaire, « Fermer » reste seul.
     name: 'restauration-stockage-bloque',
     hash: DEMO_MAIL_HASH,
     role: 'admin',
     prepare: async (page) => {
       await blockStorage(page);
       await openRestorePanel(page, 11);
-      await expectStorageBeforeAudit(page.getByRole('dialog'));
+      await expectRestoreBlocked(page.getByRole('dialog'));
+    },
+  },
+  {
+    // Le même blocage pour un opérateur, sans détail d'exploitation (#614).
+    name: 'restauration-stockage-bloque-operateur',
+    hash: DEMO_MAIL_HASH,
+    role: 'operator',
+    prepare: async (page) => {
+      await blockStorage(page);
+      await openRestorePanel(page, 11);
+      await expectRestoreBlocked(page.getByRole('dialog'), RESTORE_UNAVAILABLE);
     },
   },
   {
@@ -1494,7 +1510,19 @@ export const SCREENS = [
       await page.reload();
       await openDrive(page);
       await chooseDriveFile(page, 'budget.xlsx');
-      await expectStorageBeforeAudit(page.locator('main'));
+      await expectRestoreBlocked(page.locator('main'));
+    },
+  },
+  {
+    name: 'onedrive-motif-stockage-bloque-operateur',
+    hash: '#/onedrive',
+    role: 'operator',
+    prepare: async (page) => {
+      await blockStorage(page);
+      await page.reload();
+      await openDrive(page);
+      await chooseDriveFile(page, 'budget.xlsx');
+      await expectRestoreBlocked(page.locator('main'), RESTORE_UNAVAILABLE);
     },
   },
   {
@@ -1508,7 +1536,7 @@ export const SCREENS = [
       await browseSite(page, 'Documents partagés');
       await continueStep(page);
       await page.getByText('Étape 2 sur 3').waitFor();
-      await expectStorageBeforeAudit(page.locator('main'));
+      await expectRestoreBlocked(page.locator('main'));
     },
   },
   {
@@ -1877,6 +1905,16 @@ export const SCREENS = [
     prepare: async (page) => {
       await page.getByRole('button', { name: 'Ouvrir l’exemple de dialogue' }).click();
       await page.getByRole('dialog', { name: 'Exporter cette boîte ?' }).waitFor();
+    },
+  },
+  {
+    // Boîte « Restaurer ce mail », stockage bloqué (#614).
+    name: 'composants-restauration-bloquee',
+    hash: '#/composants',
+    role: 'admin',
+    prepare: async (page) => {
+      await page.getByRole('button', { name: 'Restaurer, stockage bloqué' }).click();
+      await expectRestoreBlocked(page.getByRole('dialog', { name: 'Restaurer ce mail' }));
     },
   },
   {

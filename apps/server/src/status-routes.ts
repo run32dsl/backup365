@@ -92,9 +92,10 @@ export function registerStatusRoutes(
   scope.get('/api/status', async (req, reply) => {
     if (!catalog) return reply.code(503).send({ error: 'catalog_unavailable' });
     const admin = req.session?.role === 'admin';
-    // Écritures conditionnelles du stockage : une question d'exploitation, réservée aux
-    // administrateurs. La sonde (jamais rejetée) tourne pendant la lecture du catalogue.
-    const probe = admin ? options.storage?.conditionalWrites() : undefined;
+    // Écritures conditionnelles du stockage : le détail est une question d'exploitation, réservée
+    // aux administrateurs ; les autres rôles n'apprennent que la suspension des restaurations
+    // (#614). La sonde (jamais rejetée, mise en cache) tourne pendant la lecture du catalogue.
+    const probe = options.storage?.conditionalWrites();
     const catalogReport = await buildStatusReport(catalog, options.workloads, options.maxAgeHours);
     // Conformité des plans : réservée aux administrateurs par décision du PO du 2026-11-16, en
     // attente de #86, donc absente pour tout autre rôle et sans session ; absente sans base des plans, `null` si elle ne répond pas.
@@ -108,7 +109,13 @@ export function registerStatusRoutes(
           services: serviceSummaries(store, rows, options.maxAgeHours, req.log),
         }
       : catalogReport;
-    const base = probe ? { ...withPlans, storage: { conditionalWrites: await probe } } : withPlans;
+    const conditionalWrites = probe ? await probe : undefined;
+    const base =
+      conditionalWrites === undefined
+        ? withPlans
+        : admin
+          ? { ...withPlans, storage: { conditionalWrites } }
+          : { ...withPlans, restoreSuspended: conditionalWrites === 'ignored' };
     const report = options.auditAnchor
       ? {
           ...base,

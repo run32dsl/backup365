@@ -17,7 +17,7 @@ import { TrackStep } from './onedrive/TrackStep.js';
 import type { Choice } from './onedrive/types.js';
 import { ReasonStep } from './restore/ReasonStep.js';
 import { useAdmin } from './role.js';
-import { useStorageBlocked } from './StorageBlocked.js';
+import { useRestoreBlocked } from './StorageBlocked.js';
 import { RestoreSourceNav, Steps } from './ui/index.js';
 
 /** Restaurer depuis OneDrive : parcourir, motif et récapitulatif, suivi (`#/onedrive/<compte>/<chemin>`). */
@@ -34,8 +34,9 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
   const [draft, setDraft] = useState('');
   const [job, setJob] = useState<DriveJob | null>(null);
   const titleRef = useRef<HTMLParagraphElement>(null);
-  // Stockage bloqué : dit avant la saisie du motif, plutôt qu'un échec après (#612).
-  const blocked = useStorageBlocked(useAdmin());
+  // Stockage bloqué, quel que soit le rôle : l'étape « Motif » ne garde que « Précédent » (#614).
+  const admin = useAdmin();
+  const blocked = useRestoreBlocked(true);
 
   useEffect(() => {
     let current = true;
@@ -127,7 +128,7 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
         }}
       />
     );
-  } else if (choice && reason !== null) {
+  } else if (choice && reason !== null && !blocked) {
     journey = true;
     content = (
       <ConfirmStep
@@ -146,6 +147,7 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
     content = (
       <ReasonStep
         initial={draft}
+        blocked={blocked}
         onBack={reset}
         onContinue={(r) => {
           setDraft(r);
@@ -176,7 +178,7 @@ export function OneDrivePage({ route }: { route: OneDriveRoute }) {
       {journey && !job && (
         <Steps steps={RESTORE_STEPS} current={stepOf(step)} titleRef={titleRef} />
       )}
-      {journey && !job && <RestoreReminders blocked={blocked} />}
+      {journey && !job && <RestoreReminders blocked={blocked} admin={admin} />}
       {content}
     </main>
   );

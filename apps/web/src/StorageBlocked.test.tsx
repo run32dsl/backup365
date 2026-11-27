@@ -1,6 +1,6 @@
 import type { StatusReport } from '@backup365/core';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RUN_SUSPENDED_TEXT } from './ConfigurationBlock.js';
 import { OverviewView } from './Home.js';
 import { HomeCoverage } from './HomeCoverage.js';
@@ -8,15 +8,20 @@ import type { HomeData } from './HomeData.js';
 import type { Overview } from './overview.js';
 import { PlansListView } from './plans/PlansListView.js';
 import type { PlanItem } from './plans.js';
-import { AUDIT_REMINDER, RestoreReminders } from './RestoreJourney.js';
+import { ReasonStep } from './restore/ReasonStep.js';
+import { AUDIT_REMINDER, REASON, RESTORE_BUTTONS, RestoreReminders } from './RestoreJourney.js';
 import {
+  BlockedRestore,
   HomeAlerts,
+  RESTORE_UNAVAILABLE_TEXT,
   RunHaltedAlerts,
   STORAGE_BLOCKED_ACTION,
   STORAGE_BLOCKED_TITLE,
   STORAGE_NEXT_TEXT,
+  STORAGE_RESTORE_SUSPENDED_TEXT,
   STORAGE_RUN_SUSPENDED_TEXT,
   StorageBlocked,
+  restoreBlocked,
   storageBlocked,
 } from './StorageBlocked.js';
 
@@ -183,23 +188,113 @@ describe('Plans, blocked storage (#612)', () => {
   });
 });
 
-describe('Restore, blocked storage (#612)', () => {
-  it('puts the error Alert before the audit reminder (OneDrive, SharePoint)', () => {
-    const html = renderToStaticMarkup(<RestoreReminders blocked />);
-    expect(firstAlert(html)).toContain('alert-error');
-    expect(firstAlert(html)).toContain(STORAGE_BLOCKED_TITLE);
-    expect(html.indexOf(STORAGE_BLOCKED_TITLE)).toBeLessThan(html.indexOf(AUDIT_REMINDER));
-  });
+/** Nombre d'occurrences de `needle` dans `html`. */
+const count = (html: string, needle: string) => html.split(needle).length - 1;
 
-  it('keeps the error Alert when the audit reminder is not shown (SharePoint, site link)', () => {
-    const html = renderToStaticMarkup(<RestoreReminders blocked audit={false} />);
-    expect(html).toContain(STORAGE_BLOCKED_TITLE);
-    expect(html).not.toContain(AUDIT_REMINDER);
+describe('Restore, blocked storage (#612, #614)', () => {
+  it('says the restore is suspended in the error Alert, without the audit reminder (OneDrive, SharePoint)', () => {
+    for (const audit of [true, false]) {
+      const html = renderToStaticMarkup(<RestoreReminders blocked admin audit={audit} />);
+      expect(firstAlert(html)).toContain('alert-error');
+      expect(firstAlert(html)).toContain(STORAGE_BLOCKED_TITLE);
+      expect(firstAlert(html)).toContain(STORAGE_RESTORE_SUSPENDED_TEXT);
+      expect(count(html, 'class="alert alert-')).toBe(1);
+      expect(html).not.toContain(AUDIT_REMINDER);
+    }
   });
 
   it('shows only the audit reminder when the storage is accepted', () => {
-    const html = renderToStaticMarkup(<RestoreReminders blocked={false} />);
+    const html = renderToStaticMarkup(<RestoreReminders blocked={false} admin />);
     expect(html).not.toContain(STORAGE_BLOCKED_TITLE);
     expect(html).toContain(AUDIT_REMINDER);
+  });
+
+  it('mail dialog, administrator: the Alert and « Fermer », nothing else', () => {
+    const html = renderToStaticMarkup(<BlockedRestore admin onClose={noop} />);
+    expect(firstAlert(html)).toContain('role="alert"');
+    expect(firstAlert(html)).toContain(STORAGE_BLOCKED_TITLE);
+    expect(html).toContain(STORAGE_RESTORE_SUSPENDED_TEXT);
+    for (const absent of [
+      'Restaurer vers',
+      AUDIT_REMINDER,
+      REASON.label,
+      '<form',
+      '<input',
+      '>Restaurer<',
+    ])
+      expect(html).not.toContain(absent);
+    expect(count(html, '<button')).toBe(1);
+    expect(html).toMatch(/<button[^>]*class="btn btn-secondary"[^>]*>Fermer<\/button>/u);
+  });
+
+  it.each([
+    ['OneDrive', true],
+    ['SharePoint', false],
+  ])('%s « Motif » step: no reason field nor « Continuer », only « Précédent »', (_, admin) => {
+    const html = renderToStaticMarkup(
+      <>
+        <RestoreReminders blocked admin={admin} />
+        <ReasonStep initial="Ticket" blocked onBack={noop} onContinue={noop} />
+      </>,
+    );
+    expect(html).not.toContain(REASON.label);
+    expect(html).not.toContain('<input');
+    expect(html).not.toContain(RESTORE_BUTTONS.next);
+    expect(count(html, '<button')).toBe(1);
+    expect(html).toContain(`>${RESTORE_BUTTONS.back}</button>`);
+  });
+
+  it('operator: the same block without operating detail, in the dialog and both journeys', () => {
+    const dialog = renderToStaticMarkup(<BlockedRestore admin={false} onClose={noop} />);
+    const journey = renderToStaticMarkup(
+      <>
+        <RestoreReminders blocked admin={false} />
+        <ReasonStep initial="" blocked onBack={noop} onContinue={noop} />
+      </>,
+    );
+    for (const html of [dialog, journey]) {
+      expect(firstAlert(html)).toContain('alert-error');
+      expect(html).toContain(RESTORE_UNAVAILABLE_TEXT);
+      expect(html).not.toContain(STORAGE_BLOCKED_TITLE);
+      expect(html).not.toMatch(/stockage/iu);
+      expect(html).not.toContain(REASON.label);
+      expect(html).not.toContain('>Restaurer<');
+      expect(html).not.toContain(RESTORE_BUTTONS.next);
+      expect(count(html, '<button')).toBe(1);
+    }
+  });
+
+  it('sends no restore request and writes nothing to the audit log while blocked', () => {
+    const calls: string[] = [];
+    const fake = vi.fn((input: RequestInfo | URL) => {
+      calls.push(String(input));
+      return Promise.resolve(new Response('{}'));
+    });
+    vi.stubGlobal('fetch', fake);
+    try {
+      for (const admin of [true, false]) {
+        const html = renderToStaticMarkup(
+          <>
+            <BlockedRestore admin={admin} onClose={noop} />
+            <RestoreReminders blocked admin={admin} />
+            <ReasonStep initial="Ticket INC-1" blocked onBack={noop} onContinue={noop} />
+          </>,
+        );
+        // Aucun formulaire ni bouton d'envoi : rien ne peut partir vers `…/restore` ni l'audit.
+        expect(html).not.toContain('<form');
+        expect(html).not.toContain('type="submit"');
+      }
+      expect(calls).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('reads the block for any role: storage for an administrator, restoreSuspended otherwise', () => {
+    expect(restoreBlocked({ storage: { conditionalWrites: 'ignored' } })).toBe(true);
+    expect(restoreBlocked({ restoreSuspended: true })).toBe(true);
+    expect(restoreBlocked({ restoreSuspended: false })).toBe(false);
+    expect(restoreBlocked({ storage: { conditionalWrites: 'supported' } })).toBe(false);
+    expect(restoreBlocked(null)).toBe(false);
   });
 });

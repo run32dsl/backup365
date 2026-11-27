@@ -9,16 +9,37 @@ describe('StorageCheck (issue #567)', () => {
       {
         checkStorage: () => {
           probes++;
-          return Promise.resolve({ conditionalWrites: { support: 'ignored' } });
+          return Promise.resolve({ conditionalWrites: { support: 'supported' } });
         },
       },
       { ttlMs: 1_000, now: () => now },
     );
-    expect(await check.conditionalWrites()).toBe('ignored');
+    expect(await check.conditionalWrites()).toBe('supported');
     now = 999;
-    expect(await check.conditionalWrites()).toBe('ignored');
+    expect(await check.conditionalWrites()).toBe('supported');
     expect(probes).toBe(1);
     now = 1_000;
+    await check.conditionalWrites();
+    expect(probes).toBe(2);
+  });
+
+  it('checks a blocked storage again as soon as a failure, to give restores back (#614)', async () => {
+    let now = 0;
+    let probes = 0;
+    const check = new StorageCheck(
+      {
+        checkStorage: () => {
+          probes++;
+          return Promise.resolve({ conditionalWrites: { support: 'ignored' } });
+        },
+      },
+      { ttlMs: 10_000, failureTtlMs: 500, now: () => now },
+    );
+    expect(await check.conditionalWrites()).toBe('ignored');
+    now = 499;
+    await check.conditionalWrites();
+    expect(probes).toBe(1);
+    now = 500;
     await check.conditionalWrites();
     expect(probes).toBe(2);
   });

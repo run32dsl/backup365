@@ -67,8 +67,20 @@ describe('restore journey', () => {
   it('shows the reminder in the restore dialog only on the input step', () => {
     const text = source('RestoreAction.tsx');
     // Vers un autre compte (#546), le rappel est à l'étape « Motif » (transfer/TransferViews.tsx).
-    expect(text).toContain('{job === null && !other && <AuditReminder />}');
+    // `form` : étape de saisie (`job === null`), stockage non bloqué (#614).
+    expect(text).toContain('const form = job === null && !blocked;');
+    expect(text).toContain('{form && !other && <AuditReminder />}');
     expect(text.match(/<AuditReminder/g)).toHaveLength(1);
+    // Stockage bloqué (#614) : formulaire et transfert retirés, envoi refusé, quel que soit le rôle.
+    expect(text).toContain('const blocked = useRestoreBlocked(open);');
+    expect(text).toContain('if (sending || blocked) return;');
+    expect(text).toContain('{form && other && (');
+    expect(text).toContain('{form && !other && (');
+    for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx']) {
+      expect(screenText(name)).toContain('useRestoreBlocked(true)');
+      expect(screenText(name)).toContain('blocked={blocked}');
+      expect(screenText(name)).toMatch(/else if \(choice && reason[^)]*&& !blocked\)/u);
+    }
   });
 
   it('labels every reason "Motif … (obligatoire)" with the same help and counter', () => {
@@ -115,11 +127,11 @@ describe('restore journey', () => {
       'Chaque consultation, export ou restauration est inscrite au journal d’audit.',
     );
     expect(screenText('RestoreAction.tsx')).toContain('<AuditReminder />');
-    // OneDrive et SharePoint : le rappel suit le bandeau d'un stockage bloqué (#612).
+    // OneDrive et SharePoint : le rappel, ou le bandeau d’un stockage bloqué à sa place (#612, #614).
     for (const name of ['OneDrivePage.tsx', 'SharePointPage.tsx']) {
       expect(screenText(name)).toContain('<RestoreReminders blocked={blocked}');
     }
-    expect(renderToStaticMarkup(<RestoreReminders blocked={false} />)).toBe(
+    expect(renderToStaticMarkup(<RestoreReminders blocked={false} admin />)).toBe(
       renderToStaticMarkup(<AuditReminder />),
     );
   });

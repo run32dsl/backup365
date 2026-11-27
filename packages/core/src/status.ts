@@ -57,6 +57,11 @@ export interface StatusReport {
    * vérification a échoué.
    */
   storage?: { conditionalWrites: ConditionalWrites | null };
+  /**
+   * Ajouté par `GET /api/status` pour les autres rôles, avec un stockage configuré : vrai si le
+   * stockage est bloqué, donc toute restauration refusée (#614). Aucun détail d'exploitation.
+   */
+  restoreSuspended?: boolean;
 }
 
 /**

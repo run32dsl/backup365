@@ -155,7 +155,9 @@ sauvegardés par Atlas.
   protection et les écrans de restauration, signale un stockage qui ignore les écritures
   conditionnelles : depuis le SDK 7.3.0, Atlas refuse d'y écrire, donc toute sauvegarde y
   échoue, et toute restauration aussi tant que les identifiants S3 peuvent écrire (code
-  `ATLAS_CONFIG_INVALID`).
+  `ATLAS_CONFIG_INVALID`). Les écrans de restauration ne proposent alors plus de lancer une
+  restauration ; un opérateur y lit seulement « Restauration impossible pour l’instant.
+  Prévenez un administrateur. »
   L'administrateur est invité à vous prévenir ; passer alors à un stockage S3 qui les prend en
   charge. La sonde du SDK 7.3.0 vérifie aussi qu'une écriture avec l'ETag courant est acceptée
   (Ceph RGW 18 la refuse). « Stockage pas encore vérifié » : aucune sauvegarde n'a encore créé
